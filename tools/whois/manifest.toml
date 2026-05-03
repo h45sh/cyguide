@@ -1,0 +1,29 @@
+[meta]
+name = "whois"
+description = "Retrieve domain registration and IP information"
+one_line_summary = "ownership and registry intelligence"
+category = "Network Reconnaissance"
+categories = ["recon", "osint"]
+binary = "whois"
+
+[modes]
+learning = true
+power = true
+
+[input]
+# whois can take a domain or an IP
+accepts = ["dns.record", "network.host"]
+
+[output]
+produces = ["domain.info", "network.host"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "Domain Look-up"
+description = "Get registrar and ownership data for a domain"
+flags = []
+
+[power]
+enabled = true
