@@ -9,6 +9,7 @@ from datetime import datetime, UTC
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 from cyguide.schemas.base import BaseFinding, Relation
+from cyguide.schemas.power import ActionRequest
 
 
 class GraphStore:
@@ -64,6 +65,7 @@ class GraphStore:
                     schema_type TEXT NOT NULL,
                     pik_json TEXT NOT NULL,
                     data_json TEXT NOT NULL,
+                    status TEXT DEFAULT 'confirmed',
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (session_id, id),
                     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
@@ -89,11 +91,28 @@ class GraphStore:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id TEXT NOT NULL,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    schema_type TEXT NOT NULL,
-                    finding_json TEXT NOT NULL,
+                    action_payload TEXT,
+                    result_payload TEXT,
+                    human_readable TEXT,
+                    schema_type TEXT,
+                    finding_json TEXT,
                     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
                 )
             """)
+            
+            # 6. Schema Migrations (for backward compatibility with older cyguide.db)
+            try:
+                await db.execute("ALTER TABLE event_log ADD COLUMN action_payload TEXT")
+                await db.execute("ALTER TABLE event_log ADD COLUMN result_payload TEXT")
+                await db.execute("ALTER TABLE event_log ADD COLUMN human_readable TEXT")
+            except Exception:
+                pass # Columns already exist
+
+            try:
+                await db.execute("ALTER TABLE nodes ADD COLUMN status TEXT DEFAULT 'confirmed'")
+            except Exception:
+                pass # Column already exists
+                
             await db.commit()
 
     async def close(self):
@@ -232,8 +251,9 @@ class GraphStore:
         async with self._get_conn() as db:
             # 1. Log the event
             await db.execute(
-                "INSERT INTO event_log (session_id, schema_type, finding_json) VALUES (?, ?, ?)",
-                (session_id, finding.schema_type, finding.model_dump_json())
+                """INSERT INTO event_log (session_id, schema_type, finding_json, human_readable, action_payload, result_payload) 
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (session_id, finding.schema_type, finding.model_dump_json(), f"Discovered {finding.schema_type}", "{}", "{}")
             )
 
             # 2. Upsert the node
@@ -247,13 +267,13 @@ class GraphStore:
                 existing_data = json.loads(row[0])
                 existing_data.update(finding.data)
                 await db.execute(
-                    "UPDATE nodes SET data_json = ?, updated_at = ? WHERE session_id = ? AND id = ?",
-                    (json.dumps(existing_data), datetime.now(UTC), session_id, node_id)
+                    "UPDATE nodes SET data_json = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND id = ?",
+                    (json.dumps(existing_data), finding.status, session_id, node_id)
                 )
             else:
                 await db.execute(
-                    "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
-                    (session_id, node_id, finding.schema_type, json.dumps(finding.pik), json.dumps(finding.data))
+                    "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status) VALUES (?, ?, ?, ?, ?, ?)",
+                    (session_id, node_id, finding.schema_type, json.dumps(finding.pik), json.dumps(finding.data), finding.status)
                 )
 
             # 3. Handle Parent Relation (Auto-wiring)
@@ -285,7 +305,11 @@ class GraphStore:
 
         # Trigger reactive callbacks
         for cb in self._on_upsert_callbacks:
-            await cb(session_id, finding)
+            try:
+                await cb(session_id, finding)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error in reactive callback {cb.__name__}: {e}")
 
         return node_id
 
@@ -327,6 +351,17 @@ class GraphStore:
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 
+    async def get_node(self, session_id: str, node_id: str) -> Optional[Dict]:
+        """Fetch a specific node by ID."""
+        async with self._get_conn() as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT * FROM nodes WHERE session_id = ? AND id = ?",
+                (session_id, node_id)
+            )
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
     async def get_stats(self, session_id: Optional[str] = None) -> Dict[str, int]:
         async with self._get_conn() as db:
             if session_id:
@@ -343,3 +378,13 @@ class GraphStore:
                 stats[schema_type] = count
                 stats["total"] += count
             return stats
+
+    async def append_event(self, session_id: str, action: ActionRequest, result: Dict[str, Any], message: str):
+        """Append a structured action/result event to the log."""
+        async with self._get_conn() as db:
+            await db.execute(
+                """INSERT INTO event_log (session_id, action_payload, result_payload, human_readable, schema_type, finding_json)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (session_id, action.model_dump_json(), json.dumps(result), message, "system.event", "{}")
+            )
+            await db.commit()

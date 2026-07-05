@@ -7,12 +7,16 @@ from cyguide.ui.screens.learning import LearningModeScreen
 from cyguide.ui.screens.tool_browser import ToolBrowserScreen
 from cyguide.ui.screens.power import PowerModeScreen
 
+from typing import Optional, Dict, Any, List
+import subprocess
+
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
 from cyguide.engine.executor import Executor
 from cyguide.engine.explainer import LearningExplainer, TemplateBackend, OllamaBackend
 from cyguide.modes.learning import LearningModeEngine
 from cyguide.modes.power import PowerModeEngine
+from cyguide.engine.power_facade import PowerWorkspaceFacade
 
 class CyGuideApp(App):
     """The central orchestrator for the CyGuide TUI."""
@@ -34,12 +38,41 @@ class CyGuideApp(App):
         self.use_ollama = use_ollama
         self.ollama_model = ollama_model
         self.tools_dir = tools_dir
+        self.selected_session_id: Optional[str] = None
+        self.selected_workspace_id: Optional[str] = None
+        self.user_env: Dict[str, str] = os.environ.copy()
+        self.user_shell: str = "/bin/bash"
         # Ensure the directory for the database exists
         db_dir = os.path.dirname(os.path.abspath(self.db_path))
         os.makedirs(db_dir, exist_ok=True)
 
+    def detect_user_shell(self) -> str:
+        """Find the user's default shell."""
+        return os.environ.get("SHELL", "/bin/bash")
+
+    def get_shell_environment(self) -> Dict[str, str]:
+        """Capture the full login shell environment."""
+        shell = self.detect_user_shell()
+        try:
+            # Run a login shell to capture the fully resolved environment
+            result = subprocess.run(
+                [shell, "-l", "-c", "env"],
+                capture_output=True, text=True, timeout=5
+            )
+            env = {}
+            for line in result.stdout.splitlines():
+                if "=" in line:
+                    key, _, val = line.partition("=")
+                    env[key] = val
+            return env if env else os.environ.copy()
+        except Exception:
+            return os.environ.copy()
+
     async def on_mount(self) -> None:
         """Initialize the app with core components and the dashboard."""
+        self.user_shell = self.detect_user_shell()
+        self.user_env = self.get_shell_environment()
+        
         self.learning_mode_tool = "nmap" # Default
         # 1. Initialize Engines
         self.registry = ToolRegistry(tools_dir=self.tools_dir)
@@ -63,6 +96,9 @@ class CyGuideApp(App):
         
         self.learning_engine = LearningModeEngine(self.registry, self.executor, self.explainer)
         self.power_engine = PowerModeEngine(self.registry, self.executor)
+        self.power_facade = PowerWorkspaceFacade(self.store, self.executor, self.registry)
+        self.power_facade.user_env = self.user_env
+        self.power_facade.user_shell = self.user_shell
 
         # 2. Setup UI
         self.push_screen("dashboard")

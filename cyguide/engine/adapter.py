@@ -28,12 +28,13 @@ class ToolAdapter(ABC):
         pass
 
     @abstractmethod
-    async def parse_output(self, raw_stdout: str, target: BaseFinding) -> AsyncIterator[BaseFinding]:
+    async def parse_output(self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None) -> AsyncIterator[BaseFinding]:
         """
         Parse tool output and yield standardized findings.
         
         Args:
             raw_stdout: The raw output string from the tool
             target: The original target finding (for context/parenting)
+            context: Optional dictionary for tracking state across lines (e.g. current host)
         """
         pass

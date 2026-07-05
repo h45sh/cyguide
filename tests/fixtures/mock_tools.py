@@ -11,7 +11,7 @@ class MockNmapAdapter(ToolAdapter):
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         return ["echo", "service: 80/tcp open http"]
 
-    async def parse_output(self, raw_stdout: str, target: BaseFinding) -> AsyncIterator[BaseFinding]:
+    async def parse_output(self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None) -> AsyncIterator[BaseFinding]:
         if "80/tcp open" in raw_stdout:
             yield NetworkService.create(
                 host_ip=target.pik.get("ip", "unknown"),
@@ -28,7 +28,7 @@ class MockSimpleAdapter(ToolAdapter):
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         return ["echo", "hostname: " + params.get("hostname", "unknown")]
 
-    async def parse_output(self, raw_stdout: str, target: BaseFinding) -> AsyncIterator[BaseFinding]:
+    async def parse_output(self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None) -> AsyncIterator[BaseFinding]:
         if "hostname: " in raw_stdout:
             hostname = raw_stdout.split("hostname: ")[1].strip()
             yield NetworkHost.create(ip="8.8.8.8", hostname=hostname)

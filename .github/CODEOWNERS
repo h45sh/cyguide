@@ -1,5 +1,5 @@
 # Tier 1 Core Architecture - Requires Review from Project Lead
-/cyguide/engine/store.py         @Etrama0
-/cyguide/engine/registry.py      @Etrama0
-/cyguide/schemas/base.py         @Etrama0
-/cyguide/engine/canonicalize.py  @Etrama0
+/cyguide/engine/store.py         @h45sh
+/cyguide/engine/registry.py      @h45sh
+/cyguide/schemas/base.py         @h45sh
+/cyguide/engine/canonicalize.py  @h45sh

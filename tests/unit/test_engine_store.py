@@ -3,6 +3,32 @@ import aiosqlite
 import json
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost, NetworkService
+from cyguide.schemas.power import ActionRequest, ActionSource
+from uuid import uuid4
+
+@pytest.mark.asyncio
+async def test_structured_event_log():
+    store = GraphStore(":memory:")
+    await store.initialize()
+    ws_id = await store.create_workspace("Test")
+    sess_id = await store.create_session(ws_id, "Session")
+    
+    action = ActionRequest(
+        session_id=uuid4(), # different just for payload test
+        tool_name="nmap",
+        target_entity_id="test_node",
+        params={"f": "v"}
+    )
+    
+    await store.append_event(sess_id, action, {"status": "ok"}, "Ran nmap")
+    
+    events = await store.get_event_log(sess_id)
+    assert len(events) == 1
+    assert events[0]["human_readable"] == "Ran nmap"
+    assert "nmap" in events[0]["action_payload"]
+    assert json.loads(events[0]["result_payload"]) == {"status": "ok"}
+    
+    await store.close()
 
 @pytest.mark.asyncio
 async def test_store_initialization():

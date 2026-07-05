@@ -64,7 +64,11 @@ class OllamaBackend(ExplainerBackend):
                         except json.JSONDecodeError:
                             continue
         except Exception as e:
-            yield f"Error connecting to Ollama: {e}"
+            yield f"[Warning: Ollama connection failed ({e}). Falling back to Offline Templates]\n\n"
+            words = prompt.split()
+            for i, word in enumerate(words):
+                yield word + (" " if i < len(words) - 1 else "")
+                await asyncio.sleep(0.01)
 
 
 class LearningExplainer:

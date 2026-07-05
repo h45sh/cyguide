@@ -3,7 +3,7 @@
 """Foundational Pydantic models for CyGuide findings."""
 
 from datetime import datetime, UTC
-from typing import Optional, Dict, List, Any, ClassVar
+from typing import Optional, Dict, List, Any, ClassVar, Literal
 from pydantic import BaseModel, Field, field_validator
 from cyguide.engine.canonicalize import canonicalize
 
@@ -24,6 +24,7 @@ class BaseFinding(BaseModel):
     associations: List[Relation] = Field(default_factory=list)
     data: Dict[str, Any]    # Additional finding data
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    status: Literal["confirmed", "proposed"] = "confirmed"
 
     @field_validator('*', mode='before')
     @classmethod

@@ -130,7 +130,7 @@ class DashboardScreen(Screen):
         act_list = self.query_one("#activity_list", ListView)
         ts = datetime.utcnow().strftime("%H:%M")
         new_item = ListItem(Static(f"{ts} [{session['name']}] {finding.schema_type} discovered"))
-        act_list.insert(0, new_item)
+        await act_list.insert(0, [new_item])
         if len(act_list.children) > 15:
             await act_list.children[-1].remove()
 
@@ -339,11 +339,13 @@ class DashboardScreen(Screen):
         # If workspace changed, clear session details
         if self.selected_ws_id != ws_id:
             self.selected_session_id = None
+            self.app.selected_session_id = None
             details_area = self.query_one("#session_details_content", Vertical)
             await details_area.query("*").remove()
             await details_area.mount(Label("Select a session to view details", id="session_placeholder"))
 
         self.selected_ws_id = ws_id
+        self.app.selected_workspace_id = ws_id
         store = self.app.store
         ws = await store.get_workspace(ws_id)
         if not ws: return
@@ -445,6 +447,7 @@ class DashboardScreen(Screen):
             return
             
         self.selected_session_id = sess_id
+        self.app.selected_session_id = sess_id
         store = self.app.store
         session = await store.get_session(sess_id)
         if not session: return

@@ -50,12 +50,17 @@ CyGuide is designed for professional use-cases:
 - **`cyg` Command**: Exposed via the `cyg` command (renamed from `cyguide` to avoid shell directory collisions).
 - **Configurable Persistence**: Users can specify custom SQLite database paths via the `--db` flag, enabling per-project workspace isolation.
 
-## 7. Security & Governance: The Tiered Policy
+### 7. Security & Governance: The Tiered Policy
 To ensure long-term stability, the codebase implements a three-tier protection policy:
 - **Tier 1 (Frozen)**: Core engine logic (`store.py`, `executor.py`). Changes require deep architectural review.
 - **Tier 2 (Review Required)**: Schema definitions and TUI screens.
 - **Tier 3 (Free)**: Tool adapters and documentation.
 
-## 8. Conclusion
+## 8. Future Direction: Power Mode & Agent Harness
+Power Mode is designed to evolve CyGuide from a deterministic platform into a controlled cybersecurity agent harness. By utilizing a strict **Facade/Gateway/Executor** layering, the system allows for future AI integration while maintaining a "Deterministic Core."
+
+Detailed documentation for this mode can be found in [docs/POWER_MODE.md](POWER_MODE.md).
+
+## 9. Conclusion
 CyGuide's architecture prioritizes **extensibility** through standardization. By enforcing a strict schema vocabulary and a declarative tool contract, it transforms a collection of disparate scripts into a unified, reactive investigation platform. This architectural foundation, completed in **Stage 1: Core Implementation**, provides the necessary stability for the upcoming **Stage 2: Advanced Feature Implementation**.
 

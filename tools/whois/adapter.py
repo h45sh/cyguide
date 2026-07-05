@@ -24,9 +24,6 @@ class WhoisAdapter(ToolAdapter):
         elif target.schema_type == "network.host":
             query = target.pik.get("ip")
             
-        if not query:
-            raise ValueError(f"Target finding {target.schema_type} missing query field (domain/ip).")
-        
         args = ["whois"]
         
         raw_flags = params.get("raw_flags", "")
@@ -34,10 +31,14 @@ class WhoisAdapter(ToolAdapter):
             import shlex
             args.extend(shlex.split(raw_flags))
             
-        args.append(query)
+        if query:
+            args.append(query)
+        elif not raw_flags:
+            raise ValueError(f"Target finding {target.schema_type} missing query field (domain/ip), and no flags provided.")
+            
         return args
 
-    async def parse_output(self, raw_stdout: str, target: BaseFinding) -> AsyncIterator[BaseFinding]:
+    async def parse_output(self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None) -> AsyncIterator[BaseFinding]:
         """Parse whois output for registrar, organization, and IP info."""
         
         registrar = self._extract(raw_stdout, r"Registrar:\s*(.*)")

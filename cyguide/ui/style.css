@@ -476,3 +476,203 @@ Footer {
     background: #161b22;
     color: #8b949e;
 }
+
+/* --- Power Mode (Minimal Operator Workspace) --- */
+
+#power_layout {
+    height: 1fr;
+    width: 1fr;
+}
+
+#power_sidebar {
+    width: 35;
+    background: #0d1117;
+    border-right: solid #161b22;
+    padding: 0;
+}
+
+#session_label {
+    height: 3;
+    content-align: center middle;
+    color: #8b949e;
+    text-style: bold;
+}
+
+#entity_browser {
+    height: 1fr;
+    background: transparent;
+    color: #c9d1d9;
+    padding-left: 1;
+}
+
+#job_queue {
+    height: 12;
+}
+
+#power_job_list {
+    background: transparent;
+    height: 1fr;
+    padding: 0;
+}
+
+#power_workbench {
+    width: 1fr;
+    height: 1fr;
+    padding: 0;
+}
+
+#power_right_pane {
+    width: 1fr;
+    height: 1fr;
+}
+
+#job_tabs {
+    height: 1fr;
+    border: none;
+}
+
+/* Remove Textual default tab borders */
+#job_tabs > Tab {
+    border: none;
+    background: #0d1117;
+}
+
+#job_tabs > Tab.--active {
+    color: #58a6ff;
+    text-style: bold;
+}
+
+#job_tabs > ContentSwitcher {
+    border: none;
+}
+
+#tab_overview, TabPane {
+    background: #0d1117;
+    padding: 0;
+    border: none;
+}
+
+RichLog {
+    background: #0d1117;
+    color: #c9d1d9;
+    border: none;
+}
+
+#command_palette {
+    height: 8;
+    background: #0d1117;
+    padding: 0;
+    margin: 0;
+}
+
+#palette_header {
+    height: 1;
+    padding: 0 2;
+}
+
+#mode_status {
+    color: #3fb950;
+}
+
+#mode_status.shell-mode {
+    color: #d29922;
+}
+
+#lock_icon {
+    color: #f85149;
+    margin-right: 1;
+}
+
+#shortcuts_hint {
+    color: #484f58;
+}
+
+#command_input {
+    height: 1;
+    border: none;
+    background: #0d1117;
+    margin: 0;
+    padding: 0 2;
+}
+
+#pwd_container {
+    height: 1;
+    padding: 0 2;
+}
+
+.pwd_label {
+    color: #484f58;
+    margin-right: 1;
+}
+
+#pwd_line {
+    color: #8b949e;
+    text-style: italic;
+}
+
+#metrics_grid {
+    height: 3;
+    padding: 0 2;
+}
+
+.metric_col {
+    width: 1fr;
+}
+
+.metric_label {
+    color: #484f58;
+    height: 1;
+}
+
+.metric_value {
+    color: #c9d1d9;
+    height: 1;
+}
+
+#size_warning {
+    width: 100%;
+    height: 100%;
+    content-align: center middle;
+    text-align: center;
+    background: #0d1117;
+    color: #f85149;
+    text-style: bold;
+}
+
+#screen_container {
+    height: 1fr;
+    width: 1fr;
+}
+
+#command_input:focus {
+    border: none;
+}
+
+#context_line {
+    display: none; /* User wants minimal, context line might be too much */
+}
+
+#status_line {
+    height: 1;
+    margin-left: 2;
+    color: #484f58;
+    text-style: italic;
+}
+
+.minimal-sep {
+    height: 1;
+    color: #30363d;
+}
+
+/* Tree Component Customization */
+Tree > .tree--guides {
+    color: #30363d;
+}
+
+Tree > .tree--guides-hover {
+    color: #58a6ff;
+}
+
+Tree > .tree--guides-selected {
+    color: #1f6feb;
+}
