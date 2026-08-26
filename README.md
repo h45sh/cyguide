@@ -121,8 +121,10 @@ CyGuide is built for extensibility. See [docs/user/CONTRIBUTING.md](docs/user/CO
 
 *   **[User Manual](docs/user/USER_MANUAL.md)**: Operating guide, keyboard shortcuts, UI panel descriptions, and export/import usage.
 *   **[Architecture & Domain Context](docs/developer/ARCHITECTURE.md)**: System design details, database schemas, and facade layers.
+*   **[Database Architecture & Specification](docs/developer/DATABASE.md)**: Exhaustive database models, PIK hashing, ER diagrams, and portability.
 *   **[Schema Registry](docs/developer/SCHEMA_REGISTRY.md)**: Standard 15-schema vocabulary and Primary Identity Key (PIK) rules.
 *   **[Roadmap & Progress Tracker](docs/developer/ROADMAP.md)**: Unified project phases, task checklists, and historical walkthroughs.
+*   **[Autonomous Agent Harness Vision](docs/developer/FUTURE_POWER_MODE.md)**: Architecture for autonomous AI agents, HITL safety gates, and multi-agent roles.
 *   **[Developer Performance Notes](docs/developer/DEVELOPER_NOTES.md)**: Real-time streaming, event loops, and CPU load roadblocks.
 *   **[Contributors](docs/developer/CONTRIBUTORS.md)**: Project ownership and governance.
 
