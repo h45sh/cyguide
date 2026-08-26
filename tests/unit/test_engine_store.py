@@ -31,6 +31,40 @@ async def test_structured_event_log():
     await store.close()
 
 @pytest.mark.asyncio
+async def test_mark_event_closed():
+    store = GraphStore(":memory:")
+    await store.initialize()
+    ws_id = await store.create_workspace("Test")
+    sess_id = await store.create_session(ws_id, "Session")
+    
+    action = ActionRequest(
+        session_id=uuid4(),
+        tool_name="nmap",
+        target_entity_id="test_node",
+        params={"f": "v"}
+    )
+    
+    await store.append_event(sess_id, action, {"status": "ok"}, "Ran nmap")
+    
+    events = await store.get_event_log(sess_id)
+    assert len(events) == 1
+    
+    # Initially 0 closed events
+    assert await store.get_closed_events_count(sess_id) == 0
+
+    # Mark it closed
+    await store.mark_event_closed(str(action.action_id))
+    
+    # Ensure it is filtered out from get_event_log
+    events_after = await store.get_event_log(sess_id)
+    assert len(events_after) == 0
+
+    # Ensure closed events count is 1
+    assert await store.get_closed_events_count(sess_id) == 1
+    
+    await store.close()
+
+@pytest.mark.asyncio
 async def test_store_initialization():
     store = GraphStore(":memory:")
     await store.initialize()

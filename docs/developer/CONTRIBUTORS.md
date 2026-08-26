@@ -26,9 +26,8 @@
 
 CyGuide is built to be an extensible ecosystem. We welcome contributions in the following areas:
 
-**Tool Adapters (Tier 3)**
+**Tool Adapters (Tier 2)**
 - Implementation of new tool adapters in `tools/` (e.g., Nikto, Gobuster, Ffuf).
-- Enhancing existing adapters with more granular milestone triggers.
 
 **User Interface & UX (Tier 3)**
 - Development of new Textual widgets for the Dashboard.

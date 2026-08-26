@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 
 from textual import work
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Static, Label, ListItem, ListView, Button, Input, Checkbox
+from textual.widgets import Header, Footer, Static, Label, ListItem, ListView, Button, Input, Checkbox, Markdown
 from textual.containers import Vertical, Horizontal, Grid, VerticalScroll
 from textual.app import ComposeResult
 from cyguide.schemas.network import NetworkHost
@@ -53,7 +53,17 @@ class FlagEditor(Vertical):
         else:
             warning.update("")
 
-        cmd = f"{self.tool_name} {flags} {target}"
+        preview_flags = flags.replace("{url}", target)
+        preview_flags = preview_flags.replace("{target}", target)
+        preview_flags = preview_flags.replace("{domain}", target)
+        preview_flags = preview_flags.replace("{port}", "80")
+        preview_flags = preview_flags.replace("{wordlist}", "./wordlist.txt")
+        
+        if "{url}" in flags or "{target}" in flags or "{domain}" in flags:
+            cmd = f"{self.tool_name} {preview_flags}"
+        else:
+            cmd = f"{self.tool_name} {preview_flags} {target}"
+            
         self.query_one("#command_preview", Static).update(cmd.replace("  ", " "))
 
     def set_flags(self, flags_list: List[str]):
@@ -70,21 +80,25 @@ class FlagEditor(Vertical):
 
 
 class ExpandedOutputScreen(Screen):
-    """Full-screen view for raw output."""
+    """Full-screen view for raw output or rendered markdown."""
     BINDINGS = [
         ("escape", "app.pop_screen", "Back"),
         ("q", "quit", "Quit"),
         ("ctrl+q", "quit", "Quit"),
     ]
     
-    def __init__(self, content: str):
+    def __init__(self, content: str, is_markdown: bool = False):
         super().__init__()
         self.content = content
+        self.is_markdown = is_markdown
         
     def compose(self) -> ComposeResult:
         yield Header()
         with VerticalScroll(id="expanded_output_container"):
-            yield Static(self.content, id="expanded_raw_output", markup=False)
+            if self.is_markdown:
+                yield Markdown(self.content, id="expanded_markdown_output")
+            else:
+                yield Static(self.content, id="expanded_raw_output", markup=False)
         yield Footer()
 
 class LearningModeScreen(Screen):
@@ -103,6 +117,7 @@ class LearningModeScreen(Screen):
         self.log_buffer = [] # Use list for O(1) appends
         self.scan_in_progress = False
         self.explanation_buffer = ""
+        self.run_count = 0
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -132,15 +147,19 @@ class LearningModeScreen(Screen):
                     with Horizontal(id="explanation_header"):
                         yield Label("EXPLANATION", classes="section_header")
                         yield Static("", id="header_spacer")
+                        yield Button("↕ EXPAND", id="toggle_expl_size_btn", classes="header_btn")
+                        yield Button("🗑️ CLEAR", id="clear_expl_btn", classes="header_btn")
                         yield Button("📋 COPY", id="copy_explanation_btn", classes="header_btn")
                         yield Button("⛶", id="expand_explanation_btn", classes="header_btn")
                     with VerticalScroll(id="explanation_scroll"):
-                        yield Static("Select a recipe and run the tool to see explanations.", id="explanation_text")
+                        yield Markdown("*Select a recipe and run the tool to see explanations.*", id="explanation_text")
                 
                 with Vertical(id="output_pane"):
                     with Horizontal(id="output_header"):
                         yield Label("RAW OUTPUT", classes="section_header")
                         yield Static("", id="header_spacer")
+                        yield Button("↕ EXPAND", id="toggle_output_size_btn", classes="header_btn")
+                        yield Button("🗑️ CLEAR", id="clear_output_btn", classes="header_btn")
                         yield Button("📋 COPY", id="copy_output_btn", classes="header_btn")
                         yield Button("⛶", id="expand_output_btn", classes="header_btn")
                     with VerticalScroll(id="output_scroll"):
@@ -156,16 +175,20 @@ class LearningModeScreen(Screen):
 
     async def on_mount(self) -> None:
         """Triggered when the screen is first mounted."""
-        await self.update_tool_context()
+        await self.update_tool_context(force=True)
 
     async def on_screen_resume(self) -> None:
         """Triggered when the screen is resumed (switched back to)."""
-        await self.update_tool_context()
+        await self.update_tool_context(force=False)
 
-    async def update_tool_context(self) -> None:
+    async def update_tool_context(self, force: bool = False) -> None:
         """Refresh the screen content based on the selected tool."""
-        if hasattr(self.app, "learning_mode_tool"):
-            await self.select_tool(self.app.learning_mode_tool)
+        try:
+            selected_tool = getattr(self.app, "learning_mode_tool", None)
+        except Exception:
+            selected_tool = None
+        if selected_tool and (force or selected_tool != self.active_tool):
+            await self.select_tool(selected_tool)
 
     async def select_tool(self, tool_name: str):
         self.active_tool = tool_name
@@ -173,11 +196,11 @@ class LearningModeScreen(Screen):
         if not tool_data: return
         manifest = tool_data["manifest"]
         
-        # 1. Clear old run data
-        self.log_buffer = []
-        self.explanation_buffer = ""
-        self.query_one("#raw_output_text", Static).update("")
-        self.query_one("#explanation_text", Static).update("Select a recipe and run the tool to see explanations.")
+        # Keep previous buffer history across tools if already present
+        if not self.log_buffer:
+            self.query_one("#raw_output_text", Static).update("")
+        if not self.explanation_buffer:
+            self.query_one("#explanation_text", Markdown).update("*Select a recipe and run the tool to see explanations.*")
         
         # 2. Update Header
         self.query_one("#tool_name_header", Label).update(manifest.meta.name.upper())
@@ -195,6 +218,18 @@ class LearningModeScreen(Screen):
         await container.query("*").remove()
         self.flag_editor = FlagEditor(tool_name, manifest)
         await container.mount(self.flag_editor)
+        
+        # 5. Set Smart Default Target for the Tool
+        default_targets = {
+            "nmap": "127.0.0.1",
+            "gobuster": "http://scanme.nmap.org",
+            "nikto": "http://scanme.nmap.org",
+            "subfinder": "example.com",
+            "whois": "example.com"
+        }
+        target_input = self.query_one("#target_input", Input)
+        target_input.value = default_targets.get(tool_name, "127.0.0.1")
+        self.flag_editor.update_preview()
 
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         if isinstance(event.item, RecipeListItem):
@@ -206,24 +241,105 @@ class LearningModeScreen(Screen):
             self.run_scan()
         elif event.button.id == "stop_btn":
             await self.stop_scan()
+        elif event.button.id == "toggle_expl_size_btn":
+            exec_pane = self.query_one("#lesson_execution_pane")
+            btn = self.query_one("#toggle_expl_size_btn", Button)
+            out_btn = self.query_one("#toggle_output_size_btn", Button)
+            if exec_pane.has_class("explanation-maximized"):
+                exec_pane.remove_class("explanation-maximized")
+                btn.label = "↕ EXPAND"
+            else:
+                exec_pane.remove_class("output-maximized")
+                exec_pane.add_class("explanation-maximized")
+                btn.label = "↕ SHRINK"
+                out_btn.label = "↕ EXPAND"
+        elif event.button.id == "toggle_output_size_btn":
+            exec_pane = self.query_one("#lesson_execution_pane")
+            btn = self.query_one("#toggle_output_size_btn", Button)
+            expl_btn = self.query_one("#toggle_expl_size_btn", Button)
+            if exec_pane.has_class("output-maximized"):
+                exec_pane.remove_class("output-maximized")
+                btn.label = "↕ EXPAND"
+            else:
+                exec_pane.remove_class("explanation-maximized")
+                exec_pane.add_class("output-maximized")
+                btn.label = "↕ SHRINK"
+                expl_btn.label = "↕ EXPAND"
+        elif event.button.id == "clear_expl_btn":
+            self.explanation_buffer = ""
+            self.query_one("#explanation_text", Markdown).update("*Explanations cleared.*")
+            self.notify("Explanations cleared.")
+        elif event.button.id == "clear_output_btn":
+            self.log_buffer = []
+            self.query_one("#raw_output_text", Static).update("")
+            self.notify("Raw output cleared.")
         elif event.button.id == "copy_output_btn":
             try:
                 import pyperclip
                 pyperclip.copy("".join(self.log_buffer))
                 self.notify("Output copied to clipboard!")
-            except:
+            except Exception:
                 self.notify("Copy failed", severity="error")
         elif event.button.id == "expand_output_btn":
-            self.app.push_screen(ExpandedOutputScreen("".join(self.log_buffer)))
+            self.app.push_screen(ExpandedOutputScreen("".join(self.log_buffer), is_markdown=False))
         elif event.button.id == "copy_explanation_btn":
             try:
                 import pyperclip
                 pyperclip.copy(self.explanation_buffer)
                 self.notify("Explanation copied to clipboard!")
-            except:
+            except Exception:
                 self.notify("Copy failed", severity="error")
         elif event.button.id == "expand_explanation_btn":
-            self.app.push_screen(ExpandedOutputScreen(self.explanation_buffer))
+            self.app.push_screen(ExpandedOutputScreen(self.explanation_buffer, is_markdown=True))
+        elif event.button.id == "ask_btn":
+            self.submit_chat_question()
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "chat_input":
+            self.submit_chat_question()
+
+    @work(exclusive=True)
+    async def submit_chat_question(self) -> None:
+        chat_input = self.query_one("#chat_input", Input)
+        question = chat_input.value.strip()
+        if not question: return
+        
+        chat_input.value = ""
+        self.explanation_buffer += f"\n\n---\n\n### 💬 Question: {question}\n\n"
+        explanation_pane = self.query_one("#explanation_text", Markdown)
+        explanation_scroll = self.query_one("#explanation_scroll", VerticalScroll)
+        explanation_pane.update(self.explanation_buffer)
+        explanation_scroll.scroll_end(animate=False)
+        
+        # Build prompt with context
+        context = "".join(self.log_buffer[-50:]) # Last 50 lines of logs as context
+        prompt = (
+            f"You are a cybersecurity tutor in CyGuide.\n"
+            f"Context from scan output ({self.active_tool}):\n{context}\n\n"
+            f"Student Question: {question}\n\n"
+            "Provide a concise, direct, and well-structured answer in clean Markdown. "
+            "Use bullet points, bold keywords, or brief code snippets where relevant. Avoid conversational filler."
+        )
+        
+        import time
+        last_chat_update = time.time()
+        CHAT_UPDATE_INTERVAL = 0.05
+        
+        try:
+            async for chunk in self.app.explainer.ask(prompt):
+                self.explanation_buffer += chunk
+                now = time.time()
+                if now - last_chat_update > CHAT_UPDATE_INTERVAL:
+                    explanation_pane.update(self.explanation_buffer)
+                    explanation_scroll.scroll_end(animate=False)
+                    last_chat_update = now
+                await asyncio.sleep(0)
+        except Exception as e:
+            self.explanation_buffer += f"\n\n> ⚠️ **Error getting explanation:** {str(e)}\n"
+            self.notify(f"Explanation error: {e}", severity="error")
+        finally:
+            explanation_pane.update(self.explanation_buffer)
+            explanation_scroll.scroll_end(animate=False)
 
 
     async def stop_scan(self):
@@ -263,15 +379,27 @@ class LearningModeScreen(Screen):
         stop_btn.display = True
         stop_btn.disabled = False
         
+        self.run_count += 1
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        flags_used = params.get("raw_flags", "")
+        cmd_str = f"{self.active_tool} {flags_used} {target_ip}".strip().replace("  ", " ")
+
         output_pane = self.query_one("#raw_output_text", Static)
         output_scroll = self.query_one("#output_scroll", VerticalScroll)
-        explainer_pane = self.query_one("#explanation_text", Static)
+        explainer_pane = self.query_one("#explanation_text", Markdown)
+        explainer_scroll = self.query_one("#explanation_scroll", VerticalScroll)
         
-        self.log_buffer = [] # Clear buffer for new run
-        output_pane.update("Scanning...\n")
+        # Append Run Header to Raw Output Log
+        log_header = f"\n\n{'═'*65}\n▶ RUN #{self.run_count} [{timestamp}]  $ {cmd_str}\n{'═'*65}\n\n" if self.log_buffer else f"{'═'*65}\n▶ RUN #{self.run_count} [{timestamp}]  $ {cmd_str}\n{'═'*65}\n\n"
+        self.log_buffer.append(log_header)
+        output_pane.update("".join(self.log_buffer[-2000:]))
+        output_scroll.scroll_end(animate=False)
         
-        self.explanation_buffer = ""
-        explainer_pane.update("[analyzing findings...]")
+        # Append Run Header to Explanation
+        expl_run_header = f"\n\n---\n\n# ⚡ Run #{self.run_count}: `{cmd_str}` *({timestamp})*\n\n" if self.explanation_buffer else f"# ⚡ Run #{self.run_count}: `{cmd_str}` *({timestamp})*\n\n"
+        self.explanation_buffer += expl_run_header
+        explainer_pane.update(self.explanation_buffer + "\n*[Running scan...]*")
+        explainer_scroll.scroll_end(animate=False)
 
         # Throttling state
         self._last_ui_update = 0
@@ -281,22 +409,31 @@ class LearningModeScreen(Screen):
             import time
             now = time.time()
             if now - self._last_ui_update > UPDATE_INTERVAL:
-                output_pane.update("".join(self.log_buffer))
+                display_slice = "".join(self.log_buffer[-2000:])
+                output_pane.update(display_slice)
                 output_scroll.scroll_end(animate=False)
-                explainer_pane.update(self.explanation_buffer)
                 self._last_ui_update = now
             
             await asyncio.sleep(0) # ALWAYS yield to UI loop
 
-        async def on_explanation(chunk: str):
-            self.explanation_buffer += chunk
-            await update_ui_throttled()
 
         async def on_raw_output(line: str):
             self.log_buffer.append(line)
             await update_ui_throttled()
 
-        target = NetworkHost.create(ip=target_ip)
+        # Create the appropriate target schema for the tool
+        target = None
+        if self.active_tool in ("gobuster", "nikto") and target_ip.startswith("http"):
+            from cyguide.schemas.web import WebEndpoint
+            target = WebEndpoint.create(url=target_ip, method="GET", status_code=0)
+        elif self.active_tool in ("subfinder", "whois"):
+            # Ensure it's treated as a domain
+            from cyguide.schemas.dns import DnsRecord
+            from cyguide.schemas.base import BaseFinding
+            # Create a dummy DomainInfo. Wait, DomainInfo is not defined, let's just use DNSRecord
+            target = DnsRecord.create(domain=target_ip, record_type="A", value="")
+        else:
+            target = NetworkHost.create(ip=target_ip)
         
         try:
             async for finding in self.app.learning_engine.execute(
@@ -304,7 +441,6 @@ class LearningModeScreen(Screen):
                 target, 
                 params, 
                 session_id=self.app.learning_session_id,
-                on_explanation=on_explanation,
                 on_output=on_raw_output
             ):
                 pass
@@ -312,14 +448,64 @@ class LearningModeScreen(Screen):
             # Activate chat after scan complete
             self.query_one("#chat_input", Input).disabled = False
             self.query_one("#ask_btn", Button).disabled = False
+
+            # Trigger automated explanation of findings
+            if hasattr(self.app, "explainer") and self.app.explainer:
+                explainer_pane.update(self.explanation_buffer + "\n*[Analyzing scan results & generating structured breakdown...]*")
+                explainer_scroll.scroll_end(animate=False)
+                
+                context_logs = "".join(self.log_buffer[-80:])
+                
+                prompt = (
+                    f"You are a cybersecurity instructor in CyGuide.\n"
+                    f"Tool: {self.active_tool}\n"
+                    f"Command executed: {self.active_tool} {flags_used} {target_ip}\n\n"
+                    f"Raw Terminal Output:\n{context_logs}\n\n"
+                    "Generate a concise, scannable educational breakdown in standard Markdown.\n"
+                    "Do NOT include conversational greetings, fluff, or preambles.\n\n"
+                    "Strictly follow this structure:\n"
+                    "## 🎯 Quick Summary\n"
+                    "1-2 punchy sentences summarizing the target state.\n\n"
+                    "## 📊 Discovered Services & Findings\n"
+                    "| Port / Item | Service & Version | State | Meaning |\n"
+                    "| :--- | :--- | :--- | :--- |\n"
+                    "(Concise rows only. Keep cell text short to fit terminal widths.)\n\n"
+                    "## ⚙️ Flags Breakdown\n"
+                    "| Flag | Name | Practical Purpose |\n"
+                    "| :--- | :--- | :--- |\n"
+                    "(List each flag used with brief 1-line explanation.)\n\n"
+                    "## 💡 Key Takeaways\n"
+                    "- Key learning point 1\n"
+                    "- Key learning point 2\n\n"
+                    "## 🚀 Next Recommended Commands\n"
+                    "1. `command_here` — 1-sentence reason\n"
+                    "2. `command_here` — 1-sentence reason\n"
+                )
+                
+                import time
+                last_expl_update = time.time()
+                try:
+                    async for chunk in self.app.explainer.ask(prompt):
+                        self.explanation_buffer += chunk
+                        now = time.time()
+                        if now - last_expl_update > 0.05:
+                            explainer_pane.update(self.explanation_buffer)
+                            explainer_scroll.scroll_end(animate=False)
+                            last_expl_update = now
+                        await asyncio.sleep(0)
+                except Exception as e:
+                    self.explanation_buffer += f"\n\n> ⚠️ **Explanation error:** {str(e)}\n"
+                finally:
+                    explainer_pane.update(self.explanation_buffer)
+                    explainer_scroll.scroll_end(animate=False)
             
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            output_pane.update("".join(self.log_buffer) + f"\n[!] Error: {str(e)}")
+            self.log_buffer.append(f"\n[!] Error: {str(e)}\n")
         finally:
             # Final UI flush
-            output_pane.update("".join(self.log_buffer))
+            output_pane.update("".join(self.log_buffer[-2000:]))
             output_scroll.scroll_end(animate=False)
             self.reset_ui_after_run()
 

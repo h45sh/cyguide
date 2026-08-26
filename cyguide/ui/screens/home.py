@@ -2,14 +2,68 @@
 
 import logging
 from textual.screen import Screen, ModalScreen
-from textual.widgets import Header, Footer, Static, Button, ListItem, ListView, Label
+from textual.widgets import Header, Footer, Static, Button, ListItem, ListView, Label, Input
 from textual.containers import Vertical, Horizontal, Grid
 from textual.app import ComposeResult
 from textual.binding import Binding
 from datetime import datetime
 from typing import Set, Optional, List, Dict, Any
 
-logger = logging.getLogger(__name__)
+def format_activity(session_name: str, schema_type: str, human_readable: str, finding_json: Optional[str] = None, finding_obj: Optional[Any] = None) -> str:
+    # 1. Shorten session name
+    s_name = session_name
+    if s_name.startswith("Session "):
+        s_name = s_name[8:]
+    if len(s_name) > 10:
+        s_name = s_name[:8] + ".."
+        
+    message = human_readable
+    # 2. Extract description for findings
+    if schema_type != "system.event":
+        try:
+            import json
+            if finding_obj:
+                pik = finding_obj.pik
+                data = finding_obj.data
+            else:
+                finding_data = json.loads(finding_json) if finding_json else {}
+                pik = finding_data.get("pik", {})
+                data = finding_data.get("data", {})
+                
+            if schema_type == "network.host" and "ip" in pik:
+                message = f"Host: {pik['ip']}"
+            elif schema_type == "network.service" and "port" in pik:
+                service_name = data.get("service_name") or pik.get("service") or "unknown"
+                message = f"Port: {pik['port']} ({service_name})"
+            elif "cidr" in pik:
+                message = f"Netblock: {pik['cidr']}"
+            elif "vuln_type" in pik:
+                message = f"Vuln: {pik['vuln_type']}"
+            elif "vuln_id" in pik:
+                message = f"Vuln: {pik['vuln_id']}"
+            elif "url" in pik:
+                url = pik["url"]
+                if url.startswith("http://"):
+                    url = url[7:]
+                elif url.startswith("https://"):
+                    url = url[8:]
+                message = f"URL: {url}"
+            elif "domain" in pik:
+                message = f"Domain: {pik['domain']}"
+            elif "endpoint" in pik:
+                message = f"Endpoint: {pik['endpoint']}"
+            else:
+                short_type = schema_type.split(".")[-1] if "." in schema_type else schema_type
+                message = f"New {short_type}"
+        except Exception:
+            pass
+            
+    # 3. Shorten system event labels
+    if message.startswith("Ran "):
+        message = f"Run: {message[4:]}"
+        
+    return f"[{s_name}] {message}"
+
 
 class ConfirmationDialog(ModalScreen[bool]):
     """A generic centered confirmation dialog."""
@@ -29,6 +83,33 @@ class ConfirmationDialog(ModalScreen[bool]):
         else:
             self.dismiss(False)
 
+class RenameDialog(ModalScreen[str]):
+    """A modal dialog to rename a workspace or session."""
+    def __init__(self, prompt: str, initial_value: str):
+        super().__init__()
+        self.prompt = prompt
+        self.initial_value = initial_value
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="rename_dialog"):
+            yield Label(self.prompt, id="rename_prompt")
+            yield Input(value=self.initial_value, id="rename_input")
+            with Horizontal(classes="dialog_buttons"):
+                yield Button("Save", variant="primary", id="save")
+                yield Button("Cancel", variant="default", id="cancel")
+
+    def on_mount(self) -> None:
+        self.query_one("#rename_input").focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "save":
+            self.dismiss(self.query_one("#rename_input").value)
+        else:
+            self.dismiss(None)
+            
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(event.value)
+
 class DashboardScreen(Screen):
     """The central hub for managing engagements and investigations."""
     
@@ -39,6 +120,7 @@ class DashboardScreen(Screen):
         Binding("ctrl+l", "nav_learning", "Learning Mode"),
         Binding("ctrl+d", "toggle_delete_mode", "Delete Mode"),
         Binding("ctrl+m", "toggle_organize_mode", "Organize Mode"),
+        Binding("f2", "rename_item", "Rename"),
         Binding("space", "toggle_selection", "Select", show=False),
         Binding("escape", "cancel_mode", "Cancel", show=False),
         Binding("q", "quit", "Quit"),
@@ -129,7 +211,9 @@ class DashboardScreen(Screen):
         # 3. Surgical Activity Prepend
         act_list = self.query_one("#activity_list", ListView)
         ts = datetime.utcnow().strftime("%H:%M")
-        new_item = ListItem(Static(f"{ts} [{session['name']}] {finding.schema_type} discovered"))
+        
+        msg = format_activity(session["name"], finding.schema_type, f"Discovered {finding.schema_type}", finding_obj=finding)
+        new_item = ListItem(Static(f"{ts} {msg}"))
         await act_list.insert(0, [new_item])
         if len(act_list.children) > 15:
             await act_list.children[-1].remove()
@@ -179,6 +263,47 @@ class DashboardScreen(Screen):
             self.selected_sessions.clear()
             self.update_mode_ui()
             await self.refresh_all()
+
+    async def action_rename_item(self) -> None:
+        """Rename the currently highlighted workspace or session."""
+        ws_list = self.query_one("#workspace_list", ListView)
+        sess_list = self.query_one("#session_list", ListView)
+        
+        if ws_list.has_focus and ws_list.index is not None:
+            workspaces = await self.app.store.list_workspaces()
+            workspaces = [ws for ws in workspaces if ws.get("status") != "SYSTEM"]
+            if ws_list.index < len(workspaces):
+                ws = workspaces[ws_list.index]
+                old_name = ws["name"]
+                
+                async def handle_ws_rename(new_name: str) -> None:
+                    if new_name and new_name.strip() and new_name != old_name:
+                        try:
+                            await self.app.power_facade.rename_workspace(ws["id"], new_name.strip())
+                            await self.refresh_workspaces()
+                            self.notify(f"Workspace renamed to {new_name.strip()}")
+                        except ValueError as e:
+                            self.notify(str(e), severity="error")
+                        
+                self.app.push_screen(RenameDialog("Rename Workspace", old_name), handle_ws_rename)
+                    
+        elif sess_list.has_focus and sess_list.index is not None:
+            if not self.selected_ws_id: return
+            sessions = await self.app.store.list_sessions(self.selected_ws_id)
+            if sess_list.index < len(sessions):
+                sess = sessions[sess_list.index]
+                old_name = sess["name"]
+                
+                async def handle_sess_rename(new_name: str) -> None:
+                    if new_name and new_name.strip() and new_name != old_name:
+                        try:
+                            await self.app.power_facade.rename_session(sess["id"], new_name.strip())
+                            await self.refresh_session_list()
+                            self.notify(f"Session renamed to {new_name.strip()}")
+                        except ValueError as e:
+                            self.notify(str(e), severity="error")
+                        
+                self.app.push_screen(RenameDialog("Rename Session", old_name), handle_sess_rename)
 
     async def action_cancel_mode(self) -> None:
         if self.mode == "NORMAL":
@@ -231,7 +356,6 @@ class DashboardScreen(Screen):
                 return
             
             msg = f"Delete {len(self.selected_workspaces)} workspace(s) and {len(self.selected_sessions)} session(s)?"
-            
             async def check_confirm(confirmed: bool) -> None:
                 if confirmed:
                     for wid in list(self.selected_workspaces):
@@ -239,9 +363,9 @@ class DashboardScreen(Screen):
                         if ws and ws.get("status") == "SYSTEM":
                             self.notify(f"Cannot delete system workspace: {ws['name']}", severity="error")
                             continue
-                        await self.app.store.delete_workspace(wid)
+                        await self.app.power_facade.delete_workspace(wid)
                     for sid in self.selected_sessions:
-                        await self.app.store.delete_session(sid)
+                        await self.app.power_facade.delete_session(sid)
                     self.notify("Deletion complete.")
                     self.mode = "NORMAL"
                     self.selected_workspaces.clear()
@@ -250,7 +374,7 @@ class DashboardScreen(Screen):
                     await self.refresh_all()
             
             self.app.push_screen(ConfirmationDialog(msg), check_confirm)
-
+ 
         elif self.mode == "ORGANIZE":
             if self.organize_step == 1:
                 if not self.selected_sessions:
@@ -267,7 +391,10 @@ class DashboardScreen(Screen):
                 async def check_move(confirmed: bool) -> None:
                     if confirmed:
                         for sid in self.selected_sessions:
-                            await self.app.store.move_session(sid, dest_id)
+                            try:
+                                await self.app.power_facade.move_session(sid, dest_id)
+                            except ValueError as e:
+                                self.notify(str(e), severity="error")
                         self.mode = "NORMAL"
                         self.update_mode_ui()
                         await self.refresh_all()
@@ -309,7 +436,7 @@ class DashboardScreen(Screen):
                 try:
                     label = ws_list.children[i].query_one(Static)
                     label.update(f"{prefix}{ws['name']}")
-                except:
+                except Exception:
                     pass
         else:
             await ws_list.clear()
@@ -371,7 +498,7 @@ class DashboardScreen(Screen):
                 try:
                     label = sess_list.children[i].query_one(Static)
                     label.update(f"{prefix}{s['name']} {status_icon}")
-                except:
+                except Exception:
                     pass
         else:
             await sess_list.clear()
@@ -383,15 +510,18 @@ class DashboardScreen(Screen):
                     prefix = "[X] " if s["id"] in self.selected_sessions else "[ ] "
                 sess_list.append(ListItem(Static(f"{prefix}{s['name']} {status_icon}"), id=f"sess_{s['id']}"))
 
-        # If we have sessions but none selected, highlight first and show details
         if sessions and old_index is None:
              sess_list.index = 0
              await self.show_session_details(sessions[0]["id"], force=True)
-        elif old_index is not None:
+        elif sessions and old_index is not None:
             sess_list.index = old_index if old_index < len(sessions) else 0
-            # If valid, refresh details for the currently highlighted one too
-            if sess_list.index is not None and sess_list.index < len(sessions):
-                await self.show_session_details(sessions[sess_list.index]["id"], force=True)
+            await self.show_session_details(sessions[sess_list.index]["id"], force=True)
+        elif not sessions:
+            self.selected_session_id = None
+            self.app.selected_session_id = None
+            details_area = self.query_one("#session_details_content", Vertical)
+            await details_area.query("*").remove()
+            await details_area.mount(Label("No sessions in this workspace", id="session_placeholder"))
 
         if was_focused: sess_list.focus()
 
@@ -413,7 +543,8 @@ class DashboardScreen(Screen):
         await act_list.clear()
         for a in activity:
             ts = a["timestamp"][11:16] if a["timestamp"] else "--:--"
-            act_list.append(ListItem(Static(f"{ts} [{a['session_name']}] {a['schema_type']} discovered")))
+            msg = format_activity(a["session_name"], a["schema_type"], a["human_readable"], finding_json=a["finding_json"])
+            act_list.append(ListItem(Static(f"{ts} {msg}")))
 
     async def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if self.mode in ("NORMAL", "DELETE") or (self.mode == "ORGANIZE" and self.organize_step == 2):
@@ -462,6 +593,12 @@ class DashboardScreen(Screen):
         await container.mount(Horizontal(Label("Status:", classes="detail_label"), Label(session["status"], classes="detail_value"), classes="detail_row"))
         await container.mount(Horizontal(Label("Created:", classes="detail_label"), Label(session["created_at"][:16], classes="detail_value"), classes="detail_row"))
         
+        # Mount active jobs and closed tabs count
+        active_jobs_count = self.app.power_facade.get_active_jobs_count(sess_id)
+        closed_jobs_count = await store.get_closed_events_count(sess_id)
+        await container.mount(Horizontal(Label("Active Jobs:", classes="detail_label"), Label(str(active_jobs_count), classes="detail_value"), classes="detail_row"))
+        await container.mount(Horizontal(Label("Closed Tabs:", classes="detail_label"), Label(str(closed_jobs_count), classes="detail_value"), classes="detail_row"))
+        
         await container.mount(Label("\nGRAPH STATISTICS", classes="section_header"))
         
         for schema, count in stats.items():
@@ -481,13 +618,19 @@ class DashboardScreen(Screen):
 
     async def action_new_workspace(self) -> None:
         name = f"Project {datetime.now().strftime('%H:%M:%S')}"
-        await self.app.store.create_workspace(name)
-        await self.refresh_workspaces()
+        try:
+            await self.app.power_facade.create_workspace(name)
+            await self.refresh_workspaces()
+        except ValueError as e:
+            self.notify(str(e), severity="error")
 
     async def action_new_session(self) -> None:
         if not self.selected_ws_id:
             self.notify("Select a workspace first.", severity="error")
             return
         name = f"Session {datetime.now().strftime('%H:%M:%S')}"
-        await self.app.store.create_session(self.selected_ws_id, name)
-        await self.refresh_session_list()
+        try:
+            await self.app.power_facade.create_session(self.selected_ws_id, name)
+            await self.refresh_session_list()
+        except ValueError as e:
+            self.notify(str(e), severity="error")

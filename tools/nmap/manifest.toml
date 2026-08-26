@@ -34,17 +34,6 @@ name = "Full Scan"
 description = "Scan all 65535 ports for services"
 flags = ["-sV", "-p 1-65535"]
 
-[learning.explainer]
-tool_context = "Nmap is a network exploration tool and security / port scanner. It is used to discover hosts and services on a computer network by sending packets and analyzing the responses."
-
-[[learning.explainer.milestones]]
-trigger = "first_service"
-prompt = "The scanner found the first open port: {service_name} on {host_ip}:{port}. Explain what this means to a beginner, why this port might be open, and what a security professional would look for next."
-
-[[learning.explainer.milestones]]
-trigger = "scan_complete"
-prompt = "The scan of {target_ip} is complete. We found {service_count} open services. Summarize the overall security posture based on these findings and suggest a logical next step (like version enumeration or vulnerability scanning if not already done)."
-
 [power]
 enabled = true
 suggests = [

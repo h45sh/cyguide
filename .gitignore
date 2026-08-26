@@ -9,3 +9,7 @@ data/
 *.log
 *.egg-info/
 .codex
+reports/*
+!reports/.gitkeep
+exports/*
+!exports/.gitkeep

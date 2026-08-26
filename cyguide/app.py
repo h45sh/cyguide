@@ -13,7 +13,7 @@ import subprocess
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
 from cyguide.engine.executor import Executor
-from cyguide.engine.explainer import LearningExplainer, TemplateBackend, OllamaBackend
+from cyguide.engine.explainer import LearningExplainer,  OllamaBackend
 from cyguide.modes.learning import LearningModeEngine
 from cyguide.modes.power import PowerModeEngine
 from cyguide.engine.power_facade import PowerWorkspaceFacade
@@ -84,13 +84,32 @@ class CyGuideApp(App):
         # Ensure singleton Learning Sandbox exists
         self.learning_ws_id, self.learning_session_id = await self.store.get_or_create_learning_sandbox()
 
+        from cyguide.engine.recommendation import RecommendationEngine
+        self.recommendation_engine = RecommendationEngine(self.store)
+        self.store.on_upsert(self.recommendation_engine.handle_upsert)
+
         self.executor = Executor(self.store)
         
         # Setup Explainer
+        from dotenv import load_dotenv
+        load_dotenv()
         if self.use_ollama:
             self.explainer_backend = OllamaBackend(model=self.ollama_model)
         else:
-            self.explainer_backend = TemplateBackend()
+            api_key = os.environ.get("CYGUIDE_API_KEY") or os.environ.get("GROQ_API_KEY")
+            if api_key:
+                from cyguide.engine.explainer import CloudAPIBackend
+                api_type = os.environ.get("CYGUIDE_API_TYPE", "openai")
+                if os.environ.get("GROQ_API_KEY") and not os.environ.get("CYGUIDE_API_BASE"):
+                    api_base = "https://api.groq.com/openai/v1"
+                    api_model = os.environ.get("CYGUIDE_API_MODEL", "llama-3.3-70b-versatile")
+                else:
+                    api_base = os.environ.get("CYGUIDE_API_BASE", "https://api.openai.com/v1")
+                    api_model = os.environ.get("CYGUIDE_API_MODEL", "gpt-4o")
+                self.explainer_backend = CloudAPIBackend(api_type, api_base, api_key, api_model)
+            else:
+                # Fallback to Ollama if no API key is provided and use_ollama is false
+                self.explainer_backend = OllamaBackend(model=self.ollama_model)
             
         self.explainer = LearningExplainer(self.explainer_backend)
         

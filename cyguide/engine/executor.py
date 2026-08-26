@@ -2,6 +2,9 @@
 
 import asyncio
 import logging
+import os
+import shlex
+import shutil
 from typing import Dict, Any, List, Optional, AsyncIterator, Callable, Coroutine
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.engine.store import GraphStore
@@ -49,7 +52,7 @@ class Executor:
         env: Optional[Dict[str, str]] = None,
         use_shell: bool = False,
         shell_path: Optional[str] = None,
-        on_milestone: Optional[Callable[[str, Dict[str, Any]], Coroutine]] = None,
+        
         on_output: Optional[Callable[[str], Coroutine]] = None,
         on_error_output: Optional[Callable[[str], Coroutine]] = None
     ) -> AsyncIterator[BaseFinding]:
@@ -62,10 +65,11 @@ class Executor:
         tracking_id = task_id or session_id
 
         command = adapter.build_command(target, params)
-        cmd_str = ' '.join(command)
+        cmd_str = shlex.join(command)
         
         if use_shell:
-            final_cmd = [shell_path or "/bin/bash", "-c", cmd_str]
+            default_shell = shell_path or shutil.which("bash") or os.environ.get("SHELL", "/bin/sh")
+            final_cmd = [default_shell, "-c", cmd_str]
             process = await asyncio.create_subprocess_exec(
                 *final_cmd,
                 stdout=asyncio.subprocess.PIPE,
@@ -151,8 +155,6 @@ class Executor:
                         service_count += 1
                         if not first_service_found:
                             first_service_found = True
-                            if on_milestone:
-                                await on_milestone("first_service", finding.data)
                     
                     yield finding
                 except asyncio.TimeoutError:
@@ -185,8 +187,6 @@ class Executor:
                     service_count += 1
                     if not first_service_found:
                         first_service_found = True
-                        if on_milestone:
-                            await on_milestone("first_service", finding.data)
                 yield finding
 
         except asyncio.CancelledError:
@@ -205,7 +205,7 @@ class Executor:
                 try:
                     process.terminate()
                     await process.wait()
-                except:
+                except Exception:
                     pass
             
             await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
@@ -214,11 +214,3 @@ class Executor:
             logger.error(f"Command failed with exit code {process.returncode}")
             if process.returncode == 127:
                 raise RuntimeError(f"Tool not found: {command[0]}")
-        
-        if process.returncode == 0:
-            if on_milestone:
-                target_ip = target.pik.get("ip") or target.pik.get("domain", "target")
-                await on_milestone("scan_complete", {
-                    "target_ip": target_ip,
-                    "service_count": service_count
-                })

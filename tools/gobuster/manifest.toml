@@ -1,0 +1,34 @@
+[meta]
+name = "gobuster"
+description = "Directory/File, DNS and VHost busting tool"
+one_line_summary = "brute-force directories and files on a web server"
+category = "Web Enumeration"
+categories = ["recon", "web", "brute-force"]
+binary = "gobuster"
+
+[modes]
+learning = true
+power = true
+
+[input]
+accepts = ["network.service", "web.endpoint"]
+
+[output]
+produces = ["web.endpoint"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "Common Directory Scan"
+description = "Scan for common directories and files"
+flags = ["dir", "-u", "{url}", "-w", "{wordlist}"]
+
+[[learning.recipes]]
+name = "Fast Directory Scan"
+description = "Scan with multiple threads (faster)"
+flags = ["dir", "-u", "{url}", "-w", "{wordlist}", "-t", "50"]
+
+[power]
+enabled = true
+suggests = []

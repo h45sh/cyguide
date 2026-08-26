@@ -1,0 +1,34 @@
+[meta]
+name = "subfinder"
+description = "Subdomain discovery tool"
+one_line_summary = "discover valid subdomains for websites"
+category = "DNS Reconnaissance"
+categories = ["recon", "dns", "enumeration"]
+binary = "subfinder"
+
+[modes]
+learning = true
+power = true
+
+[input]
+accepts = ["domain.info", "dns.record"]
+
+[output]
+produces = ["dns.record"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "Standard Subdomain Discovery"
+description = "Find subdomains using passive sources"
+flags = ["-d", "{domain}"]
+
+[[learning.recipes]]
+name = "Silent Output"
+description = "Only output subdomains, no banners or logging"
+flags = ["-d", "{domain}", "-silent"]
+
+[power]
+enabled = true
+suggests = []

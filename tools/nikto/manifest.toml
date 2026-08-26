@@ -1,0 +1,34 @@
+[meta]
+name = "nikto"
+description = "Web server scanner"
+one_line_summary = "scan a web server for known vulnerabilities and misconfigurations"
+category = "Vulnerability Scanning"
+categories = ["vuln", "web", "scanner"]
+binary = "nikto"
+
+[modes]
+learning = true
+power = true
+
+[input]
+accepts = ["network.service", "web.endpoint", "network.host"]
+
+[output]
+produces = ["vulnerability.found", "web.vulnerability", "web.endpoint"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "Standard Web Scan"
+description = "Scan web server on target IP/URL"
+flags = ["-h", "{target}"]
+
+[[learning.recipes]]
+name = "Specific Port Scan"
+description = "Scan web server on a specific port"
+flags = ["-h", "{target}", "-p", "{port}"]
+
+[power]
+enabled = true
+suggests = []

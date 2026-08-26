@@ -16,24 +16,14 @@ class ExplainerBackend(abc.ABC):
         pass
 
 
-class TemplateBackend(ExplainerBackend):
-    """Zero-dependency backend that fills manifest-driven slots."""
-    
-    async def explain(self, prompt: str) -> AsyncIterator[str]:
-        # For the template backend, we just "stream" the prompt itself.
-        # In a real version, this might do some basic enrichment or lookup.
-        words = prompt.split()
-        for i, word in enumerate(words):
-            yield word + (" " if i < len(words) - 1 else "")
-            await asyncio.sleep(0.01)
 
 
 class OllamaBackend(ExplainerBackend):
     """Backend that uses a local Ollama instance for LLM explanations."""
 
     def __init__(self, model: str = "gemma", base_url: str = "http://localhost:11434"):
-        self.model = model
-        self.base_url = base_url
+        self.model = (model or "gemma").strip()
+        self.base_url = (base_url or "http://localhost:11434").rstrip("/")
 
     async def explain(self, prompt: str) -> AsyncIterator[str]:
         """Stream from local Ollama API."""
@@ -45,10 +35,12 @@ class OllamaBackend(ExplainerBackend):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            timeout_config = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+            async with httpx.AsyncClient(timeout=timeout_config) as client:
                 async with client.stream("POST", url, json=payload) as response:
                     if response.status_code != 200:
-                        yield f"Error: Ollama returned status {response.status_code}"
+                        err_body = await response.aread()
+                        yield f"Error: Ollama returned status {response.status_code}: {err_body.decode('utf-8', errors='replace')}"
                         return
 
                     async for line in response.aiter_lines():
@@ -64,45 +56,89 @@ class OllamaBackend(ExplainerBackend):
                         except json.JSONDecodeError:
                             continue
         except Exception as e:
-            yield f"[Warning: Ollama connection failed ({e}). Falling back to Offline Templates]\n\n"
-            words = prompt.split()
-            for i, word in enumerate(words):
-                yield word + (" " if i < len(words) - 1 else "")
-                await asyncio.sleep(0.01)
+            yield f"[Error: Ollama connection failed ({e}). Please ensure Ollama is running (`ollama serve`).]\n"
+
+
+class CloudAPIBackend(ExplainerBackend):
+    """Backend that uses cloud APIs (OpenAI, Anthropic, OpenRouter, Grok, Groq, etc)."""
+
+    def __init__(self, api_type: str, api_base: str, api_key: str, model: str):
+        self.api_type = (api_type or "openai").lower().strip()
+        self.api_base = (api_base or "https://api.openai.com/v1").rstrip("/").strip()
+        self.api_key = (api_key or "").strip().strip('"\'')
+        self.model = (model or "gpt-4o").strip().strip('"\'')
+
+    async def explain(self, prompt: str) -> AsyncIterator[str]:
+        """Stream from Cloud API."""
+        headers = {}
+        payload = {
+            "model": self.model,
+            "stream": True,
+        }
+
+        if self.api_type == "anthropic":
+            url = f"{self.api_base}/messages"
+            headers["x-api-key"] = self.api_key
+            headers["anthropic-version"] = "2023-06-01"
+            headers["content-type"] = "application/json"
+            payload["max_tokens"] = 1024
+            payload["messages"] = [{"role": "user", "content": prompt}]
+        else:
+            # Default to openai format (used by OpenAI, Groq, OpenRouter, Grok, etc)
+            url = f"{self.api_base}/chat/completions"
+            headers["Authorization"] = f"Bearer {self.api_key}"
+            headers["content-type"] = "application/json"
+            # Support openrouter specific headers optionally
+            headers["HTTP-Referer"] = "https://github.com/Etrama0/cyguide"
+            headers["X-Title"] = "CyGuide"
+            payload["messages"] = [{"role": "user", "content": prompt}]
+
+        try:
+            timeout_config = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+            async with httpx.AsyncClient(timeout=timeout_config) as client:
+                async with client.stream("POST", url, headers=headers, json=payload) as response:
+                    if response.status_code != 200:
+                        err_body = await response.aread()
+                        yield f"Error: API returned status {response.status_code}: {err_body.decode('utf-8', errors='replace')}"
+                        return
+
+                    async for line in response.aiter_lines():
+                        line = line.strip()
+                        if not line or not line.startswith("data: "):
+                            continue
+                        
+                        data_str = line[6:]
+                        if data_str == "[DONE]":
+                            break
+                            
+                        try:
+                            data = json.loads(data_str)
+                            chunk = ""
+                            if self.api_type == "anthropic":
+                                if data.get("type") == "content_block_delta":
+                                    chunk = data.get("delta", {}).get("text", "")
+                            else:
+                                choices = data.get("choices", [])
+                                if choices:
+                                    chunk = choices[0].get("delta", {}).get("content", "")
+                            
+                            if chunk:
+                                yield chunk
+                        except json.JSONDecodeError:
+                            continue
+        except Exception as e:
+            yield f"[Error: cloud API request failed ({e}). No explanation backend is available.]\n"
+
+
 
 
 class LearningExplainer:
-    """Orchestrates milestone-to-prompt conversion and backend calls."""
+    """Orchestrates explanations via the configured backend."""
     
     def __init__(self, backend: ExplainerBackend):
         self.backend = backend
 
-    async def get_explanation(
-        self, 
-        manifest: Manifest, 
-        trigger: str, 
-        data: Dict[str, Any]
-    ) -> AsyncIterator[str]:
-        """
-        Find the prompt for a trigger in the manifest and call the backend.
-        """
-        if not manifest.learning or not manifest.learning.explainer:
-            return
-
-        # 1. Find the milestone prompt
-        milestone = next((m for m in manifest.learning.explainer.milestones if m.trigger == trigger), None)
-        if not milestone:
-            return
-
-        # 2. Fill the template safely
-        prompt = milestone.prompt
-        try:
-            # Simple format: replaces {key} with data[key]
-            prompt = prompt.format(**data)
-        except (KeyError, IndexError, ValueError):
-            # If formatting fails (e.g. missing keys), use the raw prompt
-            pass
-
-        # 3. Stream from backend
+    async def ask(self, prompt: str) -> AsyncIterator[str]:
+        """Stream explanation from the backend."""
         async for chunk in self.backend.explain(prompt):
             yield chunk

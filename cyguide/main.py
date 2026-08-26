@@ -1,9 +1,13 @@
 """Entry point script for CyGuide."""
 
 import argparse
+import sys
+from dotenv import load_dotenv
+
 from cyguide.app import CyGuideApp
 
 def main():
+    load_dotenv()
     parser = argparse.ArgumentParser(description="CyGuide: TUI-based guided cybersecurity learning platform.")
     parser.add_argument(
         "--db", 
@@ -25,7 +29,104 @@ def main():
         default=None,
         help="Path to the tools directory (default: bundled tools/)"
     )
+
+    subparsers = parser.add_subparsers(dest="subcommand", help="Subcommands (optional)")
+
+    # export subcommand
+    export_parser = subparsers.add_parser("export", help="Export a session's findings/logs")
+    export_parser.add_argument("session_id", help="UUID of the session to export")
+    export_parser.add_argument("output_path", help="Path to save the portable SQLite .db file")
+    export_parser.add_argument("--report", help="Path to save the structured Markdown report")
+
+    # import subcommand
+    import_parser = subparsers.add_parser("import", help="Import a portable session SQLite .db file")
+    import_parser.add_argument("input_path", help="Path to the portable SQLite .db file")
+    import_parser.add_argument("--workspace-id", help="ID of the workspace to import the session into (optional)")
+
+    # check subcommand
+    check_parser = subparsers.add_parser("check", help="Verify environment dependencies, database health, and tool installations")
+    check_parser.add_argument("--json", action="store_true", help="Output diagnostics in JSON format")
+
     args = parser.parse_args()
+
+    if args.subcommand == "export":
+        import asyncio
+        from cyguide.engine.store import GraphStore
+        from cyguide.engine.reporter import generate_markdown_report
+        import os
+
+        async def run_export() -> int:
+            store = GraphStore(args.db)
+            await store.initialize()
+            exit_code = 0
+            
+            # Export DB
+            print(f"[*] Exporting session {args.session_id} to database {args.output_path}...")
+            out_dir = os.path.dirname(os.path.abspath(args.output_path))
+            if out_dir:
+                os.makedirs(out_dir, exist_ok=True)
+            try:
+                await store.export_session(args.session_id, args.output_path)
+                print(f"[+] Session database exported successfully to {args.output_path}")
+            except Exception as e:
+                print(f"[!] Database export failed: {str(e)}")
+                exit_code = 1
+
+            # Export Report if requested
+            if args.report:
+                print(f"[*] Generating Markdown report to {args.report}...")
+                rep_dir = os.path.dirname(os.path.abspath(args.report))
+                if rep_dir:
+                    os.makedirs(rep_dir, exist_ok=True)
+                try:
+                    report_content = await generate_markdown_report(store, args.session_id)
+                    with open(args.report, "w", encoding="utf-8") as f:
+                        f.write(report_content)
+                    print(f"[+] Markdown report exported successfully to {args.report}")
+                except Exception as e:
+                    print(f"[!] Report generation failed: {str(e)}")
+                    exit_code = 1
+                
+            await store.close()
+            return exit_code
+
+        sys.exit(asyncio.run(run_export()))
+
+    elif args.subcommand == "import":
+        import asyncio
+        from cyguide.engine.store import GraphStore
+
+        async def run_import() -> int:
+            store = GraphStore(args.db)
+            await store.initialize()
+            print(f"[*] Importing session from {args.input_path}...")
+            exit_code = 0
+            try:
+                new_sess_id = await store.import_session(args.input_path, target_workspace_id=args.workspace_id)
+                print(f"[+] Session imported successfully!")
+                print(f"[+] New Session ID: {new_sess_id}")
+            except Exception as e:
+                print(f"[!] Import failed: {str(e)}")
+                exit_code = 1
+            await store.close()
+            return exit_code
+
+        sys.exit(asyncio.run(run_import()))
+
+    elif args.subcommand == "check":
+        import asyncio
+        import json
+        from cyguide.engine.diagnostics import run_diagnostics, format_terminal_report
+
+        async def run_check():
+            report = await run_diagnostics(db_path=args.db, tools_dir=args.tools)
+            if getattr(args, "json", False):
+                print(json.dumps(report.to_dict(), indent=2))
+            else:
+                print(format_terminal_report(report))
+            return 0 if report.healthy else 1
+
+        sys.exit(asyncio.run(run_check()))
 
     app = CyGuideApp(
         db_path=args.db, 
@@ -36,8 +137,7 @@ def main():
     try:
         app.run()
     except KeyboardInterrupt:
-        # Textual handles most cleanup, but this prevents the raw traceback
-        # if the user hits Ctrl+C at the exact moment of shutdown.
+        # i case the user hits Ctrl+C at the exact moment of shutdown.
         print("\n[!] CyGuide terminated by user.")
 
 if __name__ == "__main__":

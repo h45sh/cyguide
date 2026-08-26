@@ -1,0 +1,15 @@
+               __    _____           __           
+   _______  __/ /_  / __(_)___  ____/ /__  _____
+  / ___/ / / / __ \/ /_/ / __ \/ __  / _ \/ ___/
+ (__  ) /_/ / /_/ / __/ / / / / /_/ /  __/ /    
+/____/\__,_/_.___/_/ /_/_/ /_/\__,_/\___/_/
+
+[INF] Loading provider config from /root/.config/subfinder/provider-config.yaml
+[INF] Enumerating subdomains for example.com
+api.example.com
+admin.example.com
+dev.example.com
+mail.example.com
+auth.example.com
+vpn.example.com
+[INF] Found 6 subdomains for example.com in 1.12 seconds

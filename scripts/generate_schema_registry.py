@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Auto-generates docs/SCHEMA_REGISTRY.md from cyguide/schemas.
+Auto-generates docs/developer/SCHEMA_REGISTRY.md from cyguide/schemas.
 Acts as a linter: fails if any schema is missing documentation or pik_fields.
 """
 
@@ -101,7 +101,7 @@ def generate_registry():
     content += "This registry defines the shared language of CyGuide findings. Every tool must emit data conforming to one of these schemas.\n\n"
     content += header + "\n".join(rows) + "\n"
 
-    output_path = project_root / "docs" / "SCHEMA_REGISTRY.md"
+    output_path = project_root / "docs" / "developer" / "SCHEMA_REGISTRY.md"
     with open(output_path, "w") as f:
         f.write(content)
     

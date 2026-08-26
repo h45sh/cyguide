@@ -40,17 +40,9 @@ class LearningModeEngine:
         if not manifest.modes.get("learning"):
             raise ValueError(f"Tool '{tool_name}' does not support Learning Mode.")
 
-        async def milestone_handler(trigger: str, data: Dict[str, Any]):
-            if on_explanation:
-                # Signal the UI that a new explanation is starting
-                await on_explanation(f"\n\n[MILESTONE: {trigger.upper()}]\n")
-                async for chunk in self.explainer.get_explanation(manifest, trigger, data):
-                    await on_explanation(chunk)
-
         async for finding in self.executor.run_tool(
             adapter, target, params, 
             session_id=session_id, 
-            on_milestone=milestone_handler,
             on_output=on_output
         ):
             yield finding

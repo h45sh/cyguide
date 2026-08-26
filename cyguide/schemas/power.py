@@ -45,6 +45,7 @@ class ActionRequest(BaseModel):
 class JobStatus(BaseModel):
     """Real-time status of a job in the queue."""
     job_id: UUID
+    session_id: UUID
     tool_name: str
     status: JobStatusEnum
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

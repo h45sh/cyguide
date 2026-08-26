@@ -19,21 +19,10 @@ class Recipe(BaseModel):
     flags: List[str] = Field(default_factory=list)
 
 
-class Milestone(BaseModel):
-    trigger: str
-    prompt: str
-
-
-class ExplainerConfig(BaseModel):
-    tool_context: str
-    milestones: List[Milestone]
-
-
 class LearningConfig(BaseModel):
     enabled: bool = False
     flags: List[Dict[str, str]] = Field(default_factory=list)
     recipes: List[Recipe] = Field(default_factory=list)
-    explainer: Optional[ExplainerConfig] = None
 
 
 class PowerConfig(BaseModel):

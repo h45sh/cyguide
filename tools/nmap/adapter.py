@@ -18,7 +18,7 @@ class NmapAdapter(ToolAdapter):
         # target is expected to be a network.host, but might be dummy in manual mode
         ip = target.pik.get("ip")
         
-        args = ["nmap"]
+        args = ["nmap", "--noninteractive"]
         
         # Handle manual raw flags from UI
         raw_flags = params.get("raw_flags", "")
@@ -26,7 +26,7 @@ class NmapAdapter(ToolAdapter):
             import shlex
             args.extend(shlex.split(raw_flags))
             
-        if ip:
+        if ip and ip not in args:
             args.append(ip)
         elif not raw_flags:
             raise ValueError("Target finding must have an IP address, or provide one in the command flags.")

@@ -125,6 +125,10 @@ ScrollBar > .scrollbar--bar:hover {
     margin: 0 1;
 }
 
+#activity_list Static {
+    text-wrap: nowrap;
+}
+
 #diagnostics_list {
     height: 10;
 }
@@ -387,10 +391,26 @@ ConfirmationDialog {
 }
 
 #explanation_pane {
-    height: 35%;
+    height: 50%;
     background: #0d1117;
     border-bottom: solid #30363d;
     padding: 1;
+}
+
+#lesson_execution_pane.explanation-maximized #explanation_pane {
+    height: 80%;
+}
+
+#lesson_execution_pane.explanation-maximized #output_pane {
+    height: 20%;
+}
+
+#lesson_execution_pane.output-maximized #explanation_pane {
+    height: 20%;
+}
+
+#lesson_execution_pane.output-maximized #output_pane {
+    height: 80%;
 }
 
 #explanation_header {
@@ -403,12 +423,19 @@ ConfirmationDialog {
 }
 
 #explanation_text {
-    color: #79c0ff;
+    color: #c9d1d9;
     height: auto;
+    padding: 0 1;
+}
+
+#expanded_markdown_output {
+    color: #c9d1d9;
+    height: auto;
+    padding: 1 2;
 }
 
 #output_pane {
-    height: 65%;
+    height: 50%;
     background: #0d1117;
     padding: 1;
 }
@@ -418,8 +445,46 @@ ConfirmationDialog {
 }
 
 #raw_output_text {
-    color: #c9d1d9;
+    color: #8b949e;
     height: auto;
+}
+
+/* Markdown typography styling */
+#explanation_text MarkdownH1, #expanded_markdown_output MarkdownH1 {
+    color: #58a6ff;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+#explanation_text MarkdownH2, #expanded_markdown_output MarkdownH2 {
+    color: #79c0ff;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+#explanation_text MarkdownH3, #expanded_markdown_output MarkdownH3 {
+    color: #a5d6ff;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+#explanation_text MarkdownParagraph, #expanded_markdown_output MarkdownParagraph {
+    margin: 0 0 1 0;
+}
+
+#explanation_text MarkdownBlockQuote, #expanded_markdown_output MarkdownBlockQuote {
+    border-left: wide #1f6feb;
+    background: #161b22;
+    padding: 0 1;
+    color: #8b949e;
+    margin: 1 0;
+}
+
+#explanation_text MarkdownCodeBlock, #expanded_markdown_output MarkdownCodeBlock {
+    background: #161b22;
+    border: solid #30363d;
+    padding: 0 1;
+    margin: 1 0;
 }
 
 .hidden {
@@ -506,10 +571,21 @@ Footer {
 }
 
 #job_queue {
-    height: 12;
+    height: 8;
 }
 
 #power_job_list {
+    background: transparent;
+    height: 1fr;
+    padding: 0;
+}
+
+#suggestions_pane {
+    height: 8;
+    border-top: solid #161b22;
+}
+
+#power_suggestions_list {
     background: transparent;
     height: 1fr;
     padding: 0;
@@ -559,7 +635,7 @@ RichLog {
 }
 
 #command_palette {
-    height: 8;
+    height: auto;
     background: #0d1117;
     padding: 0;
     margin: 0;
@@ -649,7 +725,10 @@ RichLog {
 }
 
 #context_line {
-    display: none; /* User wants minimal, context line might be too much */
+    height: 1;
+    margin-left: 2;
+    color: #58a6ff;
+    text-style: italic;
 }
 
 #status_line {
@@ -676,3 +755,77 @@ Tree > .tree--guides-hover {
 Tree > .tree--guides-selected {
     color: #1f6feb;
 }
+
+#scratchpad_pane {
+    width: 45;
+    height: 1fr;
+    background: #0d1117;
+    border-left: solid #30363d;
+    padding: 0;
+}
+
+#scratchpad_textarea {
+    height: 1fr;
+    border: none;
+    background: #0d1117;
+}
+
+RenameDialog {
+    align: center middle;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+#rename_dialog {
+    width: 60;
+    height: auto;
+    padding: 2 4;
+    border: thick #58a6ff;
+    background: #161b22;
+}
+
+#rename_prompt {
+    margin-bottom: 1;
+    text-align: center;
+    width: 100%;
+    color: #c9d1d9;
+}
+
+#rename_dialog Input {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+#rename_dialog .dialog_buttons {
+    align: center middle;
+    height: auto;
+    width: 100%;
+}
+
+#rename_dialog Button {
+    margin: 0 2;
+}
+
+ShortcutsDialog {
+    align: center middle;
+    background: rgba(0, 0, 0, 0.8);
+}
+
+#shortcuts_dialog {
+    width: 80;
+    height: 80%;
+    padding: 2 4;
+    border: thick #58a6ff;
+    background: #161b22;
+}
+
+#shortcuts_dialog Markdown {
+    height: 1fr;
+    overflow-y: scroll;
+}
+
+#shortcuts_dialog .dialog_buttons {
+    align: right middle;
+    height: auto;
+    margin-top: 1;
+}
+
