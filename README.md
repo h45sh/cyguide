@@ -1,4 +1,4 @@
-# CyGuide – TUI-Based Guided Cybersecurity Learning Platform
+# CyGuide – TUI-Based Guided Cybersecurity Learning and Terminal Tool Orchestration Platform
 
 CyGuide is a Terminal User Interface (TUI) platform for cybersecurity education, designed as a pluggable ecosystem for security tools.
 
