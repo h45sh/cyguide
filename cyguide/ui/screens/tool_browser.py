@@ -23,6 +23,9 @@ class ToolBrowserScreen(Screen):
     """Phase 1: Tool Selection Home Screen."""
     
     BINDINGS = [
+        ("f1", "show_shortcuts", "Help"),
+        ("ctrl+underscore", "show_shortcuts", "Help"),
+        ("ctrl+slash", "show_shortcuts", "Help"),
         ("escape", "nav_dashboard", "Dashboard"),
         ("q", "quit", "Quit"),
         ("ctrl+q", "quit", "Quit"),
@@ -90,6 +93,10 @@ class ToolBrowserScreen(Screen):
             # Navigate to Lesson Screen
             self.app.learning_mode_tool = event.item.tool_name
             self.app.switch_screen("learning_mode")
+
+    def action_show_shortcuts(self) -> None:
+        from cyguide.ui.screens.power import ShortcutsDialog
+        self.app.push_screen(ShortcutsDialog())
 
     def action_nav_dashboard(self) -> None:
         self.app.switch_screen("dashboard")

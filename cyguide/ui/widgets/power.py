@@ -213,6 +213,10 @@ class CommandPalette(Vertical):
             self.is_manual_shell = is_manual_shell
             self.new_tab = new_tab
 
+    class ShowShortcutsRequest(events.Event):
+        """Request to show the shortcuts help dialog."""
+        pass
+
     class CloseTabRequest(events.Event):
         """Request to close the active tab."""
         pass
@@ -259,7 +263,7 @@ class CommandPalette(Vertical):
             yield Label("Tool Mode (press ! for shell)", id="mode_status")
             yield Static("", expand=True)
             yield Label("", id="lock_icon")
-            yield Label("? for shortcuts", id="shortcuts_hint")
+            yield Label("F1 or Ctrl+/ for shortcuts", id="shortcuts_hint")
         
         yield Rule(classes="minimal-sep")
         yield Input(value="> ", id="command_input")
@@ -323,7 +327,12 @@ class CommandPalette(Vertical):
         cmd_input = self.query_one("#command_input", Input)
         
         # Intercept shortcuts that Input normally consumes
-        if event.key == "ctrl+w":
+        if event.key in ("f1", "ctrl+slash", "ctrl+underscore"):
+            event.stop()
+            event.prevent_default()
+            self.post_message(self.ShowShortcutsRequest())
+            return
+        elif event.key == "ctrl+w":
             event.stop()
             event.prevent_default()
             self.post_message(self.CloseTabRequest())

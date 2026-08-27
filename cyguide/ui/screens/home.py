@@ -114,6 +114,9 @@ class DashboardScreen(Screen):
     """The central hub for managing engagements and investigations."""
     
     BINDINGS = [
+        Binding("f1", "show_shortcuts", "Help"),
+        Binding("ctrl+underscore", "show_shortcuts", "Help", show=False),
+        Binding("ctrl+slash", "show_shortcuts", "Help", show=False),
         Binding("ctrl+b", "toggle_sidebar", "Sidebar"),
         Binding("ctrl+n", "new_workspace", "New Workspace"),
         Binding("ctrl+s", "new_session", "New Session"),
@@ -612,6 +615,10 @@ class DashboardScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.has_class("enter_session_btn"):
             self.app.switch_screen("power_mode")
+
+    def action_show_shortcuts(self) -> None:
+        from cyguide.ui.screens.power import ShortcutsDialog
+        self.app.push_screen(ShortcutsDialog())
 
     def action_nav_learning(self) -> None:
         self.app.switch_screen("tool_browser")

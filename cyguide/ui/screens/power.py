@@ -16,39 +16,66 @@ from cyguide.schemas.power import ActionRequest, JobStatusEnum, ActionSource, Jo
 import os
 
 SHORTCUTS_MD = """
-# CyGuide Keyboard Shortcuts
+# CyGuide Keyboard Shortcuts & Hotkeys
+
+## Global & Help
+* **`F1` / `Ctrl+/`**: Show this Keyboard Shortcuts & Hotkeys Help dialog
+* **`Ctrl+P`**: Open Command Palette (e.g. Toggle Animations)
+* **`Q` / `Ctrl+Q`**: Quit Application
 
 ## Dashboard (Engagement Management)
+* **`F1` / `Ctrl+/`**: Show Shortcuts / Help dialog
 * **`Ctrl+N`**: New Workspace
 * **`Ctrl+S`**: New Session
-* **`F2`**: Rename Workspace/Session
-* **`Ctrl+D`**: Delete Mode
-* **`Ctrl+M`**: Organize (Move) Mode
-* **`Space`**: Select item (in Delete/Organize modes)
-* **`Ctrl+B`**: Toggle Sidebar
-* **`Esc`**: Cancel Action
+* **`F2`**: Rename highlighted Workspace or Session inline
+* **`Ctrl+D`**: Toggle Delete Mode / Confirm Deletion
+* **`Ctrl+M`**: Toggle Organize (Move) Mode / Confirm Move
+* **`Space`**: Select/check item (in Delete/Organize modes)
+* **`Ctrl+B`**: Toggle Workspace Sidebar
+* **`Ctrl+L`**: Switch to Learning Mode
+* **`Esc`**: Cancel Action / Mode
 * **`Q`**: Quit Application
 
 ## Power Mode (Advanced Operator Workspace)
-* **`Ctrl+G`**: Toggle Global Entity Graph (Workspace-wide view)
-* **`Ctrl+N`**: Toggle Note Taking Scratchpad
-* **`Ctrl+E`**: Export Session Report & Database Archive
+* **`F1` / `Ctrl+/`**: Show Shortcuts / Help dialog
 * **`Ctrl+T`**: Open New Terminal Tab
-* **`Ctrl+W`**: Close Current Terminal Tab
-* **`Ctrl+K`**: Kill Running Job
+* **`Ctrl+W`**: Close Active Terminal Tab
+* **`Ctrl+K`**: Kill / Terminate Running Job (`SIGTERM`)
 * **`Ctrl+PageUp / PageDown`**: Switch Terminal Tabs
+* **`Shift+Enter` / `Alt+Enter` / `Ctrl+J`**: Run Command in New Tab
 * **`Ctrl+Tab / Ctrl+Shift+Tab`**: Switch Sessions
+* **`Ctrl+Right / Ctrl+Left`**: Switch Sessions (Alt)
 * **`Ctrl+B`**: Toggle Sidebar (Hide Browser & Job Queue)
+* **`Ctrl+N`**: Toggle Note Taking Scratchpad
+* **`Ctrl+G`**: Toggle Global Entity Graph (Workspace-wide view)
+* **`Ctrl+E`**: Export Session Report & Database Archive
 * **`Ctrl+L`**: Toggle Raw Shell Lock
+* **`!` prefix**: One-time Raw Shell Command
+* **`Tab`**: Auto-complete Filenames (in Shell-Locked mode)
+* **`Up / Down`**: Command History
 * **`?` or `help`**: Show this shortcuts menu
 * **`Esc`**: Return to Dashboard
 
+## Suggestions & Entity Browser
+* **`Enter` / Click**: Approve Suggestion / Select Entity Node
+* **`d` / `x` / `Delete`**: Dismiss Suggestion
+
 ## Learning Mode
-* **`Ctrl+L`**: Return to Dashboard (from Learning Mode)
+* **`F1` / `Ctrl+/`**: Show Shortcuts / Help dialog
+* **`Ctrl+B`**: Toggle Lesson Sidebar
+* **`Esc`**: Return to Tool Browser / Dashboard
 * **`Q`**: Quit Application
 """
 
 class ShortcutsDialog(ModalScreen):
+    BINDINGS = [
+        ("escape", "app.pop_screen", "Close"),
+        ("f1", "app.pop_screen", "Close"),
+        ("ctrl+underscore", "app.pop_screen", "Close"),
+        ("ctrl+slash", "app.pop_screen", "Close"),
+        ("q", "app.pop_screen", "Close"),
+    ]
+
     def compose(self) -> ComposeResult:
         with Vertical(id="shortcuts_dialog"):
             yield Markdown(SHORTCUTS_MD)
@@ -63,6 +90,9 @@ class PowerModeScreen(Screen):
     """The advanced operator workspace."""
 
     BINDINGS = [
+        Binding("f1", "show_shortcuts", "Help"),
+        Binding("ctrl+underscore", "show_shortcuts", "Help", show=False),
+        Binding("ctrl+slash", "show_shortcuts", "Help", show=False),
         Binding("ctrl+t", "new_terminal_tab", "New Tab"),
         Binding("ctrl+w", "close_terminal_tab", "Close Tab"),
         Binding("ctrl+k", "kill_job", "Kill Job"),
@@ -636,6 +666,14 @@ class PowerModeScreen(Screen):
             except Exception as e:
                 # Silently fail if log isn't found or other UI issues
                 pass
+
+    def action_show_shortcuts(self) -> None:
+        """Open the keyboard shortcuts help dialog."""
+        self.app.push_screen(ShortcutsDialog())
+
+    async def on_command_palette_show_shortcuts_request(self, event: CommandPalette.ShowShortcutsRequest) -> None:
+        """Handle Show Shortcuts request from the command palette (bypassing Input widget)."""
+        self.action_show_shortcuts()
 
     async def on_command_palette_close_tab_request(self, event: CommandPalette.CloseTabRequest) -> None:
         """Handle Close Tab request from the command palette (bypassing Input widget)."""

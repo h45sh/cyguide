@@ -105,6 +105,9 @@ class LearningModeScreen(Screen):
     """Phase 2: The Lesson Screen."""
     
     BINDINGS = [
+        ("f1", "show_shortcuts", "Help"),
+        ("ctrl+underscore", "show_shortcuts", "Help"),
+        ("ctrl+slash", "show_shortcuts", "Help"),
         ("escape", "nav_tool_browser", "Tool Browser"),
         ("ctrl+b", "toggle_sidebar", "Sidebar"),
         ("q", "quit", "Quit"),
@@ -508,6 +511,10 @@ class LearningModeScreen(Screen):
             output_pane.update("".join(self.log_buffer[-2000:]))
             output_scroll.scroll_end(animate=False)
             self.reset_ui_after_run()
+
+    def action_show_shortcuts(self) -> None:
+        from cyguide.ui.screens.power import ShortcutsDialog
+        self.app.push_screen(ShortcutsDialog())
 
     def action_nav_tool_browser(self) -> None:
         self.app.switch_screen("tool_browser")
