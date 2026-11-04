@@ -22,7 +22,7 @@ if command -v apt-get >/dev/null 2>&1; then
     # Try to install subfinder if available, otherwise suggest go install
     if ! sudo apt-get install -y subfinder 2>/dev/null; then
         echo "[!] subfinder not found in default apt repos. You may need to install it via Go:"
-        echo "    go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
+        echo "    go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.6.6"
     fi
     
 elif command -v pacman >/dev/null 2>&1; then
@@ -39,7 +39,7 @@ elif command -v dnf >/dev/null 2>&1; then
     
     if ! sudo dnf install -y subfinder 2>/dev/null; then
         echo "[!] subfinder not found in default dnf repos. You may need to install it via Go:"
-        echo "    go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
+        echo "    go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.6.6"
     fi
 
 elif command -v brew >/dev/null 2>&1; then

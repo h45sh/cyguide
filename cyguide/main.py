@@ -67,6 +67,11 @@ def main():
                 os.makedirs(out_dir, exist_ok=True)
             try:
                 await store.export_session(args.session_id, args.output_path)
+                if os.path.exists(args.output_path):
+                    try:
+                        os.chmod(args.output_path, 0o600)
+                    except OSError:
+                        pass
                 print(f"[+] Session database exported successfully to {args.output_path}")
             except Exception as e:
                 print(f"[!] Database export failed: {str(e)}")
@@ -82,6 +87,10 @@ def main():
                     report_content = await generate_markdown_report(store, args.session_id)
                     with open(args.report, "w", encoding="utf-8") as f:
                         f.write(report_content)
+                    try:
+                        os.chmod(args.report, 0o600)
+                    except OSError:
+                        pass
                     print(f"[+] Markdown report exported successfully to {args.report}")
                 except Exception as e:
                     print(f"[!] Report generation failed: {str(e)}")

@@ -31,13 +31,18 @@ class GobusterAdapter(ToolAdapter):
                 scheme = "https" if port in (443, 8443) else "http"
                 url = f"{scheme}://{ip}:{port}"
                 
-            raw_flags = raw_flags.replace("{url}", url)
-            
-            if "{wordlist}" in raw_flags:
-                wordlist_path = os.path.join(os.path.dirname(__file__), "wordlist.txt")
-                raw_flags = raw_flags.replace("{wordlist}", wordlist_path)
+            # Tokenize first, then resolve placeholders to prevent argument injection
+            wordlist_path = os.path.join(os.path.dirname(__file__), "wordlist.txt")
+            tokens = shlex.split(raw_flags)
+            resolved_tokens = []
+            for token in tokens:
+                if "{url}" in token:
+                    token = token.replace("{url}", url)
+                if "{wordlist}" in token:
+                    token = token.replace("{wordlist}", wordlist_path)
+                resolved_tokens.append(token)
                 
-            args.extend(shlex.split(raw_flags))
+            args.extend(resolved_tokens)
             
         return args
 

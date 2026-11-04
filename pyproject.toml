@@ -28,8 +28,17 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Etrama0/cyguide"
+Repository = "https://github.com/Etrama0/cyguide"
+Issues = "https://github.com/Etrama0/cyguide/issues"
+
 [tool.setuptools.packages.find]
-include = ["cyguide*"]
+include = ["cyguide*", "tools*"]
+
+[tool.setuptools.package-data]
+cyguide = ["ui/style.css"]
+tools = ["*/*.toml", "*/*.txt"]
 
 [project.scripts]
 cyg = "cyguide.main:main"

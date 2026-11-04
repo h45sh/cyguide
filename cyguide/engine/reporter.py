@@ -1,3 +1,4 @@
+import html
 import json
 import re
 from datetime import datetime, UTC
@@ -68,7 +69,7 @@ def build_markdown_table_for_type(schema_type: str, nodes: List[Dict[str, Any]])
             val = node.get(col, "-")
             if isinstance(val, (dict, list)):
                 val = json.dumps(val)
-            val_str = str(val).replace("|", "\\|").replace("\r\n", " ").replace("\n", " ")
+            val_str = html.escape(str(val)).replace("|", "\\|").replace("\r\n", " ").replace("\n", " ")
             row_values.append(val_str)
         lines.append("| " + " | ".join(row_values) + " |")
         

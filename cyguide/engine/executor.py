@@ -12,6 +12,25 @@ from cyguide.schemas.base import BaseFinding
 
 logger = logging.getLogger(__name__)
 
+
+def sanitize_subprocess_env(env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """Sanitize environment variables passed to child subprocesses to prevent secret leakage."""
+    base_env = env if env is not None else os.environ.copy()
+    sensitive_prefixes = (
+        "CYGUIDE_", "OPENAI_", "GROQ_", "ANTHROPIC_", 
+        "OPENROUTER_", "GEMINI_", "GROK_", "MISTRAL_", "COHERE_"
+    )
+    sensitive_exact = {
+        "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID", "GITHUB_TOKEN", "GH_TOKEN",
+        "API_KEY", "SECRET_KEY", "PRIVATE_KEY"
+    }
+    return {
+        k: v for k, v in base_env.items()
+        if not any(k.upper().startswith(p) for p in sensitive_prefixes)
+        and k.upper() not in sensitive_exact
+    }
+
+
 class Executor:
     """Executes tools and manages their lifecycle and output persistence."""
 
@@ -66,6 +85,7 @@ class Executor:
 
         command = adapter.build_command(target, params)
         cmd_str = shlex.join(command)
+        clean_env = sanitize_subprocess_env(env)
         
         if use_shell:
             default_shell = shell_path or shutil.which("bash") or os.environ.get("SHELL", "/bin/sh")
@@ -76,7 +96,7 @@ class Executor:
                 stderr=asyncio.subprocess.PIPE,
                 stdin=asyncio.subprocess.DEVNULL,
                 cwd=cwd,
-                env=env
+                env=clean_env
             )
         else:
             process = await asyncio.create_subprocess_exec(
@@ -85,7 +105,7 @@ class Executor:
                 stderr=asyncio.subprocess.PIPE,
                 stdin=asyncio.subprocess.DEVNULL,
                 cwd=cwd,
-                env=env
+                env=clean_env
             )
         
         if tracking_id:

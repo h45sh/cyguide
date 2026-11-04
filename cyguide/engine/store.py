@@ -2,6 +2,8 @@
 # Changes to this file require team agreement.
 """SQLite-based graph store for workspaces and sessions."""
 
+import os
+import re
 import json
 import uuid
 import aiosqlite
@@ -30,6 +32,12 @@ class GraphStore:
         if self._conn is None:
             self._conn = await aiosqlite.connect(self.db_path)
             await self._conn.execute("PRAGMA foreign_keys = ON")
+            await self._conn.execute("PRAGMA trusted_schema = OFF")
+            if self.db_path != ":memory:" and os.path.exists(self.db_path):
+                try:
+                    os.chmod(self.db_path, 0o600)
+                except OSError:
+                    pass
         yield self._conn
 
     async def initialize(self):
@@ -515,6 +523,11 @@ class GraphStore:
                 """, (session_id,))
                 
                 await db.commit()
+                if os.path.exists(dest_db_path):
+                    try:
+                        os.chmod(dest_db_path, 0o600)
+                    except OSError:
+                        pass
             except Exception:
                 await db.rollback()
                 raise
@@ -601,9 +614,20 @@ class GraphStore:
                 cursor_nodes = await db.execute("SELECT * FROM src.nodes WHERE session_id = ?", (src_session_id,))
                 nodes = await cursor_nodes.fetchall()
                 for n in nodes:
+                    schema_type = n["schema_type"]
+                    if not schema_type or not re.match(r"^[a-zA-Z0-9_.]+$", schema_type) or len(schema_type) > 64:
+                        raise ValueError(f"Invalid schema_type '{schema_type}' in imported node.")
+                    try:
+                        pik_val = json.loads(n["pik_json"])
+                        data_val = json.loads(n["data_json"])
+                        if not isinstance(pik_val, dict) or not isinstance(data_val, dict):
+                            raise ValueError
+                    except Exception:
+                        raise ValueError(f"Corrupt JSON payload in imported node {n['id']}.")
+
                     await db.execute(
                         "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        (src_session_id, n["id"], n["schema_type"], n["pik_json"], n["data_json"], n["status"], n["updated_at"])
+                        (src_session_id, n["id"], schema_type, json.dumps(pik_val), json.dumps(data_val), n["status"], n["updated_at"])
                     )
                     
                 cursor_edges = await db.execute("SELECT * FROM src.edges WHERE session_id = ?", (src_session_id,))

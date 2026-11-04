@@ -447,10 +447,18 @@ class PowerModeScreen(Screen):
                 job_log.write(f"\n[bold #8b949e]❯ sudo {' '.join(expanded_params)}[/bold #8b949e]\n")
                 job_log.write(f"[italic #8b949e]Suspending for sudo password entry...[/italic #8b949e]\n")
 
+            from cyguide.engine.executor import sanitize_subprocess_env
+            clean_env = sanitize_subprocess_env(self.app.user_env)
             with self.app.suspend():
                 import subprocess
+                import shlex
                 full_cmd = f"{tool_name} {' '.join(expanded_params)}"
-                subprocess.run(full_cmd, shell=True, executable=self.app.user_shell, env=self.app.user_env)
+                if is_sudo:
+                    cmd_args = ["sudo"] + shlex.split(' '.join(expanded_params))
+                    subprocess.run(cmd_args, shell=False, env=clean_env)
+                else:
+                    cmd_args = [self.app.user_shell, "-c", full_cmd]
+                    subprocess.run(cmd_args, shell=False, env=clean_env)
             
             if is_sudo:
                 job_log.write(f"[italic #3fb950]Resumed from sudo.[/italic #3fb950]\n")
@@ -707,8 +715,15 @@ class PowerModeScreen(Screen):
     def _save_scratchpad(self) -> None:
         try:
             content = self.query_one("#scratchpad_textarea", TextArea).text
+            scratch_dir = os.path.dirname(os.path.abspath(self.scratchpad_file))
+            if scratch_dir:
+                os.makedirs(scratch_dir, exist_ok=True)
             with open(self.scratchpad_file, "w") as f:
                 f.write(content)
+            try:
+                os.chmod(self.scratchpad_file, 0o600)
+            except OSError:
+                pass
         except Exception:
             pass
 

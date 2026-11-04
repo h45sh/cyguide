@@ -13,3 +13,5 @@ reports/*
 !reports/.gitkeep
 exports/*
 !exports/.gitkeep
+dist/
+build/

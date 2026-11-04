@@ -27,8 +27,9 @@ class SubfinderAdapter(ToolAdapter):
             elif target.schema_type == "dns.record":
                 domain = target.pik.get("domain", "")
                 
-            raw_flags = raw_flags.replace("{domain}", domain)
-            args.extend(shlex.split(raw_flags))
+            tokens = shlex.split(raw_flags)
+            resolved_tokens = [t.replace("{domain}", domain) for t in tokens if t]
+            args.extend(resolved_tokens)
             
         return args
 

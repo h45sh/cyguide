@@ -11,7 +11,7 @@ from cyguide.schemas.power import (
 )
 from cyguide.schemas.base import BaseFinding
 from cyguide.engine.store import GraphStore
-from cyguide.engine.executor import Executor
+from cyguide.engine.executor import Executor, sanitize_subprocess_env
 from cyguide.engine.gateway import ActionGateway
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.adapter import ToolAdapter
@@ -213,7 +213,7 @@ class PowerWorkspaceFacade:
         # 7. Start execution as a background task
         # Retrieve environment from app if available (passed during init or via a global)
         # For now, we'll expect the caller or a reference to 'app'
-        user_env = getattr(self, "user_env", os.environ.copy())
+        user_env = sanitize_subprocess_env(getattr(self, "user_env", os.environ.copy()))
         user_shell = getattr(self, "user_shell", "/bin/bash")
         
         asyncio.create_task(self._run_action_task(

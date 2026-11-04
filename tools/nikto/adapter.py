@@ -32,14 +32,25 @@ class NiktoAdapter(ToolAdapter):
             elif target.schema_type == "network.host":
                 target_str = target.pik.get("ip", "")
                 
-            raw_flags = raw_flags.replace("{target}", target_str)
-            if port_str:
-                raw_flags = raw_flags.replace("{port}", port_str)
-            else:
-                raw_flags = re.sub(r"-p\s*\{port\}", "", raw_flags)
-                raw_flags = raw_flags.replace("{port}", "")
+            # Tokenize first to prevent argument injection from target_str or port_str
+            tokens = shlex.split(raw_flags)
+            resolved_tokens = []
+            skip_next = False
+            for i, token in enumerate(tokens):
+                if skip_next:
+                    skip_next = False
+                    continue
+                if token == "-p" and i + 1 < len(tokens) and tokens[i + 1] == "{port}":
+                    if port_str:
+                        resolved_tokens.extend(["-p", port_str])
+                    skip_next = True
+                    continue
+                token = token.replace("{target}", target_str)
+                token = token.replace("{port}", port_str)
+                if token:
+                    resolved_tokens.append(token)
             
-            args.extend(shlex.split(raw_flags))
+            args.extend(resolved_tokens)
             
         return args
 

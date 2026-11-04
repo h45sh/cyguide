@@ -17,10 +17,18 @@ class ToolRegistry:
 
     def __init__(self, tools_dir: Optional[str] = None):
         if tools_dir is None:
-            # Anchor to the project root (parent of the cyguide/ package)
-            # cyguide/engine/registry.py -> engine -> cyguide -> project_root
+            # 1. First check if project_root / "tools" exists (development/repo checkout)
             project_root = Path(__file__).parent.parent.parent
-            self.tools_dir = project_root / "tools"
+            candidate = project_root / "tools"
+            if candidate.exists() and candidate.is_dir():
+                self.tools_dir = candidate
+            else:
+                # 2. Fall back to imported tools package location (installed package mode)
+                try:
+                    import tools
+                    self.tools_dir = Path(tools.__file__).parent
+                except Exception:
+                    self.tools_dir = candidate
         else:
             self.tools_dir = Path(tools_dir)
             

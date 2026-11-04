@@ -16,9 +16,9 @@ from cyguide.engine.store import GraphStore
 
 INSTALLATION_HINTS: Dict[str, str] = {
     "nmap": "sudo apt install nmap  (or: brew install nmap)",
-    "gobuster": "sudo apt install gobuster  (or: go install github.com/OJ/gobuster/v3@latest)",
+    "gobuster": "sudo apt install gobuster  (or: go install github.com/OJ/gobuster/v3@v3.6.0)",
     "nikto": "sudo apt install nikto  (or: brew install nikto)",
-    "subfinder": "go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
+    "subfinder": "go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.6.6",
     "whois": "sudo apt install whois  (or: brew install whois)",
 }
 
