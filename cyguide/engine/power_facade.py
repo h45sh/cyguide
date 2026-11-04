@@ -5,7 +5,7 @@ import json
 import os
 from uuid import UUID
 from datetime import datetime, UTC
-from typing import Optional, Dict, List, Any, Callable
+from typing import Optional, Dict, List, Any, Callable, AsyncIterator
 from cyguide.schemas.power import (
     PowerSession, ActionRequest, WorkspaceContext, JobStatus, JobStatusEnum, ActionSource
 )
