@@ -5,14 +5,20 @@ import sys
 from dotenv import load_dotenv
 
 from cyguide.app import CyGuideApp
+from cyguide.paths import get_default_data_dir, get_default_db_path
 
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="CyGuide: TUI-based guided cybersecurity learning platform.")
     parser.add_argument(
-        "--db", 
-        default="data/cyguide.db", 
-        help="Path to the SQLite database (default: data/cyguide.db)"
+        "--data-dir",
+        default=None,
+        help="Path to the CyGuide unified data directory (default: ~/.cyguide or $CYGUIDE_DATA_DIR)"
+    )
+    parser.add_argument(
+        "--db",
+        default=None,
+        help="Path to the SQLite database (default: ~/.cyguide/cyguide.db)"
     )
     parser.add_argument(
         "--ollama",
@@ -49,6 +55,9 @@ def main():
 
     args = parser.parse_args()
 
+    data_dir = args.data_dir or get_default_data_dir()
+    db_path = args.db or get_default_db_path(data_dir)
+
     if args.subcommand == "export":
         import asyncio
         from cyguide.engine.store import GraphStore
@@ -56,10 +65,10 @@ def main():
         import os
 
         async def run_export() -> int:
-            store = GraphStore(args.db)
+            store = GraphStore(db_path)
             await store.initialize()
             exit_code = 0
-            
+
             # Export DB
             print(f"[*] Exporting session {args.session_id} to database {args.output_path}...")
             out_dir = os.path.dirname(os.path.abspath(args.output_path))
@@ -95,7 +104,7 @@ def main():
                 except Exception as e:
                     print(f"[!] Report generation failed: {str(e)}")
                     exit_code = 1
-                
+
             await store.close()
             return exit_code
 
@@ -106,7 +115,7 @@ def main():
         from cyguide.engine.store import GraphStore
 
         async def run_import() -> int:
-            store = GraphStore(args.db)
+            store = GraphStore(db_path)
             await store.initialize()
             print(f"[*] Importing session from {args.input_path}...")
             exit_code = 0
@@ -128,7 +137,7 @@ def main():
         from cyguide.engine.diagnostics import run_diagnostics, format_terminal_report
 
         async def run_check():
-            report = await run_diagnostics(db_path=args.db, tools_dir=args.tools)
+            report = await run_diagnostics(db_path=db_path, tools_dir=args.tools)
             if getattr(args, "json", False):
                 print(json.dumps(report.to_dict(), indent=2))
             else:
@@ -138,8 +147,9 @@ def main():
         sys.exit(asyncio.run(run_check()))
 
     app = CyGuideApp(
-        db_path=args.db, 
-        use_ollama=args.ollama, 
+        db_path=args.db,
+        data_dir=args.data_dir,
+        use_ollama=args.ollama,
         ollama_model=args.model,
         tools_dir=args.tools
     )

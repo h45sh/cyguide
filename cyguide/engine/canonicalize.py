@@ -2,7 +2,7 @@
 # Changes to this file require team agreement.
 """Normalization filters for finding data."""
 
-import urllib.parse
+from urllib.parse import urlparse, urlunparse
 
 
 def canonicalize(value):
@@ -10,7 +10,7 @@ def canonicalize(value):
     if isinstance(value, str):
         # General string cleaning
         value = value.strip()
-        
+
         # Lowercase hostnames (heuristic: no spaces, contains dots or is localhost)
         if "." in value or value.lower() == "localhost":
             if " " not in value and ":" not in value:
@@ -31,7 +31,7 @@ def canonicalize_host(ip_or_name: str) -> str:
 def canonicalize_url(url: str) -> str:
     """Normalize a URL: lowercase scheme/host, strip default ports."""
     try:
-        parsed = urllib.parse.urlparse(url)
+        parsed = urlparse(url)
         scheme = parsed.scheme.lower()
         netloc = parsed.netloc.lower()
 
@@ -41,7 +41,7 @@ def canonicalize_url(url: str) -> str:
         elif scheme == "https" and netloc.endswith(":443"):
             netloc = netloc[:-4]
 
-        return urllib.parse.urlunparse(
+        return urlunparse(
             (scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
         )
     except Exception:

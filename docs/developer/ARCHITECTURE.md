@@ -220,14 +220,14 @@ To enable an identical command interface for human operators and automated agent
 
 ```mermaid
 flowchart LR
-    Node["Selected Tree Node<br><b>network.service</b><br>PIK: host_ip='10.0.0.1', port=80"] 
+    Node["Selected Tree Node<br><b>network.service</b><br>PIK: host_ip='10.0.0.1', port=80"]
     --> Facade["PowerWorkspaceFacade<br><b>Context Resolver</b>"]
 
     Facade --> V1["$TARGET = '10.0.0.1'"]
     Facade --> V2["$PORT = 80"]
     Facade --> V3["$SERVICE = 'http'"]
 
-    CmdIn["User/Agent Command:<br><code>nikto -h $TARGET -p $PORT</code>"] 
+    CmdIn["User/Agent Command:<br><code>nikto -h $TARGET -p $PORT</code>"]
     --> Sub["Substitution Engine"]
 
     V1 --> Sub
@@ -297,9 +297,9 @@ class ToolAdapter(ABC):
 
     @abstractmethod
     async def parse_output(
-        self, 
-        raw_stdout: str, 
-        target: BaseFinding, 
+        self,
+        raw_stdout: str,
+        target: BaseFinding,
         context: Dict[str, Any] = None
     ) -> AsyncIterator[BaseFinding]:
         """Parse raw stdout and yield standardized BaseFinding objects."""
@@ -381,6 +381,8 @@ CyGuide features a dedicated environment diagnostic suite in [`cyguide/engine/di
 3. **Security Tool Discovery**: Validates presence of `nmap`, `gobuster`, `nikto`, `subfinder`, and `whois` in `$PATH`.
 4. **AI Explainer Connectivity**: Verifies local Ollama HTTP status and inspects cloud API key configurations (`CYGUIDE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
 
+In addition to the CLI command (`cyg check`), the active TUI surfaces a live interactive `ToolHealthModal` via the Command Palette (`Ctrl+P`), giving operators real-time discovery badges, exact binary paths, and copyable installation hints without leaving the workbench.
+
 ---
 
 ## 10. Architectural Decision Records (ADRs)
@@ -431,13 +433,14 @@ To maintain codebase stability for university evaluation and production deployme
 │                        TIER 1: FROZEN CORE                             │
 │   • cyguide/schemas/base.py       • cyguide/engine/store.py            │
 │   • cyguide/engine/canonicalize.py • cyguide/engine/registry.py        │
+│   • cyguide/paths.py                                                   │
 │   Governance: Core infrastructure. Changes require deep review and      │
 │   team agreement.                                                      │
 ├────────────────────────────────────────────────────────────────────────┤
 │                        TIER 2: REVIEW REQUIRED                         │
 │   • tools/*/adapter.py            • cyguide/engine/executor.py         │
 │   • cyguide/schemas/*.py          • cyguide/engine/power_facade.py     │
-│   • Database migrations           • cyguide/engine/gateway.py          │
+│   • cyguide/engine/explainer.py   • cyguide/engine/gateway.py          │
 │   Governance: Architectural components. Changes require unit tests.    │
 ├────────────────────────────────────────────────────────────────────────┤
 │                        TIER 3: FREE TO CHANGE                          │
@@ -449,9 +452,106 @@ To maintain codebase stability for university evaluation and production deployme
 
 ---
 
-## 12. Related Technical Documentation
+## 12. Centralized Application Paths & Storage Isolation
+
+To prevent directory pollution and support multi-user and multi-tenant environments, CyGuide centralizes path resolution in [`cyguide/paths.py`](../../cyguide/paths.py).
+
+### Path Hierarchy & Resolution Rules:
+* **Root Unified Directory**: Resolves by priority:
+  1. `CYGUIDE_DATA_DIR` environment variable (if specified).
+  2. `~/.cyguide` in the operator's home directory.
+* **Database File**: `get_default_db_path()` defaults to `<data_dir>/cyguide.db` unless overridden by `--db <path>`.
+* **User Settings**: `<data_dir>/settings.json` stores persistent TUI preferences (animations, sidebar state, active AI key, fallback configs).
+* **Scratchpad Markdown**: `<data_dir>/scratchpad.md` stores quick operator notes across sessions with restrictive filesystem permissions (`0o600`).
+* **Session Exports & Reports**: Subdirectories `<data_dir>/exports` and `<data_dir>/reports` isolate atomic SQLite export archives and generated markdown findings.
+
+---
+
+## 13. Resilient Multi-Provider AI Fallback Engine
+
+Learning Mode and AI explainers feature a multi-tiered fallback architecture via `MultiKeyCloudBackend` in [`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py):
+
+```text
+┌──────────────────────────────────────────────────────────────────────────┐
+│                           MultiKeyCloudBackend                           │
+├──────────────────────────────────────────────────────────────────────────┤
+│ 1. Active Primary Key Profile (OpenAI / Claude / Groq / OpenRouter)       │
+│    │ Failed (429 Rate Limited, 503 Outage, or Network Timeout)           │
+│    ▼                                                                     │
+│ 2. Automatic Cooldown & Failover to Enabled Fallback Profiles             │
+│    │ All Cloud Keys Exhausted or Offline                                 │
+│    ▼                                                                     │
+│ 3. Automatic Graceful Fallback to Local Ollama (if configured)           │
+│    │ Ollama Unavailable                                                  │
+│    ▼                                                                     │
+│ 4. Clear Diagnostic Guidance & Zero UI Hanging                           │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+* **`CloudKeyProfile`**: Tracks individual key configurations, active/standby states, rate-limit cooldown timers (`cooldown_until`), and health indicators.
+* **Automatic Placeholder Rejection**: `is_placeholder_key()` filters out default documentation tokens (`your_api_key_here`, `sk-...`, `changeme`) without sending bogus network requests.
+
+---
+
+## 14. Interactive Configuration & UI Subsystem
+
+CyGuide integrates interactive modal screens and reusable widgets that adhere to strict layer separation:
+
+* **`ConfigModal` ([`cyguide/ui/screens/config_modal.py`](../../cyguide/ui/screens/config_modal.py))**:
+  - Live configuration editor with dedicated tab panes for **Local LLM (Ollama)**, **Cloud AI (Key Profiles & Fallback)**, **Database Paths**, and **Custom Tools**.
+  - Integrated with the Textual Command Palette (`Ctrl+P`) via specialized sub-palette providers (`ConfigProvider`, `OllamaConfigProvider`, `CloudAPIConfigProvider`, `DatabaseConfigProvider`, `ToolsConfigProvider`).
+* **`ResizeHandle` ([`cyguide/ui/widgets/resizer.py`](../../cyguide/ui/widgets/resizer.py))**:
+  - Decoupled, draggable pane splitter allowing operators to resize the Entity Browser, Workbench Terminals, and AI Suggestions sidebar interactively.
+  - Automatically persists customized pane widths into `settings.json`.
+
+---
+
+## 15. Forensic Session Lifecycle & Archiving
+
+In addition to standard active investigations, CyGuide implements forensic session archiving to preserve chain-of-custody without data loss:
+
+* **Session States**: Sessions transition between `'ACTIVE'` and `'CLOSED'`.
+* **Forensic Protection**: When closed, `PowerWorkspaceFacade` enforces read-only guards (`PermissionError`) preventing accidental execution of new scans or modification of historical findings.
+* **Audit Trail**: State transitions trigger automated append-only `event_log` entries (`session_closed`, `session_reopened`).
+* **Reversibility**: Archived sessions can be inspected historically or reopened to `'ACTIVE'` status at any time.
+
+---
+
+## 16. Defense-in-Depth Security Architecture
+
+CyGuide implements strict defense-in-depth controls across process execution, network gating, credential storage, database persistence, and AI prompt interfaces:
+
+### 16.1. Subprocess Isolation & Secret Scrubbing
+* **Non-Shell Execution**: All security tools are spawned directly via `asyncio.create_subprocess_exec` argument vectors rather than shell string interpolation (`shell=True`), preventing arbitrary command injection.
+* **Environment Sanitization**: [`sanitize_subprocess_env()`](../../cyguide/engine/executor.py) scrubs all sensitive API keys (`CYGUIDE_*`, `OPENAI_*`, `ANTHROPIC_*`, `GROQ_*`, `DEEPSEEK_*`, `PERPLEXITY_*`, `HUGGINGFACE_*`, etc.) and system credentials (`AWS_*`, `GITHUB_*`, `VAULT_TOKEN`, `SSH_PRIVATE_KEY`) so child processes never inherit operator secrets.
+
+### 16.2. Link-Local & Cloud Metadata SSRF Gating
+* **Destination Policy**: [`ActionGateway`](../../cyguide/engine/gateway.py) validates all target entities and raw CLI flags against `BLOCKED_TARGETS`.
+* **Covered Metadata Endpoints**: Enforces comprehensive blocking across:
+  - IPv4 Link-Local subnet (`169.254.0.0/16`) covering AWS, Azure (`169.254.169.250`), GCP, DigitalOcean, and Oracle Cloud metadata.
+  - AWS IMDSv2 IPv6 Link-Local (`fd00:ec2::254`).
+  - Alibaba Cloud metadata (`100.100.100.200`).
+  - Alternate numeric encodings (decimal `2852039166`, hex `0xa9fea9fe`).
+  - Cloud DNS hostnames (`metadata.google.internal`, `metadata.internal`, `instance-data`).
+
+### 16.3. Atomic Private File Permissions
+* **Credentials & Settings**: Persistent configurations (`settings.json`) containing API keys and operator notes (`scratchpad.md`) are created atomically with mode `0o600` (`-rw-------`, user read/write only) via `os.open(..., os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)`.
+* **Zero Race Conditions**: Eliminates Time-of-Check to Time-of-Use (TOCTOU) permission windows where world-readable files could momentarily be exposed under default system umasks.
+
+### 16.4. AI Prompt Injection & Boundary Delimiters
+* **Structured Tag Isolation**: Raw target scanner outputs fed to the AI Explainer are encapsulated inside `<untrusted_scan_output>` blocks with explicit system directives.
+* **Tag Breakout Neutralization**: Closing XML tags (`</untrusted_scan_output>`) within untrusted scanner logs are sanitized to `<\\/untrusted_scan_output>`, preventing adversarial network banners or HTTP payloads from prematurely terminating the data block to inject instructions.
+
+### 16.5. SQLite Database Hardening
+* **Injection-Proof Queries**: 100% of SQL statements utilize parameterized queries (e.g. `ATTACH DATABASE ? AS src`).
+* **Trigger & Schema Protection**: Every connection executes `PRAGMA trusted_schema = OFF` to prevent malicious triggers or virtual tables in imported databases, and `PRAGMA foreign_keys = ON` for cascade integrity.
+
+---
+
+## 17. Related Technical Documentation
 
 * 💾 **[Database Architecture & Storage Specification (`docs/developer/DATABASE.md`)](DATABASE.md)**: Full DDL schemas, ER diagrams, PIK formulas, auto-wiring mechanics, and query recipes.
 * 📋 **[Schema Registry (`docs/developer/SCHEMA_REGISTRY.md`)](SCHEMA_REGISTRY.md)**: The standard 15-schema finding vocabulary and PIK declarations.
 * 🚀 **[Project Roadmap & Progress Tracker (`docs/developer/ROADMAP.md`)](ROADMAP.md)**: Feature checklist, implementation phases, and development history.
 * 📖 **[User Manual (`docs/user/USER_MANUAL.md`)](../user/USER_MANUAL.md)**: Operating instructions, hotkeys, and CLI reference.
+* 🤝 **[Contributing Guide (`docs/user/CONTRIBUTING.md`)](../user/CONTRIBUTING.md)**: Plugin contract, implementation patterns, tiered protection rules, and test verification.

@@ -7,7 +7,7 @@ from uuid import UUID
 from datetime import datetime, UTC
 from typing import Optional, Dict, List, Any, Callable, AsyncIterator
 from cyguide.schemas.power import (
-    PowerSession, ActionRequest, WorkspaceContext, JobStatus, JobStatusEnum, ActionSource
+    ActionRequest, WorkspaceContext, JobStatus, JobStatusEnum
 )
 from cyguide.schemas.base import BaseFinding
 from cyguide.engine.store import GraphStore
@@ -21,7 +21,7 @@ class ShellAdapter(ToolAdapter):
     """Adapter for explicit shell commands (prefix '!')."""
     def validate_install(self) -> bool:
         return True
-    
+
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         # raw_flags contains the pre-substituted full command string
         import shlex
@@ -33,7 +33,7 @@ class ShellAdapter(ToolAdapter):
 
 class PowerWorkspaceFacade:
     """The central coordination layer for Power Mode.
-    
+
     This is the primary API for the TUI and future agents. It orchestrates
     sessions, validates actions, manages tool execution, and builds workspace context.
     """
@@ -43,15 +43,15 @@ class PowerWorkspaceFacade:
         self.executor = executor
         self.registry = registry
         self.gateway = ActionGateway(registry, store)
-        
+
         # In-memory tracking of jobs for the current process
         # job_id -> JobStatus
         self._active_jobs: Dict[UUID, JobStatus] = {}
-        
+
         # Session state tracking (CWD)
         # session_id -> current_working_dir
         self._session_cwd: Dict[str, str] = {}
-        
+
         # Track jobs that the user explicitly closed so they aren't restored
         self.closed_job_ids: set[str] = set()
 
@@ -127,22 +127,66 @@ class PowerWorkspaceFacade:
             self.closed_job_ids.discard(str(job.job_id))
         await self.store.delete_workspace(workspace_id)
 
+    async def close_session(self, session_id: str) -> None:
+        """Clean up active jobs for the session, mark closed, and log audit event."""
+        target_jobs = [j for j in self._active_jobs.values() if str(j.session_id) == session_id]
+        for job in target_jobs:
+            try:
+                await self.executor.stop_task(str(job.job_id))
+            except Exception:
+                pass
+            self._active_jobs.pop(job.job_id, None)
+            self.closed_job_ids.discard(str(job.job_id))
+        await self.store.close_session(session_id)
+        await self.store.log_audit_event(
+            session_id,
+            "session_closed",
+            "Session archived/closed (forensic audit preserved).",
+            "CLOSED"
+        )
+
+    async def reopen_session(self, session_id: str) -> None:
+        """Reopen an archived session back to ACTIVE."""
+        await self.store.reopen_session(session_id)
+        await self.store.log_audit_event(
+            session_id,
+            "session_reopened",
+            "Session reopened to ACTIVE status.",
+            "ACTIVE"
+        )
+
+    async def close_workspace(self, workspace_id: str) -> None:
+        """Close all sessions in the workspace and close the workspace."""
+        sessions = await self.store.list_sessions(workspace_id)
+        for s in sessions:
+            if s.get("status") != "CLOSED":
+                await self.close_session(s["id"])
+        await self.store.close_workspace(workspace_id)
+
+    async def reopen_workspace(self, workspace_id: str) -> None:
+        """Reopen a closed workspace."""
+        await self.store.reopen_workspace(workspace_id)
+
     async def submit_action(
-        self, 
-        action: ActionRequest, 
+        self,
+        action: ActionRequest,
         on_output: Optional[Callable] = None,
         on_complete: Optional[Callable] = None,
         on_error_output: Optional[Callable] = None
     ) -> UUID:
         """Validate and execute a tool action.
-        
+
         Returns:
             The UUID of the created job.
         """
-        # ...
+        # 0. Forensic Guard: Verify session is ACTIVE
+        session_info = await self.store.get_session(str(action.session_id))
+        if session_info and session_info.get("status") == "CLOSED":
+            raise PermissionError("Cannot execute actions in an archived session. Reopen the session first.")
+
         # 1. Resolve Session and Context for Variable Substitution (if target exists)
         ctx = await self.get_context(str(action.session_id), action.target_entity_id)
-        
+
         # 2. Variable Substitution ($TARGET, etc.)
         raw_flags = action.params.get("raw_flags", "")
         if ctx.resolved_vars:
@@ -150,10 +194,10 @@ class PowerWorkspaceFacade:
                 placeholder = f"${var_name}"
                 if placeholder in raw_flags:
                     raw_flags = raw_flags.replace(placeholder, str(val))
-        
+
         # 3. Resolve components for execution
         tool_data = self.registry.get_tool(action.tool_name)
-        
+
         # 3.1 Handle Built-ins (cd)
         if not tool_data and action.tool_name == "cd":
             try:
@@ -183,7 +227,7 @@ class PowerWorkspaceFacade:
 
         # 4. Validation (Enforces USER vs AGENT policy)
         await self.gateway.validate_action(action)
-        
+
         # 5. Setup job tracking
         job = JobStatus(
             job_id=action.action_id,
@@ -192,7 +236,7 @@ class PowerWorkspaceFacade:
             status=JobStatusEnum.RUNNING
         )
         self._active_jobs[job.job_id] = job
-        
+
         # 6. Get target finding (or create dummy for shell)
         if not action.is_explicit_shell and action.target_entity_id:
             node_data = await self.store.get_node(str(action.session_id), action.target_entity_id)
@@ -209,19 +253,19 @@ class PowerWorkspaceFacade:
                 data={},
                 status="confirmed"
             )
-        
+
         # 7. Start execution as a background task
         # Retrieve environment from app if available (passed during init or via a global)
         # For now, we'll expect the caller or a reference to 'app'
         user_env = sanitize_subprocess_env(getattr(self, "user_env", os.environ.copy()))
         user_shell = getattr(self, "user_shell", "/bin/bash")
-        
+
         asyncio.create_task(self._run_action_task(
-            action, adapter, target, on_output, on_complete, 
+            action, adapter, target, on_output, on_complete,
             on_error_output=on_error_output,
             env=user_env, shell_path=user_shell
         ))
-        
+
         return job.job_id
 
     async def kill_job(self, job_id: UUID) -> bool:
@@ -229,17 +273,17 @@ class PowerWorkspaceFacade:
         job = self._active_jobs.get(job_id)
         if not job or job.status != JobStatusEnum.RUNNING:
             return False
-        
+
         await self.executor.stop_task(str(job_id))
         job.status = JobStatusEnum.FAILED
         return True
 
     async def _run_action_task(
-        self, 
-        action: ActionRequest, 
-        adapter: Any, 
-        target: BaseFinding, 
-        on_output: Optional[Callable], 
+        self,
+        action: ActionRequest,
+        adapter: Any,
+        target: BaseFinding,
+        on_output: Optional[Callable],
         on_complete: Optional[Callable] = None,
         on_error_output: Optional[Callable] = None,
         env: Optional[Dict[str, str]] = None,
@@ -247,14 +291,14 @@ class PowerWorkspaceFacade:
     ):
         job = self._active_jobs[action.action_id]
         cwd = self._get_cwd(str(action.session_id))
-        
+
         output_buffer = []
-        
+
         async def intercept_output(text: str):
             output_buffer.append(text)
             if on_output:
                 await on_output(text)
-                
+
         async def intercept_error(text: str):
             output_buffer.append(text)
             if on_error_output:
@@ -276,10 +320,11 @@ class PowerWorkspaceFacade:
                 use_shell=action.is_explicit_shell,
                 shell_path=shell_path,
                 on_output=intercept_output,
-                on_error_output=intercept_error
+                on_error_output=intercept_error,
+                timeout_seconds=getattr(action, "timeout_seconds", None)
             ):
                 findings_count += 1
-            
+
             # Only set to DONE if it hasn't been set to FAILED (e.g., by manual termination)
             if job.status == JobStatusEnum.RUNNING:
                 job.status = JobStatusEnum.DONE
@@ -288,7 +333,7 @@ class PowerWorkspaceFacade:
             job.status = JobStatusEnum.FAILED
         finally:
             job.completed_at = datetime.now(UTC)
-            
+
             # Persist output to event log so tabs can be restored across sessions
             await self.store.append_event(
                 str(action.session_id),
@@ -298,7 +343,7 @@ class PowerWorkspaceFacade:
             )
             if str(action.action_id) in self.closed_job_ids:
                 await self.store.mark_event_closed(str(action.action_id), session_id=str(action.session_id))
-            
+
             if on_complete:
                 try:
                     await on_complete()
@@ -324,7 +369,7 @@ class PowerWorkspaceFacade:
                     data=json.loads(node_data["data_json"]),
                     status=node_data.get("status", "confirmed")
                 )
-                
+
                 # Context Resolution Logic
                 resolved_vars["TARGET"] = pik.get("ip") or pik.get("domain") or pik.get("host_ip")
                 if "port" in pik:
@@ -336,12 +381,12 @@ class PowerWorkspaceFacade:
 
         # 2. Aggregate counts and jobs
         stats = await self.store.get_stats(session_id)
-        
+
         # Get all valid sessions in the current workspace
         workspace_id = session_data["workspace_id"]
         workspace_sessions = await self.store.list_sessions(workspace_id)
         workspace_session_ids = {s["id"] for s in workspace_sessions}
-        
+
         # Keep completed jobs visible to show status icons (DONE/FAILED/RUNNING) until closed
         # Filter to only include jobs belonging to sessions in this workspace
         active_jobs = [j for j in self._active_jobs.values() if str(j.session_id) in workspace_session_ids]
@@ -370,19 +415,19 @@ class PowerWorkspaceFacade:
         """Returns all confirmed nodes and edges across the workspace, deduplicated."""
         nodes = await self.store.get_workspace_nodes(workspace_id)
         edges = await self.store.get_workspace_edges(workspace_id)
-        
+
         # Deduplicate nodes by id
         unique_nodes = {}
         for n in nodes:
             if n.get("status") == "confirmed":
                 unique_nodes[n["id"]] = n
-                
+
         # Deduplicate edges by source, target, type
         unique_edges = {}
         for e in edges:
             key = (e["source_id"], e["target_id"], e["relation_type"])
             unique_edges[key] = e
-            
+
         return {"nodes": list(unique_nodes.values()), "edges": list(unique_edges.values())}
 
     async def remove_job(self, job_id: UUID) -> None:

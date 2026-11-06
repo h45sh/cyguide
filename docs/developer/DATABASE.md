@@ -35,16 +35,18 @@ CyGuide’s storage architecture is engineered to solve a core challenge in cybe
 CyGuide manages database files across distinct locations depending on operational mode:
 
 ```
-cyguide/
-├── data/
-│   └── cyguide.db               # Default global workspace & session database
+~/.cyguide/ (or $CYGUIDE_DATA_DIR, mode 0700)
+├── cyguide.db               # Default global workspace & session database
+├── settings.json            # Persistent user configuration
+├── scratchpad.md            # Operator note-taking scratchpad
 ├── exports/
-│   └── session_<uuid>.db        # Standalone portable session archives (Export/Import)
-└── tests/
-    └── :memory:                 # In-memory transient SQLite instances for unit tests
+│   └── archive_<name>.db    # Standalone portable session archives (Export/Import)
+└── reports/
+    └── report_<name>.md     # Structured Markdown investigation reports
 ```
 
-* **Default Runtime Database (`data/cyguide.db`)**: Created automatically on first launch in the project `data/` directory (git-ignored).
+* **Uniform Runtime Database (`~/.cyguide/cyguide.db`)**: Created automatically on first launch in the user's unified application directory (mode `0o600`), regardless of which directory CyGuide is launched from.
+* **Custom Data Directory (`cyg --data-dir <path>`)**: Configures an alternate unified data directory or via `CYGUIDE_DATA_DIR` environment variable.
 * **Custom Database Override (`cyg --db <path>`)**: Allows operators to bind CyGuide to a specific database file for engagement isolation.
 * **Transient Testing (`sqlite:///:memory:`)**: All unit and integration test suites run against isolated in-memory databases with sub-millisecond setup and teardown.
 * **Integrity Pragmas**:
@@ -73,7 +75,8 @@ erDiagram
     workspaces {
         TEXT id PK "UUID string"
         TEXT name "Unique workspace name"
-        TEXT status "ACTIVE | SYSTEM"
+        TEXT status "ACTIVE | CLOSED | SYSTEM"
+        TIMESTAMP closed_at "Archival timestamp"
         TIMESTAMP created_at "Creation timestamp"
     }
 
@@ -82,6 +85,7 @@ erDiagram
         TEXT workspace_id FK "References workspaces(id) ON DELETE CASCADE"
         TEXT name "Session name"
         TEXT status "ACTIVE | CLOSED | SYSTEM"
+        TIMESTAMP closed_at "Archival timestamp"
         TIMESTAMP created_at "Creation timestamp"
     }
 
@@ -127,6 +131,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     status TEXT DEFAULT 'ACTIVE',
+    closed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
@@ -135,7 +140,8 @@ CREATE TABLE IF NOT EXISTS workspaces (
 | :--- | :--- | :--- | :--- |
 | `id` | `TEXT` | `PRIMARY KEY` | Standard UUIDv4 string. |
 | `name` | `TEXT` | `NOT NULL` | Display name of the workspace. Name uniqueness is validated case-insensitively in the facade layer. |
-| `status` | `TEXT` | `DEFAULT 'ACTIVE'` | Status flag. Set to `'ACTIVE'` for standard user workspaces or `'SYSTEM'` for the singleton Learning Sandbox. |
+| `status` | `TEXT` | `DEFAULT 'ACTIVE'` | Status flag. Set to `'ACTIVE'` for standard user workspaces, `'CLOSED'` for archived workspaces, or `'SYSTEM'` for the singleton Learning Sandbox. |
+| `closed_at` | `TIMESTAMP` | `NULLABLE` | UTC timestamp when the workspace was marked archived/closed. |
 | `created_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | UTC timestamp when the workspace was created. |
 
 ---
@@ -149,6 +155,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     workspace_id TEXT NOT NULL,
     name TEXT NOT NULL,
     status TEXT DEFAULT 'ACTIVE',
+    closed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
@@ -160,6 +167,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 | `workspace_id` | `TEXT` | `NOT NULL, FK` | References `workspaces(id)` with `ON DELETE CASCADE`. Deleting a workspace purges all its sessions. |
 | `name` | `TEXT` | `NOT NULL` | Human-readable session name. |
 | `status` | `TEXT` | `DEFAULT 'ACTIVE'` | `'ACTIVE'`, `'CLOSED'`, or `'SYSTEM'`. |
+| `closed_at` | `TIMESTAMP` | `NULLABLE` | UTC timestamp when the session was concluded/archived. |
 | `created_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | UTC creation timestamp. |
 
 ---
@@ -246,6 +254,28 @@ CREATE TABLE IF NOT EXISTS event_log (
 | `schema_type` | `TEXT` | `NULLABLE` | Finding type emitted by this event or `'system.event'`. |
 | `finding_json` | `TEXT` | `NULLABLE` | Full JSON representation of the `BaseFinding` emitted during execution. |
 | `closed` | `INTEGER` | `DEFAULT 0` | UI tab lifecycle tracker: `0` indicates an open/active workbench tab; `1` indicates a closed tab (hidden from workbench restoration). |
+
+---
+
+### 4.6. High-Performance Compound Indexes
+
+To maintain sub-millisecond query performance during large-scale penetration tests with thousands of discovered nodes and deep edge topologies, `GraphStore` automatically initializes compound indexes:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_nodes_session_schema ON nodes(session_id, schema_type);
+CREATE INDEX IF NOT EXISTS idx_edges_session ON edges(session_id);
+CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(session_id, source_id);
+CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(session_id, target_id);
+CREATE INDEX IF NOT EXISTS idx_event_log_session_time ON event_log(session_id, timestamp DESC);
+```
+
+| Index Name | Target Table | Columns | Optimized Access Pattern |
+| :--- | :--- | :--- | :--- |
+| `idx_nodes_session_schema` | `nodes` | `(session_id, schema_type)` | Accelerates typed finding lookups (`store.query("network.service", session_id)`). |
+| `idx_edges_session` | `edges` | `(session_id)` | Accelerates session-level edge tree reconstruction. |
+| `idx_edges_source` | `edges` | `(session_id, source_id)` | Fast lookup of outbound parent-to-child entity connections. |
+| `idx_edges_target` | `edges` | `(session_id, target_id)` | Fast reverse lookup of inbound relationships and associations. |
+| `idx_event_log_session_time` | `event_log` | `(session_id, timestamp DESC)` | Instant rendering of reverse-chronological activity feeds and session history. |
 
 ---
 
@@ -370,7 +400,7 @@ sequenceDiagram
 
     Adapter->>Store: upsert_finding(session_id, finding)
     Store->>Store: Calculate Node ID (SHA-256)
-    
+
     rect rgb(28, 35, 45)
         Note over Store,DB: Step 1: Append Audit Record
         Store->>DB: INSERT INTO event_log (...)
@@ -410,7 +440,7 @@ CyGuide implements cross-machine session sharing using zero-copy SQLite database
 ┌─────────────────────────┐                        ┌─────────────────────────┐
 │     Source Session      │                        │     Target Session      │
 │     (Host Analyst)      │                        │      (Team Member)      │
-│  data/cyguide.db        │                        │  data/cyguide.db        │
+│  ~/.cyguide/cyguide.db  │                        │  ~/.cyguide/cyguide.db  │
 └───────────┬─────────────┘                        └───────────▲─────────────┘
             │                                                  │
             │ cyg export <id> exports/session.db               │ cyg import exports/session.db
@@ -445,7 +475,7 @@ CyGuide implements cross-machine session sharing using zero-copy SQLite database
 ### 9.1. Querying Hierarchical Entity Graph for a Session
 ```sql
 -- Retrieve all verified services under their respective hosts
-SELECT 
+SELECT
     h.pik_json AS host_pik,
     h.data_json AS host_data,
     s.pik_json AS service_pik,
@@ -464,8 +494,8 @@ WHERE h.session_id = :session_id
 ### 9.2. Extracting Finding Statistics Across an Entire Workspace
 ```sql
 -- Workspace-wide node count grouped by schema type
-SELECT 
-    n.schema_type, 
+SELECT
+    n.schema_type,
     COUNT(*) AS total_count
 FROM nodes n
 JOIN sessions s ON n.session_id = s.id
@@ -478,7 +508,7 @@ ORDER BY total_count DESC;
 ### 9.3. Reconstructing Session Command History & Active Tabs
 ```sql
 -- Fetch open workbench jobs and execution logs
-SELECT 
+SELECT
     id,
     timestamp,
     action_payload,
@@ -493,7 +523,7 @@ ORDER BY timestamp ASC;
 ### 9.4. Fetching Pending AI Recommendations
 ```sql
 -- Extract all proposed suggestions waiting for operator approval
-SELECT 
+SELECT
     id,
     schema_type,
     pik_json,
@@ -508,6 +538,6 @@ ORDER BY updated_at DESC;
 
 ## 10. Data Governance & Maintenance Policies
 
-1. **Tier 1 Frozen Core**: [`cyguide/engine/store.py`](../../cyguide/engine/store.py) is a **Tier 1 Protected File**. Any schema alterations, column additions, or modifications to `_generate_node_id()` require full team review and backward-compatibility migrations.
-2. **Schema Evolution & Migrations**: Schema alterations must be handled gracefully in `GraphStore.initialize()` using `ALTER TABLE` try-except blocks to guarantee seamless migration for existing `data/cyguide.db` databases.
-3. **Database File Cleanup**: When purging or resetting a local test environment, delete `data/cyguide.db`. The application will reconstruct a clean schema on next startup.
+1. **Tier 1 Frozen Core**: [`cyguide/engine/store.py`](../../cyguide/engine/store.py) is a **Tier 1 Protected File**. Any schema alterations, column additions, or modifications to `_generate_node_id()` require full team review.
+2. **Centralized Data Storage**: All database assets are stored uniformly under `~/.cyguide/cyguide.db` (or user-specified `--data-dir`/`--db`).
+3. **Database File Cleanup**: When purging or resetting a local test environment, delete `~/.cyguide/cyguide.db`. The application will reconstruct a clean schema on next startup.

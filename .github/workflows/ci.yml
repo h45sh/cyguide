@@ -31,9 +31,10 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
           pip install -e .
 
-      - name: Run test suite
+      - name: Run verification pipeline (test suite & schema registry)
         run: |
-          pytest tests/ -v
+          chmod +x ./scripts/verify.sh
+          ./scripts/verify.sh
 
       - name: Run diagnostic health check
         run: |

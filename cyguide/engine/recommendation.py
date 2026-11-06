@@ -1,9 +1,7 @@
 """Recommendation Engine for suggesting tools based on discovered findings."""
 
-import os
-import json
 import logging
-from typing import List, Dict, Any
+from typing import List
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.web import WebEndpoint, WebVulnerability
 from cyguide.schemas.dns import DnsRecord, DomainInfo
@@ -49,7 +47,7 @@ class WebServiceRecommendationRule(RecommendationRule):
             # Attach metadata for command resolution in TUI
             proposed_endpoint.data["tool_suggestion"] = "gobuster"
             proposed_endpoint.data["recommended_command"] = f"gobuster dir -u {url} -w {{wordlist}}"
-            
+
             return [proposed_endpoint]
 
         return []
@@ -111,7 +109,7 @@ class SubdomainRecommendationRule(RecommendationRule):
         proposed_record.status = "proposed"
         proposed_record.data["tool_suggestion"] = "subfinder"
         proposed_record.data["recommended_command"] = f"subfinder -d {domain}"
-        
+
         return [proposed_record]
 
 

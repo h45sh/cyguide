@@ -4,17 +4,17 @@ from uuid import uuid4
 from cyguide.engine.gateway import ActionGateway, ActionValidationError
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.power import ActionRequest, ActionSource
-from cyguide.schemas.network import NetworkHost, NetworkService
+from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.dns import DnsRecord
 
 def get_mock_registry():
     registry = MagicMock()
-    
+
     # Mock nmap tool accepting network.host
     nmap_manifest = MagicMock()
     nmap_manifest.meta.name = "nmap"
     nmap_manifest.input = {"accepts": ["network.host"]}
-    
+
     # Mock gobuster tool accepting web.endpoint and network.service
     gobuster_manifest = MagicMock()
     gobuster_manifest.meta.name = "gobuster"
@@ -35,7 +35,7 @@ async def test_gateway_user_explicit_shell():
     store = GraphStore(":memory:")
     await store.initialize()
     gateway = ActionGateway(get_mock_registry(), store)
-    
+
     # 1. USER with explicit shell prefix '!' is allowed
     action = ActionRequest(
         session_id=uuid4(),
@@ -61,7 +61,7 @@ async def test_gateway_agent_shell_restriction():
     store = GraphStore(":memory:")
     await store.initialize()
     gateway = ActionGateway(get_mock_registry(), store)
-    
+
     # AGENT attempting raw shell command must be rejected even with explicit flag
     action = ActionRequest(
         session_id=uuid4(),
@@ -84,7 +84,7 @@ async def test_gateway_registered_tool_schema_compatibility():
     # 1. Compatible target (nmap on network.host)
     host = NetworkHost.create(ip="10.0.0.1")
     host_id = await store.upsert_finding(sess_id, host)
-    
+
     action_valid = ActionRequest(
         session_id=sess_id,
         tool_name="nmap",

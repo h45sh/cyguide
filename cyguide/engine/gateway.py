@@ -1,16 +1,19 @@
 """Validation and policy enforcement for tool actions."""
 
-from typing import Optional
 from cyguide.schemas.power import ActionRequest, ActionSource
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
 
 
 BLOCKED_TARGETS = {
-    "169.254.169.254",
-    "metadata.google.internal",
-    "metadata.internal",
-    "instance-data",
+    "169.254.",                 # IPv4 Link-Local / Cloud Metadata (AWS, Azure, GCP, DigitalOcean, Oracle)
+    "fd00:ec2::254",            # AWS IPv6 IMDSv2 metadata
+    "100.100.100.200",          # Alibaba Cloud metadata
+    "2852039166",               # Decimal notation of 169.254.169.254
+    "0xa9fea9fe",               # Hex notation of 169.254.169.254
+    "metadata.google.internal", # GCP metadata DNS
+    "metadata.internal",        # Generic internal metadata DNS
+    "instance-data",            # EC2 instance data hostname
 }
 
 
@@ -32,7 +35,7 @@ class ActionValidationError(Exception):
 
 class ActionGateway:
     """The validation and policy layer for Power Mode.
-    
+
     Ensures that any ActionRequest is legitimate, targets valid entities,
     and respects the tool's input contract before execution.
     """
@@ -43,7 +46,7 @@ class ActionGateway:
 
     async def validate_action(self, action: ActionRequest) -> bool:
         """Validate an action request against registry and store state.
-        
+
         Raises:
             ActionValidationError: If validation fails.
         """
@@ -54,18 +57,18 @@ class ActionGateway:
 
         # 2. Resolve Tool
         tool_data = self.registry.get_tool(action.tool_name)
-        
+
         # 3. Policy: Handle Shell Commands
         if not tool_data:
             # Only allow arbitrary shell commands if explicitly requested (!) and by a user
             if action.is_explicit_shell and action.triggered_by == ActionSource.USER:
                 return True
-            
+
             # If not explicit or not user, reject
             reason = "is not a registered tool"
             if not action.is_explicit_shell:
                 reason += " and no explicit shell prefix ('!') was provided"
-            
+
             raise ActionValidationError(f"Action '{action.tool_name}' {reason}.")
 
         # 4. Standard Validation for Registered Tools

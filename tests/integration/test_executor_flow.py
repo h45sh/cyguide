@@ -1,12 +1,10 @@
 import pytest
 import json
-from pathlib import Path
 from cyguide.engine.store import GraphStore
-from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.recommendation import RecommendationEngine
-from cyguide.schemas.dns import DomainInfo, DnsRecord
+from cyguide.schemas.dns import DomainInfo
 from cyguide.schemas.network import NetworkHost, NetworkService
-from cyguide.schemas.web import WebEndpoint, WebVulnerability
+from cyguide.schemas.web import WebEndpoint
 from tools.subfinder.adapter import SubfinderAdapter
 from tools.nmap.adapter import NmapAdapter
 from tools.gobuster.adapter import GobusterAdapter

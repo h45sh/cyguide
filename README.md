@@ -34,8 +34,11 @@ pip install -e .
 ### Launching
 
 ```bash
-# Launch with default database (data/cyguide.db)
+# Launch with unified default application database (~/.cyguide/cyguide.db)
 cyg
+
+# Launch with a custom data directory
+cyg --data-dir ~/.my_cyguide
 
 # Launch with a custom SQLite database
 cyg --db my_project.db
@@ -102,7 +105,7 @@ CyGuide includes dedicated helper scripts under `scripts/`:
 | Script | Purpose |
 | :--- | :--- |
 | [`./scripts/install_deps.sh`](scripts/install_deps.sh) | Automatically installs required system tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`) and Perl XML dependencies across Debian/Ubuntu, Arch, Fedora/RHEL, and macOS (Homebrew). |
-| [`./scripts/verify.sh`](scripts/verify.sh) | Runs the comprehensive verification pipeline: executes the 86-test pytest suite, validates and regenerates the 15-schema documentation, and checks integration pipelines. |
+| [`./scripts/verify.sh`](scripts/verify.sh) | Runs the comprehensive verification pipeline: executes the 166-test pytest suite, validates and regenerates the 15-schema documentation, and checks integration pipelines. |
 | [`./scripts/generate_schema_registry.py`](scripts/generate_schema_registry.py) | Introspects the `cyguide.schemas` module and dynamically updates `docs/developer/SCHEMA_REGISTRY.md` with active finding schemas and Primary Identity Keys (PIKs). |
 
 ## ✅ Testing & Verification
@@ -126,7 +129,8 @@ CyGuide is built for extensibility. See [docs/user/CONTRIBUTING.md](docs/user/CO
 *   **[Roadmap & Progress Tracker](docs/developer/ROADMAP.md)**: Unified project phases, task checklists, and historical walkthroughs.
 *   **[Autonomous Agent Harness Vision](docs/developer/FUTURE_POWER_MODE.md)**: Architecture for autonomous AI agents, HITL safety gates, and multi-agent roles.
 *   **[Developer Performance Notes](docs/developer/DEVELOPER_NOTES.md)**: Real-time streaming, event loops, and CPU load roadblocks.
-*   **[Contributors](docs/developer/CONTRIBUTORS.md)**: Project ownership and governance.
+*   **[Changelog](CHANGELOG.md)**: Full release history and detailed changelog for v1.5.0.
+*   **[Contributing](docs/user/CONTRIBUTING.md)**: Developer guide for creating tool plugins and contributing to CyGuide.
 
 ## 📂 Project Structure & Data Isolation
 
@@ -134,9 +138,6 @@ CyGuide is built for extensibility. See [docs/user/CONTRIBUTING.md](docs/user/CO
 - `tools/`: Tool plugin adapters and manifests (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`).
 - `scripts/`: Development and system installation scripts.
 - `docs/`: Technical and user documentation.
-- `data/`: Default directory for local runtime SQLite databases (`cyguide.db`) and scratchpad notes (ignored from version control).
-- `exports/`: Destination for exported portable session `.db` archives (ignored from version control).
-- `reports/`: Destination for generated Markdown investigation reports (ignored from version control).
+- `~/.cyguide/`: Default unified application data directory storing runtime database (`cyguide.db`), scratchpad notes (`scratchpad.md`), persistent settings (`settings.json`), exported archives (`exports/`), and generated investigation reports (`reports/`) across any launch directory.
 
 ---
-

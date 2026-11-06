@@ -48,9 +48,9 @@ async def main():
     store = GraphStore(":memory:")
     await store.initialize()
     executor = Executor(store)
-    
+
     # ... run tool and assert graph state ...
-    
+
     await store.close()
 ```
 
@@ -70,6 +70,7 @@ These files are critical infrastructure. A wrong change can silently break the e
 - `cyguide/engine/store.py`: Upsert logic and PIK resolution.
 - `cyguide/engine/canonicalize.py`: Normalization rules.
 - `cyguide/engine/registry.py`: Discovery and loading logic.
+- `cyguide/paths.py`: Centralized application directories and storage isolation.
 - **Existing `manifest.toml` sections**: `[meta]`, `[input]`, and `[output]` of already committed tools.
 
 ### Tier 2 — Review Required
@@ -87,3 +88,19 @@ No formal review needed, though common sense applies.
 - `docs/` and `efd/`: Documentation and examples.
 - `scripts/`: Utility scripts.
 
+---
+
+## 7. Running Verification & Tests
+
+Before submitting pull requests or merging changes, verify that all tests pass and documentation is in sync:
+
+```bash
+# Run the complete verification suite (tests + schema registry check)
+./scripts/verify.sh
+
+# Or run pytest directly
+pytest tests/
+```
+
+- **Hermetic Tests**: CyGuide maintains an automated test suite (166 unit, integration, and UI tests) verifying database integrity, executor pipelines, subprocess timeouts, and CLI commands.
+- **Schema Registry Sync**: If you add or modify schemas in `cyguide/schemas/`, run `./scripts/generate_schema_registry.py` to keep `docs/developer/SCHEMA_REGISTRY.md` synchronized.

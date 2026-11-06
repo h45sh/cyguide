@@ -1,5 +1,3 @@
-import pytest
-from pathlib import Path
 import textwrap
 from cyguide.engine.registry import ToolRegistry
 
@@ -7,7 +5,7 @@ def test_tool_registry_discovery(tmp_path):
     # Create a mock tool structure
     tool_dir = tmp_path / "mock_tool"
     tool_dir.mkdir()
-    
+
     manifest_content = textwrap.dedent("""
         [meta]
         name = "mock_tool"
@@ -31,7 +29,7 @@ def test_tool_registry_discovery(tmp_path):
         recipes = []
     """)
     (tool_dir / "manifest.toml").write_text(manifest_content)
-    
+
     adapter_content = textwrap.dedent("""
         from typing import Dict, Any, AsyncIterator, List
         from cyguide.engine.adapter import ToolAdapter
@@ -44,18 +42,18 @@ def test_tool_registry_discovery(tmp_path):
                 if False: yield BaseFinding(pik={}, data={})
     """)
     (tool_dir / "adapter.py").write_text(adapter_content)
-    
+
     registry = ToolRegistry(tools_dir=str(tmp_path))
     registry.load_tools()
-    
+
     assert "mock_tool" in registry.list_tools()
     tool = registry.get_tool("mock_tool")
     assert tool["manifest"].meta.name == "mock_tool"
     assert tool["adapter"].__class__.__name__ == "MockAdapter"
-    
+
     # Test filtering
     matches = registry.find_tools_for_input("network.host")
     assert "mock_tool" in matches
-    
+
     matches_none = registry.find_tools_for_input("nonexistent")
     assert matches_none == []

@@ -1,7 +1,7 @@
 """Tool Selection screen for Learning Mode."""
 
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Static, Label, ListItem, ListView, Input
+from textual.widgets import Header, Footer, Label, ListItem, ListView, Input
 from textual.containers import Vertical, Horizontal
 from textual.app import ComposeResult
 from typing import List, Dict
@@ -15,17 +15,15 @@ class ToolListItem(ListItem):
         self.recipes = recipes
 
     def compose(self) -> ComposeResult:
-        with Horizontal():
-            yield Label(f"{self.tool_name.ljust(12)}", classes="tool_name_label")
+        with Horizontal(classes="tool_item_row"):
+            yield Label(f"› {self.tool_name.ljust(14)}", classes="tool_name_label")
             yield Label(self.summary, classes="tool_summary_label")
 
 class ToolBrowserScreen(Screen):
     """Phase 1: Tool Selection Home Screen."""
-    
+
     BINDINGS = [
         ("f1", "show_shortcuts", "Help"),
-        ("ctrl+underscore", "show_shortcuts", "Help"),
-        ("ctrl+slash", "show_shortcuts", "Help"),
         ("escape", "nav_dashboard", "Dashboard"),
         ("q", "quit", "Quit"),
         ("ctrl+q", "quit", "Quit"),
@@ -36,9 +34,9 @@ class ToolBrowserScreen(Screen):
         with Vertical(id="browser_container"):
             yield Label("LEARNING MODE", id="browser_title")
             yield Label("What do you want to learn today?", id="browser_subtitle")
-            
+
             yield Input(placeholder="Search tools, recipes, or flags...", id="search_input")
-            
+
             with Vertical(id="tool_list_area"):
                 yield ListView(id="tool_list")
         yield Footer()
@@ -51,20 +49,20 @@ class ToolBrowserScreen(Screen):
         registry = self.app.registry
         tool_list = self.query_one("#tool_list", ListView)
         await tool_list.clear()
-        
+
         # Group tools by category
         categories: Dict[str, List[Dict]] = {}
         for name in registry.list_tools():
             tool_data = registry.get_tool(name)
             manifest = tool_data["manifest"]
-            
+
             if not manifest.modes.get("learning"):
                 continue
-                
+
             # Search filtering
             match = filter_text.lower() in name.lower() or \
                     filter_text.lower() in manifest.meta.one_line_summary.lower()
-            
+
             # Also check recipes and flags
             if not match and manifest.learning:
                 for r in manifest.learning.recipes:
@@ -73,7 +71,7 @@ class ToolBrowserScreen(Screen):
                 for f in manifest.learning.flags:
                     if filter_text.lower() in f["flag"].lower() or filter_text.lower() in f["explanation"].lower():
                         match = True; break
-            
+
             if match:
                 cat = manifest.meta.category
                 if cat not in categories: categories[cat] = []

@@ -9,11 +9,13 @@ Welcome to CyGuide! This manual outlines the core workflows, complete keyboard s
 | Context / Screen | Shortcut | Action |
 | :--- | :--- | :--- |
 | **Global / Help** | `F1` / `Ctrl+/` | Open Keyboard Shortcuts & Hotkeys Help dialog |
-| **Global** | `Ctrl+P` | Open Textual Command Palette (e.g. Toggle Animations) |
+| **Global** | `Ctrl+P` | Open Textual Command Palette (`Configuration`, `Tool Health`, `Themes`, etc.) |
+| **Global** | `Ctrl+Shift+C` | Open Full CyGuide Configuration Panel modal (`⚙`) |
 | **Global** | `Q` / `Ctrl+Q` | Quit Application (Dashboard, Tool Browser, Lesson, Expanded Output) |
 | **Dashboard** | `F1` / `Ctrl+/` | Show Keyboard Shortcuts & Hotkeys Help dialog |
 | **Dashboard** | `Ctrl+N` | Create a New Workspace (Project) |
 | **Dashboard** | `Ctrl+S` | Create a New Session in active Workspace |
+| **Dashboard** | `Ctrl+A` | Archive / Reopen highlighted Workspace or Session |
 | **Dashboard** | `F2` | Rename highlighted Workspace or Session inline |
 | **Dashboard** | `Ctrl+B` | Toggle/collapse left Workspace sidebar |
 | **Dashboard** | `Ctrl+L` | Switch to Learning Mode (Tool Browser) |
@@ -33,7 +35,7 @@ Welcome to CyGuide! This manual outlines the core workflows, complete keyboard s
 | **Power Mode** | `Ctrl+Tab` / `Ctrl+Right` | Switch to next Session in current workspace |
 | **Power Mode** | `Ctrl+Shift+Tab` / `Ctrl+Left` | Switch to previous Session in current workspace |
 | **Power Mode** | `Ctrl+B` | Toggle sidebar (collapse/expand Entity Browser, Job Queue, Suggestions) |
-| **Power Mode** | `Ctrl+N` | Toggle Note-Taking Scratchpad (`data/.cyguide_scratchpad.md`) |
+| **Power Mode** | `Ctrl+N` | Toggle Note-Taking Scratchpad (`~/.cyguide/scratchpad.md`) |
 | **Power Mode** | `Ctrl+G` | Toggle Global Entity Graph (Session-scoped vs Workspace-wide view) |
 | **Power Mode** | `Ctrl+E` | Export session findings (SQLite DB archive & Markdown report) |
 | **Power Mode** | `Ctrl+L` | Toggle Raw Shell Lock (locks prompt in raw shell mode `!`) |
@@ -80,6 +82,7 @@ The Dashboard is the central hub where you manage your engagements. Data is stri
 - `Space`: Check/uncheck items during Delete or Organize modes
 - `Escape`: Cancel Delete or Organize mode
 - `Enter` / Click: Select a workspace or session, or click "ENTER POWER MODE"
+- `Ctrl+P`: Open Command Palette (`Toggle Animations`, `Toggle Sidebar`, `Tool Health`, `Themes`)
 - `Up` / `Down`: Navigate list items across Workspaces, Sessions, Recent Activity, and Tool Health
 - `Q` / `Ctrl+Q`: Quit application
 
@@ -87,12 +90,35 @@ The Dashboard is the central hub where you manage your engagements. Data is stri
 - **Rename Data**: Use the arrow keys to highlight any Workspace or Session and press `F2`. A prompt will appear allowing you to rename it instantly. Workspace names are validated for global uniqueness, and session names are validated within their workspace (both case-insensitively). Conflicting renames will trigger a notification badge.
 - **Organize (Move) Sessions**: Press `Ctrl+M` to enter Organize Mode. Use `Space` to check off one or more sessions. Press `Ctrl+M` to proceed to Step 2, highlight the destination Workspace, and press `Ctrl+M` to confirm the move. Session names must remain unique in the destination workspace.
 - **Delete Data**: Press `Ctrl+D` to enter Delete Mode. Check off items with `Space`, then press `Ctrl+D` to confirm deletion. Data is natively cascaded and wiped from the SQLite database. Any active background executor tasks associated with deleted sessions or workspaces are automatically terminated to prevent resource leaks.
+- **Archive / Reopen Sessions (`Ctrl+A`)**: Press `Ctrl+A` on any active session to archive it. Archived sessions are protected against accidental scan mutations with strict read-only execution guards while preserving forensic logs and graph state. Press `Ctrl+A` again to reopen an archived session to active status.
 - **Session Details**: Highlights metadata like `Active Jobs` (live background tasks) and `Closed Tabs` (persisted count of closed tabs/scans).
+
+### The Command Palette (`Ctrl+P`) & In-App Configuration
+Press `Ctrl+P` from anywhere in the application to summon the Textual Command Palette with unified navigation:
+- **`⚙ Open Full Configuration Panel`** (`Ctrl+Shift+C`): Opens the comprehensive in-app settings dialog with 4 dedicated tabs:
+  - **Local LLM (Ollama)**: Enable/disable local inference, configure model name (e.g., `gemma`, `llama3`), set custom base URL, and run an instant connectivity probe.
+  - **Cloud AI & Multi-Key Profiles**: Manage multiple cloud API keys (OpenAI, Anthropic Claude, Groq, OpenRouter, DeepSeek, Gemini). Add custom profiles, set active keys, enable automatic fallback chains, and test endpoints directly.
+  - **Database Settings**: Configure custom SQLite database locations (`--db`) or verify the unified database path.
+  - **Custom Tools**: Set external plugin directories (`--tools`) to load custom security adapters without modifying the engine.
+- **`Toggle Animations`**: Instantly toggle terminal UI animations on (`● ON`) or off (`○ OFF`). Your preference is automatically persisted to local settings.
+- **`Toggle Sidebar`**: Expand or collapse the navigation sidebar (`● EXPANDED` / `○ COLLAPSED`) to maximize workbench real estate.
+- **`Tool Health`**: Shows a live health badge (`● Healthy (5/5)` or `▲ Issues`). Selecting it opens the dedicated **Tool Health Modal**:
+  - Displays real-time discovery, binary filesystem paths (e.g. `/usr/bin/nmap`), and installation status for all security plugins (`nmap`, `gobuster`, `nikto`, `subfinder`, `whois`).
+  - Provides actionable OS-specific package manager installation hints (APT, Brew, Go) for any missing binaries.
+  - Press `Left Arrow` (`← Left: Back`) or `Esc` to dismiss and return directly to the Command Palette.
+- **`Search for themes…`**: Sub-palette to preview and switch between color themes (e.g. `cyguide-dark`, `monokai`, `nord`, `catppuccin`).
+- **Sub-Menu Navigation**: Use `Right Arrow` to enter sub-menus (or trigger actions) and `Left Arrow` (`← Left: Back`) to return up a level. Highlighting memory ensures your position is preserved when returning.
 
 ---
 
 ## 2. Power Mode: Advanced Operator Workspace
 Select a Session in the Dashboard and click "ENTER POWER MODE" (or press `Enter` on a session) to boot up the main terminal interface.
+
+### Dynamic Split-Pane Edge Resizing
+CyGuide features interactive split-pane resizing handles (`│`):
+- Hover the mouse over the vertical border between the **Entity Browser** and the **Workbench Terminals**, or between the terminals and the **Suggestions sidebar**.
+- Click and drag horizontally to smoothly expand or contract pane widths to your preference.
+- Customized pane sizes are automatically saved to `~/.cyguide/settings.json` and persist across application restarts.
 
 ### The Entity Browser (Left Pane)
 Displays a hierarchical physical tree of all entities (Targets -> Hosts -> Services -> Netblocks -> Domains & DNS -> Web -> Credentials -> Vulnerabilities) discovered during your investigation.
@@ -111,8 +137,8 @@ Displays context-aware tool recommendations (`💡 [tool] ❯ [target]`) generat
 
 ### The Scratchpad
 - **Toggle Scratchpad** (`Ctrl+N` in Power Mode): Opens a docked markdown editor next to the job queue.
-- Notes are continuously auto-saved to `data/.cyguide_scratchpad.md` in your project folder. Use this to quickly jot down target notes, syntax reminders, or investigation thoughts without leaving the terminal.
-- *Security Note*: Scratchpad contents are stored in plaintext on disk (`data/.cyguide_scratchpad.md`). Do not store sensitive credentials or private keys in the scratchpad; utilize your system's protected secret storage instead.
+- Notes are continuously auto-saved to `~/.cyguide/scratchpad.md` in your unified CyGuide application folder (or custom data directory). Use this to quickly jot down target notes, syntax reminders, or investigation thoughts without leaving the terminal regardless of which folder CyGuide was run from.
+- *Security Note*: Scratchpad contents are stored in plaintext on disk (`~/.cyguide/scratchpad.md` with mode `0600`). Do not store sensitive credentials or private keys in the scratchpad; utilize your system's protected secret storage instead.
 
 ### The Command Palette & Terminal Prompt
 Located at the bottom of the screen, the prompt executes your commands.
@@ -207,5 +233,3 @@ Imports a previously exported session `.db` into your local workspace:
 ```bash
 cyg import exports/my_session.db [--workspace-id <target_workspace_id>]
 ```
-
-

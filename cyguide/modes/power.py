@@ -1,4 +1,9 @@
-"""Power Mode logic and workflow orchestration."""
+"""Power Mode legacy workflow orchestration.
+
+NOTE: For active Power Mode session management, variable resolution, and gateway policies,
+use `cyguide.engine.power_facade.PowerWorkspaceFacade`. This class is maintained for backwards
+compatibility with basic tool chaining and legacy test fixtures.
+"""
 
 from typing import Dict, Any, List, Optional, AsyncIterator
 from cyguide.engine.executor import Executor
@@ -8,8 +13,8 @@ from cyguide.schemas.base import BaseFinding
 
 class PowerModeEngine:
     """
-    Manages flexible, multi-tool workflows.
-    Allows for tool chaining based on emitted findings.
+    Legacy workflow orchestration helper.
+    Maintained for backwards compatibility. Prefer PowerWorkspaceFacade for new code.
     """
 
     def __init__(self, registry: ToolRegistry, executor: Executor):
@@ -17,9 +22,9 @@ class PowerModeEngine:
         self.executor = executor
 
     async def execute(
-        self, 
-        tool_name: str, 
-        target: BaseFinding, 
+        self,
+        tool_name: str,
+        target: BaseFinding,
         params: Dict[str, Any],
         session_id: Optional[str] = None
     ) -> AsyncIterator[BaseFinding]:
@@ -39,9 +44,8 @@ class PowerModeEngine:
         """
         # 1. Basic suggestion based on input schema compatibility
         suggestions = self.registry.find_tools_for_input(finding.schema_type)
-        
-        # 2. Advanced: Logic for manifest-defined suggestions based on data
-        # (e.g., suggest 'gobuster' if 'port: 80' is found)
-        # TODO: Implement complex filtering logic from manifest.power.suggests
-        
+
+        # 2. Advanced: Complex graph-reactive suggestions are handled by
+        # RecommendationEngine in cyguide/engine/recommendation.py.
+        # This helper remains for basic input schema compatibility queries.
         return suggestions

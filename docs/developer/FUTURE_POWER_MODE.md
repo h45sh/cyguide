@@ -57,10 +57,10 @@ graph TB
 | **`WorkspaceContext` Model** | ✅ **Implemented** | [`cyguide/schemas/power.py`](file:///home/harsh/Documents/cyguide/cyguide/schemas/power.py) |
 | **`ActionRequest` & Typed Actions** | ✅ **Implemented** | [`cyguide/schemas/power.py`](file:///home/harsh/Documents/cyguide/cyguide/schemas/power.py) |
 | **`ActionGateway` & Source Gating** | ✅ **Implemented** | [`cyguide/engine/gateway.py`](file:///home/harsh/Documents/cyguide/cyguide/engine/gateway.py) |
-| **Universal Variable Substitution** | ✅ **Implemented** | [`PowerWorkspaceFacade.get_context()`](file:///home/harsh/Documents/cyguide/cyguide/engine/power_facade.py#L308-L358) |
+| **Universal Variable Substitution** | ✅ **Implemented** | [`PowerWorkspaceFacade.get_context()`](file:///home/harsh/Documents/cyguide/cyguide/engine/power_facade.py#L353-L403) |
 | **Reactive Suggestion Engine** | ✅ **Implemented** | [`cyguide/engine/recommendation.py`](file:///home/harsh/Documents/cyguide/cyguide/engine/recommendation.py) |
-| **Append-Only Event Sourcing** | ✅ **Implemented** | [`GraphStore.append_event()`](file:///home/harsh/Documents/cyguide/cyguide/engine/store.py#L457-L466) |
-| **Portable Session Export/Import** | ✅ **Implemented** | [`GraphStore.export_session()`](file:///home/harsh/Documents/cyguide/cyguide/engine/store.py#L468-L523) |
+| **Append-Only Event Sourcing** | ✅ **Implemented** | [`GraphStore.append_event()`](file:///home/harsh/Documents/cyguide/cyguide/engine/store.py#L509-L517) |
+| **Portable Session Export/Import** | ✅ **Implemented** | [`GraphStore.export_session()`](file:///home/harsh/Documents/cyguide/cyguide/engine/store.py#L529-L584) |
 | **AI Explainer Engine (Ollama/Cloud)** | ✅ **Implemented** | [`cyguide/engine/explainer.py`](file:///home/harsh/Documents/cyguide/cyguide/engine/explainer.py) |
 | **Agent Orchestrator Loop** | ⏳ *Planned (Phase 4)* | Autonomous ReAct decision loop |
 | **Declarative CIDR Scope Policy** | ⏳ *Planned (Phase 4)* | Automated IP/subnet boundary checker |
@@ -97,7 +97,7 @@ Autonomous agents require strict guardrails to prevent unintended lateral moveme
 
 ```mermaid
 flowchart TD
-    Req["Agent submits ActionRequest<br><code>tool='nmap', target='192.168.1.10'</code>"] 
+    Req["Agent submits ActionRequest<br><code>tool='nmap', target='192.168.1.10'</code>"]
     --> Check1{"Is tool registered?"}
 
     Check1 -- No --> Reject1["Reject: Unknown tool"]
@@ -137,18 +137,18 @@ sequenceDiagram
     loop Autonomous Investigation Cycle
         Agent->>Facade: get_context(session_id)
         Facade-->>Agent: WorkspaceContext (Hosts, Services, Endpoints, EventLog)
-        
+
         Agent->>LLM: Prompt Context + Target Goal + Available Tools
         LLM-->>Agent: Thought: "Discovered port 80; run gobuster to find admin panels"<br>Action: RunTool(tool='gobuster', target='http://10.0.0.1/')
-        
+
         Agent->>Facade: submit_action(ActionRequest(source=AGENT, tool='gobuster', ...))
         Facade->>Gateway: validate_action(ActionRequest)
         Gateway-->>Facade: Policy Approved (In-Scope)
-        
+
         Facade->>Exec: run_tool(...)
         Exec->>Store: upsert_finding(session_id, web.endpoint)
         Exec-->>Facade: Job Completed (Exit Code 0)
-        
+
         Facade-->>Agent: Action Completed & Graph Updated
     end
 ```

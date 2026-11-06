@@ -2,11 +2,10 @@
 # Changes to this file require team agreement.
 """Dynamic tool discovery and loading."""
 
-import os
-import importlib.util
+from importlib.util import spec_from_file_location, module_from_spec
 import tomllib
 from pathlib import Path
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Optional
 
 from cyguide.engine.manifest import Manifest
 from cyguide.engine.adapter import ToolAdapter
@@ -31,7 +30,7 @@ class ToolRegistry:
                     self.tools_dir = candidate
         else:
             self.tools_dir = Path(tools_dir)
-            
+
         self.tools: Dict[str, Dict] = {}
         self.load_errors: Dict[str, str] = {}
 
@@ -39,7 +38,7 @@ class ToolRegistry:
         """Scan the tools directory and load all valid plugins."""
         self.tools = {}
         self.load_errors = {}
-        
+
         if not self.tools_dir.exists():
             return
 
@@ -57,7 +56,7 @@ class ToolRegistry:
 
                         # 2. Dynamically load the adapter class
                         adapter_instance = self._load_adapter(adapter_path)
-                        
+
                         if adapter_instance:
                             self.tools[manifest.meta.name] = {
                                 "manifest": manifest,
@@ -73,16 +72,16 @@ class ToolRegistry:
         """Import the adapter.py module and instantiate the ToolAdapter class."""
         try:
             module_name = f"tools.{adapter_path.parent.name}.adapter"
-            spec = importlib.util.spec_from_file_location(module_name, adapter_path)
+            spec = spec_from_file_location(module_name, adapter_path)
             if spec and spec.loader:
-                module = importlib.util.module_from_spec(spec)
+                module = module_from_spec(spec)
                 spec.loader.exec_module(module)
-                
+
                 # Look for a subclass of ToolAdapter
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (isinstance(attr, type) and 
-                        issubclass(attr, ToolAdapter) and 
+                    if (isinstance(attr, type) and
+                        issubclass(attr, ToolAdapter) and
                         attr is not ToolAdapter):
                         return attr()
             return None

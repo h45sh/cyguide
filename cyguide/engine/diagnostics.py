@@ -4,7 +4,6 @@ import os
 import sys
 import shutil
 import platform
-import asyncio
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, UTC
@@ -12,6 +11,7 @@ from datetime import datetime, UTC
 import httpx
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
+from cyguide.paths import get_default_db_path
 
 
 INSTALLATION_HINTS: Dict[str, str] = {
@@ -51,12 +51,14 @@ class DiagnosticReport:
 
 
 async def run_diagnostics(
-    db_path: str = "data/cyguide.db", 
+    db_path: Optional[str] = None,
     tools_dir: Optional[str] = None
 ) -> DiagnosticReport:
     """Run all system, database, tool dependency, and explainer checks."""
+    if db_path is None:
+        db_path = get_default_db_path()
     report = DiagnosticReport()
-    
+
     # 1. System Environment
     py_version = sys.version_info
     py_version_str = f"{py_version.major}.{py_version.minor}.{py_version.micro}"
@@ -65,7 +67,7 @@ async def run_diagnostics(
         "platform": platform.platform(),
         "executable": sys.executable,
     }
-    
+
     if py_version >= (3, 11):
         report.checks.append(DiagnosticCheck(
             name="Python Version",
@@ -124,7 +126,7 @@ async def run_diagnostics(
     try:
         store = GraphStore(db_path)
         await store.initialize()
-        
+
         async with store._get_conn() as db:
             cursor = await db.execute("PRAGMA integrity_check")
             row = await cursor.fetchone()
@@ -164,7 +166,7 @@ async def run_diagnostics(
     registry = ToolRegistry(tools_dir=tools_dir)
     registry.load_tools()
     tool_names = registry.list_tools()
-    
+
     installed_count = 0
     total_tools = len(tool_names)
 
@@ -173,7 +175,7 @@ async def run_diagnostics(
         adapter = tool_data.get("adapter") if tool_data else None
         manifest = tool_data.get("manifest") if tool_data else None
         description = manifest.meta.description if manifest else ""
-        
+
         is_installed = False
         binary_path = None
 
@@ -283,7 +285,7 @@ def format_terminal_report(report: DiagnosticReport) -> str:
     """Format the diagnostic report for terminal display."""
     lines = []
     lines.append("=" * 68)
-    lines.append("  🩺  CYGUIDE SYSTEM & ENVIRONMENT DIAGNOSTICS")
+    lines.append("  [+]  CYGUIDE SYSTEM & ENVIRONMENT DIAGNOSTICS")
     lines.append("=" * 68)
     lines.append(f"  Timestamp : {report.timestamp}")
     lines.append(f"  Platform  : {report.system_info.get('platform', 'unknown')}")
@@ -298,11 +300,11 @@ def format_terminal_report(report: DiagnosticReport) -> str:
             continue
 
         header_icon = {
-            "System": "🖥️ ",
-            "Database": "💾",
-            "Tools": "🛠️ ",
-            "Explainer": "🤖"
-        }.get(cat, "🔍")
+            "System": "[SYS]",
+            "Database": "[DB] ",
+            "Tools": "[TOOL]",
+            "Explainer": "[AI] "
+        }.get(cat, "[*]  ")
 
         lines.append(f"\n{header_icon} {cat.upper()}")
         for c in cat_checks:
@@ -325,3 +327,66 @@ def format_terminal_report(report: DiagnosticReport) -> str:
     lines.append("=" * 68)
 
     return "\n".join(lines)
+
+
+def check_tool_health(registry: ToolRegistry) -> Dict[str, Dict[str, Any]]:
+    """Check health and installation status of all tools in the registry.
+
+    Returns a dict mapping tool name to:
+    {
+        "status": "ok" | "missing" | "error",
+        "healthy": bool,
+        "message": str,
+        "binary": Optional[str],
+        "hint": Optional[str]
+    }
+    """
+    health: Dict[str, Dict[str, Any]] = {}
+
+    # 1. Capture load errors
+    for name, err in registry.load_errors.items():
+        health[name] = {
+            "status": "error",
+            "healthy": False,
+            "message": f"Plugin load error: {err}",
+            "binary": None,
+            "hint": "Check tool manifest and adapter implementation"
+        }
+
+    # 2. Check registered tools
+    for name in registry.list_tools():
+        if name in health:
+            continue
+        tool_data = registry.get_tool(name)
+        adapter = tool_data.get("adapter") if tool_data else None
+
+        is_installed = False
+        if adapter:
+            try:
+                is_installed = adapter.validate_install()
+            except Exception:
+                is_installed = False
+        if not is_installed:
+            is_installed = shutil.which(name) is not None
+
+        binary_path = shutil.which(name) if is_installed else None
+        hint = INSTALLATION_HINTS.get(name, f"Install '{name}' using your system package manager.")
+
+        if is_installed:
+            health[name] = {
+                "status": "ok",
+                "healthy": True,
+                "message": f"Installed ({binary_path or 'PATH'})",
+                "binary": binary_path,
+                "hint": None
+            }
+        else:
+            health[name] = {
+                "status": "missing",
+                "healthy": False,
+                "message": "Not installed (missing from PATH)",
+                "binary": None,
+                "hint": hint
+            }
+
+    return health

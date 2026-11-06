@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cyguide"
-version = "1.0.0"
+version = "1.5.0"
 authors = [
   { name="Harshwardhan Patil" },
   { name="CyGuide Contributors" },
 ]
 description = "A TUI-based guided cybersecurity learning platform"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3.11",
@@ -26,6 +26,12 @@ dependencies = [
     "pyperclip>=1.9.0",
     "httpx>=0.27.0",
     "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
 ]
 
 [project.urls]
@@ -47,4 +53,5 @@ cyg = "cyguide.main:main"
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "strict"
-norecursedirs = ["scripts", "venv", ".git", "__pycache__", "tests/experiments"]
+asyncio_default_fixture_loop_scope = "function"
+norecursedirs = [".venv", "venv", ".git", "__pycache__"]

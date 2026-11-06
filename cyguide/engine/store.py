@@ -7,10 +7,9 @@ import re
 import json
 import uuid
 import aiosqlite
-from datetime import datetime, UTC
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
-from cyguide.schemas.base import BaseFinding, Relation
+from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.power import ActionRequest
 
 
@@ -30,6 +29,10 @@ class GraphStore:
     async def _get_conn(self):
         """Helper to get a connection, supporting persistent connection for all paths."""
         if self._conn is None:
+            if self.db_path != ":memory:":
+                db_dir = os.path.dirname(os.path.abspath(self.db_path))
+                if db_dir:
+                    os.makedirs(db_dir, exist_ok=True)
             self._conn = await aiosqlite.connect(self.db_path)
             await self._conn.execute("PRAGMA foreign_keys = ON")
             await self._conn.execute("PRAGMA trusted_schema = OFF")
@@ -49,6 +52,7 @@ class GraphStore:
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     status TEXT DEFAULT 'ACTIVE',
+                    closed_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -60,6 +64,7 @@ class GraphStore:
                     workspace_id TEXT NOT NULL,
                     name TEXT NOT NULL,
                     status TEXT DEFAULT 'ACTIVE',
+                    closed_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
                 )
@@ -79,7 +84,7 @@ class GraphStore:
                     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
                 )
             """)
-            
+
             # 4. Edges (Per-session graph edges)
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS edges (
@@ -108,25 +113,16 @@ class GraphStore:
                     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
                 )
             """)
-            
-            # 6. Schema Migrations (for backward compatibility with older cyguide.db)
-            try:
-                await db.execute("ALTER TABLE event_log ADD COLUMN action_payload TEXT")
-                await db.execute("ALTER TABLE event_log ADD COLUMN result_payload TEXT")
-                await db.execute("ALTER TABLE event_log ADD COLUMN human_readable TEXT")
-            except Exception:
-                pass # Columns already exist
 
-            try:
-                await db.execute("ALTER TABLE event_log ADD COLUMN closed INTEGER DEFAULT 0")
-            except Exception:
-                pass # Column already exists
+            # 6. High-Performance Graph & Event Log Indexes
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_nodes_session_schema ON nodes(session_id, schema_type)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_edges_session ON edges(session_id)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(session_id, source_id)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(session_id, target_id)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_event_log_session_time ON event_log(session_id, timestamp DESC)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_ws_status ON sessions(workspace_id, status)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_workspaces_status ON workspaces(status)")
 
-            try:
-                await db.execute("ALTER TABLE nodes ADD COLUMN status TEXT DEFAULT 'confirmed'")
-            except Exception:
-                pass # Column already exists
-                
             await db.commit()
 
     async def close(self):
@@ -147,7 +143,7 @@ class GraphStore:
             else:
                 ws_id = str(uuid.uuid4())
                 await db.execute("INSERT INTO workspaces (id, name, status) VALUES (?, ?, ?)", (ws_id, "Learning Sandbox", "SYSTEM"))
-            
+
             # 2. Check for existing Guided Session
             cursor = await db.execute("SELECT id FROM sessions WHERE workspace_id = ? AND name = 'Guided Session' LIMIT 1", (ws_id,))
             row = await cursor.fetchone()
@@ -156,7 +152,7 @@ class GraphStore:
             else:
                 sess_id = str(uuid.uuid4())
                 await db.execute("INSERT INTO sessions (id, workspace_id, name, status) VALUES (?, ?, ?, ?)", (sess_id, ws_id, "Guided Session", "SYSTEM"))
-            
+
             await db.commit()
             return ws_id, sess_id
 
@@ -174,10 +170,16 @@ class GraphStore:
             await db.execute("UPDATE workspaces SET name = ? WHERE id = ?", (new_name, workspace_id))
             await db.commit()
 
-    async def list_workspaces(self) -> List[Dict]:
+    async def list_workspaces(self, status_filter: Optional[str] = None) -> List[Dict]:
         async with self._get_conn() as db:
             db.row_factory = aiosqlite.Row
-            cursor = await db.execute("SELECT * FROM workspaces ORDER BY created_at DESC")
+            if status_filter:
+                cursor = await db.execute(
+                    "SELECT * FROM workspaces WHERE status = ? ORDER BY created_at DESC",
+                    (status_filter,)
+                )
+            else:
+                cursor = await db.execute("SELECT * FROM workspaces ORDER BY created_at DESC")
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 
@@ -188,6 +190,24 @@ class GraphStore:
             cursor = await db.execute("SELECT * FROM workspaces WHERE id = ?", (workspace_id,))
             row = await cursor.fetchone()
             return dict(row) if row else None
+
+    async def close_workspace(self, workspace_id: str) -> None:
+        """Mark workspace as closed/archived."""
+        async with self._get_conn() as db:
+            await db.execute(
+                "UPDATE workspaces SET status = 'CLOSED', closed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (workspace_id,)
+            )
+            await db.commit()
+
+    async def reopen_workspace(self, workspace_id: str) -> None:
+        """Reopen a closed workspace."""
+        async with self._get_conn() as db:
+            await db.execute(
+                "UPDATE workspaces SET status = 'ACTIVE', closed_at = NULL WHERE id = ?",
+                (workspace_id,)
+            )
+            await db.commit()
 
     # --- Session Management ---
 
@@ -214,15 +234,39 @@ class GraphStore:
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-    async def list_sessions(self, workspace_id: str) -> List[Dict]:
+    async def list_sessions(self, workspace_id: str, status_filter: Optional[str] = None) -> List[Dict]:
         async with self._get_conn() as db:
             db.row_factory = aiosqlite.Row
-            cursor = await db.execute(
-                "SELECT * FROM sessions WHERE workspace_id = ? ORDER BY created_at DESC", 
-                (workspace_id,)
-            )
+            if status_filter:
+                cursor = await db.execute(
+                    "SELECT * FROM sessions WHERE workspace_id = ? AND status = ? ORDER BY created_at DESC",
+                    (workspace_id, status_filter)
+                )
+            else:
+                cursor = await db.execute(
+                    "SELECT * FROM sessions WHERE workspace_id = ? ORDER BY created_at DESC",
+                    (workspace_id,)
+                )
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
+
+    async def close_session(self, session_id: str) -> None:
+        """Mark session as closed/archived."""
+        async with self._get_conn() as db:
+            await db.execute(
+                "UPDATE sessions SET status = 'CLOSED', closed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (session_id,)
+            )
+            await db.commit()
+
+    async def reopen_session(self, session_id: str) -> None:
+        """Reopen an archived session back to ACTIVE."""
+        async with self._get_conn() as db:
+            await db.execute(
+                "UPDATE sessions SET status = 'ACTIVE', closed_at = NULL WHERE id = ?",
+                (session_id,)
+            )
+            await db.commit()
 
     async def delete_workspace(self, workspace_id: str):
         """Delete a workspace and all its sessions/graphs (cascade)."""
@@ -252,9 +296,9 @@ class GraphStore:
         async with self._get_conn() as db:
             db.row_factory = aiosqlite.Row
             query = """
-                SELECT e.*, s.name as session_name 
-                FROM event_log e 
-                JOIN sessions s ON e.session_id = s.id 
+                SELECT e.*, s.name as session_name
+                FROM event_log e
+                JOIN sessions s ON e.session_id = s.id
                 WHERE s.workspace_id = ? AND (e.closed IS NULL OR e.closed = 0)
                 ORDER BY e.timestamp DESC LIMIT ?
             """
@@ -271,22 +315,22 @@ class GraphStore:
 
     async def upsert_finding(self, session_id: str, finding: BaseFinding):
         node_id = self._generate_node_id(finding.schema_type, finding.pik)
-        
+
         async with self._get_conn() as db:
             # 1. Log the event
             await db.execute(
-                """INSERT INTO event_log (session_id, schema_type, finding_json, human_readable, action_payload, result_payload) 
+                """INSERT INTO event_log (session_id, schema_type, finding_json, human_readable, action_payload, result_payload)
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 (session_id, finding.schema_type, finding.model_dump_json(), f"Discovered {finding.schema_type}", "{}", "{}")
             )
 
             # 2. Upsert the node
             cursor = await db.execute(
-                "SELECT data_json FROM nodes WHERE session_id = ? AND id = ?", 
+                "SELECT data_json FROM nodes WHERE session_id = ? AND id = ?",
                 (session_id, node_id)
             )
             row = await cursor.fetchone()
-            
+
             if row:
                 existing_data = json.loads(row[0])
                 existing_data.update(finding.data)
@@ -394,7 +438,7 @@ class GraphStore:
         async with self._get_conn() as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
-                "SELECT * FROM nodes WHERE session_id = ? ORDER BY updated_at DESC", 
+                "SELECT * FROM nodes WHERE session_id = ? ORDER BY updated_at DESC",
                 (session_id,)
             )
             rows = await cursor.fetchall()
@@ -404,7 +448,7 @@ class GraphStore:
         async with self._get_conn() as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
-                "SELECT * FROM edges WHERE session_id = ?", 
+                "SELECT * FROM edges WHERE session_id = ?",
                 (session_id,)
             )
             rows = await cursor.fetchall()
@@ -414,9 +458,9 @@ class GraphStore:
         async with self._get_conn() as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
-                """SELECT n.* FROM nodes n 
-                   JOIN sessions s ON n.session_id = s.id 
-                   WHERE s.workspace_id = ? ORDER BY n.updated_at DESC""", 
+                """SELECT n.* FROM nodes n
+                   JOIN sessions s ON n.session_id = s.id
+                   WHERE s.workspace_id = ? ORDER BY n.updated_at DESC""",
                 (workspace_id,)
             )
             rows = await cursor.fetchall()
@@ -426,9 +470,9 @@ class GraphStore:
         async with self._get_conn() as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
-                """SELECT e.* FROM edges e 
-                   JOIN sessions s ON e.session_id = s.id 
-                   WHERE s.workspace_id = ?""", 
+                """SELECT e.* FROM edges e
+                   JOIN sessions s ON e.session_id = s.id
+                   WHERE s.workspace_id = ?""",
                 (workspace_id,)
             )
             rows = await cursor.fetchall()
@@ -454,7 +498,7 @@ class GraphStore:
                 )
             else:
                 cursor = await db.execute("SELECT schema_type, COUNT(*) FROM nodes GROUP BY schema_type")
-            
+
             rows = await cursor.fetchall()
             stats = {"total": 0}
             for schema_type, count in rows:
@@ -472,12 +516,22 @@ class GraphStore:
             )
             await db.commit()
 
+    async def log_audit_event(self, session_id: str, action_name: str, message: str, status: str) -> None:
+        """Append an audit lifecycle event (e.g. session closed/reopened) to event_log."""
+        async with self._get_conn() as db:
+            await db.execute(
+                """INSERT INTO event_log (session_id, action_payload, result_payload, human_readable, schema_type, finding_json)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (session_id, json.dumps({"action": action_name}), json.dumps({"status": status}), message, f"system.{action_name}", "{}")
+            )
+            await db.commit()
+
     async def export_session(self, session_id: str, dest_db_path: str) -> None:
         """Export session metadata, nodes, edges, and event_log rows to a new SQLite database."""
         dest_store = GraphStore(dest_db_path)
         await dest_store.initialize()
         await dest_store.close()
-        
+
         async with self._get_conn() as db:
             await db.execute("ATTACH DATABASE ? AS dest", (dest_db_path,))
             try:
@@ -521,7 +575,7 @@ class GraphStore:
                     FROM event_log
                     WHERE session_id = ?
                 """, (session_id,))
-                
+
                 await db.commit()
                 if os.path.exists(dest_db_path):
                     try:
@@ -536,7 +590,7 @@ class GraphStore:
 
     async def import_session(self, src_db_path: str, target_workspace_id: Optional[str] = None) -> str:
         """Import a session from an exported SQLite database into this store.
-        
+
         If the session already exists, it is overwritten (restored).
         Returns the imported session ID.
         """
@@ -548,16 +602,16 @@ class GraphStore:
                 src_session = await cursor.fetchone()
                 if not src_session:
                     raise ValueError("No session found in the source database.")
-                
+
                 src_session_id = src_session["id"]
                 src_session_name = src_session["name"]
                 src_session_status = src_session["status"]
                 src_session_created = src_session["created_at"]
-                
+
                 cursor_ws = await db.execute("SELECT name FROM src.workspaces WHERE id = ?", (src_session["workspace_id"],))
                 ws_row = await cursor_ws.fetchone()
                 src_workspace_name = ws_row["name"] if ws_row else "Imported Workspace"
-                
+
                 if target_workspace_id:
                     cursor_target_ws = await db.execute("SELECT id FROM workspaces WHERE id = ?", (target_workspace_id,))
                     t_ws = await cursor_target_ws.fetchone()
@@ -579,11 +633,11 @@ class GraphStore:
                             "INSERT INTO workspaces (id, name, status) VALUES (?, ?, 'ACTIVE')",
                             (final_workspace_id, src_workspace_name)
                         )
-                
+
                 # Check if the session already exists by ID in our database
                 cursor_existing_sess = await db.execute("SELECT id, name, workspace_id FROM sessions WHERE id = ?", (src_session_id,))
                 existing_sess = await cursor_existing_sess.fetchone()
-                
+
                 if existing_sess:
                     # Clean up existing session data first to overwrite/restore it
                     await db.execute("DELETE FROM sessions WHERE id = ?", (src_session_id,))
@@ -591,7 +645,7 @@ class GraphStore:
                     await db.execute("DELETE FROM nodes WHERE session_id = ?", (src_session_id,))
                     await db.execute("DELETE FROM edges WHERE session_id = ?", (src_session_id,))
                     await db.execute("DELETE FROM event_log WHERE session_id = ?", (src_session_id,))
-                
+
                 # Handle name collision with a DIFFERENT session in the target workspace
                 final_session_name = src_session_name
                 collision_idx = 1
@@ -605,12 +659,12 @@ class GraphStore:
                         break
                     final_session_name = f"{src_session_name} (Imported {collision_idx})"
                     collision_idx += 1
-                
+
                 await db.execute(
                     "INSERT INTO sessions (id, workspace_id, name, status, created_at) VALUES (?, ?, ?, ?, ?)",
                     (src_session_id, final_workspace_id, final_session_name, src_session_status, src_session_created)
                 )
-                
+
                 cursor_nodes = await db.execute("SELECT * FROM src.nodes WHERE session_id = ?", (src_session_id,))
                 nodes = await cursor_nodes.fetchall()
                 for n in nodes:
@@ -629,7 +683,7 @@ class GraphStore:
                         "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         (src_session_id, n["id"], schema_type, json.dumps(pik_val), json.dumps(data_val), n["status"], n["updated_at"])
                     )
-                    
+
                 cursor_edges = await db.execute("SELECT * FROM src.edges WHERE session_id = ?", (src_session_id,))
                 edges = await cursor_edges.fetchall()
                 for e in edges:
@@ -637,7 +691,7 @@ class GraphStore:
                         "INSERT INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
                         (src_session_id, e["source_id"], e["target_id"], e["relation_type"])
                     )
-                    
+
                 cursor_events = await db.execute("SELECT * FROM src.event_log WHERE session_id = ?", (src_session_id,))
                 events = await cursor_events.fetchall()
                 for ev in events:
@@ -645,7 +699,7 @@ class GraphStore:
                         "INSERT INTO event_log (session_id, timestamp, action_payload, result_payload, human_readable, schema_type, finding_json, closed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         (src_session_id, ev["timestamp"], ev["action_payload"], ev["result_payload"], ev["human_readable"], ev["schema_type"], ev["finding_json"], ev["closed"])
                     )
-                
+
                 await db.commit()
                 return src_session_id
             except Exception:

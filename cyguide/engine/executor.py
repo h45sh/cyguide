@@ -5,7 +5,7 @@ import logging
 import os
 import shlex
 import shutil
-from typing import Dict, Any, List, Optional, AsyncIterator, Callable, Coroutine
+from typing import Dict, Any, Optional, AsyncIterator, Callable, Coroutine
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.base import BaseFinding
@@ -17,12 +17,13 @@ def sanitize_subprocess_env(env: Optional[Dict[str, str]] = None) -> Dict[str, s
     """Sanitize environment variables passed to child subprocesses to prevent secret leakage."""
     base_env = env if env is not None else os.environ.copy()
     sensitive_prefixes = (
-        "CYGUIDE_", "OPENAI_", "GROQ_", "ANTHROPIC_", 
-        "OPENROUTER_", "GEMINI_", "GROK_", "MISTRAL_", "COHERE_"
+        "CYGUIDE_", "OPENAI_", "GROQ_", "ANTHROPIC_",
+        "OPENROUTER_", "GEMINI_", "GROK_", "MISTRAL_", "COHERE_",
+        "DEEPSEEK_", "PERPLEXITY_", "PPLX_", "HUGGINGFACE_", "HF_"
     )
     sensitive_exact = {
         "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID", "GITHUB_TOKEN", "GH_TOKEN",
-        "API_KEY", "SECRET_KEY", "PRIVATE_KEY"
+        "API_KEY", "SECRET_KEY", "PRIVATE_KEY", "VAULT_TOKEN", "SSH_PRIVATE_KEY"
     }
     return {
         k: v for k, v in base_env.items()
@@ -61,9 +62,9 @@ class Executor:
             await self.stop_task(task_id)
 
     async def run_tool(
-        self, 
-        adapter: ToolAdapter, 
-        target: BaseFinding, 
+        self,
+        adapter: ToolAdapter,
+        target: BaseFinding,
         params: Dict[str, Any],
         session_id: Optional[str] = None,
         task_id: Optional[str] = None,
@@ -71,9 +72,10 @@ class Executor:
         env: Optional[Dict[str, str]] = None,
         use_shell: bool = False,
         shell_path: Optional[str] = None,
-        
+
         on_output: Optional[Callable[[str], Coroutine]] = None,
-        on_error_output: Optional[Callable[[str], Coroutine]] = None
+        on_error_output: Optional[Callable[[str], Coroutine]] = None,
+        timeout_seconds: Optional[int] = None
     ) -> AsyncIterator[BaseFinding]:
         """
         Execute a tool adapter against a target finding and yield findings.
@@ -82,11 +84,12 @@ class Executor:
             raise RuntimeError(f"Tool binary for {adapter.__class__.__name__} not found on system.")
 
         tracking_id = task_id or session_id
+        start_time = asyncio.get_event_loop().time()
 
         command = adapter.build_command(target, params)
         cmd_str = shlex.join(command)
         clean_env = sanitize_subprocess_env(env)
-        
+
         if use_shell:
             default_shell = shell_path or shutil.which("bash") or os.environ.get("SHELL", "/bin/sh")
             final_cmd = [default_shell, "-c", cmd_str]
@@ -107,7 +110,7 @@ class Executor:
                 cwd=cwd,
                 env=clean_env
             )
-        
+
         if tracking_id:
             self._active_processes[tracking_id] = process
 
@@ -130,13 +133,13 @@ class Executor:
                             async for finding in adapter.parse_output(buffer, target, context=parsing_context):
                                 await finding_queue.put(finding)
                         break
-                    
+
                     raw_text = chunk.decode(errors="replace")
                     if callback:
                         await callback(raw_text)
                     elif on_output:
                         await on_output(raw_text)
-                    
+
                     # Tool parsing only on stdout
                     if is_stdout:
                         buffer += raw_text
@@ -158,10 +161,18 @@ class Executor:
             # Wait for process and stream tasks to finish
             # We don't use gather directly because we want to yield as findings arrive
             while not (stdout_task.done() and stderr_task.done() and process.returncode is not None):
+                # Check for execution timeout
+                if timeout_seconds is not None and (asyncio.get_event_loop().time() - start_time) > timeout_seconds:
+                    if on_output:
+                        await on_output(f"\n[TIMEOUT] Tool execution exceeded {timeout_seconds} seconds. Terminating process...\n")
+                    if process.returncode is None:
+                        process.terminate()
+                    raise TimeoutError(f"Tool execution timed out after {timeout_seconds} seconds.")
+
                 try:
                     # Wait for finding or a small timeout to check process state
                     finding = await asyncio.wait_for(finding_queue.get(), timeout=0.1)
-                    
+
                     if session_id:
                         try:
                             await self.store.upsert_finding(session_id, finding)
@@ -170,12 +181,12 @@ class Executor:
                             if on_output:
                                 await on_output(f"\n[INTERNAL ERROR] Failed to save entity: {upsert_e}\n")
                             raise # Re-raise to ensure job fails but we see the cause
-                    
+
                     if finding.schema_type == "network.service":
                         service_count += 1
                         if not first_service_found:
                             first_service_found = True
-                    
+
                     yield finding
                 except asyncio.TimeoutError:
                     # Just checking if process finished
@@ -183,7 +194,7 @@ class Executor:
                         # Check if process actually finished while we were waiting
                         # but it might still have data in pipes
                         pass
-                
+
                 # Check process return code
                 if process.returncode is None:
                     try:
@@ -216,18 +227,18 @@ class Executor:
         finally:
             if tracking_id:
                 self._active_processes.pop(tracking_id, None)
-            
+
             # Ensure readers are cleaned up
             stdout_task.cancel()
             stderr_task.cancel()
-            
+
             if process.returncode is None:
                 try:
                     process.terminate()
                     await process.wait()
                 except Exception:
                     pass
-            
+
             await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
 
         if process.returncode != 0:

@@ -1,12 +1,14 @@
 """Specialized widgets for Power Mode."""
 
+import asyncio
 import json
 import os
 import subprocess
-from typing import Dict, Any, List, Optional
-from textual import events
-from textual.widgets import Tree, Static, Label, ListView, ListItem, Input, Rule
+from typing import Dict, Any, List
+from textual import events, work
+from textual.widgets import Tree, Static, Label, ListView, ListItem, Input
 from textual.containers import Vertical, Horizontal
+from textual.geometry import Offset
 from textual.app import ComposeResult
 from cyguide.schemas.power import JobStatus, JobStatusEnum
 from cyguide.schemas.base import BaseFinding
@@ -22,30 +24,30 @@ class EntityBrowser(Tree):
     async def refresh_entities(self, graph_data: Dict[str, Any]):
         """Update the tree based on fresh nodes and edges from the store."""
         self.clear()
-        
+
         nodes = graph_data.get("nodes", [])
         edges = graph_data.get("edges", [])
-        
+
         # Build node lookup map
         node_map = {n["id"]: n for n in nodes}
-        
+
         # Build children map: parent_id -> list of child_ids
         children_map = {n["id"]: [] for n in nodes}
         # A set to keep track of nodes that have a parent (to identify roots)
         has_parent = set()
-        
+
         for edge in edges:
             src = edge["source_id"]
             dst = edge["target_id"]
             if src in children_map and dst in node_map:
                 children_map[src].append(dst)
                 has_parent.add(dst)
-                
+
         def get_label(node: Dict[str, Any]) -> str:
             st = node["schema_type"]
             pik = json.loads(node.get("pik_json", "{}"))
             data = json.loads(node.get("data_json", "{}"))
-            
+
             if st == "network.host":
                 return pik.get("ip") or pik.get("host_ip") or node["id"][:8]
             elif st == "network.service":
@@ -86,7 +88,7 @@ class EntityBrowser(Tree):
             node = node_map[node_id]
             label = get_label(node)
             child_ids = children_map.get(node_id, [])
-            
+
             if child_ids:
                 new_tree_node = parent_tree_node.add(label, data={"id": node_id, "type": node["schema_type"]}, expand=True)
                 for cid in child_ids:
@@ -97,12 +99,12 @@ class EntityBrowser(Tree):
         # Group root nodes by logical categories
         hosts = [n for n in nodes if n["id"] not in has_parent and n["schema_type"] == "network.host"]
         others = [n for n in nodes if n["id"] not in has_parent and n["schema_type"] != "network.host"]
-        
+
         if hosts:
             hosts_root = self.root.add("Targets", expand=True)
             for h in hosts:
                 add_node_to_tree(hosts_root, h["id"])
-                
+
         services = [n for n in others if n["schema_type"] == "network.service"]
         web = [n for n in others if n["schema_type"].startswith("web.")]
         domains_dns = [n for n in others if n["schema_type"] in ("domain.info", "dns.record")]
@@ -111,11 +113,11 @@ class EntityBrowser(Tree):
         vulns = [n for n in others if n["schema_type"].startswith("vulnerability.")]
         categorized_ids = {n["id"] for n in (services + web + domains_dns + netblocks + creds + vulns)}
         misc = [n for n in others if n["id"] not in categorized_ids]
-        
+
         if services:
             svc_root = self.root.add("Other Services", expand=True)
             for s in services: add_node_to_tree(svc_root, s["id"])
-            
+
         if domains_dns:
             dns_root = self.root.add("Domains & DNS", expand=True)
             for d in domains_dns: add_node_to_tree(dns_root, d["id"])
@@ -127,11 +129,11 @@ class EntityBrowser(Tree):
         if web:
             web_root = self.root.add("Web", expand=True)
             for w in web: add_node_to_tree(web_root, w["id"])
-            
+
         if creds:
             cred_root = self.root.add("Credentials", expand=True)
             for c in creds: add_node_to_tree(cred_root, c["id"])
-            
+
         if vulns:
             vuln_root = self.root.add("Vulnerabilities", expand=True)
             for v in vulns: add_node_to_tree(vuln_root, v["id"])
@@ -152,48 +154,35 @@ class JobQueue(Vertical):
             self.session_id = session_id
 
     def compose(self) -> ComposeResult:
-        yield Label("JOB QUEUE", classes="section_header")
         yield ListView(id="power_job_list")
 
     async def update_jobs(self, jobs: List[JobStatus]):
         """Refresh the list of active jobs."""
         job_list = self.query_one("#power_job_list", ListView)
         old_idx = job_list.index
-        
-        await job_list.clear()
-        
-        # Group by session_id
-        session_groups = {}
-        for job in jobs:
-            session_groups.setdefault(str(job.session_id), []).append(job)
 
-        for session_id, s_jobs in session_groups.items():
-            header = ListItem(Label(f"Session {session_id[:8]}", classes="section_header"))
-            job_list.append(header)
-            
-            sorted_jobs = sorted(s_jobs, key=lambda j: (j.status == JobStatusEnum.RUNNING, j.started_at), reverse=True)
-            for job in sorted_jobs:
-                if job.status == JobStatusEnum.RUNNING:
-                    status_icon = "◯"
-                    style = "bold #58a6ff"
-                elif job.status == JobStatusEnum.DONE:
-                    status_icon = "●"
-                    style = "#3fb950"
-                elif job.status == JobStatusEnum.FAILED:
-                    status_icon = "×"
-                    style = "#f85149"
-                else: # QUEUED
-                    status_icon = "⚪"
-                    style = "#8b949e"
-                
-                label = f"  {status_icon} {job.tool_name} [#8b949e]{job.job_id.hex[:4]}[/]"
-                item = ListItem(Static(label), id=f"job_item_{job.job_id.hex}")
-                item.job_id = str(job.job_id)
-                item.session_id = str(job.session_id)
-                job_list.append(item)
-            
+        await job_list.clear()
+
+        sorted_jobs = sorted(jobs, key=lambda j: (j.status == JobStatusEnum.RUNNING, j.started_at), reverse=True)
+        for job in sorted_jobs:
+            if job.status == JobStatusEnum.RUNNING:
+                status_icon = "◯"
+            elif job.status == JobStatusEnum.DONE:
+                status_icon = "●"
+            elif job.status == JobStatusEnum.FAILED:
+                status_icon = "×"
+            else: # QUEUED
+                status_icon = "○"
+
+            label = f"  {status_icon} {job.tool_name} [#64748b]{job.job_id.hex[:4]}[/]"
+            item = ListItem(Static(label), id=f"job_item_{job.job_id.hex}")
+            item.job_id = str(job.job_id)
+            item.session_id = str(job.session_id)
+            job_list.append(item)
+
         if old_idx is not None and old_idx < len(job_list.children):
             job_list.index = old_idx
+
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle job selection in the queue."""
@@ -203,6 +192,31 @@ class JobQueue(Vertical):
 
 class CommandPalette(Vertical):
     """The interactive command prompt with Gemini-CLI style metrics."""
+
+    can_focus = False
+
+    @property
+    def allow_vertical_scroll(self) -> bool:
+        return False
+
+    @property
+    def allow_horizontal_scroll(self) -> bool:
+        return False
+
+    def _scroll_to(self, *args, **kwargs) -> bool:
+        return False
+
+    def scroll_to(self, *args, **kwargs) -> None:
+        pass
+
+    def scroll_relative(self, *args, **kwargs) -> None:
+        pass
+
+    def scroll_to_region(self, *args, **kwargs) -> Offset:
+        return Offset(0, 0)
+
+    def scroll_to_widget(self, *args, **kwargs) -> bool:
+        return True
 
     class Submitted(Input.Submitted):
         """Event emitted when a command is submitted."""
@@ -247,33 +261,37 @@ class CommandPalette(Vertical):
         self.shell_locked: bool = False
         self._force_new_tab: bool = False
         self.cwd = os.getcwd()
-        self.branch = self._get_git_branch()
+        self.branch = ""
 
     def _get_git_branch(self) -> str:
         try:
             return subprocess.check_output(
-                ["git", "branch", "--show-current"], 
+                ["git", "branch", "--show-current"],
                 stderr=subprocess.DEVNULL
             ).decode().strip()
         except Exception:
             return ""
 
+    @work(exclusive=True, group="git_branch")
+    async def _async_update_git_branch(self) -> None:
+        try:
+            branch = await asyncio.to_thread(self._get_git_branch)
+            self.branch = branch
+        except Exception:
+            self.branch = ""
+
+    def on_mount(self) -> None:
+        self._async_update_git_branch()
+
     def compose(self) -> ComposeResult:
         with Horizontal(id="palette_header"):
-            yield Label("Tool Mode (press ! for shell)", id="mode_status")
-            yield Static("", expand=True)
-            yield Label("", id="lock_icon")
-            yield Label("F1 or Ctrl+/ for shortcuts", id="shortcuts_hint")
-        
-        yield Rule(classes="minimal-sep")
-        yield Input(value="> ", id="command_input")
-        with Horizontal(id="pwd_container"):
+            yield Label("● Tool Mode (! for shell)", id="mode_status")
+            yield Label("[SHELL LOCK: OFF]", id="lock_icon")
             yield Label("pwd:", classes="pwd_label")
             yield Label("~", id="pwd_line")
-        yield Rule(classes="minimal-sep")
-        
+            yield Label("F1 Help · Ctrl+T New Tab · Esc Dashboard", id="shortcuts_hint")
+        yield Input(value="> ", placeholder="Enter command (e.g. nmap -sV target or !ls)...", id="command_input")
         yield Label("", id="context_line", classes="hidden")
-        yield Label("", id="status_line", classes="hidden")
 
     def show_status(self, message: str, severity: str = "info") -> None:
         """Removed as per user request for absolute minimalism."""
@@ -283,27 +301,31 @@ class CommandPalette(Vertical):
         """Update the prompt metrics showing path and git branch."""
         self.resolved_vars = resolved_vars
         self.cwd = cwd
-        self.branch = self._get_git_branch()
-        
+        self._async_update_git_branch()
+
         # Update metrics
         short_path = cwd.replace(os.path.expanduser("~"), "~")
         self.query_one("#pwd_line", Label).update(short_path)
-        
-        # Update lock icon
+
+        # Update lock label (showing explicit setting ON/OFF)
         lock_label = self.query_one("#lock_icon", Label)
         if self.shell_locked:
-            lock_label.update("🔒 ")
+            lock_label.update("[SHELL LOCK: ON]")
+            lock_label.set_class(True, "locked")
         else:
-            lock_label.update("")
-            
+            lock_label.update("[SHELL LOCK: OFF]")
+            lock_label.set_class(False, "locked")
+
         # Update Context Line
         context_label = self.query_one("#context_line", Label)
         if resolved_vars:
             context_str = " | ".join(f"${k}={v}" for k, v in resolved_vars.items())
             context_label.update(f"Context: {context_str}")
             context_label.remove_class("hidden")
+            self.set_class(True, "has-context")
         else:
             context_label.add_class("hidden")
+            self.set_class(False, "has-context")
 
         # Update mode status based on current input and shell_locked
         self._update_mode_label()
@@ -311,23 +333,23 @@ class CommandPalette(Vertical):
     def _update_mode_label(self):
         mode_label = self.query_one("#mode_status", Label)
         cmd_input = self.query_one("#command_input", Input)
-        
+
         if self.shell_locked:
-            mode_label.update("Shell Locked (ctrl+l to unlock)")
+            mode_label.update("● Shell Locked (ctrl+l)")
             mode_label.set_class(True, "shell-mode")
         elif cmd_input.value.startswith("!"):
-            mode_label.update("Shell Mode (press ! to revert)")
+            mode_label.update("● Shell Mode (!)")
             mode_label.set_class(True, "shell-mode")
         else:
-            mode_label.update("Tool Mode (press ! for shell)")
+            mode_label.update("● Tool Mode (! for shell)")
             mode_label.set_class(False, "shell-mode")
 
     def on_key(self, event: events.Key) -> None:
         """Handle Up/Down arrows, '!' shortcut, Tab completion, and Tab management shortcuts."""
         cmd_input = self.query_one("#command_input", Input)
-        
+
         # Intercept shortcuts that Input normally consumes
-        if event.key in ("f1", "ctrl+slash", "ctrl+underscore"):
+        if event.key == "f1":
             event.stop()
             event.prevent_default()
             self.post_message(self.ShowShortcutsRequest())
@@ -360,7 +382,7 @@ class CommandPalette(Vertical):
 
         elif event.key in ("shift+enter", "alt+enter", "ctrl+j"):
             self._force_new_tab = True
-            cmd_input.action_submit()
+            asyncio.create_task(cmd_input.action_submit())
             event.stop()
             event.prevent_default()
             return
@@ -400,27 +422,27 @@ class CommandPalette(Vertical):
         """Simple filename completion for the current CWD."""
         if not self.cwd or not os.path.isdir(self.cwd):
             return
-            
+
         val = cmd_input.value
         pos = cmd_input.cursor_position
-        
+
         # Strip prefix for completion logic
         clean_val = val.lstrip(">! ")
         prefix_len = len(val) - len(clean_val)
-        
+
         # Find the word being typed
         before_cursor = val[:pos]
         parts = before_cursor.split()
         if not parts:
             return
-            
+
         last_word = parts[-1]
-        
+
         try:
             # List files in CWD
             files = os.listdir(self.cwd)
             matches = [f for f in files if f.startswith(last_word)]
-            
+
             if len(matches) == 1:
                 # Complete the word
                 completion = matches[0][len(last_word):]
@@ -439,7 +461,7 @@ class CommandPalette(Vertical):
     def on_input_changed(self, event: Input.Changed) -> None:
         """Ensure the prefix (> or !) is never deleted and handle pattern-based toggles."""
         val = event.value
-        
+
         # 1. Pattern-based mode toggle (ONLY if it's the only character after prefix)
         if val == "> !":
             event.input.value = "! "
@@ -457,7 +479,7 @@ class CommandPalette(Vertical):
             # User deleted prefix, restore default
             event.input.value = "> " + val.lstrip()
             event.input.cursor_position = len(event.input.value)
-        
+
         self._update_mode_label()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -476,7 +498,7 @@ class CommandPalette(Vertical):
         is_manual_shell = raw_cmd.startswith("!")
         if self.shell_locked:
             is_manual_shell = True
-            
+
         # Strip prefix
         clean_cmd = raw_cmd[1:].strip()
         if not clean_cmd:
@@ -524,23 +546,23 @@ class SuggestionsPane(Vertical):
         """Refresh the list of proposed findings."""
         suggest_list = self.query_one("#power_suggestions_list", ListView)
         old_idx = suggest_list.index
-        
+
         await suggest_list.clear()
-        
+
         for idx, sug in enumerate(suggestions):
             cmd = sug.data.get("recommended_command", "")
             tool = sug.data.get("tool_suggestion", "tool")
-            
+
             # Label showing what tool and what target
             target_str = sug.pik.get("url") or sug.pik.get("ip") or sug.pik.get("host_ip") or "target"
-            display_label = f"💡 {tool} ❯ {target_str}"
-            
+            display_label = f"▸ {tool} ❯ {target_str}"
+
             item = ListItem(Static(display_label), id=f"sug_item_{idx}")
             item.schema_type = sug.schema_type
             item.pik = sug.pik
             item.recommended_command = cmd
             suggest_list.append(item)
-            
+
         if old_idx is not None and old_idx < len(suggest_list.children):
             suggest_list.index = old_idx
 

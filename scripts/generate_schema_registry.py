@@ -4,12 +4,10 @@ Auto-generates docs/developer/SCHEMA_REGISTRY.md from cyguide/schemas.
 Acts as a linter: fails if any schema is missing documentation or pik_fields.
 """
 
-import os
 import sys
 import importlib
 import inspect
 from pathlib import Path
-from typing import Type
 
 # Add the project root to sys.path
 project_root = Path(__file__).parent.parent
@@ -21,20 +19,20 @@ from cyguide.schemas.base import BaseFinding
 def get_all_finding_schemas():
     schemas = []
     schemas_dir = project_root / "cyguide" / "schemas"
-    
+
     for file in schemas_dir.glob("*.py"):
         if file.name == "__init__.py":
             continue
-            
+
         module_name = f"cyguide.schemas.{file.stem}"
         module = importlib.import_module(module_name)
-        
+
         for name, obj in inspect.getmembers(module):
-            if (inspect.isclass(obj) and 
-                issubclass(obj, BaseFinding) and 
+            if (inspect.isclass(obj) and
+                issubclass(obj, BaseFinding) and
                 obj is not BaseFinding):
                 schemas.append(obj)
-    
+
     # Sort by schema_type if possible
     def get_schema_type(s):
         if hasattr(s, "model_fields") and "schema_type" in s.model_fields:
@@ -47,21 +45,21 @@ def get_all_finding_schemas():
 def generate_registry():
     schemas = get_all_finding_schemas()
     errors = []
-    
+
     header = "| Schema Type | Description | PIK Fields | Parent | Associations |\n"
     header += "| :--- | :--- | :--- | :--- | :--- |\n"
     rows = []
-    
+
     for schema in schemas:
         schema_type = "UNKNOWN"
         if hasattr(schema, "model_fields") and "schema_type" in schema.model_fields:
             schema_type = schema.model_fields["schema_type"].default
         elif hasattr(schema, "schema_type"):
             schema_type = schema.schema_type
-            
+
         doc = schema.__doc__.strip() if schema.__doc__ else None
         pik_fields = getattr(schema, "pik_fields", [])
-        
+
         # Linter checks
         if not doc:
             errors.append(f"ERROR: Schema '{schema.__name__}' is missing a docstring.")
@@ -74,21 +72,21 @@ def generate_registry():
             continue
 
         pik_str = ", ".join(f"`{f}`" for f in pik_fields)
-        
+
         # Heuristic for parent
         parent = "—"
         if schema_type == "network.service":
             parent = "`network.host`"
         elif schema_type == "web.endpoint":
             parent = "`network.service`"
-            
+
         # Heuristic/Detection for Associations
         assoc = "—"
         if schema_type == "dns.record":
             assoc = "`resolves_to` → `network.host`"
         elif schema_type == "domain.info":
             assoc = "`whois_data_for` → `dns.record`"
-            
+
         rows.append(f"| `{schema_type}` | {doc} | {pik_str} | {parent} | {assoc} |")
 
     if errors:
@@ -104,7 +102,7 @@ def generate_registry():
     output_path = project_root / "docs" / "developer" / "SCHEMA_REGISTRY.md"
     with open(output_path, "w") as f:
         f.write(content)
-    
+
     print(f"Successfully generated {output_path} with {len(rows)} schemas.")
 
 

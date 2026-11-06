@@ -1,6 +1,6 @@
 """Learning Mode logic and constraints."""
 
-from typing import Dict, Any, List, Optional, AsyncIterator, Callable, Coroutine
+from typing import Dict, Any, Optional, AsyncIterator, Callable, Coroutine
 from cyguide.engine.executor import Executor
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.explainer import LearningExplainer
@@ -19,9 +19,9 @@ class LearningModeEngine:
         self.explainer = explainer
 
     async def execute(
-        self, 
-        tool_name: str, 
-        target: BaseFinding, 
+        self,
+        tool_name: str,
+        target: BaseFinding,
         params: Dict[str, Any],
         session_id: Optional[str] = None,
         on_explanation: Optional[Callable[[str], Coroutine]] = None,
@@ -41,8 +41,8 @@ class LearningModeEngine:
             raise ValueError(f"Tool '{tool_name}' does not support Learning Mode.")
 
         async for finding in self.executor.run_tool(
-            adapter, target, params, 
-            session_id=session_id, 
+            adapter, target, params,
+            session_id=session_id,
             on_output=on_output
         ):
             yield finding
@@ -59,7 +59,7 @@ class LearningModeEngine:
         tool_data = self.registry.get_tool(tool_name)
         if not tool_data or not tool_data["manifest"].learning:
             return {}
-        
+
         explanations = {}
         for item in tool_data["manifest"].learning.flags:
             # We map the flag name (e.g. -sV) to its explanation

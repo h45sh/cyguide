@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 from typing import AsyncIterator
 from cyguide.engine.explainer import LearningExplainer, ExplainerBackend
 
@@ -13,10 +12,10 @@ class DummyBackend(ExplainerBackend):
 async def test_explainer_ask():
     backend = DummyBackend()
     explainer = LearningExplainer(backend)
-    
+
     chunks = []
     async for chunk in explainer.ask("Hello World"):
         chunks.append(chunk)
-        
+
     explanation = "".join(chunks)
     assert explanation == "Hello World"

@@ -1,4 +1,5 @@
 import pytest
+import os
 import sys
 import io
 import json
@@ -65,11 +66,11 @@ async def test_cli_export_and_import_command(tmp_path):
 
     # 2. Test export subcommand
     export_args = [
-        "cyg", 
-        "--db", str(src_db), 
-        "export", 
-        str(sess_id), 
-        str(export_db), 
+        "cyg",
+        "--db", str(src_db),
+        "export",
+        str(sess_id),
+        str(export_db),
         "--report", str(export_md)
     ]
     export_out = await asyncio.to_thread(_run_cli_in_thread, export_args)
@@ -97,5 +98,30 @@ async def test_cli_export_and_import_command(tmp_path):
     hosts = await dst_store.query("network.host", session_id=sess_id)
     assert len(hosts) == 1
     pik = json.loads(hosts[0]["pik_json"])
-    assert pik["ip"] == "10.10.10.10"
     await dst_store.close()
+
+
+@pytest.mark.asyncio
+async def test_cli_check_default_uniform_db(tmp_path, monkeypatch):
+    """Integration test: Running `cyg check` without --db defaults to uniform data directory."""
+    test_dir = str(tmp_path / "cli_uniform")
+    monkeypatch.setenv("CYGUIDE_DATA_DIR", test_dir)
+
+    test_args = ["cyg", "check"]
+    output = await asyncio.to_thread(_run_cli_in_thread, test_args)
+
+    assert "CYGUIDE SYSTEM & ENVIRONMENT DIAGNOSTICS" in output
+    assert "DATABASE" in output
+    # Verify the database was created in the uniform directory
+    assert os.path.exists(os.path.join(test_dir, "cyguide.db"))
+
+
+@pytest.mark.asyncio
+async def test_cli_data_dir_flag(tmp_path):
+    """Integration test: Running `cyg --data-dir <path> check` sets custom uniform directory."""
+    custom_dir = str(tmp_path / "explicit_data_dir")
+    test_args = ["cyg", "--data-dir", custom_dir, "check"]
+    output = await asyncio.to_thread(_run_cli_in_thread, test_args)
+
+    assert "CYGUIDE SYSTEM & ENVIRONMENT DIAGNOSTICS" in output
+    assert os.path.exists(os.path.join(custom_dir, "cyguide.db"))

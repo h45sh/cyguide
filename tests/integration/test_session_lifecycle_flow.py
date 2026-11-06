@@ -1,7 +1,6 @@
 import pytest
 import json
 import asyncio
-from uuid import uuid4, UUID
 from cyguide.engine.store import GraphStore
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.executor import Executor
@@ -47,7 +46,7 @@ async def test_full_session_lifecycle_and_portability(tmp_path):
     # 2. Workspace & Session Management
     ws_id = await facade.create_workspace("RedTeam Alpha")
     session_id = await facade.create_session(ws_id, "Recon Phase 1")
-    
+
     # Rename session
     await facade.rename_session(session_id, "Recon Internal")
     sessions = await src_store.list_sessions(ws_id)
@@ -59,9 +58,9 @@ async def test_full_session_lifecycle_and_portability(tmp_path):
     await src_store.upsert_finding(session_id, target_host)
 
     target_service = NetworkService.create(
-        host_ip="192.168.1.100", 
-        port=80, 
-        protocol="tcp", 
+        host_ip="192.168.1.100",
+        port=80,
+        protocol="tcp",
         service_name="http"
     )
     await src_store.upsert_finding(session_id, target_service)

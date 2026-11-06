@@ -1,4 +1,3 @@
-import pytest
 from cyguide.engine.canonicalize import canonicalize_host, canonicalize_port, canonicalize_url
 
 def test_canonicalize_host():

@@ -1,4 +1,3 @@
-import pytest
 from cyguide.schemas.network import NetworkHost, NetworkService
 from cyguide.schemas.netblock import NetworkNetblock
 from cyguide.schemas.dns import DnsRecord, DomainInfo
@@ -156,6 +155,6 @@ def test_web_vulnerability():
 def test_schema_status_toggle():
     host = NetworkHost.create(ip="10.10.10.10")
     assert host.status == "confirmed"
-    
+
     host.status = "proposed"
     assert host.status == "proposed"
