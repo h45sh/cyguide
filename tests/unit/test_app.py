@@ -267,20 +267,33 @@ async def test_tool_health_arrow_navigation():
 
 
 @pytest.mark.asyncio
-async def test_dashboard_tool_health_conditional_visibility():
+async def test_dashboard_tool_health_conditional_visibility(monkeypatch):
     """Verify tool health is hidden on dashboard when healthy, but appears when there are errors."""
+    import cyguide.engine.diagnostics
     from cyguide.app import CyGuideApp
+
+    # Mock all tools as installed and healthy
+    fake_healthy = {
+        "nmap": {"healthy": True, "status": "installed", "message": "Installed"},
+        "whois": {"healthy": True, "status": "installed", "message": "Installed"},
+    }
+    monkeypatch.setattr(cyguide.engine.diagnostics, "check_tool_health", lambda reg: fake_healthy)
+
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
         dashboard = app.screen
         assert dashboard.__class__.__name__ == "DashboardScreen"
+        await dashboard.refresh_diagnostics()
 
         container = dashboard.query_one("#tool_health_container")
-        # In a healthy environment (all 5 tools installed), tool health is hidden
+        # In a healthy environment, tool health is hidden
         assert "hidden" in container.classes
 
         # Simulate a negative tool health status (load error)
-        app.registry.load_errors["faulty_tool"] = "Crash during initialization"
+        fake_unhealthy = {
+            "faulty_tool": {"healthy": False, "status": "error", "message": "Crash during initialization"}
+        }
+        monkeypatch.setattr(cyguide.engine.diagnostics, "check_tool_health", lambda reg: fake_unhealthy)
         await dashboard.refresh_diagnostics()
         await pilot.pause(0.1)
 

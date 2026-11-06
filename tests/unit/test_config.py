@@ -534,7 +534,8 @@ async def test_config_modal_consistent_height_and_tab_specific_diagnostics(tmp_p
         assert card.size.height == initial_height
         assert "Cloud" in str(btn.label)
         await pilot.click("#cfg_test_btn")
-        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause(0.1)
         banner_text = str(banner.render()).lower()
         assert "cloud" in banner_text or "api" in banner_text
         assert "ollama" not in banner_text
@@ -545,7 +546,8 @@ async def test_config_modal_consistent_height_and_tab_specific_diagnostics(tmp_p
         assert card.size.height == initial_height
         assert "Database" in str(btn.label)
         await pilot.click("#cfg_test_btn")
-        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause(0.1)
         banner_text = str(banner.render()).lower()
         assert "database" in banner_text
         assert "ollama" not in banner_text
@@ -556,7 +558,8 @@ async def test_config_modal_consistent_height_and_tab_specific_diagnostics(tmp_p
         assert card.size.height == initial_height
         assert "Tools" in str(btn.label)
         await pilot.click("#cfg_test_btn")
-        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause(0.1)
         banner_text = str(banner.render()).lower()
         assert "tools" in banner_text
         assert "ollama" not in banner_text
@@ -567,7 +570,8 @@ async def test_config_modal_consistent_height_and_tab_specific_diagnostics(tmp_p
         assert card.size.height == initial_height
         assert "Ollama" in str(btn.label)
         await pilot.click("#cfg_test_btn")
-        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause(0.1)
         banner_text = str(banner.render()).lower()
         assert "ollama" in banner_text
 
@@ -600,8 +604,8 @@ async def test_config_modal_test_cloud_api_non_blocking_worker(monkeypatch):
 
         btn = modal.query_one("#cfg_test_btn", Button)
         await pilot.click("#cfg_test_btn")
-        await pilot.pause()
-        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause(0.1)
 
         assert test_called is True
         banner = modal.query_one("#config_feedback_banner", Label)
