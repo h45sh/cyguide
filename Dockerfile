@@ -19,12 +19,17 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nmap \
     gobuster \
-    nikto \
     whois \
+    perl \
+    libnet-ssleay-perl \
     libxml-writer-perl \
     ca-certificates \
     curl \
     unzip \
+    git \
+    && git clone --depth 1 https://github.com/sullo/nikto.git /opt/nikto \
+    && ln -s /opt/nikto/program/nikto.pl /usr/local/bin/nikto \
+    && apt-get purge -y --auto-remove git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install subfinder binary from official ProjectDiscovery release
