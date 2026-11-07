@@ -6,7 +6,6 @@ import sys
 from dotenv import load_dotenv
 
 from cyguide import __version__
-from cyguide.app import CyGuideApp
 from cyguide.paths import get_default_data_dir, get_default_db_path
 
 
@@ -157,6 +156,8 @@ def main():
             return 0 if report.healthy else 1
 
         sys.exit(asyncio.run(run_check()))
+
+    from cyguide.app import CyGuideApp
 
     app = CyGuideApp(
         db_path=args.db,
