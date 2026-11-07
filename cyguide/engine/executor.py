@@ -87,11 +87,12 @@ class Executor:
         start_time = asyncio.get_event_loop().time()
 
         command = adapter.build_command(target, params)
-        cmd_str = shlex.join(command)
         clean_env = sanitize_subprocess_env(env)
 
         if use_shell:
             default_shell = shell_path or shutil.which("bash") or os.environ.get("SHELL", "/bin/sh")
+            raw_flags = params.get("raw_flags") if params else None
+            cmd_str = raw_flags.strip() if raw_flags else shlex.join(command)
             final_cmd = [default_shell, "-c", cmd_str]
             process = await asyncio.create_subprocess_exec(
                 *final_cmd,
@@ -113,9 +114,6 @@ class Executor:
 
         if tracking_id:
             self._active_processes[tracking_id] = process
-
-        service_count = 0
-        first_service_found = False
 
         # Internal queue to bridge stream readers and findings generator
         finding_queue = asyncio.Queue()
@@ -182,11 +180,6 @@ class Executor:
                                 await on_output(f"\n[INTERNAL ERROR] Failed to save entity: {upsert_e}\n")
                             raise # Re-raise to ensure job fails but we see the cause
 
-                    if finding.schema_type == "network.service":
-                        service_count += 1
-                        if not first_service_found:
-                            first_service_found = True
-
                     yield finding
                 except asyncio.TimeoutError:
                     # Just checking if process finished
@@ -214,10 +207,6 @@ class Executor:
                         if on_output:
                             await on_output(f"\n[INTERNAL ERROR] Failed to save entity: {upsert_e}\n")
                         raise
-                if finding.schema_type == "network.service":
-                    service_count += 1
-                    if not first_service_found:
-                        first_service_found = True
                 yield finding
 
         except asyncio.CancelledError:

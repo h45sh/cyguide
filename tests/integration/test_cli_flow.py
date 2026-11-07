@@ -79,6 +79,7 @@ async def test_cli_export_and_import_command(tmp_path):
     assert "[+] Markdown report exported successfully" in export_out
     assert export_db.exists()
     assert export_md.exists()
+    assert oct(os.stat(export_md).st_mode & 0o777) == "0o600"
 
     # 3. Test import subcommand into a destination database
     dst_db = tmp_path / "destination.db"
@@ -98,6 +99,7 @@ async def test_cli_export_and_import_command(tmp_path):
     hosts = await dst_store.query("network.host", session_id=sess_id)
     assert len(hosts) == 1
     pik = json.loads(hosts[0]["pik_json"])
+    assert "ip" in pik
     await dst_store.close()
 
 
@@ -125,3 +127,13 @@ async def test_cli_data_dir_flag(tmp_path):
 
     assert "CYGUIDE SYSTEM & ENVIRONMENT DIAGNOSTICS" in output
     assert os.path.exists(os.path.join(custom_dir, "cyguide.db"))
+
+
+@pytest.mark.asyncio
+async def test_cli_version_flag():
+    """Integration test: Running `cyg --version` outputs version string."""
+    from cyguide import __version__
+    test_args = ["cyg", "--version"]
+    output = await asyncio.to_thread(_run_cli_in_thread, test_args)
+    assert f"CyGuide {__version__}" in output
+

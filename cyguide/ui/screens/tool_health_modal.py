@@ -1,13 +1,11 @@
 """Modal dialog for viewing system and security tool health status."""
 
-import asyncio
+from typing import Any
 from textual import events, work
 from textual.screen import ModalScreen
 from textual.widgets import Label, Button, Static, ListView, ListItem
 from textual.containers import Vertical, Horizontal
 from textual.app import ComposeResult
-
-from cyguide.engine.diagnostics import check_tool_health
 
 
 class ToolHealthModal(ModalScreen[None]):
@@ -65,15 +63,29 @@ class ToolHealthModal(ModalScreen[None]):
             event.stop()
             self.dismiss()
 
+    async def on_tool_health_changed(self, event: Any) -> None:
+        """Handle real-time tool health changes broadcast while modal is open."""
+        await self.apply_health(event.health)
+
+    async def on_cy_guide_app_tool_health_changed(self, event: Any) -> None:
+        """Fallback handler for nested event class names."""
+        await self.apply_health(event.health)
+
     @work(exclusive=True, group="tool_health_modal")
     async def refresh_health(self) -> None:
-        health = await asyncio.to_thread(check_tool_health, self.app.registry)
-        if hasattr(self.app, "_cached_tool_health"):
-            self.app._cached_tool_health = health
-        total = len(health)
-        issues = [info for info in health.values() if not info["healthy"]]
+        health = self.app.check_and_update_tool_health()
+        await self.apply_health(health)
 
-        summary_label = self.query_one("#tool_health_summary_label", Label)
+    async def apply_health(self, health: dict) -> None:
+        try:
+            summary_label = self.query_one("#tool_health_summary_label", Label)
+            item_list = self.query_one("#tool_health_items", ListView)
+        except Exception:
+            return
+
+        total = len(health)
+        issues = [info for info in health.values() if not info.get("healthy", False)]
+
         if not issues:
             summary_label.update(f"● All {total} registered tools are operational and available.")
             summary_label.set_class(True, "summary_green")
@@ -83,21 +95,20 @@ class ToolHealthModal(ModalScreen[None]):
             summary_label.set_class(True, "summary_red")
             summary_label.set_class(False, "summary_green")
 
-        item_list = self.query_one("#tool_health_items", ListView)
         await item_list.clear()
 
         for name, info in sorted(health.items()):
-            if info["status"] == "ok":
+            if info.get("status") == "ok":
                 status_glyph = "● Ready"
-                desc = info["binary"] or "PATH"
+                desc = info.get("binary") or "PATH"
                 classes = "tool_status_row status_ok"
-            elif info["status"] == "missing":
-                status_glyph = "○ Missing"
+            elif info.get("status") == "missing":
+                status_glyph = "× Missing"
                 desc = info.get("hint") or "Not installed"
                 classes = "tool_status_row status_missing"
             else:
                 status_glyph = "▲ Error"
-                desc = info["message"]
+                desc = info.get("message", "Error")
                 classes = "tool_status_row status_error"
 
             content = (

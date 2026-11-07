@@ -205,7 +205,7 @@ async def test_system_commands_show_setting_state():
     """Verify get_system_commands displays setting status with visual indicator without long descriptions."""
     from cyguide.app import CyGuideApp
     app = CyGuideApp()
-    async with app.run_test() as pilot:
+    async with app.run_test():
         commands = list(app.get_system_commands(app.screen))
         anim_cmd = next(c for c in commands if "Toggle Animations" in c.title)
         assert "● ON" in anim_cmd.title or "○ OFF" in anim_cmd.title
@@ -356,7 +356,7 @@ async def test_dashboard_workspace_session_arrow_navigation():
         sess_list = d.query_one("#session_list")
 
         ws_id = await app.power_facade.create_workspace("TestWS")
-        sess_id = await app.power_facade.create_session(ws_id, "TestSession")
+        await app.power_facade.create_session(ws_id, "TestSession")
         await d.refresh_workspaces()
         await d.show_workspace_details(ws_id)
         await pilot.pause(0.2)
@@ -407,7 +407,7 @@ async def test_dashboard_arrow_navigation_in_delete_and_organize_modes():
         sess_list = d.query_one("#session_list")
 
         ws_id = await app.power_facade.create_workspace("TestWS")
-        sess_id = await app.power_facade.create_session(ws_id, "TestSession")
+        await app.power_facade.create_session(ws_id, "TestSession")
         await d.refresh_workspaces()
         await d.show_workspace_details(ws_id)
         await pilot.pause(0.2)

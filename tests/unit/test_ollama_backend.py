@@ -1,31 +1,6 @@
 import pytest
-import json
 from unittest.mock import AsyncMock, patch, MagicMock
 from cyguide.engine.explainer import OllamaBackend
-
-@pytest.mark.asyncio
-async def test_ollama_backend_streaming():
-    """Verify OllamaBackend parses streamed JSON chunks correctly."""
-    backend = OllamaBackend(model="test-model")
-    
-    # Mock responses from Ollama
-    mock_chunks = [
-        json.dumps({"response": "Hello", "done": False}),
-        json.dumps({"response": " world", "done": True})
-    ]
-    
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.aiter_lines.return_value = AsyncMockIterator(mock_chunks)
-    
-    # Mock the context managers
-    mock_client = MagicMock()
-    mock_client.stream.return_value.__aenter__.return_value = mock_response
-    
-    with patch("httpx.AsyncClient", return_value=MagicMock(__aenter__=AsyncMock(return_value=mock_client))):
-        # This is getting complex to mock manually with MagicMock. 
-        # Let's use a simpler approach for the test.
-        pass
 
 class AsyncMockIterator:
     def __init__(self, items):

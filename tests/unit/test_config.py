@@ -5,7 +5,7 @@ import json
 import asyncio
 import pytest
 from unittest.mock import MagicMock
-from textual.widgets import Input, Switch, Label, Button
+from textual.widgets import Input, Switch, Label
 
 from cyguide.app import CyGuideApp, CyGuideCommandPalette
 from cyguide.ui.screens.config_modal import (
@@ -226,7 +226,8 @@ async def test_config_modal_save_and_apply(tmp_path):
         modal.query_one("#cfg_api_type", Input).value = "groq"
         modal.query_one("#cfg_api_model", Input).value = "llama-3.3-70b-versatile"
         modal.query_one("#cfg_api_base", Input).value = "https://api.groq.com/openai/v1"
-        modal.query_one("#cfg_tools_dir", Input).value = "my_tools/"
+        custom_tools = str(tmp_path / "custom_tools")
+        modal.query_one("#cfg_tools_dir", Input).value = custom_tools
 
         # Click save button
         await pilot.click("#cfg_save_btn")
@@ -235,7 +236,7 @@ async def test_config_modal_save_and_apply(tmp_path):
         # Verify app properties updated
         assert app.use_ollama is True
         assert app.ollama_model == "mistral"
-        assert app.tools_dir == "my_tools/"
+        assert app.tools_dir == custom_tools
         assert os.environ.get("CYGUIDE_API_KEY") == "gsk_test12345678"
         assert os.environ.get("CYGUIDE_API_TYPE") == "groq"
 
@@ -251,7 +252,8 @@ async def test_config_modal_save_and_apply(tmp_path):
             assert data["use_ollama"] is True
             assert data["ollama_model"] == "mistral"
             assert data["api_key"] == "gsk_test12345678"
-            assert data["tools_dir"] == "my_tools/"
+            assert data["tools_dir"] == custom_tools
+
 
 
 @pytest.mark.asyncio
@@ -579,7 +581,7 @@ async def test_config_modal_consistent_height_and_tab_specific_diagnostics(tmp_p
 @pytest.mark.asyncio
 async def test_config_modal_test_cloud_api_non_blocking_worker(monkeypatch):
     """Verify that clicking Test Cloud API triggers background worker without freezing UI."""
-    from textual.widgets import TabbedContent, Button
+    from textual.widgets import TabbedContent
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
         modal = ConfigModal()
@@ -601,8 +603,6 @@ async def test_config_modal_test_cloud_api_non_blocking_worker(monkeypatch):
         monkeypatch.setattr(modal, "_test_cloud_api", mock_test_cloud)
 
         modal.query_one("#cfg_api_key", Input).value = "sk-test-live-key-123"
-
-        btn = modal.query_one("#cfg_test_btn", Button)
         await pilot.click("#cfg_test_btn")
         await app.workers.wait_for_complete()
         await pilot.pause(0.1)

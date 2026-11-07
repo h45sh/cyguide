@@ -122,8 +122,8 @@ async def check_ollama_status(base_url: str, model: str) -> Tuple[bool, str]:
                     return True, f"▲ Ollama Online · '{model}' not found (Installed: {available})"
             else:
                 return False, f"▲ Ollama returned HTTP {resp.status_code}"
-    except Exception as e:
-        return False, f"○ Ollama Offline (Cannot connect to {clean_url})"
+    except Exception:
+        return False, f"▲ Ollama Offline (Cannot connect to {clean_url})"
 
 
 class ConfigProvider(Provider):
@@ -136,10 +136,10 @@ class ConfigProvider(Provider):
     def category_commands(self) -> List[Tuple[str, Callable[[], None]]]:
         app = self.app
         use_ollama = getattr(app, "use_ollama", False)
-        ollama_status = "[bold green]● ON[/bold green]" if use_ollama else "[dim]○ OFF[/dim]"
+        ollama_status = "[bold green]● ON[/bold green]" if use_ollama else "[dim]⊘ OFF[/dim]"
         settings = getattr(app, "settings", {}) or {}
         has_key = bool(settings.get("api_key") or os.environ.get("CYGUIDE_API_KEY") or os.environ.get("GROQ_API_KEY"))
-        api_status = "[bold green]● Configured[/bold green]" if has_key else "[dim]○ Not set[/dim]"
+        api_status = "[bold green]● Configured[/bold green]" if has_key else "[dim]— Not set[/dim]"
 
         return [
             (
@@ -203,7 +203,7 @@ class OllamaConfigProvider(Provider):
     def commands(self) -> List[Tuple[str, Callable[[], None]]]:
         app = self.app
         use_ollama = getattr(app, "use_ollama", False)
-        ollama_status = "[bold green]● ON[/bold green]" if use_ollama else "[dim]○ OFF[/dim]"
+        ollama_status = "[bold green]● ON[/bold green]" if use_ollama else "[dim]⊘ OFF[/dim]"
         ollama_model = getattr(app, "ollama_model", "gemma") or "gemma"
         settings = getattr(app, "settings", {}) or {}
         ollama_base_url = settings.get("ollama_base_url", "http://localhost:11434")
@@ -254,7 +254,7 @@ class CloudAPIConfigProvider(Provider):
         cmds: List[Tuple[str, Callable[[], None]]] = []
 
         use_cloud = getattr(app, "use_cloud_api", True)
-        cloud_status = "[bold green]● ON[/bold green]" if use_cloud else "[dim]○ OFF[/dim]"
+        cloud_status = "[bold green]● ON[/bold green]" if use_cloud else "[dim]⊘ OFF[/dim]"
         cmds.append((
             f"Toggle Cloud AI Access  {cloud_status}",
             lambda: app.action_toggle_cloud_api(),
@@ -269,7 +269,7 @@ class CloudAPIConfigProvider(Provider):
                 k_name = k.get("name") or k.get("provider") or k_id
                 k_model = k.get("model", "")
                 is_active = (k_id == active_id)
-                status_badge = "[bold green]● Active[/bold green]" if is_active else "[dim]○ Switch[/dim]"
+                status_badge = "[bold green]● Active[/bold green]" if is_active else "[dim]▪ Switch[/dim]"
                 label = f"Switch Active Key: {k_name} ({k_model})  {status_badge}" if k_model else f"Switch Active Key: {k_name}  {status_badge}"
                 cmds.append((label, lambda kid=k_id: app.action_switch_active_key(kid)))
 
@@ -448,7 +448,7 @@ class ConfigModal(ModalScreen[None]):
         elif is_active:
             status_text = "[bold green]● Active[/bold green]"
         else:
-            status_text = "[dim]○ Standby[/dim]"
+            status_text = "[dim]▪ Standby[/dim]"
 
         fallback_text = "[bold #38bdf8]Fallback: YES[/bold #38bdf8]" if enabled else "[dim #64748b]Fallback: NO[/dim #64748b]"
         masked = f"{raw_key[:4]}...{raw_key[-4:]}" if len(raw_key) > 8 else ("[dim](no key)[/dim]" if not raw_key else "Configured")
@@ -486,7 +486,7 @@ class ConfigModal(ModalScreen[None]):
         if not self.cloud_keys:
             return [
                 Label(
-                    "○ No API key profiles configured yet. Click '+ Add Key Profile' to configure a cloud provider or use Local Ollama.",
+                    "▪ No API key profiles configured yet. Click '+ Add Key Profile' to configure a cloud provider or use Local Ollama.",
                     id="cfg_empty_keys_msg",
                     classes="cfg_empty_keys_msg",
                 )
@@ -504,11 +504,11 @@ class ConfigModal(ModalScreen[None]):
             raw_key = k.get("api_key", "").strip().strip('"\'')
             is_active = (kid == self.active_key_id)
             if not raw_key or is_placeholder_key(raw_key):
-                tag = "○ [Missing Key]"
+                tag = "▲ [Missing Key]"
             elif is_active:
                 tag = "● [Active]"
             else:
-                tag = "○ [Standby]"
+                tag = "▪ [Standby]"
             label = f"{tag} {kname} ({kmodel})" if kmodel else f"{tag} {kname}"
             options.append((label, kid))
         return options
@@ -583,7 +583,7 @@ class ConfigModal(ModalScreen[None]):
                     with Horizontal(classes="config_switch_row"):
                         yield Label("Enable Local Ollama:", classes="config_switch_label")
                         yield Switch(value=use_ollama, id="cfg_use_ollama")
-                        badge_text = "[bold green]● ON[/bold green]" if use_ollama else "[dim]○ OFF[/dim]"
+                        badge_text = "[bold green]● ON[/bold green]" if use_ollama else "[dim]⊘ OFF[/dim]"
                         yield Label(badge_text, id="cfg_ollama_switch_badge")
 
                     yield Label("Model Name [--model]:", classes="config_field_label")
@@ -599,7 +599,7 @@ class ConfigModal(ModalScreen[None]):
                     with Horizontal(classes="config_switch_row"):
                         yield Label("Enable Cloud AI Access:", classes="config_switch_label")
                         yield Switch(value=use_cloud_api, id="cfg_use_cloud_api")
-                        cloud_badge_text = "[bold green]● ON[/bold green]" if use_cloud_api else "[dim]○ OFF[/dim]"
+                        cloud_badge_text = "[bold green]● ON[/bold green]" if use_cloud_api else "[dim]⊘ OFF[/dim]"
                         yield Label(cloud_badge_text, id="cfg_cloud_switch_badge")
 
                     # View 1: Keys List View (Visible by default)
@@ -636,7 +636,7 @@ class ConfigModal(ModalScreen[None]):
                         with Horizontal(classes="config_switch_row", id="cfg_editor_switch_row"):
                             yield Label("Include in Fallback Chain:", classes="config_switch_label")
                             yield Switch(value=key_enabled, id="cfg_key_enabled")
-                            badge_txt = "[bold green]● YES[/bold green]" if key_enabled else "[dim]○ NO[/dim]"
+                            badge_txt = "[bold green]● YES[/bold green]" if key_enabled else "[dim]⊘ NO[/dim]"
                             yield Label(badge_txt, id="cfg_key_enabled_badge")
 
                         with Horizontal(id="cfg_editor_footer_row"):
@@ -678,7 +678,7 @@ class ConfigModal(ModalScreen[None]):
             return "● Active Engine: Local Ollama"
 
         if not use_cloud_api:
-            return "○ Active Engine: Local Ollama (Cloud AI Access Disabled)"
+            return "◆ Active Engine: Local Ollama (Cloud AI Access Disabled)"
 
         keys = getattr(self, "cloud_keys", None)
         if keys is None:
@@ -688,7 +688,7 @@ class ConfigModal(ModalScreen[None]):
         if valid_keys:
             return "● Active Engine: Cloud AI"
 
-        return "○ Active Engine: Local Ollama (No Cloud API Key Configured)"
+        return "◆ Active Engine: Local Ollama (No Cloud API Key Configured)"
 
     def _get_ollama_quick_status(self, url: str, model: str) -> str:
         norm_url = normalize_ollama_url(url)
@@ -704,7 +704,7 @@ class ConfigModal(ModalScreen[None]):
             if prof_name:
                 short_name = prof_name[:20] + "..." if len(prof_name) > 23 else prof_name
                 return f"▲ Profile '{short_name}' has no API key · [Credential Missing]"
-            return "○ No Cloud API Key set · Fields empty by default (Local Ollama / Fallback available)"
+            return "◆ No Cloud API Key set · Fields empty by default (Local Ollama / Fallback available)"
         masked = f"{key[:4]}...{key[-4:]}" if len(key) > 8 else "Configured"
         valid_keys = [k for k in getattr(self, "cloud_keys", []) if k.get("api_key") and not is_placeholder_key(k.get("api_key"))]
         num_keys = len(valid_keys)
@@ -725,7 +725,7 @@ class ConfigModal(ModalScreen[None]):
                 return f"● Database file exists ({size_kb:.1f} KB)"
             except Exception:
                 return "● Database file exists"
-        return "○ Database file will be created on first use"
+        return "◆ Database file will be created on first use"
 
     def _get_tools_quick_status(self, path: str) -> str:
         reg = getattr(self.app, "registry", None)
@@ -1084,7 +1084,7 @@ class ConfigModal(ModalScreen[None]):
             enabled = target.get("enabled", True) if target else True
             self.query_one("#cfg_key_enabled", Switch).value = enabled
             badge = self.query_one("#cfg_key_enabled_badge", Label)
-            badge.update("[bold green]● YES[/bold green]" if enabled else "[dim]○ NO[/dim]")
+            badge.update("[bold green]● YES[/bold green]" if enabled else "[dim]⊘ NO[/dim]")
         except Exception:
             pass
         finally:
@@ -1219,7 +1219,7 @@ class ConfigModal(ModalScreen[None]):
                 elif is_active:
                     pill.update("[bold green]● Active[/bold green]")
                 else:
-                    pill.update("[dim]○ Standby[/dim]")
+                    pill.update("[dim]▪ Standby[/dim]")
 
                 act_btn = self.query_one(f"#cfg_activate_key_{cid}", Button)
                 act_btn.disabled = is_active
@@ -1318,21 +1318,21 @@ class ConfigModal(ModalScreen[None]):
         if event.switch.id == "cfg_use_ollama":
             try:
                 badge = self.query_one("#cfg_ollama_switch_badge", Label)
-                badge.update("[bold green]● ON[/bold green]" if event.value else "[dim]○ OFF[/dim]")
+                badge.update("[bold green]● ON[/bold green]" if event.value else "[dim]⊘ OFF[/dim]")
                 self.query_one("#config_status_label", Label).update(self._get_active_status_text())
             except Exception:
                 pass
         elif event.switch.id == "cfg_use_cloud_api":
             try:
                 badge = self.query_one("#cfg_cloud_switch_badge", Label)
-                badge.update("[bold green]● ON[/bold green]" if event.value else "[dim]○ OFF[/dim]")
+                badge.update("[bold green]● ON[/bold green]" if event.value else "[dim]⊘ OFF[/dim]")
                 self.query_one("#config_status_label", Label).update(self._get_active_status_text())
             except Exception:
                 pass
         elif event.switch.id == "cfg_key_enabled":
             try:
                 badge = self.query_one("#cfg_key_enabled_badge", Label)
-                badge.update("[bold green]● YES[/bold green]" if event.value else "[dim]○ NO[/dim]")
+                badge.update("[bold green]● YES[/bold green]" if event.value else "[dim]⊘ NO[/dim]")
                 if self.editing_profile_id:
                     prof = next((k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None)
                     if prof:
@@ -1412,7 +1412,7 @@ class ConfigModal(ModalScreen[None]):
                         elif cid == self.active_key_id:
                             pill.update("[bold green]● Active[/bold green]")
                         else:
-                            pill.update("[dim]○ Standby[/dim]")
+                            pill.update("[dim]▪ Standby[/dim]")
                     except Exception:
                         pass
                 elif event.input.id == "cfg_api_model":

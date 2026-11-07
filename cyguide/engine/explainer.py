@@ -164,7 +164,7 @@ class CloudAPIBackend(ExplainerBackend):
             headers["Authorization"] = f"Bearer {self.api_key}"
             headers["content-type"] = "application/json"
             # Support openrouter specific headers optionally
-            headers["HTTP-Referer"] = "https://github.com/Etrama0/cyguide"
+            headers["HTTP-Referer"] = "https://github.com/h45sh/cyguide"
             headers["X-Title"] = "CyGuide"
             payload["messages"] = [{"role": "user", "content": prompt}]
 
@@ -327,7 +327,7 @@ class MultiKeyCloudBackend(CloudAPIBackend):
                 req_url = f"{base_url}/chat/completions"
                 headers["Authorization"] = f"Bearer {api_key}"
                 headers["content-type"] = "application/json"
-                headers["HTTP-Referer"] = "https://github.com/Etrama0/cyguide"
+                headers["HTTP-Referer"] = "https://github.com/h45sh/cyguide"
                 headers["X-Title"] = "CyGuide"
                 payload["messages"] = [{"role": "user", "content": prompt}]
 

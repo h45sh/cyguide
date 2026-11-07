@@ -1,6 +1,5 @@
 """Workspace and Session Management Dashboard with refined Delete/Organize flows."""
 
-import asyncio
 from textual import events
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Static, Button, ListItem, ListView, Label, Input
@@ -237,17 +236,17 @@ class DashboardScreen(Screen):
 
     BINDINGS = [
         Binding("f1", "show_shortcuts", "Help"),
-        Binding("ctrl+b", "toggle_sidebar", "Sidebar"),
-        Binding("ctrl+n", "new_workspace", "New Workspace"),
+        Binding("ctrl+b", "toggle_sidebar", "Sidebar", show=False),
+        Binding("ctrl+n", "new_workspace", "New WS"),
         Binding("ctrl+s", "new_session", "New Session"),
-        Binding("ctrl+h", "toggle_history_mode", "History"),
+        Binding("ctrl+h", "toggle_history_mode", "History", show=False),
         Binding("h", "toggle_history_mode", "History", show=False),
-        Binding("ctrl+a", "toggle_archive_session", "Archive/Reopen"),
-        Binding("c", "toggle_archive_session", "Archive/Reopen", show=False),
-        Binding("ctrl+l", "nav_learning", "Learning Mode"),
-        Binding("ctrl+d", "toggle_delete_mode", "Delete Mode"),
-        Binding("ctrl+m", "toggle_organize_mode", "Organize Mode"),
-        Binding("f2", "rename_item", "Rename"),
+        Binding("ctrl+a", "toggle_archive_session", "Archive", show=False),
+        Binding("c", "toggle_archive_session", "Archive", show=False),
+        Binding("ctrl+l", "nav_learning", "Learning"),
+        Binding("ctrl+d", "toggle_delete_mode", "Delete", show=False),
+        Binding("ctrl+m", "toggle_organize_mode", "Organize", show=False),
+        Binding("f2", "rename_item", "Rename", show=False),
         Binding("space", "toggle_selection", "Select", show=False),
         Binding("escape", "cancel_mode", "Cancel", show=False),
         Binding("q", "quit", "Quit"),
@@ -317,16 +316,33 @@ class DashboardScreen(Screen):
         await self.refresh_workspaces()
         await self.refresh_diagnostics()
 
-    async def refresh_diagnostics(self) -> None:
-        """Show tool health on dashboard ONLY if any tool is missing or has a negative status."""
-        from cyguide.engine.diagnostics import check_tool_health
-        health = await asyncio.to_thread(check_tool_health, self.app.registry)
-        if hasattr(self.app, "_cached_tool_health"):
-            self.app._cached_tool_health = health
-        issues = {name: info for name, info in health.items() if not info["healthy"]}
+    def on_screen_resume(self) -> None:
+        """Refresh diagnostics when dashboard is resumed (e.g. closing modals)."""
+        health = self.app.check_and_update_tool_health()
+        self.run_worker(self.apply_tool_health(health))
 
-        container = self.query_one("#tool_health_container", Vertical)
-        diag_list = self.query_one("#diagnostics_list", ListView)
+    async def on_tool_health_changed(self, event: Any) -> None:
+        """Handle real-time tool health updates broadcast from the app."""
+        await self.apply_tool_health(event.health)
+
+    async def on_cy_guide_app_tool_health_changed(self, event: Any) -> None:
+        """Fallback handler for nested event class names."""
+        await self.apply_tool_health(event.health)
+
+    async def refresh_diagnostics(self) -> None:
+        """Check tool health and update dashboard alert panel."""
+        health = self.app.check_and_update_tool_health()
+        await self.apply_tool_health(health)
+
+    async def apply_tool_health(self, health: Dict[str, Dict[str, Any]]) -> None:
+        """Show tool health on dashboard ONLY if any tool is missing or has a negative status."""
+        try:
+            container = self.query_one("#tool_health_container", Vertical)
+            diag_list = self.query_one("#diagnostics_list", ListView)
+        except Exception:
+            return
+
+        issues = {name: info for name, info in health.items() if not info.get("healthy", False)}
         await diag_list.clear()
 
         if not issues:
@@ -336,10 +352,10 @@ class DashboardScreen(Screen):
             # In case the tool is not there, or any other negative status, show on dashboard
             container.remove_class("hidden")
             for tool, info in sorted(issues.items()):
-                if info["status"] == "missing":
-                    diag_list.append(ListItem(Static(f"○  {tool}: Not installed", classes="diagnostics_error")))
+                if info.get("status") == "missing":
+                    diag_list.append(ListItem(Static(f"×  {tool}: Not installed", classes="diagnostics_error")))
                 else:
-                    diag_list.append(ListItem(Static(f"▲  {tool}: {info['message']}", classes="diagnostics_error")))
+                    diag_list.append(ListItem(Static(f"▲  {tool}: {info.get('message', 'Issue detected')}", classes="diagnostics_error")))
 
     async def handle_new_finding(self, session_id: str, finding: Any) -> None:
         """Reactive callback triggered by the GraphStore on every finding."""
@@ -629,11 +645,11 @@ class DashboardScreen(Screen):
         if current_ids == expected_ids:
             for i, ws in enumerate(workspaces):
                 if self.mode == "DELETE":
-                    prefix = r"[bold #f85149]\[x][/]  " if ws["id"] in self.selected_workspaces else r"[dim #64748b]\[ ][/]  "
+                    prefix = r"[bold #f85149]\[x][/]  " if ws["id"] in self.selected_workspaces else r"[#94a3b8]\[ ][/]  "
                 elif self.mode == "ORGANIZE" and self.organize_step == 2:
                     prefix = r"[bold #eab308]->[/]  " if i == old_index else "    "
                 else:
-                    prefix = r"[#38bdf8]▸[/]  " if (ws_list.index == i) else r"[#64748b]▪[/]  "
+                    prefix = r"[#38bdf8]▸[/]  " if (ws_list.index == i) else r"[#94a3b8]▪[/]  "
 
                 try:
                     label = ws_list.children[i].query_one(Static)
@@ -644,11 +660,11 @@ class DashboardScreen(Screen):
             await ws_list.clear()
             for i, ws in enumerate(workspaces):
                 if self.mode == "DELETE":
-                    prefix = r"[bold #f85149]\[x][/]  " if ws["id"] in self.selected_workspaces else r"[dim #64748b]\[ ][/]  "
+                    prefix = r"[bold #f85149]\[x][/]  " if ws["id"] in self.selected_workspaces else r"[#94a3b8]\[ ][/]  "
                 elif self.mode == "ORGANIZE" and self.organize_step == 2:
                     prefix = r"[bold #eab308]->[/]  " if i == old_index else "    "
                 else:
-                    prefix = r"[#38bdf8]▸[/]  " if (old_index == i or (old_index is None and i == 0)) else r"[#64748b]▪[/]  "
+                    prefix = r"[#38bdf8]▸[/]  " if (old_index == i or (old_index is None and i == 0)) else r"[#94a3b8]▪[/]  "
                 ws_list.append(ListItem(Static(f"{prefix}{ws['name']}"), id=f"ws_{ws['id']}"))
 
         if old_index is not None:
@@ -685,7 +701,7 @@ class DashboardScreen(Screen):
         self.query_one("#ws_title", Label).update(ws["name"].upper())
         ws_status = ws.get("status", "ACTIVE")
         if ws_status == "CLOSED":
-            self.query_one("#ws_status_badge", Label).update("[dim #64748b]🔒 ARCHIVED[/]")
+            self.query_one("#ws_status_badge", Label).update("[dim #64748b][ARCHIVED][/]")
         else:
             self.query_one("#ws_status_badge", Label).update("")
 
@@ -721,20 +737,21 @@ class DashboardScreen(Screen):
             active_jobs = self.app.power_facade.get_active_jobs_count(s["id"])
             if is_active:
                 if active_jobs > 0:
-                    status_icon = "[#34d399]●[/]"
+                    status_icon = "[bold #34d399]●[/]"
                     suffix = f" [#34d399]({active_jobs} running)[/]"
                 else:
-                    status_icon = "[dim #64748b]○[/]"
+                    status_icon = "[#38bdf8]●[/]"
                     suffix = ""
             else:
-                status_icon = "[dim #64748b]🔒[/]"
+                status_icon = "[#94a3b8]■[/]"
                 closed_date = s.get("closed_at", "")[:10] if s.get("closed_at") else "archived"
-                suffix = f" [dim]({closed_date})[/]"
+                suffix = f" [#94a3b8]({closed_date})[/]"
+
 
             if self.mode == "DELETE":
-                prefix = r"[bold #f85149]\[x][/]  " if s["id"] in self.selected_sessions else r"[dim #64748b]\[ ][/]  "
+                prefix = r"[bold #f85149]\[x][/]  " if s["id"] in self.selected_sessions else r"[#94a3b8]\[ ][/]  "
             elif self.mode == "ORGANIZE" and self.organize_step == 1:
-                prefix = r"[bold #eab308]\[x][/]  " if s["id"] in self.selected_sessions else r"[dim #64748b]\[ ][/]  "
+                prefix = r"[bold #eab308]\[x][/]  " if s["id"] in self.selected_sessions else r"[#94a3b8]\[ ][/]  "
             else:
                 prefix = f"{status_icon}  "
             return f"{prefix}{s['name']}{suffix}"
@@ -758,12 +775,26 @@ class DashboardScreen(Screen):
             sess_list.index = old_index if old_index < len(display_sessions) else 0
             await self.show_session_details(display_sessions[sess_list.index]["id"], force=True)
         elif not display_sessions:
+            await sess_list.clear()
+            placeholder = "[dim #94a3b8]No archived sessions[/]" if self.session_filter == "HISTORY" else "[dim #94a3b8]No active sessions · [Ctrl+S][/]"
+            sess_list.append(ListItem(Static(f"  {placeholder}"), id="empty_sess_placeholder", disabled=True))
             self.selected_session_id = None
             self.app.selected_session_id = None
             details_area = self.query_one("#session_details_content", Vertical)
             await details_area.remove_children()
-            empty_msg = "No archived sessions in this workspace.\nPress [Ctrl+A] on an active session to archive it." if self.session_filter == "HISTORY" else "No active sessions in this workspace.\nPress [Ctrl+S] to create a session or [Ctrl+H] for History."
-            await details_area.mount(Label(empty_msg, classes="placeholder_text"))
+            if self.session_filter == "HISTORY":
+                title = "No archived sessions in this workspace"
+                hint = "Press [Ctrl+A] on an active session to archive it."
+            else:
+                title = "No active sessions in this workspace"
+                hint = "Press [Ctrl+S] to create a session or [Ctrl+H] for History."
+            await details_area.mount(
+                Vertical(
+                    Label(title, classes="session_empty_title"),
+                    Label(hint, classes="session_empty_hint"),
+                    classes="session_empty_card",
+                )
+            )
 
         if was_focused: sess_list.focus()
 
@@ -804,7 +835,7 @@ class DashboardScreen(Screen):
             elif sess_list.has_focus and self.mode == "NORMAL":
                 # Move IN from session list to execute/enter the session (only in NORMAL mode)
                 event.stop()
-                if sess_list.index is not None and sess_list.children:
+                if sess_list.index is not None and sess_list.children and self.selected_session_id:
                     self.app.switch_screen("power_mode")
         elif event.key == "left":
             if sess_list.has_focus:
@@ -815,11 +846,11 @@ class DashboardScreen(Screen):
     async def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if self.mode in ("NORMAL", "DELETE") or (self.mode == "ORGANIZE" and self.organize_step == 1):
             if event.list_view.id == "workspace_list":
-                if event.item and event.item.id:
+                if event.item and event.item.id and event.item.id.startswith("ws_"):
                     ws_id = event.item.id[3:]
                     await self.show_workspace_details(ws_id)
             elif event.list_view.id == "session_list":
-                if event.item and event.item.id:
+                if event.item and event.item.id and event.item.id.startswith("sess_"):
                     sess_id = event.item.id[5:]
                     await self.show_session_details(sess_id)
         elif self.mode == "ORGANIZE" and self.organize_step == 2:
@@ -829,10 +860,12 @@ class DashboardScreen(Screen):
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         if self.mode == "NORMAL":
             if event.list_view.id == "workspace_list":
-                ws_id = event.item.id[3:]
-                await self.show_workspace_details(ws_id)
+                if event.item and event.item.id and event.item.id.startswith("ws_"):
+                    ws_id = event.item.id[3:]
+                    await self.show_workspace_details(ws_id)
             elif event.list_view.id == "session_list":
-                self.app.switch_screen("power_mode")
+                if event.item and event.item.id and event.item.id.startswith("sess_"):
+                    self.app.switch_screen("power_mode")
         elif self.mode == "DELETE":
             await self.action_toggle_selection()
         elif self.mode == "ORGANIZE":
@@ -869,7 +902,7 @@ class DashboardScreen(Screen):
             else:
                 status_text = "[dim #34d399]● ACTIVE[/]"
         else:
-            status_text = "[dim #64748b]🔒 ARCHIVED / CLOSED[/]"
+            status_text = "[dim #64748b][ARCHIVED / CLOSED][/]"
         created_str = session.get("created_at", "")[:16] if session.get("created_at") else "--:--"
         closed_str = f" · Archived: {session.get('closed_at', '')[:16]}" if session.get("closed_at") else ""
         short_id = session.get("id", "")[:8]
@@ -950,18 +983,18 @@ class DashboardScreen(Screen):
         # 4. Action Card
         if is_active:
             actions_card = Vertical(
-                Button("❯  ENTER POWER MODE", classes="enter_session_btn", variant="primary"),
                 Label("Press [Enter] to launch workspace · [Ctrl+A] Archive Session", classes="session_quick_hint", markup=False),
+                Button("❯  ENTER POWER MODE", classes="enter_session_btn", variant="primary"),
                 classes="session_actions_card"
             )
         else:
             actions_card = Vertical(
+                Label("Press [Enter] for Audit Log · [Ctrl+A] Reopen Engagement", classes="session_quick_hint", markup=False),
                 Horizontal(
-                    Button("👁  VIEW READ-ONLY AUDIT LOG", classes="enter_session_btn", variant="default"),
-                    Button("🔓  REOPEN ENGAGEMENT", id="reopen_session_btn", variant="success"),
+                    Button("›  VIEW AUDIT LOG", id="view_audit_btn", classes="enter_session_btn", variant="default"),
+                    Button("↺  REOPEN ENGAGEMENT", id="reopen_session_btn", variant="success"),
                     classes="archived_actions_row"
                 ),
-                Label("Press [Enter] for Read-Only Inspection · [Ctrl+A] Reopen Engagement", classes="session_quick_hint", markup=False),
                 classes="session_actions_card"
             )
         await container.mount(actions_card)

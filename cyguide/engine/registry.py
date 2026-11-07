@@ -85,9 +85,9 @@ class ToolRegistry:
                         attr is not ToolAdapter):
                         return attr()
             return None
-        except Exception as e:
+        except Exception:
             # Re-raise to let load_tools capture the full context
-            raise e
+            raise
 
     def get_tool(self, name: str) -> Optional[Dict]:
         """Return the manifest and adapter instance for a named tool."""

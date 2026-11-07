@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cyguide"
-version = "1.5.0"
+version = "1.6.0"
 authors = [
   { name="Harshwardhan Patil" },
   { name="CyGuide Contributors" },
@@ -32,6 +32,8 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+    "pre-commit>=3.7.0",
 ]
 
 [project.urls]
@@ -55,3 +57,19 @@ pythonpath = ["."]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
 norecursedirs = [".venv", "venv", ".git", "__pycache__"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E9",   # Runtime syntax errors
+    "F63",  # Assertions and test syntax
+    "F7",   # Fatal syntax errors
+    "F82",  # Undefined names and variable lookup failures
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["cyguide", "tools"]
+

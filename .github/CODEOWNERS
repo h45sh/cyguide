@@ -1,5 +1,24 @@
-# Tier 1 Core Architecture - Requires Review from Project Lead
-/cyguide/engine/store.py         @h45sh
-/cyguide/engine/registry.py      @h45sh
-/cyguide/schemas/base.py         @h45sh
-/cyguide/engine/canonicalize.py  @h45sh
+# GitHub CODEOWNERS for CyGuide
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default maintainer for the repository
+*                                   @h45sh
+
+# Tier 1: Core Foundation & Deterministic Engine Contracts
+# Breaking changes here silently corrupt the entity graph or break all adapters.
+/cyguide/schemas/base.py            @h45sh
+/cyguide/engine/store.py            @h45sh
+/cyguide/engine/registry.py         @h45sh
+/cyguide/engine/canonicalize.py     @h45sh
+/cyguide/paths.py                   @h45sh
+
+# Tier 2: Security Gateways & Subprocess Execution
+/cyguide/engine/executor.py         @h45sh
+/cyguide/engine/gateway.py          @h45sh
+
+# CI/CD Workflows, OIDC Releases, Security & Containerization
+/.github/workflows/                 @h45sh
+/.github/SECURITY.md                @h45sh
+/.github/CODEOWNERS                 @h45sh
+/Dockerfile                         @h45sh
+/pyproject.toml                     @h45sh

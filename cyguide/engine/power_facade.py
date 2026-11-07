@@ -28,7 +28,8 @@ class ShellAdapter(ToolAdapter):
         return shlex.split(params.get("raw_flags", ""))
 
     async def parse_output(self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None) -> AsyncIterator[BaseFinding]:
-        if False: yield # Shell commands don't produce findings by default
+        return
+        yield  # Shell commands don't produce findings by default
 
 
 class PowerWorkspaceFacade:
@@ -444,33 +445,6 @@ class PowerWorkspaceFacade:
             1 for j in self._active_jobs.values()
             if str(j.session_id) == session_id and j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
         )
-
-    async def get_proposed_findings(self, session_id: str) -> List[BaseFinding]:
-        """Fetch all proposed findings for the session."""
-        nodes = await self.store.get_all_nodes(session_id)
-        proposed_findings = []
-        for n in nodes:
-            if n.get("status") == "proposed":
-                # Convert back to BaseFinding
-                finding = BaseFinding(
-                    schema_type=n["schema_type"],
-                    pik=json.loads(n["pik_json"]),
-                    parent=None,  # Parent relation is not fully reconstructed for UI list but can be resolved later if needed
-                    data=json.loads(n["data_json"]),
-                    status="proposed"
-                )
-                proposed_findings.append(finding)
-        return proposed_findings
-
-    async def dismiss_proposed_finding(self, session_id: str, schema_type: str, pik: Dict[str, Any]) -> None:
-        """Dismiss (delete) a proposed finding from the database."""
-        node_id = self.store._generate_node_id(schema_type, pik)
-        async with self.store._get_conn() as db:
-            await db.execute(
-                "DELETE FROM nodes WHERE session_id = ? AND id = ?",
-                (session_id, node_id)
-            )
-            await db.commit()
 
     async def export_session(self, session_id: str, dest_db_path: str) -> None:
         """Export a session's database rows to a portable database."""

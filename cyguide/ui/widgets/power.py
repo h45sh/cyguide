@@ -11,7 +11,6 @@ from textual.containers import Vertical, Horizontal
 from textual.geometry import Offset
 from textual.app import ComposeResult
 from cyguide.schemas.power import JobStatus, JobStatusEnum
-from cyguide.schemas.base import BaseFinding
 
 
 class EntityBrowser(Tree):
@@ -59,10 +58,14 @@ class EntityBrowser(Tree):
             elif st == "network.netblock":
                 cidr = pik.get("cidr") or "Netblock"
                 org = data.get("organization")
+                if org and len(org) > 16:
+                    org = org[:14] + "…"
                 return f"{cidr} ({org})" if org else cidr
             elif st == "domain.info":
                 dom = pik.get("domain", "Domain")
                 reg = data.get("registrar") or data.get("organization")
+                if reg and len(reg) > 16:
+                    reg = reg[:14] + "…"
                 return f"{dom} ({reg})" if reg else dom
             elif st == "dns.record":
                 dom = pik.get("domain", "")
@@ -95,6 +98,10 @@ class EntityBrowser(Tree):
                     add_node_to_tree(new_tree_node, cid)
             else:
                 parent_tree_node.add_leaf(label, data={"id": node_id, "type": node["schema_type"]})
+
+        if not nodes:
+            self.root.add_leaf("[dim #94a3b8]No entities discovered yet[/]")
+            return
 
         # Group root nodes by logical categories
         hosts = [n for n in nodes if n["id"] not in has_parent and n["schema_type"] == "network.host"]
@@ -163,6 +170,10 @@ class JobQueue(Vertical):
 
         await job_list.clear()
 
+        if not jobs:
+            job_list.append(ListItem(Static("[dim #94a3b8]  No active jobs[/]"), disabled=True))
+            return
+
         sorted_jobs = sorted(jobs, key=lambda j: (j.status == JobStatusEnum.RUNNING, j.started_at), reverse=True)
         for job in sorted_jobs:
             if job.status == JobStatusEnum.RUNNING:
@@ -172,7 +183,7 @@ class JobQueue(Vertical):
             elif job.status == JobStatusEnum.FAILED:
                 status_icon = "×"
             else: # QUEUED
-                status_icon = "○"
+                status_icon = "◌"
 
             label = f"  {status_icon} {job.tool_name} [#64748b]{job.job_id.hex[:4]}[/]"
             item = ListItem(Static(label), id=f"job_item_{job.job_id.hex}")
@@ -254,8 +265,6 @@ class CommandPalette(Vertical):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.resolved_vars: Dict[str, Any] = {}
-        self.cwd: str = ""
-        self.branch: str = ""
         self.history: List[str] = []
         self.history_index: int = -1
         self.shell_locked: bool = False
@@ -285,17 +294,15 @@ class CommandPalette(Vertical):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="palette_header"):
-            yield Label("● Tool Mode (! for shell)", id="mode_status")
-            yield Label("[SHELL LOCK: OFF]", id="lock_icon")
-            yield Label("pwd:", classes="pwd_label")
-            yield Label("~", id="pwd_line")
+            with Horizontal(id="palette_header_left"):
+                yield Label("● Tool Mode (! for shell)", id="mode_status")
+                yield Label("[SHELL LOCK: OFF]", id="lock_icon")
+                yield Label("pwd:", classes="pwd_label")
+                yield Label("~", id="pwd_line")
+            yield Label("│", id="palette_header_sep")
             yield Label("F1 Help · Ctrl+T New Tab · Esc Dashboard", id="shortcuts_hint")
         yield Input(value="> ", placeholder="Enter command (e.g. nmap -sV target or !ls)...", id="command_input")
         yield Label("", id="context_line", classes="hidden")
-
-    def show_status(self, message: str, severity: str = "info") -> None:
-        """Removed as per user request for absolute minimalism."""
-        pass
 
     def update_context(self, resolved_vars: Dict[str, Any], is_registered_tool: bool = True, cwd: str = ""):
         """Update the prompt metrics showing path and git branch."""
@@ -303,8 +310,10 @@ class CommandPalette(Vertical):
         self.cwd = cwd
         self._async_update_git_branch()
 
-        # Update metrics
+        # Update metrics with middle/tail truncation to prevent header collision
         short_path = cwd.replace(os.path.expanduser("~"), "~")
+        if len(short_path) > 22:
+            short_path = "..." + short_path[-19:]
         self.query_one("#pwd_line", Label).update(short_path)
 
         # Update lock label (showing explicit setting ON/OFF)
@@ -426,10 +435,6 @@ class CommandPalette(Vertical):
         val = cmd_input.value
         pos = cmd_input.cursor_position
 
-        # Strip prefix for completion logic
-        clean_val = val.lstrip(">! ")
-        prefix_len = len(val) - len(clean_val)
-
         # Find the word being typed
         before_cursor = val[:pos]
         parts = before_cursor.split()
@@ -495,12 +500,14 @@ class CommandPalette(Vertical):
         self.history_index = -1
 
         # Determine mode from prefix
-        is_manual_shell = raw_cmd.startswith("!")
-        if self.shell_locked:
-            is_manual_shell = True
+        is_manual_shell = raw_cmd.startswith("!") or self.shell_locked
 
         # Strip prefix
-        clean_cmd = raw_cmd[1:].strip()
+        if raw_cmd.startswith("!") or raw_cmd.startswith(">"):
+            clean_cmd = raw_cmd[1:].strip()
+        else:
+            clean_cmd = raw_cmd.strip()
+
         if not clean_cmd:
             event.input.value = "! " if is_manual_shell and not self.shell_locked else "> "
             return
@@ -508,7 +515,7 @@ class CommandPalette(Vertical):
         parts = clean_cmd.split()
         if not parts: return
         tool_name = parts[0]
-        params_str = " ".join(parts[1:])
+        params_str = clean_cmd[len(tool_name):].strip()
 
         # Clear input and restore the active prefix (sticky mode)
         event.input.value = "! " if is_manual_shell and not self.shell_locked else "> "
@@ -518,73 +525,3 @@ class CommandPalette(Vertical):
         # The screen will handle the rejection if tool_name is not registered and ! wasn't used
         self.post_message(self.Submitted(clean_cmd, tool_name, [params_str], event.input, is_manual_shell, new_tab=self._force_new_tab))
         self._force_new_tab = False
-
-
-class SuggestionsPane(Vertical):
-    """Displays AI/Rule proposed findings for operator review."""
-
-    class Approved(events.Event):
-        """Emitted when a suggestion is approved."""
-        def __init__(self, schema_type: str, pik: Dict[str, Any], recommended_command: str):
-            super().__init__()
-            self.schema_type = schema_type
-            self.pik = pik
-            self.recommended_command = recommended_command
-
-    class Dismissed(events.Event):
-        """Emitted when a suggestion is dismissed."""
-        def __init__(self, schema_type: str, pik: Dict[str, Any]):
-            super().__init__()
-            self.schema_type = schema_type
-            self.pik = pik
-
-    def compose(self) -> ComposeResult:
-        yield Label("SUGGESTIONS", classes="section_header")
-        yield ListView(id="power_suggestions_list")
-
-    async def update_suggestions(self, suggestions: List[BaseFinding]):
-        """Refresh the list of proposed findings."""
-        suggest_list = self.query_one("#power_suggestions_list", ListView)
-        old_idx = suggest_list.index
-
-        await suggest_list.clear()
-
-        for idx, sug in enumerate(suggestions):
-            cmd = sug.data.get("recommended_command", "")
-            tool = sug.data.get("tool_suggestion", "tool")
-
-            # Label showing what tool and what target
-            target_str = sug.pik.get("url") or sug.pik.get("ip") or sug.pik.get("host_ip") or "target"
-            display_label = f"▸ {tool} ❯ {target_str}"
-
-            item = ListItem(Static(display_label), id=f"sug_item_{idx}")
-            item.schema_type = sug.schema_type
-            item.pik = sug.pik
-            item.recommended_command = cmd
-            suggest_list.append(item)
-
-        if old_idx is not None and old_idx < len(suggest_list.children):
-            suggest_list.index = old_idx
-
-    def on_key(self, event: events.Key) -> None:
-        """Handle enter to approve and d/x/delete to dismiss."""
-        suggest_list = self.query_one("#power_suggestions_list", ListView)
-        idx = suggest_list.index
-        if idx is None or idx >= len(suggest_list.children):
-            return
-
-        item = suggest_list.children[idx]
-        # Ignore list header list items (if any are headers)
-        if not hasattr(item, "recommended_command"):
-            return
-
-        if event.key in ("d", "delete", "x"):
-            event.stop()
-            event.prevent_default()
-            self.post_message(self.Dismissed(item.schema_type, item.pik))
-
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        """Handle suggestion selection (click or enter key)."""
-        item = event.item
-        if item and hasattr(item, "recommended_command"):
-            self.post_message(self.Approved(item.schema_type, item.pik, item.recommended_command))

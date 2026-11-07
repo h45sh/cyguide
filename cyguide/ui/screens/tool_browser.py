@@ -1,7 +1,7 @@
 """Tool Selection screen for Learning Mode."""
 
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Label, ListItem, ListView, Input
+from textual.widgets import Footer, Label, ListItem, ListView, Input
 from textual.containers import Vertical, Horizontal
 from textual.app import ComposeResult
 from typing import List, Dict
@@ -30,7 +30,6 @@ class ToolBrowserScreen(Screen):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
         with Vertical(id="browser_container"):
             yield Label("LEARNING MODE", id="browser_title")
             yield Label("What do you want to learn today?", id="browser_subtitle")

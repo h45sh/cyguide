@@ -1,5 +1,6 @@
 """Schemas for Power Mode sessions, actions, and context."""
 
+import os
 from datetime import datetime, UTC
 from enum import Enum
 from typing import Optional, Dict, List, Any
@@ -21,13 +22,6 @@ class JobStatusEnum(str, Enum):
     RUNNING = "RUNNING"
     DONE = "DONE"
     FAILED = "FAILED"
-
-
-class PowerSession(BaseModel):
-    """An investigation-scoped session."""
-    session_id: UUID = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    name: Optional[str] = None
 
 
 class ActionRequest(BaseModel):
@@ -61,4 +55,4 @@ class WorkspaceContext(BaseModel):
     resolved_vars: Dict[str, Any] = Field(default_factory=dict) # e.g. {"TARGET": "10.10.10.5"}
     active_jobs: List[JobStatus] = Field(default_factory=list)
     entity_counts: Dict[str, int] = Field(default_factory=dict)
-    cwd: str = Field(default_factory=lambda: "/home/harsh/Documents/cyguide") # Default placeholder
+    cwd: str = Field(default_factory=lambda: os.path.expanduser("~"))

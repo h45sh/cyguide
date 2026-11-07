@@ -1,0 +1,25 @@
+changelog:
+  categories:
+    - title: "Features & Enhancements"
+      labels:
+        - "enhancement"
+        - "feature"
+    - title: "Security Tool Adapters"
+      labels:
+        - "tool"
+    - title: "Bug Fixes"
+      labels:
+        - "bug"
+        - "fix"
+    - title: "Documentation"
+      labels:
+        - "documentation"
+        - "docs"
+    - title: "CI/CD & Maintenance"
+      labels:
+        - "ci"
+        - "maintenance"
+        - "dependencies"
+  exclude:
+    labels:
+      - "skip-changelog"

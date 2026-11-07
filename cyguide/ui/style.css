@@ -5,6 +5,15 @@
 
 * {
     scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-size-horizontal: 1;
+    scrollbar-background: transparent;
+    scrollbar-background-hover: transparent;
+    scrollbar-background-active: transparent;
+    scrollbar-color: #334155;
+    scrollbar-color-hover: #475569;
+    scrollbar-color-active: #38bdf8;
+    scrollbar-corner-color: transparent;
 }
 
 Input, CommandInput, .input {
@@ -26,15 +35,16 @@ Screen {
 
 ScrollBar {
     background: transparent;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-size-horizontal: 1;
 }
 
-ScrollBar > .scrollbar--bar {
-    background: #23272f;
+ScrollBarCorner {
+    background: transparent;
+    color: transparent;
 }
 
-ScrollBar > .scrollbar--bar:hover {
-    background: #353b47;
-}
 
 #workspace, #workspace_manager {
     height: 1fr;
@@ -44,7 +54,7 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 #sidebar, #learning_sidebar, #workspace_sidebar {
-    width: 28;
+    width: 34;
     height: 100%;
     background: #14161b;
     border: round #334155;
@@ -55,7 +65,7 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 #sidebar:focus-within, #learning_sidebar:focus-within, #workspace_sidebar:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #workspace_details {
@@ -73,7 +83,7 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 #ws_header:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #ws_title_group {
@@ -130,7 +140,7 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 #session_sidebar:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #session_details_area {
@@ -142,7 +152,7 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 #session_details_area:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #session_details_content {
@@ -154,10 +164,27 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 .placeholder_text, #session_placeholder {
-    color: #64748b;
-    content-align: center middle;
-    height: 1fr;
+    color: #94a3b8;
+    height: auto;
+    padding: 1 1;
     text-style: italic;
+}
+
+.session_empty_card {
+    height: auto;
+    background: transparent;
+    padding: 1 1;
+}
+
+.session_empty_title {
+    color: #cbd5e1;
+    text-style: bold;
+    margin-bottom: 0;
+}
+
+.session_empty_hint {
+    color: #64748b;
+    margin-top: 0;
 }
 
 /* --- Session Overview Hierarchy Cards --- */
@@ -190,18 +217,18 @@ ScrollBar > .scrollbar--bar:hover {
 .session_meta_row {
     height: 1;
     width: 100%;
-    color: #64748b;
+    color: #94a3b8;
     margin-bottom: 0;
 }
 
 .session_meta_text {
     width: 1fr;
-    color: #64748b;
+    color: #94a3b8;
 }
 
 .session_meta_id {
     width: auto;
-    color: #475569;
+    color: #8b949e;
 }
 
 /* 3-Box Metrics Summary Grid */
@@ -228,7 +255,7 @@ ScrollBar > .scrollbar--bar:hover {
 .session_stat_box_label {
     width: 100%;
     text-align: center;
-    color: #64748b;
+    color: #94a3b8;
     text-style: bold;
 }
 
@@ -244,7 +271,7 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 .session_stat_box_val.dim-val {
-    color: #64748b;
+    color: #94a3b8;
 }
 
 .session_stat_box_val.discoveries-val {
@@ -319,20 +346,23 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 .entity_empty_notice {
-    color: #64748b;
+    color: #94a3b8;
     text-style: italic;
     padding: 0;
 }
 
 .entity_empty_hint {
-    color: #475569;
+    color: #8b949e;
     padding: 0;
 }
 
 /* Action Box & Quick Shortcuts */
 .session_actions_card {
     height: auto;
-    margin-top: 0;
+    dock: bottom;
+    padding-top: 1;
+    padding-bottom: 0;
+    background: #14161b;
 }
 
 .pane_filter_badge {
@@ -344,6 +374,7 @@ ScrollBar > .scrollbar--bar:hover {
 .archived_actions_row {
     height: auto;
     width: 100%;
+    margin-top: 0;
 }
 
 .archived_actions_row Button {
@@ -356,20 +387,48 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 #reopen_session_btn {
-    background: #0284c7;
-    color: #ffffff;
-    border: none;
+    background: #0d1e17;
+    border: round #10b981;
+    color: #34d399;
+    text-style: bold;
 }
 
 #reopen_session_btn:hover {
-    background: #0369a1;
+    background: #133a29;
+    border: round #34d399;
+    color: #f0fdf4;
+}
+
+#reopen_session_btn:focus {
+    background: #059669;
+    border: round #6ee7b7;
+    color: #ffffff;
+}
+
+#view_audit_btn {
+    background: #181b22;
+    border: round #334155;
+    color: #94a3b8;
+    text-style: bold;
+}
+
+#view_audit_btn:hover {
+    background: #1e293b;
+    border: round #475569;
+    color: #e2e8f0;
+}
+
+#view_audit_btn:focus {
+    background: #253346;
+    border: round #64748b;
+    color: #f1f5f9;
 }
 
 .session_quick_hint {
     width: 100%;
     text-align: center;
-    color: #64748b;
-    margin-top: 0;
+    color: #94a3b8;
+    margin-bottom: 1;
 }
 
 #session_list, #diagnostics_list {
@@ -396,10 +455,6 @@ ScrollBar > .scrollbar--bar:hover {
     max-height: 6;
 }
 
-.diagnostics_green {
-    color: #34d399;
-}
-
 .diagnostics_error {
     color: #f87171;
 }
@@ -413,7 +468,7 @@ ScrollBar > .scrollbar--bar:hover {
 }
 
 #activity_container:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #activity_list {
@@ -551,7 +606,7 @@ Button.-style-default:focus {
 
 .enter_session_btn {
     width: 100%;
-    margin-top: 1;
+    margin-top: 0;
     background: #181b22;
     border: round #38bdf8;
     color: #38bdf8;
@@ -695,7 +750,7 @@ ConfirmationDialog {
 }
 
 #lesson_config_pane:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #lesson_config_pane.collapsed {
@@ -719,7 +774,7 @@ ConfirmationDialog {
 }
 
 #tool_summary_header {
-    color: #64748b;
+    color: #94a3b8;
     margin-top: 0;
     margin-bottom: 0;
     padding: 0;
@@ -779,7 +834,7 @@ RecipeListItem.--highlight .recipe_desc {
 }
 
 .recipe_desc {
-    color: #64748b;
+    color: #94a3b8;
     width: 100%;
 }
 
@@ -897,7 +952,7 @@ RecipeListItem.--highlight .recipe_desc {
 }
 
 #learning_tabs:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #learning_tabs Tabs {
@@ -1006,7 +1061,7 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
 }
 
 #chat_dock:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #chat_prompt_symbol {
@@ -1075,70 +1130,75 @@ Checkbox:focus {
     background: #232731;
 }
 
-#no_flags_msg {
-    color: #64748b;
-    text-style: italic;
-}
-
 /* --- Global Header & Footer --- */
 Header {
-    background: #0c0d10;
-    color: #64748b;
+    background: #0d1117;
+    color: #94a3b8;
     border: none;
     height: 1;
 }
 
 Footer {
-    background: #0c0d10;
-    color: #64748b;
+    background: #0d1117;
+    color: #94a3b8;
     border: none;
     margin: 0;
-    padding: 0;
+    padding: 0 1;
     height: 1;
     scrollbar-size: 0 0;
     overflow: hidden hidden;
 }
 
 FooterKey {
-    background: #14161b;
+    background: #161b22;
     color: #94a3b8;
+    padding: 0 1;
 }
 
 FooterKey:hover {
-    background: #232731;
-    color: #e2e8f0;
+    background: #21262d;
+    color: #f0f6fc;
 }
 
 .footer-key--key,
 FooterKey .footer-key--key {
-    background: #232731;
-    color: #e2e8f0;
+    background: #21262d;
+    color: #58a6ff;
+    text-style: bold;
+    padding: 0 1;
+    margin-right: 1;
 }
 
 .footer-key--description,
 FooterKey .footer-key--description {
-    background: #14161b;
+    background: #161b22;
     color: #94a3b8;
+    margin-right: 1;
 }
 
 Footer > .footer--key {
-    color: #94a3b8;
-    background: transparent;
+    color: #58a6ff;
+    background: #21262d;
+    text-style: bold;
+    padding: 0 1;
+    margin-right: 1;
 }
 
 Footer > .footer--description {
-    color: #64748b;
+    color: #94a3b8;
     background: transparent;
+    margin-right: 1;
 }
 
 Footer > .footer--highlight {
-    background: #181b22;
-    color: #cbd5e1;
+    background: #1f242c;
+    color: #f0f6fc;
 }
 
 Footer > .footer--highlight-key {
-    background: #232731;
-    color: #e2e8f0;
+    background: #388bfd;
+    color: #ffffff;
+    text-style: bold;
 }
 
 /* --- Power Mode (Grok / Minimalist Operator Workspace) --- */
@@ -1156,7 +1216,7 @@ Footer > .footer--highlight-key {
 }
 
 #power_sidebar {
-    width: 28;
+    width: 34;
     height: 100%;
     background: #14161b;
     border: round #334155;
@@ -1167,7 +1227,7 @@ Footer > .footer--highlight-key {
 }
 
 #power_sidebar:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #power_sidebar.collapsed {
@@ -1193,6 +1253,11 @@ Footer > .footer--highlight-key {
     background: transparent;
     color: #cbd5e1;
     padding-left: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-size-horizontal: 1;
 }
 
 #job_queue {
@@ -1209,14 +1274,6 @@ Footer > .footer--highlight-key {
     max-height: 8;
     padding: 0;
     scrollbar-size: 0 0;
-}
-
-#suggestions_pane {
-    display: none;
-}
-
-#power_suggestions_list {
-    display: none;
 }
 
 #power_sidebar.-resizing,
@@ -1266,7 +1323,7 @@ ResizeHandle.-dragging {
 }
 
 #job_tabs:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #job_tabs Tabs {
@@ -1305,6 +1362,9 @@ TabPane, #tab_overview {
     background: #0f1114;
     padding: 0;
     border: none;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-size-horizontal: 1;
 }
 
 RichLog {
@@ -1312,6 +1372,9 @@ RichLog {
     color: #e2e8f0;
     border: none;
     padding: 0 1;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-size-horizontal: 1;
 }
 
 /* --- Command Palette (Grok-Style Dock Bar) --- */
@@ -1333,7 +1396,7 @@ RichLog {
 }
 
 #command_palette:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #palette_header {
@@ -1341,6 +1404,13 @@ RichLog {
     padding: 0;
     align: left middle;
     margin-bottom: 0;
+    overflow: hidden hidden;
+}
+
+#palette_header_left {
+    width: 1fr;
+    height: 1;
+    align: left middle;
     overflow: hidden hidden;
 }
 
@@ -1366,22 +1436,31 @@ RichLog {
 }
 
 .pwd_label {
-    color: #64748b;
+    color: #94a3b8;
     margin-right: 1;
 }
 
 #pwd_line {
-    color: #94a3b8;
+    color: #e2e8f0;
     text-style: italic;
-    margin-right: 2;
+    max-width: 24;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 1;
+}
+
+#palette_header_sep {
+    color: #334155;
+    margin-right: 1;
 }
 
 #shortcuts_hint {
-    color: #64748b;
-    dock: right;
-    max-width: 42;
+    color: #8b949e;
+    width: auto;
+    max-width: 44;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-align: right;
 }
 
 #command_input {
@@ -1403,20 +1482,9 @@ RichLog {
     color: #f8fafc;
 }
 
-.minimal-sep {
-    height: 1;
-    color: #1c1f26;
-}
-
 #context_line {
     height: 1;
     color: #94a3b8;
-    text-style: italic;
-}
-
-#status_line {
-    height: 1;
-    color: #64748b;
     text-style: italic;
 }
 
@@ -1444,7 +1512,7 @@ Tree > .tree--guides-selected {
 }
 
 #scratchpad_pane:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #scratchpad_textarea {
@@ -1453,6 +1521,9 @@ Tree > .tree--guides-selected {
     background: #0f1114;
     color: #cbd5e1;
     padding: 0;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-size-horizontal: 1;
 }
 
 #scratchpad_textarea:focus {
@@ -1577,7 +1648,7 @@ ShortcutsDialog {
 }
 
 #browser_subtitle {
-    color: #64748b;
+    color: #94a3b8;
     margin-bottom: 1;
 }
 
@@ -1589,7 +1660,7 @@ ShortcutsDialog {
 }
 
 #search_input:focus {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #tool_list_area {
@@ -1600,12 +1671,15 @@ ShortcutsDialog {
 }
 
 #tool_list_area:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #tool_list {
     background: transparent;
     height: 1fr;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-size-horizontal: 1;
 }
 
 ToolListItem {
@@ -1680,7 +1754,7 @@ CyGuideCommandPalette #--container {
 }
 
 CyGuideCommandPalette #--container:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 CyGuideCommandPalette #--input {
@@ -1693,7 +1767,7 @@ CyGuideCommandPalette #--input {
 }
 
 CyGuideCommandPalette #--input:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 CyGuideCommandPalette SearchIcon {
@@ -1805,7 +1879,7 @@ ToolHealthModal {
 }
 
 #tool_health_card:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #tool_health_header_row {
@@ -1820,7 +1894,7 @@ ToolHealthModal {
 }
 
 #tool_health_nav_hint {
-    color: #64748b;
+    color: #94a3b8;
 }
 
 #tool_health_summary_label {
@@ -1924,7 +1998,7 @@ ConfigModal {
 }
 
 #config_card:focus-within {
-    border: round #64748b;
+    border: round #38bdf8;
 }
 
 #config_header_row {
@@ -1939,7 +2013,7 @@ ConfigModal {
 }
 
 #config_nav_hint {
-    color: #64748b;
+    color: #94a3b8;
 }
 
 #config_status_label {
@@ -2175,7 +2249,7 @@ ConfigModal {
 }
 
 .cfg_empty_keys_msg {
-    color: #64748b;
+    color: #94a3b8;
     padding: 1 1;
     text-style: italic;
     background: #0f1114;
@@ -2236,7 +2310,7 @@ ConfigModal {
     height: 1;
     width: 100%;
     align: left middle;
-    color: #64748b;
+    color: #94a3b8;
 }
 
 .cfg_key_meta_text {
@@ -2247,7 +2321,7 @@ ConfigModal {
 
 .cfg_key_masked_text {
     width: auto;
-    color: #64748b;
+    color: #94a3b8;
     text-overflow: ellipsis;
 }
 
@@ -2399,26 +2473,6 @@ ConfigModal {
     color: #f8fafc;
 }
 
-.config_status_hint {
-    color: #64748b;
-    margin-bottom: 1;
-    padding: 0 1;
-}
-
-.config_status_hint.status_ok {
-    color: #4ade80;
-    text-style: bold;
-}
-
-.config_status_hint.status_warn {
-    color: #fbbf24;
-    text-style: bold;
-}
-
-.config_status_hint.status_error {
-    color: #f87171;
-    text-style: bold;
-}
 
 #config_btn_row {
     height: 1;
@@ -2467,4 +2521,94 @@ ConfigModal {
 #config_card #cfg_reset_btn:hover {
     background: #451a1a;
     color: #fca5a5;
+}
+
+/* ==========================================================================
+   Modern Toast & Notification System
+   Aligned with CyGuide Cyber / Low-Contrast Rounded Framing & WCAG Standards
+   ========================================================================== */
+
+ToastRack {
+    dock: bottom;
+    align: right bottom;
+    margin-bottom: 2;
+    margin-right: 2;
+    width: 1fr;
+    height: auto;
+    background: transparent;
+    overflow-y: hidden;
+    scrollbar-size-vertical: 0;
+}
+
+ToastHolder {
+    align-horizontal: right;
+    width: 1fr;
+    height: auto;
+    margin: 0;
+    padding-right: 2;
+    background: transparent;
+}
+
+Toast {
+    width: 50;
+    min-width: 50;
+    max-width: 50;
+    height: auto;
+    padding: 0 1;
+    margin: 0;
+    border: round #334155;
+    background: #14171f;
+    color: #e2e8f0;
+}
+
+.toast--title {
+    text-style: bold;
+}
+
+/* --- Category 1: Information (Cyber Sky Blue) --- */
+Toast.-information {
+    background: #0c1929;
+    border: round #0284c7;
+    color: #e0f2fe;
+}
+
+Toast.-information .toast--title {
+    color: #38bdf8;
+    text-style: bold;
+}
+
+/* --- Category 2: Warning (Warm Amber) --- */
+Toast.-warning {
+    background: #1c180d;
+    border: round #d97706;
+    color: #fef3c7;
+}
+
+Toast.-warning .toast--title {
+    color: #fbbf24;
+    text-style: bold;
+}
+
+/* --- Category 3: Error (Crimson Red) --- */
+Toast.-error {
+    background: #1f1215;
+    border: round #ef4444;
+    color: #fee2e2;
+}
+
+Toast.-error .toast--title {
+    color: #f87171;
+    text-style: bold;
+}
+
+/* --- Category 4: Success (Emerald Mint) --- */
+Toast.-success {
+    background: #0b1a13;
+    border: round #10b981;
+    color: #d1fae5;
+}
+
+Toast.-success .toast--title {
+    color: #34d399;
+    text-style: bold;
 }

@@ -24,7 +24,6 @@ class LearningModeEngine:
         target: BaseFinding,
         params: Dict[str, Any],
         session_id: Optional[str] = None,
-        on_explanation: Optional[Callable[[str], Coroutine]] = None,
         on_output: Optional[Callable[[str], Coroutine]] = None
     ) -> AsyncIterator[BaseFinding]:
         """
@@ -47,22 +46,3 @@ class LearningModeEngine:
         ):
             yield finding
 
-    def get_tool_explanation(self, tool_name: str) -> Optional[str]:
-        """Get the tool's general description for learning."""
-        tool_data = self.registry.get_tool(tool_name)
-        if tool_data:
-            return tool_data["manifest"].meta.description
-        return None
-
-    def get_parameter_explanations(self, tool_name: str) -> Dict[str, str]:
-        """Return descriptions for each parameter allowed in learning mode."""
-        tool_data = self.registry.get_tool(tool_name)
-        if not tool_data or not tool_data["manifest"].learning:
-            return {}
-
-        explanations = {}
-        for item in tool_data["manifest"].learning.flags:
-            # We map the flag name (e.g. -sV) to its explanation
-            # Note: UI might use descriptive keys instead of raw flags
-            explanations[item["flag"]] = item["explanation"]
-        return explanations

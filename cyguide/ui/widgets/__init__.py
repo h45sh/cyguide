@@ -4,14 +4,16 @@ from cyguide.ui.widgets.power import (
     EntityBrowser,
     JobQueue,
     CommandPalette,
-    SuggestionsPane,
 )
 from cyguide.ui.widgets.resizer import ResizeHandle
+from cyguide.ui.widgets.scrollbar import ThinScrollBarRender, setup_thin_scrollbars
 
 __all__ = [
     "EntityBrowser",
     "JobQueue",
     "CommandPalette",
-    "SuggestionsPane",
     "ResizeHandle",
+    "ThinScrollBarRender",
+    "setup_thin_scrollbars",
 ]
+

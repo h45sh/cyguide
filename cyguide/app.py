@@ -3,16 +3,33 @@
 import os
 import json
 import asyncio
+from typing import Any
+from pathlib import Path
 from textual import events, work
 from textual.app import App, SystemCommand, ComposeResult
+from textual.binding import Binding
 from textual.command import SearchIcon, CommandPalette, CommandList, CommandInput, DiscoveryHit, Hits
 from textual.system_commands import SystemCommandsProvider
 from textual.widgets import LoadingIndicator, Button
 from textual.containers import Vertical, Horizontal
+from textual.message import Message
 from cyguide.engine.explainer import is_placeholder_key
 
 # Replace default emoji search icon with clean terminal glyph
 SearchIcon.icon = "›"
+
+# Ensure thin, uniform scrollbars across all screens and widgets
+from cyguide.ui.widgets.scrollbar import setup_thin_scrollbars
+setup_thin_scrollbars()
+
+
+class ToolHealthChanged(Message):
+    """Event emitted when tool health status changes."""
+
+    def __init__(self, health: dict) -> None:
+        super().__init__()
+        self.health = health
+
 
 
 class CyGuideSystemCommandsProvider(SystemCommandsProvider):
@@ -126,6 +143,17 @@ class CyGuideCommandPalette(CommandPalette):
         if not self.is_sub_palette and not getattr(self.app, "_navigating_sub_palette", False):
             self.app.last_palette_highlight = None
 
+    async def on_tool_health_changed(self, event: Any) -> None:
+        """Refresh command list in real time when tool health status changes."""
+        try:
+            cmd_input = self.query_one(CyGuideCommandInput)
+            self._search_for(cmd_input.value)
+        except Exception:
+            pass
+
+    async def on_cy_guide_app_tool_health_changed(self, event: Any) -> None:
+        await self.on_tool_health_changed(event)
+
     def on_key(self, event: events.Key) -> None:
         if event.key == "right":
             event.stop()
@@ -164,6 +192,11 @@ class CyGuideApp(App):
     CSS_PATH = "ui/style.css"
     TITLE = "CyGuide"
     COMMANDS = {CyGuideSystemCommandsProvider}
+    ToolHealthChanged = ToolHealthChanged
+
+    BINDINGS = [
+        Binding("ctrl+p", "command_palette", "Palette", show=False),
+    ]
 
     # Register screens so they can be switched by name
     SCREENS = {
@@ -415,28 +448,78 @@ class CyGuideApp(App):
         except Exception:
             pass
 
-    @work(exclusive=True, group="tool_health_cache")
-    async def _async_refresh_tool_health_cache(self) -> None:
-        """Cache tool health diagnostics asynchronously in the background."""
-        from cyguide.engine.diagnostics import check_tool_health
+    def check_and_update_tool_health(self) -> Dict[str, Dict[str, Any]]:
+        """Check current tool health against registered tools, update cache, and broadcast changes if any."""
         reg = getattr(self, "registry", None)
-        if reg:
+        if not reg:
+            return getattr(self, "_cached_tool_health", {}) or {}
+
+        # If tools directory changed on disk (e.g. tools deleted or added), reload tools
+        tools_dir = getattr(reg, "tools_dir", None)
+        if tools_dir and Path(tools_dir).exists():
             try:
-                self._cached_tool_health = await asyncio.to_thread(check_tool_health, reg)
+                current_dirs = {p.name for p in Path(tools_dir).iterdir() if p.is_dir() and not p.name.startswith((".", "_"))}
+                loaded_dirs = {v.get("path").name for v in reg.tools.values() if v.get("path")}
+                if current_dirs != loaded_dirs:
+                    reg.load_tools()
             except Exception:
                 pass
+
+        try:
+            from cyguide.engine.diagnostics import check_tool_health
+            new_health = check_tool_health(reg)
+        except Exception:
+            return getattr(self, "_cached_tool_health", {}) or {}
+
+        old_health = getattr(self, "_cached_tool_health", {}) or {}
+
+        changed = False
+        if not old_health or len(old_health) != len(new_health):
+            changed = True
+        else:
+            for k, v in new_health.items():
+                if k not in old_health:
+                    changed = True
+                    break
+                old_v = old_health[k]
+                if (
+                    old_v.get("status") != v.get("status")
+                    or old_v.get("healthy") != v.get("healthy")
+                    or old_v.get("binary") != v.get("binary")
+                ):
+                    changed = True
+                    break
+
+        self._cached_tool_health = new_health
+
+        if changed:
+            msg = ToolHealthChanged(new_health)
+            for s in list(getattr(self, "screen_stack", [])):
+                try:
+                    s.post_message(msg)
+                except Exception:
+                    pass
+
+        return new_health
+
+    def _async_refresh_tool_health_cache(self) -> None:
+        """Cache tool health diagnostics and broadcast any state changes."""
+        self.check_and_update_tool_health()
 
     async def on_mount(self) -> None:
         """Initialize the app with core components and the dashboard."""
         self.user_shell = self.detect_user_shell()
         self.user_env = os.environ.copy()
         self._async_load_shell_env()
-        self._async_refresh_tool_health_cache()
 
         self.learning_mode_tool = "nmap" # Default
         # 1. Initialize Engines
         self.registry = ToolRegistry(tools_dir=self.tools_dir)
         self.registry.load_tools()
+
+        # Initial tool health check and start real-time periodic watcher (2s interval)
+        self.check_and_update_tool_health()
+        self.set_interval(2.0, self.check_and_update_tool_health, name="tool_health_watcher")
 
         self.store = GraphStore(self.db_path)
         await self.store.initialize()
@@ -546,6 +629,7 @@ class CyGuideApp(App):
 
     def action_command_palette(self, preserve_highlight: bool = False) -> None:
         """Show the custom CyGuide command palette with left/right arrow sub-menu navigation."""
+        self.check_and_update_tool_health()
         self._navigating_sub_palette = False
         if not preserve_highlight:
             self.last_palette_highlight = None
@@ -699,7 +783,6 @@ class CyGuideApp(App):
 
     def get_system_commands(self, screen):
         """Add custom commands to the Command Palette (Ctrl+P) in conventional menu order."""
-        from cyguide.engine.diagnostics import check_tool_health
 
         # Collect base system commands from super()
         base_cmds = {}
@@ -707,7 +790,7 @@ class CyGuideApp(App):
             base_cmds[cmd.title.lower()] = cmd
 
         # 1. Screen / View Toggles
-        anim_badge = "[bold green]● ON[/bold green]" if self.animations_enabled else "[dim]○ OFF[/dim]"
+        anim_badge = "[bold green]● ON[/bold green]" if self.animations_enabled else "[dim]⊘ OFF[/dim]"
         yield SystemCommand(
             f"Toggle Animations  {anim_badge}",
             "",
@@ -715,20 +798,16 @@ class CyGuideApp(App):
         )
 
         # 2. Tool Diagnostics / Health
-        reg = getattr(self, "registry", None)
-        health = getattr(self, "_cached_tool_health", {}) or {}
-        if not health and reg:
-            self._async_refresh_tool_health_cache()
-            total = len(getattr(reg, "tools", {}))
-            health_badge = f"[dim]○ Ready ({total})[/dim]"
+        health = self.check_and_update_tool_health()
+        total = len(health)
+        issues = [info for info in health.values() if not info.get("healthy", False)]
+        ok_count = total - len(issues)
+        if total == 0:
+            health_badge = "[#34d399]● Ready[/]"
+        elif not issues:
+            health_badge = f"[bold green]● Healthy ({ok_count}/{total})[/bold green]"
         else:
-            total = len(health)
-            issues = [info for info in health.values() if not info["healthy"]]
-            ok_count = total - len(issues)
-            if not issues:
-                health_badge = f"[bold green]● Healthy ({ok_count}/{total})[/bold green]"
-            else:
-                health_badge = f"[bold red]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold red]"
+            health_badge = f"[bold red]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold red]"
 
         yield SystemCommand(
             f"Tool Health  {health_badge}",

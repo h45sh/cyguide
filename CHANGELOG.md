@@ -7,14 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0] - 2026-11-08
+
+### Added
+- **Multi-Arch OCI Container Publishing**: Added `Dockerfile` and GitHub Actions workflow (`.github/workflows/docker.yml`) for multi-architecture (`linux/amd64`, `linux/arm64`) publishing to GitHub Container Registry (GHCR).
+- **Universal Multi-Distribution Dependency Installer**: Enriched [`scripts/install_deps.sh`](scripts/install_deps.sh) supporting apt, pacman, dnf, zypper, apk, xbps, and homebrew with `--check` and `--user` non-root flags.
+- **Codebase Quality & CI/CD Gates**:
+  - Added [Ruff](https://github.com/astral-sh/ruff) linting configuration in `pyproject.toml` and `.github/workflows/ci.yml`.
+  - Added schema documentation drift verification via `python3 scripts/generate_schema_registry.py --check`.
+  - Added `macos-latest` cross-platform runner to the CI test matrix.
+  - Added GitHub CodeQL Static Application Security Testing (`.github/workflows/codeql.yml`).
+  - Added automated weekly dependency management via [`.github/dependabot.yml`](.github/dependabot.yml).
+  - Added automated categorized release notes configuration via [`.github/release.yml`](.github/release.yml).
+- **Repository Governance & Community Standards**:
+  - Established responsible vulnerability disclosure policy in [`.github/SECURITY.md`](.github/SECURITY.md).
+  - Added standardized Pull Request template with architectural tier checklists ([`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md)).
+  - Added structured YAML issue forms for bugs, tool adapter requests, and feature proposals in `.github/ISSUE_TEMPLATE/`.
+  - Updated [`.github/CODEOWNERS`](.github/CODEOWNERS) covering Tier 1 core architecture, security gateways, and CI/CD workflows.
+- **Developer Ergonomics & UI Improvements**:
+  - Added [`.pre-commit-config.yaml`](.pre-commit-config.yaml) for Ruff linting and schema registry drift checks.
+  - Added `--version` / `-V` CLI flag to `cyg` entrypoint.
+  - Fixed active and archived session overview alignment on the Home screen.
+  - Real-time Command Palette tool health update reactivity upon custom tool filesystem changes.
+
+### Changed
+- **Documentation Overhaul (Diátaxis Framework)**: Restructured complete documentation portal (`docs/README.md`) into Tutorials, How-To Guides, Reference, and Explanation quadrants.
+- **Decorative Emoji Purge**: Removed decorative emojis across all documentation, templates, and scripts in favor of clean text and standard labels.
+- **Repository Hygiene & Directory Restructuring**:
+  - Removed orphaned and redundant files: `VERSION`, `cyguide/modes/power.py`, and sample outputs.
+  - Hardened and categorized [`.gitignore`](.gitignore) and [`.dockerignore`](.dockerignore).
+  - Expanded test suite to **179 passing tests**.
+
+---
+
 ## [1.5.0] - 2026-11-06
 
-### 🚀 Overview
+
+### Overview
 CyGuide v1.5.0 is a **major milestone release** introducing an overhauled operator user interface, interactive workspace resizing, centralized cross-platform XDG path management, defense-in-depth security hardening, multi-provider AI integration, and an expanded test suite of 166 passing unit and integration tests.
 
 ---
 
-### 🖥️ Major UI/UX Overhaul
+### Major UI/UX Overhaul
 - **Interactive Split-Pane Resizer (`cyguide.ui.widgets.resizer`)**:
   - Implemented `VerticalResizer` and `ResizeHandle` providing real-time mouse drag resizing between the command execution terminal and the findings graph pane.
   - Added keyboard accessibility for resizing (`+` / `-` adjustments), snap points, and panel collapse toggles.
@@ -37,7 +71,7 @@ CyGuide v1.5.0 is a **major milestone release** introducing an overhauled operat
 
 ---
 
-### 🔒 Defense-in-Depth Security Hardening
+### Defense-in-Depth Security Hardening
 - **[CYG-SEC-01] Atomic File Creation**:
   - Replaced standard file `open()` with `os.open(..., os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)` across `app.py` and `power.py` to eliminate TOCTOU permission race conditions on `settings.json` and `scratchpad.md`.
 - **[CYG-SEC-02] Link-Local & Cloud Metadata SSRF Protection**:
@@ -51,7 +85,7 @@ CyGuide v1.5.0 is a **major milestone release** introducing an overhauled operat
 
 ---
 
-### 🏛️ Core Engine & Architecture Refinements
+### Core Engine & Architecture Refinements
 - **Centralized Path Resolution (`cyguide/paths.py`)**:
   - Introduced unified XDG-compliant path resolver for application data, configuration, cache, and scratchpad files.
 - **Stateful SQLite Graph Store (`cyguide/engine/store.py`)**:
@@ -67,7 +101,7 @@ CyGuide v1.5.0 is a **major milestone release** introducing an overhauled operat
 
 ---
 
-### 🧪 Test Suite & Continuous Integration
+### Test Suite & Continuous Integration
 - **Expanded Test Coverage**:
   - Test suite grew to **166 passing unit and integration tests** (100% pass rate in 81s).
   - Added dedicated test modules:
@@ -82,7 +116,7 @@ CyGuide v1.5.0 is a **major milestone release** introducing an overhauled operat
 
 ---
 
-### 🧹 Codebase Cleanup & Modernization
+### Codebase Cleanup & Modernization
 - **Orphaned Code Removal**:
   - Deleted legacy unreferenced files: `cyguide/ui/widgets/home.py`, `scripts/test_enrichment.py`, and `scripts/test_runner.py`.
 - **Packaging Standardization**:

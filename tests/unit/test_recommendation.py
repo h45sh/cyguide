@@ -2,7 +2,6 @@ import pytest
 import json
 from cyguide.engine.store import GraphStore
 from cyguide.engine.recommendation import RecommendationEngine
-from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.schemas.network import NetworkService
 from cyguide.schemas.web import WebEndpoint
 
@@ -110,43 +109,3 @@ async def test_web_vuln_recommendation():
 
     await store.close()
 
-
-@pytest.mark.asyncio
-async def test_dismiss_recommendation():
-    store = GraphStore(":memory:")
-    await store.initialize()
-
-    from unittest.mock import MagicMock
-    facade = PowerWorkspaceFacade(store, MagicMock(), MagicMock())
-
-    engine = RecommendationEngine(store)
-    store.on_upsert(engine.handle_upsert)
-
-    ws_id = await store.create_workspace("Test WS")
-    sess_id = await store.create_session(ws_id, "Test Session")
-
-    # Create service to trigger recommendation
-    service = NetworkService.create(
-        host_ip="10.0.0.1",
-        port=80,
-        protocol="tcp",
-        service_name="http"
-    )
-    await store.upsert_finding(sess_id, service)
-
-    # Verify it exists
-    nodes = await store.get_all_nodes(sess_id)
-    proposed = [n for n in nodes if n.get("status") == "proposed"]
-    assert len(proposed) == 1
-
-    # Dismiss it
-    pik = json.loads(proposed[0]["pik_json"])
-    schema_type = proposed[0]["schema_type"]
-    await facade.dismiss_proposed_finding(sess_id, schema_type, pik)
-
-    # Verify it is deleted
-    nodes_after = await store.get_all_nodes(sess_id)
-    proposed_after = [n for n in nodes_after if n.get("status") == "proposed"]
-    assert len(proposed_after) == 0
-
-    await store.close()

@@ -31,6 +31,35 @@ async def test_facade_get_context_resolution():
 
     await store.close()
 
+
+@pytest.mark.asyncio
+async def test_facade_submit_shell_action():
+    from uuid import UUID
+    store = GraphStore(":memory:")
+    await store.initialize()
+    executor = MagicMock()
+    executor.run_tool = MagicMock()
+    registry = MagicMock()
+    registry.get_tool.return_value = None
+
+    facade = PowerWorkspaceFacade(store, executor, registry)
+    ws_id = await facade.create_workspace("TestWS")
+    sess_id = await facade.create_session(ws_id, "ShellSess")
+
+    action = ActionRequest(
+        session_id=UUID(sess_id),
+        tool_name="ls",
+        params={"raw_flags": "-la"},
+        triggered_by=ActionSource.USER,
+        is_explicit_shell=True
+    )
+
+    job_id = await facade.submit_action(action)
+    assert job_id == action.action_id
+    assert job_id in facade._active_jobs
+    assert facade._active_jobs[job_id].tool_name == "ls"
+    await store.close()
+
 @pytest.mark.asyncio
 async def test_facade_submit_action_validation():
     store = GraphStore(":memory:")

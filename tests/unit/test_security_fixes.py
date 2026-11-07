@@ -1,15 +1,16 @@
 import os
-import pytest
-from uuid import uuid4
 from unittest.mock import MagicMock
+from uuid import uuid4
+
+import pytest
 
 from cyguide.engine.executor import sanitize_subprocess_env
 from cyguide.engine.gateway import ActionGateway, ActionValidationError
-from cyguide.engine.store import GraphStore
 from cyguide.engine.reporter import build_markdown_table_for_type
+from cyguide.engine.store import GraphStore
+from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.power import ActionRequest, ActionSource
 from cyguide.schemas.web import WebEndpoint
-from cyguide.schemas.network import NetworkHost
 from tools.gobuster.adapter import GobusterAdapter
 from tools.nikto.adapter import NiktoAdapter
 from tools.subfinder.adapter import SubfinderAdapter
@@ -242,3 +243,155 @@ async def test_reporter_backtick_command_escaping():
     report = await generate_markdown_report(store, sess_id)
     assert "`` !echo `whoami` ``" in report
     await store.close()
+
+
+def test_gateway_imds_canonicalization_direct():
+    from cyguide.engine.gateway import is_blocked_destination
+
+    # Obfuscated and standard representations of 169.254.169.254
+    assert is_blocked_destination("169.254.169.254") is True
+    assert is_blocked_destination("0251.0376.0251.0376") is True
+    assert is_blocked_destination("0xa9.0xfe.0xa9.0xfe") is True
+    assert is_blocked_destination("2852039166") is True
+    assert is_blocked_destination("::ffff:169.254.169.254") is True
+    assert is_blocked_destination("::ffff:a9fe:a9fe") is True
+
+    # Cloud metadata IPv6 / Link-local
+    assert is_blocked_destination("fd00:ec2::254") is True
+    assert is_blocked_destination("fe80::1") is True
+    assert is_blocked_destination("metadata.google.internal") is True
+
+    # Legitimate non-metadata IPs & networks should NOT be blocked
+    assert is_blocked_destination("8.8.8.8") is False
+    assert is_blocked_destination("1.1.1.1") is False
+    assert is_blocked_destination("10.0.0.1") is False
+    assert is_blocked_destination("192.168.1.100") is False
+    assert is_blocked_destination("172.16.0.5") is False
+    assert is_blocked_destination("example.com") is False
+
+
+@pytest.mark.asyncio
+async def test_gateway_imds_canonicalization_action_request():
+    store = GraphStore(":memory:")
+    await store.initialize()
+
+    mock_registry = MagicMock()
+    mock_tool = MagicMock()
+    mock_tool.input = {"accepts": ["network.host"]}
+    mock_registry.get_tool.return_value = {"manifest": mock_tool, "adapter": MagicMock()}
+
+    gateway = ActionGateway(mock_registry, store)
+
+    # Dotted-octal in raw_flags
+    action_octal = ActionRequest(
+        session_id=uuid4(),
+        tool_name="nmap",
+        params={"raw_flags": "0251.0376.0251.0376"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(ActionValidationError, match="strictly prohibited"):
+        await gateway.validate_action(action_octal)
+
+    # Dotted-hex in raw_flags
+    action_hex = ActionRequest(
+        session_id=uuid4(),
+        tool_name="curl",
+        params={"raw_flags": "http://0xa9.0xfe.0xa9.0xfe/"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(ActionValidationError, match="strictly prohibited"):
+        await gateway.validate_action(action_hex)
+
+    # IPv4-mapped IPv6 in raw_flags
+    action_mapped = ActionRequest(
+        session_id=uuid4(),
+        tool_name="curl",
+        params={"raw_flags": "http://[::ffff:169.254.169.254]/"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(ActionValidationError, match="strictly prohibited"):
+        await gateway.validate_action(action_mapped)
+
+    await store.close()
+
+
+@pytest.mark.asyncio
+async def test_cli_report_atomic_permissions(tmp_path):
+    import asyncio
+    import io
+    import sys
+    from unittest.mock import patch
+
+    from cyguide.main import main
+
+    db_path = tmp_path / "test.db"
+    store = GraphStore(str(db_path))
+    await store.initialize()
+    _ws_id, sess_id = await store.get_or_create_learning_sandbox()
+    await store.close()
+
+    export_db = tmp_path / "exported.db"
+    report_file = tmp_path / "export_report.md"
+
+    def _run_cli(args_list):
+        old_stdout = sys.stdout
+        captured = io.StringIO()
+        try:
+            sys.stdout = captured
+            with patch.object(sys, "argv", args_list):
+                main()
+        except SystemExit:
+            pass
+        finally:
+            sys.stdout = old_stdout
+        return captured.getvalue()
+
+    # Even with loose ambient umask 0o000, atomic descriptor creation enforces 0o600
+    old_umask = os.umask(0o000)
+    try:
+        args_list = [
+            "cyg",
+            "--db", str(db_path),
+            "export",
+            str(sess_id),
+            str(export_db),
+            "--report", str(report_file),
+        ]
+        await asyncio.to_thread(_run_cli, args_list)
+    finally:
+        os.umask(old_umask)
+
+    assert report_file.exists()
+    st_mode = os.stat(report_file).st_mode & 0o777
+    assert oct(st_mode) == "0o600"
+
+
+def test_ui_markup_escaping():
+    from rich.errors import MarkupError
+    from rich.markup import escape
+    from rich.text import Text
+
+    # Strings with unmatched closing tags that cause rich MarkupError if interpolated unescaped
+    crashing_inputs = [
+        "Unmatched closing tag [/red] in compiler output",
+        "Multiple tags [/bold][/italic][/blink]",
+        "Syntax error: <module> [/unknown_tag]",
+        "Arbitrary [/] root close tag",
+        "nested [/foo][bar][/bar]",
+    ]
+
+    for raw in crashing_inputs:
+        # Unescaped interpolation raises MarkupError
+        with pytest.raises(MarkupError):
+            Text.from_markup(f"[bold #f85149]Error:[/] [red]{raw}[/]")
+
+    # All inputs, including non-crashing arbitrary markup, render cleanly when escaped
+    all_inputs = crashing_inputs + [
+        "[bold]Open tag without close",
+        "[link=http://evil.com]clickme[/link]",
+        "[#ff0000]custom color[/#ff0000]",
+    ]
+    for raw in all_inputs:
+        escaped_text = Text.from_markup(f"[bold #f85149]Error:[/] [red]{escape(raw)}[/]")
+        assert escaped_text is not None
+        assert raw in escaped_text.plain

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability Report
+    url: https://github.com/h45sh/cyguide/security/advisories/new
+    about: Please report security vulnerabilities privately rather than opening a public issue.
+  - name: Documentation Portal
+    url: https://github.com/h45sh/cyguide/blob/main/docs/README.md
+    about: Read our Diataxis-structured documentation hub, user manual, and developer guides.

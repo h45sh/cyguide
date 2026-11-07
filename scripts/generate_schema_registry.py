@@ -42,7 +42,7 @@ def get_all_finding_schemas():
     return sorted(schemas, key=get_schema_type)
 
 
-def generate_registry():
+def generate_registry(check_only: bool = False):
     schemas = get_all_finding_schemas()
     errors = []
 
@@ -100,11 +100,29 @@ def generate_registry():
     content += header + "\n".join(rows) + "\n"
 
     output_path = project_root / "docs" / "developer" / "SCHEMA_REGISTRY.md"
-    with open(output_path, "w") as f:
+
+    if check_only:
+        if not output_path.exists():
+            print(f"ERROR: {output_path} does not exist. Run without --check to generate it.", file=sys.stderr)
+            sys.exit(1)
+        existing_content = output_path.read_text(encoding="utf-8")
+        if existing_content != content:
+            print(
+                f"ERROR: {output_path} is out of sync with finding schema definitions.\n"
+                f"Run 'python3 scripts/generate_schema_registry.py' to update it.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(f"[SUCCESS] Schema registry documentation is in sync ({len(rows)} schemas).")
+        return
+
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
 
     print(f"Successfully generated {output_path} with {len(rows)} schemas.")
 
 
 if __name__ == "__main__":
-    generate_registry()
+    check_mode = "--check" in sys.argv
+    generate_registry(check_only=check_mode)
+

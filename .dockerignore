@@ -1,0 +1,45 @@
+# Version control and GitHub metadata
+.git
+.github
+
+# Virtual environments
+.venv
+venv
+env
+
+# Python bytecode and caches
+__pycache__
+*.py[cod]
+.pytest_cache
+.coverage
+htmlcov
+.ruff_cache
+.mypy_cache
+
+# Build artifacts
+dist
+build
+*.egg-info
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Local data and runtime directories
+exports
+reports
+logs
+data
+
+# Documentation, tests, and maintenance scripts (not needed inside container build)
+tests
+docs
+scripts
+.pre-commit-config.yaml
+
+# Temporary and editor files
+*.swp
+*.swo
+*~
+.DS_Store

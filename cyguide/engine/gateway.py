@@ -1,9 +1,11 @@
 """Validation and policy enforcement for tool actions."""
 
-from cyguide.schemas.power import ActionRequest, ActionSource
+import ipaddress
+import socket
+
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
-
+from cyguide.schemas.power import ActionRequest, ActionSource
 
 BLOCKED_TARGETS = {
     "169.254.",                 # IPv4 Link-Local / Cloud Metadata (AWS, Azure, GCP, DigitalOcean, Oracle)
@@ -16,15 +18,70 @@ BLOCKED_TARGETS = {
     "instance-data",            # EC2 instance data hostname
 }
 
+BLOCKED_NETWORKS = [
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("fe80::/10"),
+    ipaddress.ip_network("fd00:ec2::/64"),
+]
+
+
+def _parse_ip_candidate(candidate: str):
+    """Attempt to parse an address token into an ipaddress object, resolving alternate numerical notations."""
+    c = candidate.strip("\"'`()<>,;{}[]")
+    if "://" in c:
+        c = c.split("://", 1)[1]
+    c = c.split("/", 1)[0]
+    c = c.split("?", 1)[0]
+    c = c.split("#", 1)[0]
+    if c.startswith("[") and "]" in c:
+        c = c[1:c.index("]")]
+    elif ":" in c and c.count(":") == 1:
+        c = c.split(":", 1)[0]
+
+    if not c:
+        return None
+
+    try:
+        return ipaddress.ip_address(c)
+    except ValueError:
+        pass
+
+    try:
+        raw_ip = socket.inet_ntoa(socket.inet_aton(c))
+        return ipaddress.ip_address(raw_ip)
+    except (OSError, ValueError):
+        pass
+
+    return None
+
 
 def is_blocked_destination(text: str) -> bool:
-    """Check if a string contains known restricted destinations like cloud metadata."""
+    """Check if a string contains known restricted destinations like cloud metadata,
+    canonicalizing alternative numerical notations (dotted-octal, dotted-hex, hex, and IPv4-mapped IPv6).
+    """
     if not text:
         return False
     lower_text = text.lower()
     for blocked in BLOCKED_TARGETS:
         if blocked in lower_text:
             return True
+
+    # Tokenize input to detect embedded IP candidates
+    tokens = lower_text.replace("=", " ").replace("&", " ").replace(";", " ").split()
+    for tok in tokens:
+        ip_obj = _parse_ip_candidate(tok)
+        if ip_obj is not None:
+            # Check IPv4-mapped IPv6 (e.g. ::ffff:169.254.169.254)
+            if hasattr(ip_obj, "ipv4_mapped") and ip_obj.ipv4_mapped:
+                ip_obj = ip_obj.ipv4_mapped
+
+            for net in BLOCKED_NETWORKS:
+                try:
+                    if ip_obj in net:
+                        return True
+                except TypeError:
+                    continue
+
     return False
 
 

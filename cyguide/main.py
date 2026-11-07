@@ -2,14 +2,22 @@
 
 import argparse
 import sys
+
 from dotenv import load_dotenv
 
+from cyguide import __version__
 from cyguide.app import CyGuideApp
 from cyguide.paths import get_default_data_dir, get_default_db_path
+
 
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="CyGuide: TUI-based guided cybersecurity learning platform.")
+    parser.add_argument(
+        "--version", "-V",
+        action="version",
+        version=f"CyGuide {__version__}"
+    )
     parser.add_argument(
         "--data-dir",
         default=None,
@@ -60,9 +68,10 @@ def main():
 
     if args.subcommand == "export":
         import asyncio
-        from cyguide.engine.store import GraphStore
-        from cyguide.engine.reporter import generate_markdown_report
         import os
+
+        from cyguide.engine.reporter import generate_markdown_report
+        from cyguide.engine.store import GraphStore
 
         async def run_export() -> int:
             store = GraphStore(db_path)
@@ -83,7 +92,7 @@ def main():
                         pass
                 print(f"[+] Session database exported successfully to {args.output_path}")
             except Exception as e:
-                print(f"[!] Database export failed: {str(e)}")
+                print(f"[!] Database export failed: {e!s}")
                 exit_code = 1
 
             # Export Report if requested
@@ -94,7 +103,8 @@ def main():
                     os.makedirs(rep_dir, exist_ok=True)
                 try:
                     report_content = await generate_markdown_report(store, args.session_id)
-                    with open(args.report, "w", encoding="utf-8") as f:
+                    fd = os.open(args.report, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                    with open(fd, "w", encoding="utf-8", closefd=True) as f:
                         f.write(report_content)
                     try:
                         os.chmod(args.report, 0o600)
@@ -102,7 +112,7 @@ def main():
                         pass
                     print(f"[+] Markdown report exported successfully to {args.report}")
                 except Exception as e:
-                    print(f"[!] Report generation failed: {str(e)}")
+                    print(f"[!] Report generation failed: {e!s}")
                     exit_code = 1
 
             await store.close()
@@ -112,6 +122,7 @@ def main():
 
     elif args.subcommand == "import":
         import asyncio
+
         from cyguide.engine.store import GraphStore
 
         async def run_import() -> int:
@@ -121,10 +132,10 @@ def main():
             exit_code = 0
             try:
                 new_sess_id = await store.import_session(args.input_path, target_workspace_id=args.workspace_id)
-                print(f"[+] Session imported successfully!")
+                print("[+] Session imported successfully!")
                 print(f"[+] New Session ID: {new_sess_id}")
             except Exception as e:
-                print(f"[!] Import failed: {str(e)}")
+                print(f"[!] Import failed: {e!s}")
                 exit_code = 1
             await store.close()
             return exit_code
@@ -134,7 +145,8 @@ def main():
     elif args.subcommand == "check":
         import asyncio
         import json
-        from cyguide.engine.diagnostics import run_diagnostics, format_terminal_report
+
+        from cyguide.engine.diagnostics import format_terminal_report, run_diagnostics
 
         async def run_check():
             report = await run_diagnostics(db_path=db_path, tools_dir=args.tools)

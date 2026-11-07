@@ -1,143 +1,291 @@
-# CyGuide – TUI-Based Guided Cybersecurity Learning and Terminal Tool Orchestration Platform
+# CyGuide
 
-CyGuide is a Terminal User Interface (TUI) platform for cybersecurity education, designed as a pluggable ecosystem for security tools.
+[![CI](https://github.com/h45sh/cyguide/actions/workflows/ci.yml/badge.svg)](https://github.com/h45sh/cyguide/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/h45sh/cyguide/actions/workflows/codeql.yml/badge.svg)](https://github.com/h45sh/cyguide/actions/workflows/codeql.yml)
+[![PyPI](https://img.shields.io/pypi/v/cyguide.svg)](https://pypi.org/project/cyguide/)
+[![Python](https://img.shields.io/pypi/pyversions/cyguide.svg)](https://pypi.org/project/cyguide/)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/h45sh/cyguide/pkgs/container/cyguide)
+[![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](.github/SECURITY.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 🏗️ New Plugin Architecture
 
-CyGuide has been restructured into a "Smart Adapter / Stupid Framework" model:
 
-- **Core Engine (`cyguide/engine`)**: Manages a stateful entity graph and event log using SQLite.
-- **Unified Schemas (`cyguide/schemas`)**: Defines a shared language for security findings (Hosts, Services, Endpoints, etc.).
-- **Plugin System (`tools/`)**: Allows adding new tools (nmap, gobuster, etc.) without touching the core codebase.
-- **Textual TUI (`cyguide/ui`)**: A modern, async terminal interface.
+**TUI-Based Guided Cybersecurity Learning and Terminal Tool Orchestration Platform.**
 
-## 🚀 Getting Started
+CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models.
 
-### Prerequisites
+---
 
-- Python 3.11+
-- (Optional) `Ollama` for local LLM explanations.
+## Why CyGuide?
 
-To automatically install all required security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`) and their system dependencies on Linux/macOS, run:
+* **No More Terminal Tab Chaos**: Run multiple reconnaissance tools concurrently with dedicated tabs, active job monitoring, and instant output review.
+* **Stateful Entity Graph**: Discoveries (hosts, open ports, endpoints, DNS records, vulnerabilities) automatically link together in a deterministic graph using SHA-256 Primary Identity Keys (PIKs).
+* **Universal Variable Injection**: Click any node in your target tree to bind variables (`$TARGET`, `$PORT`, `$SERVICE`) into subsequent commands without retyping IP addresses.
+* **Offline-First AI Tutor**: Get immediate, structured breakdowns of scan results and security recommendations powered by local Ollama models or cloud APIs.
+* **Portable Engagement Archives**: Export investigations into standalone `.db` archives and Markdown reports (`cyg export`). Instructors can import (`cyg import`) and replay a student's exact methodology step-by-step.
 
-```bash
-./scripts/install_deps.sh
+---
+
+## Architecture Overview
+
+CyGuide is built on a **Smart Adapter / Stupid Framework** model:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Textual TUI Workstation                         │
+│  [ Dashboard Hub ]   [ Guided Learning Mode ]   [ Power Mode Workbench]│
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Actions / Context
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                       Deterministic Core Engine                        │
+│  • ActionGateway (SSRF & Scope Policy)  • Subprocess Async Executor    │
+│  • GraphStore (SQLite PIK Deduplication) • Reactive Recommendation Engine│
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Event Streaming
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                         Security Tool Adapters                         │
+│   nmap  •  gobuster  •  nikto  •  whois  •  subfinder  •  custom...    │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Installation
+* **Core Engine (`cyguide/engine`)**: Asynchronous process executor, policy gateway, and SQLite graph store.
+* **Unified Schemas (`cyguide/schemas`)**: 15 standard Pydantic models defining shared security entities.
+* **Smart Adapters (`tools/`)**: Isolated plugins that construct commands and parse streaming output.
+* **Textual TUI (`cyguide/ui`)**: Fast, keyboard-driven terminal interface with split panes and scratchpad.
+
+---
+
+## Installation & Getting Started
+
+CyGuide can be run or installed through several methods depending on your workflow:
+
+| Method | Best For | Security Tools | Setup Time |
+| :--- | :--- | :--- | :--- |
+| **Docker (GHCR)** | Quick trials, isolated testing, zero host pollution | Pre-bundled | < 30 seconds |
+| **`pipx`** | Everyday CLI usage on Linux/macOS | Installed via script/OS | ~ 1 minute |
+| **`pip` / PyPI** | Existing Python virtual environments | Installed via script/OS | ~ 1 minute |
+| **Source (Git)** | Contributing, local tool plugin development | Installed via script/OS | ~ 2 minutes |
+
+---
+
+### Option 1: Instant Evaluation via Docker (Zero Setup)
+Run CyGuide immediately with Python 3.11+ and all 5 security tools pre-installed inside an isolated container:
 
 ```bash
-# Clone and install in editable mode
+docker run -it --rm --net=host -v ~/.cyguide:/root/.cyguide ghcr.io/h45sh/cyguide
+```
+> [!NOTE]
+> `--net=host` allows network scanners to probe target hosts seamlessly, and `-v ~/.cyguide:/root/.cyguide` ensures your session graphs, notes, and reports persist on your host machine.
+
+---
+
+### Option 2: Install via `pipx` (Recommended for Python CLI Users)
+Install CyGuide into an isolated application environment:
+
+```bash
+pipx install cyguide
+```
+*(Ensure system security tools are installed via the Universal Installer or native package managers below).*
+
+---
+
+### Option 3: Install from PyPI or Source
+If working inside a virtual environment or contributing to CyGuide:
+
+```bash
+# Install from PyPI
+pip install cyguide
+
+# OR clone and install editable for development
+git clone https://github.com/h45sh/cyguide.git
+cd cyguide
 pip install -e .
 ```
 
-### Launching
+---
+
+### Installing Security Tools & Dependencies
+
+CyGuide orchestrates standard CLI security tools. You can install them automatically using our universal installer, or manually with your package manager:
+
+#### A. Automated Universal Installer (Recommended)
+CyGuide includes an intelligent dependency installer that auto-detects your OS and package manager, installs dependencies, handles fallbacks (e.g. downloading official binaries if a tool isn't in your distro repos), and verifies the setup:
 
 ```bash
-# Launch with unified default application database (~/.cyguide/cyguide.db)
+# Install system-wide (requires sudo)
+./scripts/install_deps.sh
+
+# Install standalone binaries into ~/.local/bin (no root/sudo needed)
+./scripts/install_deps.sh --user
+
+# Verify currently installed tools without making changes
+./scripts/install_deps.sh --check
+```
+
+#### B. Native Package Manager Commands
+If you prefer to install packages manually using your distribution's native package manager:
+
+<details>
+<summary><b>Debian / Ubuntu / Linux Mint / Pop!_OS</b></summary>
+
+```bash
+sudo apt update
+sudo apt install -y nmap gobuster nikto whois libxml-writer-perl curl unzip
+
+# Install subfinder (official ProjectDiscovery binary release)
+curl -fsSL https://github.com/projectdiscovery/subfinder/releases/download/v2.6.6/subfinder_2.6.6_linux_amd64.zip -o /tmp/subfinder.zip
+unzip -q /tmp/subfinder.zip -d /tmp && sudo mv /tmp/subfinder /usr/local/bin/ && rm /tmp/subfinder.zip
+```
+</details>
+
+<details>
+<summary><b>Kali Linux / Parrot OS</b></summary>
+
+```bash
+# All tools are natively available in official Kali & Parrot repositories
+sudo apt update
+sudo apt install -y nmap gobuster nikto whois subfinder libxml-writer-perl
+```
+</details>
+
+<details>
+<summary><b>Arch Linux / Manjaro / EndeavourOS / BlackArch</b></summary>
+
+```bash
+sudo pacman -Syu --needed nmap gobuster nikto whois subfinder perl-xml-writer
+```
+</details>
+
+<details>
+<summary><b>Fedora / RHEL / CentOS Stream / Rocky / AlmaLinux</b></summary>
+
+```bash
+sudo dnf install -y nmap whois perl-XML-Writer curl unzip
+# Gobuster / Nikto / Subfinder (or run ./scripts/install_deps.sh for automated binaries)
+sudo dnf install -y gobuster nikto 2>/dev/null || ./scripts/install_deps.sh
+```
+</details>
+
+<details>
+<summary><b>openSUSE (Tumbleweed / Leap)</b></summary>
+
+```bash
+sudo zypper install -y nmap whois perl-XML-Writer curl unzip
+./scripts/install_deps.sh
+```
+</details>
+
+<details>
+<summary><b>Alpine Linux</b></summary>
+
+```bash
+sudo apk add nmap gobuster nikto whois perl-xml-writer curl unzip
+./scripts/install_deps.sh
+```
+</details>
+
+<details>
+<summary><b>macOS (Homebrew)</b></summary>
+
+```bash
+brew install nmap gobuster nikto whois subfinder
+```
+</details>
+
+---
+
+## Launching CyGuide
+
+```bash
+# Launch with default centralized database (~/.cyguide/cyguide.db)
 cyg
 
 # Launch with a custom data directory
 cyg --data-dir ~/.my_cyguide
 
 # Launch with a custom SQLite database
-cyg --db my_project.db
+cyg --db engagement.db
 ```
 
-### LLM Configuration
+### AI Configuration (Ollama & Cloud)
 
-CyGuide supports both local and cloud-based LLMs for generating explanations:
+CyGuide supports both local, privacy-preserving LLMs and cloud APIs:
 
-#### Local (Ollama)
-Launch with the `--ollama` flag and optionally specify a model (defaults to `gemma`):
+#### Local LLM (Ollama)
+Launch with the `--ollama` flag and specify an optional model (defaults to `gemma`):
 ```bash
 cyg --ollama --ollama-model llama3
 ```
 
-#### Cloud APIs (OpenAI, Anthropic, OpenRouter, Grok, etc.)
-CyGuide uses environment variables to configure cloud LLM providers. You can set these in your shell or copy `.env.example` to `.env`.
-
+#### Cloud LLM Providers
+Set your API key via environment variable or in the in-app settings dialog (`Ctrl+P` -> Configuration):
 ```bash
-# Required
 export CYGUIDE_API_KEY="your_api_key_here"
 
 # Optional overrides (defaults to OpenAI / gpt-4o)
 export CYGUIDE_API_TYPE="openai"       # Options: openai, anthropic
-export CYGUIDE_API_BASE="https://api.openai.com/v1" # E.g., https://openrouter.ai/api/v1
-export CYGUIDE_API_MODEL="gpt-4o"      # E.g., claude-3-5-sonnet-20240620
+export CYGUIDE_API_BASE="https://api.openai.com/v1" # E.g., OpenRouter, Groq, DeepSeek
+export CYGUIDE_API_MODEL="gpt-4o"
 ```
 
-### 🩺 Diagnostic Health Check
-Verify your environment, database permissions, installed security tools, and AI backends:
+---
+
+## Diagnostic Health Check
+
+Verify your Python runtime, database write permissions, installed security tools, and AI backends:
 ```bash
 cyg check
 ```
 *(Use `cyg check --json` for scriptable JSON output in CI/CD pipelines).*
 
-### 💾 Session Portability & Reporting
-CyGuide provides built-in mechanisms to export, import, and generate reports from your investigations:
+---
 
-#### 1. Machine-Readable Database Exports (`exports/`)
-Export a standalone, self-contained SQLite archive of a specific session containing its full entity graph, relationships, and raw command execution logs:
-```bash
-cyg export <session_id> exports/my_session.db
-```
-Import a previously exported session `.db` into your local workspace on any machine:
-```bash
-cyg import exports/my_session.db
-```
-* **Who are Exports for?**
-  * **Instructors & Graders**: Students can export their lab/CTF session into an archive and submit it. Instructors can run `cyg import` to review findings, topology, and execution timelines in the TUI.
-  * **Security Teams**: Analysts can share specific engagement graphs with team members for peer review or shift handoffs without exposing the entire global database.
-  * **Archiving**: Lightweight, standalone backups of completed pentest engagements or CTF challenges.
+## Session Portability & Reporting
 
-#### 2. Human-Readable Markdown Reports (`reports/`)
-Generate a formatted executive and technical Markdown report summarizing all discovered hosts, services, vulnerabilities, and executed commands:
-```bash
-cyg export <session_id> exports/my_session.db --report reports/my_session_report.md
-```
-*(You can also trigger automatic export and reporting directly inside Power Mode by pressing `Ctrl+E`).*
+* **Export Session (`cyg export`)**: Creates a portable `.db` archive of findings, relationships, and raw commands:
+  ```bash
+  cyg export <session_id> exports/my_session.db
+  ```
+* **Generate Technical Report**: Produces a structured executive Markdown summary:
+  ```bash
+  cyg export <session_id> exports/my_session.db --report reports/investigation.md
+  ```
+* **Import Session (`cyg import`)**: Restores an archive into your local workspace:
+  ```bash
+  cyg import exports/my_session.db
+  ```
 
-## 📜 Utility Scripts
+---
 
-CyGuide includes dedicated helper scripts under `scripts/`:
+## Documentation Hub
 
-| Script | Purpose |
-| :--- | :--- |
-| [`./scripts/install_deps.sh`](scripts/install_deps.sh) | Automatically installs required system tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`) and Perl XML dependencies across Debian/Ubuntu, Arch, Fedora/RHEL, and macOS (Homebrew). |
-| [`./scripts/verify.sh`](scripts/verify.sh) | Runs the comprehensive verification pipeline: executes the 166-test pytest suite, validates and regenerates the 15-schema documentation, and checks integration pipelines. |
-| [`./scripts/generate_schema_registry.py`](scripts/generate_schema_registry.py) | Introspects the `cyguide.schemas` module and dynamically updates `docs/developer/SCHEMA_REGISTRY.md` with active finding schemas and Primary Identity Keys (PIKs). |
+Our complete documentation is organized using the **[Diátaxis Framework](docs/README.md)**:
 
-## ✅ Testing & Verification
+* **[Documentation Master Hub](docs/README.md)**: Central portal with role-based reading paths.
+* **[User Manual](docs/user/USER_MANUAL.md)**: Navigation guide, hotkeys master table, and UI workflows.
+* **[Architecture & Domain Context](docs/developer/ARCHITECTURE.md)**: Subsystem pipelines, ADRs, and facade contracts.
+* **[Database Architecture & Specification](docs/developer/DATABASE.md)**: Relational schema, PIK hashing, and ER diagrams.
+* **[Schema Registry](docs/developer/SCHEMA_REGISTRY.md)**: Standard 15-schema finding models and identity keys.
+* **[Roadmap & Progress Tracker](docs/developer/ROADMAP.md)**: Project phases, active tasks, and historical milestones.
+* **[Autonomous Agent Harness Vision](docs/developer/FUTURE_POWER_MODE.md)**: Architecture for autonomous ReAct loops and safety gates.
+* **[Developer Performance Notes](docs/developer/DEVELOPER_NOTES.md)**: Real-time streaming, event loops, and lessons learned.
+* **[Security Policy](.github/SECURITY.md)**: Vulnerability disclosure channels, response SLAs, and threat model scope.
+* **[Contributing Guide](docs/user/CONTRIBUTING.md)**: Step-by-step guide for creating new tool plugins, code standards, and PR templates.
 
-To verify the codebase stability and ensure documentation is in sync with the schemas, run:
+
+---
+
+## Contributing
+
+Contributions are warmly welcomed! Please read our **[Contributing Guide](docs/user/CONTRIBUTING.md)** to learn how to create new tool plugins, configure pre-commit hooks, and run the verification pipeline:
 
 ```bash
 ./scripts/verify.sh
 ```
 
-## 🛠️ Adding a Tool
-
-CyGuide is built for extensibility. See [docs/user/CONTRIBUTING.md](docs/user/CONTRIBUTING.md) to learn how to write a new adapter.
-
-## 📚 Documentation
-
-*   **[User Manual](docs/user/USER_MANUAL.md)**: Operating guide, keyboard shortcuts, UI panel descriptions, and export/import usage.
-*   **[Architecture & Domain Context](docs/developer/ARCHITECTURE.md)**: System design details, database schemas, and facade layers.
-*   **[Database Architecture & Specification](docs/developer/DATABASE.md)**: Exhaustive database models, PIK hashing, ER diagrams, and portability.
-*   **[Schema Registry](docs/developer/SCHEMA_REGISTRY.md)**: Standard 15-schema vocabulary and Primary Identity Key (PIK) rules.
-*   **[Roadmap & Progress Tracker](docs/developer/ROADMAP.md)**: Unified project phases, task checklists, and historical walkthroughs.
-*   **[Autonomous Agent Harness Vision](docs/developer/FUTURE_POWER_MODE.md)**: Architecture for autonomous AI agents, HITL safety gates, and multi-agent roles.
-*   **[Developer Performance Notes](docs/developer/DEVELOPER_NOTES.md)**: Real-time streaming, event loops, and CPU load roadblocks.
-*   **[Changelog](CHANGELOG.md)**: Full release history and detailed changelog for v1.5.0.
-*   **[Contributing](docs/user/CONTRIBUTING.md)**: Developer guide for creating tool plugins and contributing to CyGuide.
-
-## 📂 Project Structure & Data Isolation
-
-- `cyguide/`: The core application package (engine, schemas, modes, TUI).
-- `tools/`: Tool plugin adapters and manifests (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`).
-- `scripts/`: Development and system installation scripts.
-- `docs/`: Technical and user documentation.
-- `~/.cyguide/`: Default unified application data directory storing runtime database (`cyguide.db`), scratchpad notes (`scratchpad.md`), persistent settings (`settings.json`), exported archives (`exports/`), and generated investigation reports (`reports/`) across any launch directory.
-
 ---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+

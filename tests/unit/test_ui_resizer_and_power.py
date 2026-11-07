@@ -51,7 +51,7 @@ class ResizerTestApp(App):
 @pytest.mark.asyncio
 async def test_resizer_handle_mouse_drag():
     app = ResizerTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test():
         left_pane = app.query_one("#left_pane")
         left_pane.styles.width = 25
         left_resizer = app.query_one("#left_resizer", ResizeHandle)

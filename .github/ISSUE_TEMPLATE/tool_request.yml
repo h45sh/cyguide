@@ -1,0 +1,72 @@
+name: Tool Adapter Proposal
+description: Propose a new cybersecurity tool adapter for CyGuide.
+title: "[TOOL]: "
+labels: ["tool", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        CyGuide integrates cybersecurity tools using the **Smart Adapter / Stupid Framework** architecture.
+        Refer to the [Contributing Guide](https://github.com/h45sh/cyguide/blob/main/docs/user/CONTRIBUTING.md) for details on writing adapters.
+  - type: input
+    id: tool_name
+    attributes:
+      label: Tool Name & Binary
+      description: Name of the tool and executable name on PATH.
+      placeholder: e.g., ffuf (binary: ffuf)
+    validations:
+      required: true
+  - type: input
+    id: upstream_url
+    attributes:
+      label: Upstream Repository / Homepage
+      placeholder: https://github.com/...
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Tool Description & Purpose
+      description: What reconnaissance, scanning, or analysis task does this tool perform?
+      placeholder: Fast web fuzzer written in Go...
+    validations:
+      required: true
+  - type: checkboxes
+    id: package_managers
+    attributes:
+      label: Package Manager Availability
+      description: Which package managers or distributions support this tool?
+      options:
+        - label: Debian / Ubuntu / Kali apt
+        - label: Arch Linux pacman / AUR
+        - label: Fedora dnf
+        - label: Alpine apk
+        - label: Homebrew (macOS / Linux)
+        - label: Go / Rust / Binary GitHub Releases
+    validations:
+      required: false
+  - type: textarea
+    id: standard_flags
+    attributes:
+      label: Common Commands & Flags
+      description: Provide 2-3 standard commands or learning recipes used with this tool.
+      placeholder: |
+        ffuf -u http://$TARGET/FUZZ -w /usr/share/wordlists/dirb/common.txt
+    validations:
+      required: true
+  - type: textarea
+    id: finding_schemas
+    attributes:
+      label: Findings Produced
+      description: What standard schemas should findings map to (e.g., `web.endpoint`, `network.service`, `vulnerability.found`)?
+      placeholder: Emits `web.endpoint` findings with URL, status code, and content length.
+    validations:
+      required: true
+  - type: textarea
+    id: sample_output
+    attributes:
+      label: Sample CLI Output
+      description: Provide a snippet of stdout/stderr that the parser adapter will process.
+      render: text
+    validations:
+      required: false

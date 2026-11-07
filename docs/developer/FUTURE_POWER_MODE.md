@@ -53,18 +53,18 @@ graph TB
 
 | Module / Component | Status in Codebase | Implementation Reference |
 | :--- | :--- | :--- |
-| **`PowerWorkspaceFacade`** | ✅ **Implemented** | [`cyguide/engine/power_facade.py`](file:///home/harsh/Documents/cyguide/cyguide/engine/power_facade.py) |
-| **`WorkspaceContext` Model** | ✅ **Implemented** | [`cyguide/schemas/power.py`](file:///home/harsh/Documents/cyguide/cyguide/schemas/power.py) |
-| **`ActionRequest` & Typed Actions** | ✅ **Implemented** | [`cyguide/schemas/power.py`](file:///home/harsh/Documents/cyguide/cyguide/schemas/power.py) |
-| **`ActionGateway` & Source Gating** | ✅ **Implemented** | [`cyguide/engine/gateway.py`](file:///home/harsh/Documents/cyguide/cyguide/engine/gateway.py) |
-| **Universal Variable Substitution** | ✅ **Implemented** | [`PowerWorkspaceFacade.get_context()`](file:///home/harsh/Documents/cyguide/cyguide/engine/power_facade.py#L353-L403) |
-| **Reactive Suggestion Engine** | ✅ **Implemented** | [`cyguide/engine/recommendation.py`](file:///home/harsh/Documents/cyguide/cyguide/engine/recommendation.py) |
-| **Append-Only Event Sourcing** | ✅ **Implemented** | [`GraphStore.append_event()`](file:///home/harsh/Documents/cyguide/cyguide/engine/store.py#L509-L517) |
-| **Portable Session Export/Import** | ✅ **Implemented** | [`GraphStore.export_session()`](file:///home/harsh/Documents/cyguide/cyguide/engine/store.py#L529-L584) |
-| **AI Explainer Engine (Ollama/Cloud)** | ✅ **Implemented** | [`cyguide/engine/explainer.py`](file:///home/harsh/Documents/cyguide/cyguide/engine/explainer.py) |
-| **Agent Orchestrator Loop** | ⏳ *Planned (Phase 4)* | Autonomous ReAct decision loop |
-| **Declarative CIDR Scope Policy** | ⏳ *Planned (Phase 4)* | Automated IP/subnet boundary checker |
-| **Multi-Agent Role Coordination** | ⏳ *Planned (Phase 4)* | Specialized subagents (Recon, Web, Reporter) |
+| **`PowerWorkspaceFacade`** | **Implemented** | [`cyguide/engine/power_facade.py`](../../cyguide/engine/power_facade.py) |
+| **`WorkspaceContext` Model** | **Implemented** | [`cyguide/schemas/power.py`](../../cyguide/schemas/power.py) |
+| **`ActionRequest` & Typed Actions** | **Implemented** | [`cyguide/schemas/power.py`](../../cyguide/schemas/power.py) |
+| **`ActionGateway` & Source Gating** | **Implemented** | [`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py) |
+| **Universal Variable Substitution** | **Implemented** | [`PowerWorkspaceFacade.get_context()`](../../cyguide/engine/power_facade.py#L353-L403) |
+| **Reactive Suggestion Engine** | **Implemented** | [`cyguide/engine/recommendation.py`](../../cyguide/engine/recommendation.py) |
+| **Append-Only Event Sourcing** | **Implemented** | [`GraphStore.append_event()`](../../cyguide/engine/store.py#L509-L517) |
+| **Portable Session Export/Import** | **Implemented** | [`GraphStore.export_session()`](../../cyguide/engine/store.py#L529-L584) |
+| **AI Explainer Engine (Ollama/Cloud)** | **Implemented** | [`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py) |
+| **Agent Orchestrator Loop** | *Planned (Phase 4)* | Autonomous ReAct decision loop |
+| **Declarative CIDR Scope Policy** | *Planned (Phase 4)* | Automated IP/subnet boundary checker |
+| **Multi-Agent Role Coordination** | *Planned (Phase 4)* | Specialized subagents (Recon, Web, Reporter) |
 
 ---
 
@@ -189,24 +189,24 @@ To balance speed and safety, the agent harness will support three governance ope
 
 | Mode | Description | Safety Level | Target Use Case |
 | :--- | :--- | :--- | :--- |
-| **`Strict (Step-by-Step)`** | The agent pauses and requests interactive operator confirmation in the TUI before executing every command. | 🟢 Highest | Live production networks, client audits, educational training. |
-| **`Bounded Semi-Autonomous`** | The agent executes non-intrusive discovery tools (`nmap -sV`, `whois`, `subfinder`) autonomously; pauses only for active vulnerability scans (`nikto`) or sensitive targets. | 🟡 Balanced | Standard internal penetration tests and CTF challenges. |
-| **`Full Autonomous Sandbox`** | Operates autonomously up to a defined action limit or timeout within an isolated subnet. | 🔴 Unrestricted | Automated lab grading and isolated range environments. |
+| **`Strict (Step-by-Step)`** | The agent pauses and requests interactive operator confirmation in the TUI before executing every command. | High | Live production networks, client audits, educational training. |
+| **`Bounded Semi-Autonomous`** | The agent executes non-intrusive discovery tools (`nmap -sV`, `whois`, `subfinder`) autonomously; pauses only for active vulnerability scans (`nikto`) or sensitive targets. | Balanced | Standard internal penetration tests and CTF challenges. |
+| **`Full Autonomous Sandbox`** | Operates autonomously up to a defined action limit or timeout within an isolated subnet. | Unrestricted | Automated lab grading and isolated range environments. |
 
 ---
 
 ## 4. Phase-by-Phase Roadmap to Full Autonomy
 
 ```text
-[ ✅ Phase 1: Core Foundation ] ── Engine, SQLite Store, PIKs, Schemas, TUI
+[ Phase 1: Core Foundation ] ── Engine, SQLite Store, PIKs, Schemas, TUI
               │
-[ ✅ Phase 2: Facade & Policy ] ── PowerWorkspaceFacade, ActionGateway, Universal Variables
+[ Phase 2: Facade & Policy ] ── PowerWorkspaceFacade, ActionGateway, Universal Variables
               │
-[ ✅ Phase 3: Reactivity & AI ] ── RecommendationEngine, Proposed Nodes, Ollama Explainer
+[ Phase 3: Reactivity & AI ] ── RecommendationEngine, Proposed Nodes, Ollama Explainer
               │
-[ ⏳ Phase 4: Agent Runtime ]   ── AgentOrchestrator, Scope Config, HITL Confirmation UI
+[ Phase 4: Agent Runtime ]   ── AgentOrchestrator, Scope Config, HITL Confirmation UI
               │
-[ ⏳ Phase 5: Multi-Agent ]     ── Specialized Subagents (Recon, Web, Reporter, Critic)
+[ Phase 5: Multi-Agent ]     ── Specialized Subagents (Recon, Web, Reporter, Critic)
 ```
 
 ---
@@ -222,6 +222,6 @@ To balance speed and safety, the agent harness will support three governance ope
 
 ## 6. Related Technical References
 
-* 🏗️ **[System Architecture Blueprint (`docs/developer/ARCHITECTURE.md`)](ARCHITECTURE.md)**: Layered execution pipeline and ADRs.
-* 💾 **[Database Architecture & Storage Specification (`docs/developer/DATABASE.md`)](DATABASE.md)**: SQLite relational schema and PIK hashing.
-* 📋 **[Schema Registry (`docs/developer/SCHEMA_REGISTRY.md`)](SCHEMA_REGISTRY.md)**: Standard 15-schema finding models.
+* **[System Architecture Blueprint (`docs/developer/ARCHITECTURE.md`)](ARCHITECTURE.md)**: Layered execution pipeline and ADRs.
+* **[Database Architecture & Storage Specification (`docs/developer/DATABASE.md`)](DATABASE.md)**: SQLite relational schema and PIK hashing.
+* **[Schema Registry (`docs/developer/SCHEMA_REGISTRY.md`)](SCHEMA_REGISTRY.md)**: Standard 15-schema finding models.

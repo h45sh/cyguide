@@ -1,0 +1,77 @@
+name: Bug Report
+description: Report a reproducible bug, crash, or unexpected behavior in CyGuide.
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please provide as much detail as possible.
+        If this is a security vulnerability, please refer to [SECURITY.md](https://github.com/h45sh/cyguide/blob/main/.github/SECURITY.md) instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe what happened when running the command or using the TUI...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to reproduce the issue.
+      placeholder: |
+        1. Run 'cyg' in terminal
+        2. Select workspace 'test'
+        3. Execute tool 'nmap' with flags '...'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: health_check
+    attributes:
+      label: Diagnostic Health Check Output
+      description: Run `cyg check --json` in your terminal and paste the full JSON output here.
+      render: json
+    validations:
+      required: false
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System / Distribution
+      options:
+        - Ubuntu / Debian
+        - Kali Linux / Parrot OS
+        - Arch Linux / Manjaro
+        - Fedora / RHEL
+        - openSUSE
+        - Alpine Linux
+        - macOS
+        - Docker Container
+        - Other (specify below)
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal Emulator & Python Version
+      placeholder: e.g., Kitty 0.35, Python 3.11.8, tmux 3.4
+    validations:
+      required: true
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error Traceback / Logs
+      description: Paste any error traceback from `~/.cyguide/logs/cyguide.log` or terminal output.
+      render: shell
+    validations:
+      required: false

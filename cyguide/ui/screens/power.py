@@ -15,6 +15,7 @@ from cyguide.ui.widgets.power import EntityBrowser, JobQueue, CommandPalette
 from cyguide.ui.widgets.resizer import ResizeHandle
 from cyguide.schemas.power import ActionRequest, JobStatusEnum, ActionSource, JobStatus
 from rich.text import Text
+from rich.markup import escape
 import os
 
 
@@ -355,19 +356,24 @@ class PowerModeScreen(Screen):
             job_log = self.query_one(f"#log_{tab_id}", RichLog)
 
             params = action.get("params", {})
-            raw_flags = params.get("raw_flags", "")
+            raw_flags = (params.get("raw_flags") or "").strip()
 
-            # Since expanded_params is a list in handle_submission, but raw_flags is a string,
-            # we can just print raw_flags directly.
-            job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{tool_name}[/] [dim #8b949e]{raw_flags}[/]\n"))
-            job_log.write(Text.from_ansi(result["output"]))
+            if raw_flags.startswith(tool_name):
+                cmd_display = raw_flags
+            elif raw_flags:
+                cmd_display = f"{tool_name} {raw_flags}"
+            else:
+                cmd_display = tool_name
 
-            if "error" in result:
+            job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n"))
+            job_log.write(Text.from_ansi(result.get("output", "")))
+
+            if result.get("error"):
                 err = result["error"]
                 if err == "Terminated manually":
                     job_log.write(Text.from_markup("\n[bold #f85149]SIGTERM: Job terminated by operator.[/]\n"))
                 else:
-                    job_log.write(Text.from_markup(f"[red]Error: {err}[/]"))
+                    job_log.write(Text.from_markup(f"\n[bold #f85149]Error:[/] [red]{escape(str(err))}[/]\n"))
 
     async def refresh_ui(self) -> None:
         if not self.active_session_id: return
@@ -381,7 +387,7 @@ class PowerModeScreen(Screen):
         is_closed = session_data and session_data.get("status") == "CLOSED"
 
         try:
-            status_suffix = " [dim #64748b]🔒 [ARCHIVED — Ctrl+R to Reopen][/]" if is_closed else ""
+            status_suffix = " [dim #64748b][ARCHIVED — Ctrl+R to Reopen][/]" if is_closed else ""
             self.query_one("#session_label", Label).update(f"◆ SESSION: {ctx.session_name}{status_suffix}")
         except Exception: pass
 
@@ -515,37 +521,30 @@ class PowerModeScreen(Screen):
                 active_tab_id = await self.action_new_terminal_tab(title=f"Error: {tool_name}")
 
             job_log = self.query_one(f"#log_{active_tab_id}", RichLog)
-            job_log.write(Text.from_markup(f"\n[bold #f85149]Validation Error:[/] [red]{str(e)}[/]\n"))
+            job_log.write(Text.from_markup(f"\n[bold #f85149]Validation Error:[/] [red]{escape(str(e))}[/]\n"))
             return
 
         is_sudo = tool_name == "sudo"
-        if (palette.shell_locked or is_sudo) and not is_builtin:
-            if is_sudo:
-                tabs = self.query_one("#job_tabs", TabbedContent)
-                active_tab_id = tabs.active
-                if not active_tab_id:
-                    active_tab_id = await self.action_new_terminal_tab(title=f"sudo {expanded_params[0] if expanded_params else ''}")
+        if is_sudo and not is_builtin:
+            tabs = self.query_one("#job_tabs", TabbedContent)
+            active_tab_id = tabs.active
+            if not active_tab_id:
+                active_tab_id = await self.action_new_terminal_tab(title=f"sudo {expanded_params[0] if expanded_params else ''}")
 
-                job_log = self.query_one(f"#log_{active_tab_id}", RichLog)
-                params_str = " ".join(expanded_params)
-                job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]sudo[/] [dim #8b949e]{params_str}[/]\n"))
-                job_log.write(Text.from_markup("[italic #8b949e]Suspending for sudo password entry...[/]\n"))
+            job_log = self.query_one(f"#log_{active_tab_id}", RichLog)
+            params_str = " ".join(expanded_params)
+            job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]sudo[/] [dim #8b949e]{escape(params_str)}[/]\n"))
+            job_log.write(Text.from_markup("[italic #8b949e]Suspending for sudo password entry...[/]\n"))
 
             from cyguide.engine.executor import sanitize_subprocess_env
             clean_env = sanitize_subprocess_env(self.app.user_env)
             with self.app.suspend():
                 import subprocess
                 import shlex
-                full_cmd = f"{tool_name} {' '.join(expanded_params)}"
-                if is_sudo:
-                    cmd_args = ["sudo"] + shlex.split(' '.join(expanded_params))
-                    subprocess.run(cmd_args, shell=False, env=clean_env)
-                else:
-                    cmd_args = [self.app.user_shell, "-c", full_cmd]
-                    subprocess.run(cmd_args, shell=False, env=clean_env)
+                cmd_args = ["sudo"] + shlex.split(' '.join(expanded_params))
+                subprocess.run(cmd_args, shell=False, env=clean_env)
 
-            if is_sudo:
-                job_log.write(Text.from_markup("[italic #3fb950]Resumed from sudo.[/]\n"))
+            job_log.write(Text.from_markup("[italic #3fb950]Resumed from sudo.[/]\n"))
 
             await self.refresh_ui()
             return
@@ -600,8 +599,9 @@ class PowerModeScreen(Screen):
             # in the same tab appear below the previous ones, mimicking a real shell.
 
         self.tab_to_job[active_tab_id] = str(action.action_id)
-        params_str = " ".join(expanded_params)
-        job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{tool_name}[/] [dim #8b949e]{params_str}[/]\n"))
+        params_str = " ".join(p for p in expanded_params if p).strip()
+        cmd_display = f"{tool_name} {params_str}".strip() if params_str else tool_name
+        job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n"))
 
         try:
             async def stream_output(text: str):
@@ -621,7 +621,7 @@ class PowerModeScreen(Screen):
             )
             await self.refresh_ui()
         except Exception as e:
-            job_log.write(Text.from_markup(f"[bold #f85149]Error:[/] [red]{str(e)}[/]"))
+            job_log.write(Text.from_markup(f"[bold #f85149]Error:[/] [red]{escape(str(e))}[/]"))
             await self.refresh_ui()
 
     def on_click(self, event: events.Click) -> None:

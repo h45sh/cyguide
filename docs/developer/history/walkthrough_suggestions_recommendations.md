@@ -17,7 +17,7 @@ We have designed, built, and verified the rule-based **Recommendation Engine** a
    * Implemented `get_proposed_findings` and `dismiss_proposed_finding` in [`power_facade.py`](../../../cyguide/engine/power_facade.py) to read and delete suggestions dynamically without altering the frozen Tier 1 database schema.
 
 3. **UI Integration (TUI)**:
-   * Created the [`SuggestionsPane` widget](../../../cyguide/ui/widgets/power.py) to display recommendations dynamically (`💡 [tool] ❯ [target]`).
+   * Created the [`SuggestionsPane` widget](../../../cyguide/ui/widgets/power.py) to display recommendations dynamically (`[tool] › [target]`).
    * Integrated the pane into the sidebar layout of [`PowerModeScreen`](../../../cyguide/ui/screens/power.py) and wired Approved/Dismissed keyboard controls:
      * **`Enter` or Click (Approve)**: Pre-populates the command prompt input box with the recommended command and focuses it, allowing the operator to review, edit, or press Enter to run.
      * **`d` / `x` / `delete` (Dismiss)**: Deletes the recommendation from SQLite.

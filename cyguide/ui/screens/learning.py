@@ -5,7 +5,7 @@ from typing import List, Any
 
 from textual import work
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Static, Label, ListItem, ListView, Button, Input, Markdown, TabbedContent, TabPane
+from textual.widgets import Footer, Static, Label, ListItem, ListView, Button, Input, Markdown, TabbedContent, TabPane
 from textual.containers import Vertical, Horizontal, VerticalScroll
 from textual.app import ComposeResult
 from cyguide.schemas.network import NetworkHost
@@ -80,29 +80,6 @@ class FlagEditor(Vertical):
             raise ValueError("Sudo is not allowed in Learning Mode.")
         return {"raw_flags": flags}, self.query_one("#target_input", Input).value
 
-
-class ExpandedOutputScreen(Screen):
-    """Full-screen view for raw output or rendered markdown."""
-    BINDINGS = [
-        ("escape", "app.pop_screen", "Back"),
-        ("q", "quit", "Quit"),
-        ("ctrl+q", "quit", "Quit"),
-    ]
-
-    def __init__(self, content: str, is_markdown: bool = False):
-        super().__init__()
-        self.content = content
-        self.is_markdown = is_markdown
-
-    def compose(self) -> ComposeResult:
-        yield Header()
-        with VerticalScroll(id="expanded_output_container"):
-            if self.is_markdown:
-                yield Markdown(self.content, id="expanded_markdown_output")
-            else:
-                yield Static(self.content, id="expanded_raw_output", markup=False)
-        yield Footer()
-
 class LearningModeScreen(Screen):
     """Phase 2: The Lesson Screen."""
 
@@ -127,7 +104,6 @@ class LearningModeScreen(Screen):
         self.current_view = "explanation"
 
     def compose(self) -> ComposeResult:
-        yield Header()
         with Horizontal(id="learning_layout"):
             # Left Zone: Context and Configuration
             with Vertical(id="lesson_config_pane"):
@@ -211,12 +187,12 @@ class LearningModeScreen(Screen):
                 f"# ◆ {manifest.meta.name.upper()} — Learning Lab\n\n"
                 f"{manifest.meta.one_line_summary}\n\n"
                 "---\n\n"
-                "### Quick Start:\n"
-                "* **Select a Recipe**: Choose a pre-configured audit workflow on the left.\n"
-                "* **Configure Target**: Enter an IP or hostname (default: `127.0.0.1` safe sandbox).\n"
-                "* **Run Tool**: Click **▶ RUN** or press `Enter` to begin scanning.\n"
-                "* **Real-time Tutor**: Watch this pane for live analysis of findings and security context.\n"
-                "* **Raw Output**: Switch to the **◆ RAW OUTPUT** tab above to view raw terminal logs.\n"
+                "### Quick Start Guide\n\n"
+                "* **Select a Recipe**: Choose a pre-configured audit workflow on the left sidebar.\n"
+                f"* **Configure Target**: Enter an IP or hostname (default: `127.0.0.1` — safe local sandbox).\n"
+                f"* **Run Tool**: Click **▶ RUN SCAN** or press `Enter` to begin scanning.\n"
+                "* **Real-time Tutor**: Watch this pane for live analysis of findings and security explanations.\n"
+                "* **Raw Output**: Switch to the **◆ RAW OUTPUT** tab above to view raw terminal output.\n"
             )
             self.query_one("#explanation_text", Markdown).update(welcome_md)
 
