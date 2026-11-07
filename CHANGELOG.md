@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.1] - 2026-11-08
+
+### Fixed
+- **Docker Multi-Arch OCI Image**: Installed `nikto` via Git clone alongside Perl SSL and XML libraries (`libnet-ssleay-perl`, `libxml-writer-perl`) in Debian 12 (bookworm) container image.
+- **CI Verification Pipeline**: Removed non-standard format enforcement in `scripts/verify.sh` to prevent false positive test failures on clean code across operating systems.
+- **PyPI Release Resilience**: Configured `skip-existing: true` and `verbose: true` in `.github/workflows/release.yml` for reliable, idempotent distribution to PyPI.
+
+---
+
 ## [1.6.0] - 2026-11-08
 
 ### Added
