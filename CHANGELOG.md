@@ -9,100 +9,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.6.1] - 2026-11-08
 
-### Operator Performance & Container Reliability
-- **Instantaneous CLI Startup**: Optimized CLI runtime so `cyg --version` and command-line flags execute sub-100ms (~8.5x faster) by lazy-loading the interactive TUI only when entering visual mode.
-- **Pre-Configured Nikto & Web Scanning in Docker**: Fully functional containerized web vulnerability scanning with Nikto, Perl SSL engines, and XML libraries pre-installed in the official container image.
-- **Seamless PyPI Distribution**: Official package distribution on PyPI (`pip install cyguide`) with clean installation, environment isolation, and executable uninstallation.
+### Operator Experience & Runtime
+* **Instantaneous CLI Startup (`cyg --version`)**: Optimized startup runtime to sub-100ms (~8.5x faster) by lazy-loading interactive TUI components only when launching visual mode.
+* **Pre-Configured Web Scanning in Docker**: Fixed containerized Nikto execution by embedding Perl SSL engines and XML libraries directly in the official multi-architecture container.
+* **PyPI Distribution Integrity**: Streamlined distribution via PyPI (`pip install cyguide`) with isolated binary execution and clean uninstallation.
 
 ---
 
 ## [1.6.0] - 2026-11-08
 
-### Overview
-CyGuide v1.6.0 delivers a major release focused on operator ergonomics, real-time workspace reactivity, streamlined engagement management, universal cross-platform deployment, and a polished terminal interface.
+### Engagement Management & Dashboard
+* **Actionable Engagement Cards**: Active and archived engagement cards on the Home Screen feature clear target counts, metadata tags, and one-click actions:
+  * `› VIEW AUDIT LOG`: Opens timeline logs, executed command histories, and discovered findings.
+  * `↺ REOPEN ENGAGEMENT`: Re-activates past engagements while preserving all graph nodes and findings.
+* **Streamlined Card Layout**: Repositioned quick-action shortcuts and status indicators for clean alignment and visual hierarchy.
 
----
+### Reactive Command Palette (Ctrl+P)
+* **Real-Time Tool Health Diagnostics**: Added a live tool health badge (`● Healthy (5/5)` / `▲ Issues Detected`) that dynamically probes installed security tools (`nmap`, `whois`, `gobuster`, `nikto`, `subfinder`) and reflects changes live.
+* **Structured Command Categorization**: Grouped actions logically into View Toggles, Tool Diagnostics, Configuration, Themes, Hotkeys, and Session Management.
+* **Live Theme Switcher**: Dedicated theme selection palette with instant preview and arrow key navigation.
+* **F1 Hotkeys Reference**: Fast-reference shortcuts dialog detailing all workbench, navigation, and resizing keys.
 
-### Home Screen & Engagement Management
-- **Redesigned Overview Cards**: Active and archived engagement overviews feature high-contrast target counts, metadata badges, and dedicated quick-action controls:
-  - **› VIEW AUDIT LOG**: Instantly view the timeline log, executed commands, and historical findings.
-  - **↺ REOPEN ENGAGEMENT**: Seamlessly reopen past sessions with full graph state and findings history preserved.
-- **Polished Visual Alignment**: Repositioned quick-action controls and status indicators for intuitive navigation.
+### Command-Line Diagnostics & Reporting
+* **Terminal System Diagnostics (`cyg check`)**: Inspect installed tools, database integrity, and environment health from the terminal, with optional JSON output (`cyg check --json`).
+* **Session Export & Markdown Reports (`cyg export`)**: Export engagement databases and generate formatted Markdown assessment reports with atomic file security.
+* **Direct Version Check (`cyg --version`)**: Added `--version` / `-V` flag for immediate version checks.
 
----
+### Tooling Setup & Deployment
+* **Universal One-Command Installer (`scripts/install_deps.sh`)**: Automated dependency installer supporting Debian/Ubuntu, Kali, Arch Linux, Fedora/RHEL, openSUSE, Alpine, Void Linux, and macOS (Homebrew).
+* **Safe Audit & Non-Root Modes**: Added `--check` mode to preview missing tools without system changes, and `--user` mode for non-root environments.
+* **Official Multi-Architecture Container (`ghcr.io/h45sh/cyguide`)**: Pre-built container images for `linux/amd64` and `linux/arm64` bundling all security tools with zero local host configuration.
 
-### Real-Time Reactive Command Palette (Ctrl+P)
-- **Live Tool Health Diagnostics**: The command palette features a real-time tool health badge (`● Healthy (5/5)` or `▲ Issues Detected`) that dynamically monitors installed security tools (`nmap`, `whois`, `gobuster`, `nikto`, `subfinder`) and updates live as tools are installed or removed.
-- **Organized Command Hierarchy**: Re-architected command palette menu with clear categorization: Animation Toggles, Tool Diagnostics, Configuration, Theme Picker, and Help.
-- **Interactive Theme Switcher**: Dedicated theme selection palette with live preview and arrow key navigation.
-- **F1 Hotkeys & Shortcuts Reference**: Fast-reference modal mapping keyboard shortcuts for terminal resizing, tab navigation, global graph view, and scratchpad toggles.
-
----
-
-### Instant CLI Operations & Reporting
-- **Direct System Diagnostics (`cyg check`)**: Inspect installed tools, database connectivity, and environment health directly from the terminal without launching the TUI, with JSON output (`cyg check --json`) for automated workflows.
-- **Engagement Export & Markdown Reporting (`cyg export`)**: Export engagement databases and generate formatted Markdown assessment reports with atomic file security.
-- **Instant Version Flag**: Added `--version` / `-V` for immediate version verification.
-
----
-
-### Universal Security Tooling Setup
-- **Universal Multi-Distribution Installer**: One-command dependency installation script (`./scripts/install_deps.sh`) supporting Debian/Ubuntu, Arch Linux, Fedora/RHEL, openSUSE, Alpine, Void Linux, and macOS (Homebrew).
-- **Non-Root & Verification Modes**: Run `./scripts/install_deps.sh --check` to audit missing tools without modifying the system, or `--user` to configure without root privileges.
-
----
-
-### Official Multi-Architecture Container (Docker / GHCR)
-- **Ready-to-Run Security Container**: Official container images published to GitHub Container Registry (`ghcr.io/h45sh/cyguide`) for `linux/amd64` and `linux/arm64`, bundling all security tools and dependencies with zero host setup required.
-
----
-
-### UI Polish & Visual Refinements
-- **Thin Scrollbar Rendering**: Replaced bulky default terminal scrollbars with a custom thin scrollbar featuring full mouse-drag grab support.
-- **Terminal Crash Safeguards**: Hardened terminal log rendering to prevent crashes from noisy tool output, escape sequences, or unexpected markup tags during intense scans.
-- **Modern Text-First Aesthetic**: Streamlined typography, consistent card padding, and clean border styling across all screens.
-- **Comprehensive Documentation**: Redesigned documentation portal following the Diátaxis framework, offering complete Tutorials, Operator How-To guides, interactive Schema Reference, and deep Architecture Explanations.
+### UI Polish & Terminal Ergonomics
+* **Thin Scrollbar Rendering**: Replaced bulky scrollbars with a custom thin scrollbar with mouse grab support.
+* **Terminal Crash Protection**: Escaped raw terminal markup and tool stderr to prevent crashes from noisy scans or ANSI escape sequences.
+* **Modern Minimalist Aesthetics**: Polished typography, consistent card padding, and clean border styling across all screens.
+* **Diátaxis Documentation Hub**: Reorganized documentation portal (`docs/README.md`) into practical Tutorials, How-To Guides, Reference specs, and Architecture Explanations.
 
 ---
 
 ## [1.5.0] - 2026-11-06
 
-### Overview
-CyGuide v1.5.0 introduced the operator workbench, interactive split-pane resizing, multi-provider AI model integration, and defense-in-depth security controls.
-
----
-
 ### Operator Workbench (Power Mode)
-- **Interactive Split-Pane Resizing**: Smooth mouse-drag and keyboard adjustment (`+`/`-`) between the live terminal output and the entity graph pane.
-- **Integrated Engagement Scratchpad**: Built-in side drawer for operator notes, automatically saved and secured with private file permissions (`0600`).
-- **Interactive Entity Graph**: Real-time visualization of discovered targets, ports, web endpoints, and detected vulnerabilities with filterable scopes (Session vs. Global Workspace).
-
----
+* **Interactive Split-Pane Resizing**: Smooth mouse-drag and keyboard resizing (`+`/`-`) between the live terminal stream and findings graph.
+* **Integrated Engagement Scratchpad (`Ctrl+N`)**: Built-in side drawer for operator notes with atomic file security (`0600`).
+* **Interactive Entity Browser**: Live graph hierarchy displaying targets, ports, web endpoints, and detected vulnerabilities with local vs. global scope toggle (`Ctrl+G`).
 
 ### Multi-Provider AI Intelligence
-- **Flexible LLM Integrations**: Support for both local Ollama models (for offline privacy) and cloud providers (OpenAI, Claude, Gemini, DeepSeek, Groq, OpenRouter).
-- **Contextual Next-Step Recommendations**: Real-time AI explanations of tool outputs with suggested follow-up reconnaissance commands.
+* **Pluggable LLM Backends**: Support for local Ollama models (offline privacy) and cloud providers (OpenAI, Claude, Gemini, DeepSeek, Groq, OpenRouter).
+* **Contextual Suggestions**: Real-time AI explanations of tool outputs with recommended follow-up commands.
 
----
+### Navigation & Diagnostics
+* **Tool Health Inspector**: Graphical dialog auditing missing tool binaries with direct installation recommendations.
+* **Tool Catalog Screen**: Visual catalog of tools, parameters, scan modes, and target scopes.
+* **Guided Learning Mode**: Step-by-step penetration testing curriculum with flag breakdowns and AI coaching.
+* **Low-Latency Theme**: Zero-animation mode (`.no-animations`) for fast rendering over remote SSH connections.
 
-### Diagnostic Modals & Navigation
-- **Tool Health Inspector**: Graphical dialog auditing missing binary dependencies with direct remediation guidance.
-- **Tool Catalog & Recipes**: Interactive reference screen showing tool capabilities, supported targets, and parameter flags.
-- **Guided Learning Mode**: Step-by-step penetration testing curriculum with flag breakdowns and AI coaching.
-- **Performance Theme**: Zero-animation mode (`.no-animations`) for lightning-fast rendering over remote SSH connections.
-
----
-
-### Operator Security Hardening
-- **SSRF & Cloud Metadata Safeguards**: Built-in gateway blocking unintended access to link-local cloud metadata services (`169.254.169.254`, AWS IMDSv2 IPv6, etc.).
-- **Subprocess Environment Sanitization**: Automatic redaction of sensitive API keys, tokens, and SSH credentials from spawned tool subprocesses.
+### Defense-in-Depth Safeguards
+* **SSRF & Metadata Protection**: Gateway blocking unauthorized tool calls to cloud metadata endpoints (`169.254.169.254`, AWS IMDSv2 IPv6).
+* **Environment Sanitization**: Automatic redaction of sensitive API keys, tokens, and SSH credentials from spawned tool subprocesses.
 
 ---
 
 ## [1.0.0] - 2026-11-04
 
 ### Initial Release
-- **Cybersecurity Reconnaissance TUI**: Interactive Terminal User Interface built with Textual and Rich for penetration testers and security analysts.
-- **Core Security Tool Adapters**: Integrated workflows for `nmap` (network scanning), `whois` (domain/IP lookups), `gobuster` (directory brute-forcing), `nikto` (web misconfiguration scanning), and `subfinder` (subdomain enumeration).
-- **SQLite Findings Graph**: Centralized relational store tracking domains, IPs, network services, web endpoints, and discovered vulnerabilities.
-- **AI Recommendation Engine**: Automated analysis transforming raw security tool outputs into structured findings and logical next steps.
+* **Terminal User Interface**: Interactive TUI built on Textual and Rich for penetration testing and reconnaissance.
+* **Core Security Tool Adapters**: Integrated workflows for `nmap`, `whois`, `gobuster`, `nikto`, and `subfinder`.
+* **Stateful SQLite Findings Graph**: Relational entity store tracking domains, IPs, network services, endpoints, and vulnerabilities.
+* **Heuristic Recommendation Engine**: Automated analysis turning raw tool outputs into actionable next-step suggestions.
