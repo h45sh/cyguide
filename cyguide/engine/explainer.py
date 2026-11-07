@@ -338,7 +338,7 @@ class MultiKeyCloudBackend(CloudAPIBackend):
                     async with client.stream("POST", req_url, headers=headers, json=payload) as response:
                         if response.status_code == 429:
                             profile.set_cooldown(60.0)
-                            err_body = (await response.aread()).decode("utf-8", errors="replace")
+                            await response.aread()
                             err_msg = f"Rate limit reached (429) on '{profile.name or profile.provider}'"
                             last_errors.append(err_msg)
                             if idx < len(chain) - 1:
@@ -348,7 +348,7 @@ class MultiKeyCloudBackend(CloudAPIBackend):
 
                         if response.status_code in (401, 403):
                             profile.last_status = "error"
-                            err_body = (await response.aread()).decode("utf-8", errors="replace")
+                            await response.aread()
                             err_msg = f"Authentication failed ({response.status_code}) on '{profile.name or profile.provider}'"
                             last_errors.append(err_msg)
                             if idx < len(chain) - 1:
@@ -358,7 +358,7 @@ class MultiKeyCloudBackend(CloudAPIBackend):
 
                         if response.status_code >= 500:
                             profile.last_status = "error"
-                            err_body = (await response.aread()).decode("utf-8", errors="replace")
+                            await response.aread()
                             err_msg = f"Server error ({response.status_code}) on '{profile.name or profile.provider}'"
                             last_errors.append(err_msg)
                             if idx < len(chain) - 1:

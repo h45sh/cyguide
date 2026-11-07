@@ -61,8 +61,6 @@ class NiktoAdapter(ToolAdapter):
         Example line: + Server: Apache/2.4.41 (Ubuntu)
         Example line: + OSVDB-112004: /cgi-bin/test.cgi: Site appears vulnerable to the 'Shellshock' vulnerability.
         """
-        context = context or {}
-        
         # Try to extract base host/url from target or command
         base_host = ""
         base_url = ""

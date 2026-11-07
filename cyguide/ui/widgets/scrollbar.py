@@ -54,7 +54,7 @@ class ThinScrollBarRender(ScrollBarRender):
 
         bar_ratio = virtual_size / size
         thumb_size = max(1.0, window_size / bar_ratio)
-        position_ratio = position / (virtual_size - window_size) if virtual_size > window_size else 0
+        position_ratio = position / (virtual_size - window_size)
         pos = (size - thumb_size) * position_ratio
 
         start_index = max(0, int(pos))

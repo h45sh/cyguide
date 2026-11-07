@@ -401,8 +401,11 @@ class CyGuideApp(App):
             current = self._load_settings()
             current.update(updates)
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with open(fd, "w", encoding="utf-8", closefd=True) as f:
-                json.dump(current, f, indent=2)
+            try:
+                with open(fd, "w", encoding="utf-8", closefd=False) as f:
+                    json.dump(current, f, indent=2)
+            finally:
+                os.close(fd)
             try:
                 os.chmod(path, 0o600)
             except OSError:

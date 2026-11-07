@@ -822,8 +822,11 @@ class PowerModeScreen(Screen):
             if scratch_dir:
                 os.makedirs(scratch_dir, exist_ok=True)
             fd = os.open(self.scratchpad_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with open(fd, "w", encoding="utf-8", closefd=True) as f:
-                f.write(content)
+            try:
+                with open(fd, "w", encoding="utf-8", closefd=False) as f:
+                    f.write(content)
+            finally:
+                os.close(fd)
             try:
                 os.chmod(self.scratchpad_file, 0o600)
             except OSError:

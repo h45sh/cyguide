@@ -103,8 +103,11 @@ def main():
                 try:
                     report_content = await generate_markdown_report(store, args.session_id)
                     fd = os.open(args.report, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-                    with open(fd, "w", encoding="utf-8", closefd=True) as f:
-                        f.write(report_content)
+                    try:
+                        with open(fd, "w", encoding="utf-8", closefd=False) as f:
+                            f.write(report_content)
+                    finally:
+                        os.close(fd)
                     try:
                         os.chmod(args.report, 0o600)
                     except OSError:
