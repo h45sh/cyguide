@@ -78,3 +78,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Core Security Tool Adapters**: Integrated workflows for `nmap`, `whois`, `gobuster`, `nikto`, and `subfinder`.
 * **Stateful SQLite Findings Graph**: Relational entity store tracking domains, IPs, network services, endpoints, and vulnerabilities.
 * **Heuristic Recommendation Engine**: Automated analysis turning raw tool outputs into actionable next-step suggestions.
+* **Multi-Tab Terminal Execution**: Asynchronous job runner supporting concurrent tool execution and live output streaming.
