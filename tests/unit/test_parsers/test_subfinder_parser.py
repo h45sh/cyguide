@@ -13,15 +13,12 @@ def test_subfinder_build_command(adapter):
     # 1. Target is domain.info
     domain_info = DomainInfo.create(domain="example.com")
     cmd = adapter.build_command(domain_info, {"raw_flags": "-d {domain} -silent"})
-    assert cmd[0] == "subfinder"
-    assert "-d" in cmd
-    assert "example.com" in cmd
-    assert "-silent" in cmd
+    assert cmd == ["subfinder", "-d", "example.com", "-silent"]
 
     # 2. Target is dns.record
     dns_rec = DnsRecord.create(domain="target.org", record_type="A", value="1.2.3.4")
     cmd_dns = adapter.build_command(dns_rec, {"raw_flags": "-d {domain}"})
-    assert "target.org" in cmd_dns
+    assert cmd_dns == ["subfinder", "-d", "target.org"]
 
 @pytest.mark.asyncio
 async def test_subfinder_parse_output(adapter):
@@ -46,10 +43,12 @@ mail.example.com
     assert len(findings) == 4
     domains = [f.pik["domain"] for f in findings]
     
-    assert "api.example.com" in domains
-    assert "admin.example.com" in domains
-    assert "dev.api.example.com" in domains
-    assert "mail.example.com" in domains
+    assert set(domains) == {
+        "api.example.com",
+        "admin.example.com",
+        "dev.api.example.com",
+        "mail.example.com",
+    }
 
     for f in findings:
         assert f.schema_type == "dns.record"
