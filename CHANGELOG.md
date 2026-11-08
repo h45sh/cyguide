@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-11-08
+
+### Power Mode & Concurrency
+* **Persistent Background Task Execution**: Background investigation jobs (e.g. `nmap`, `subfinder`, `whois`) now maintain continuous execution and ring-buffer history across tab changes, session switches, and dashboard navigation.
+* **Pub/Sub Observability Engine**: Real-time event subscription model decouples UI presentation from active execution tasks, enabling responsive live stream rendering without UI freezes.
+* **Graceful Teardown & Task Draining**: Coordinated async shutdown sequence prevents connection race conditions (`Cannot operate on a closed database`) when exiting the application during active runs.
+
+### Operator Networking & Usability
+* **Automated LHOST & Network Interface Detection**: Intelligent discovery of active local IP addresses, automatically prioritizing VPN interfaces (`tun0`, `tap0`) followed by local adapters and binding `$LHOST` directly into the execution prompt.
+* **Real-Time CTF Flag Detection**: Automated stream detection for security flag formats (`flag{...}`, `HTB{...}`, `THM{...}`) with native desktop notifications (`notify-send`) and one-key clipboard yank (`Ctrl+Y`).
+* **Modern TUI Visual Standards**: Enforced 34-column sidebar standards, anti-flicker surgical DOM updates, and standardized operational status glyphs (`●`, `◌`, `▪`, `×`, `⊘`).
+
+---
+
 ## [1.6.1] - 2026-11-08
 
 ### Operator Experience & Runtime
