@@ -1,6 +1,6 @@
 """The main Power Mode screen for advanced investigation."""
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 from uuid import UUID
 from datetime import datetime
 import asyncio
