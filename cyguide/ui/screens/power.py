@@ -16,6 +16,7 @@ from cyguide.ui.widgets.resizer import ResizeHandle
 from cyguide.schemas.power import ActionRequest, JobStatusEnum, ActionSource, JobStatus
 from rich.text import Text
 from rich.markup import escape
+from cyguide.paths import get_default_exports_dir, get_default_reports_dir
 import os
 
 
@@ -877,8 +878,8 @@ class PowerModeScreen(Screen):
             return
 
         try:
-            exports_dir = self.app.get_exports_dir() if hasattr(self.app, "get_exports_dir") else os.path.abspath("exports")
-            reports_dir = self.app.get_reports_dir() if hasattr(self.app, "get_reports_dir") else os.path.abspath("reports")
+            exports_dir = self.app.get_exports_dir() if hasattr(self.app, "get_exports_dir") else get_default_exports_dir()
+            reports_dir = self.app.get_reports_dir() if hasattr(self.app, "get_reports_dir") else get_default_reports_dir()
             os.makedirs(reports_dir, exist_ok=True)
             os.makedirs(exports_dir, exist_ok=True)
 
