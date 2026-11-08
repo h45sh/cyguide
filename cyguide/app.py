@@ -252,6 +252,12 @@ class CyGuideApp(App):
                 db_dir = os.path.dirname(os.path.abspath(self.db_path))
                 if db_dir:
                     os.makedirs(db_dir, exist_ok=True)
+        self.exports_dir: Optional[str] = kwargs.get("exports_dir")
+        if "exports_dir" in self.settings and self.exports_dir is None:
+            self.exports_dir = self.settings["exports_dir"]
+        self.reports_dir: Optional[str] = kwargs.get("reports_dir")
+        if "reports_dir" in self.settings and self.reports_dir is None:
+            self.reports_dir = self.settings["reports_dir"]
 
         # Multi-key profiles and active key configuration
         self.use_cloud_api: bool = self.settings.get("use_cloud_api", True)
@@ -360,6 +366,9 @@ class CyGuideApp(App):
 
     def get_exports_dir(self) -> str:
         """Return the directory path for exported database archives."""
+        if getattr(self, "exports_dir", None):
+            os.makedirs(self.exports_dir, mode=0o700, exist_ok=True)
+            return self.exports_dir
         if hasattr(self, "data_dir") and self.data_dir:
             default_db = get_default_db_path(self.data_dir)
             if os.path.abspath(self.db_path) == os.path.abspath(default_db):
@@ -371,6 +380,9 @@ class CyGuideApp(App):
 
     def get_reports_dir(self) -> str:
         """Return the directory path for exported markdown reports."""
+        if getattr(self, "reports_dir", None):
+            os.makedirs(self.reports_dir, mode=0o700, exist_ok=True)
+            return self.reports_dir
         if hasattr(self, "data_dir") and self.data_dir:
             default_db = get_default_db_path(self.data_dir)
             if os.path.abspath(self.db_path) == os.path.abspath(default_db):
@@ -614,9 +626,11 @@ class CyGuideApp(App):
 
     async def on_unmount(self) -> None:
         """Cleanup resources before exit."""
-        if hasattr(self, "executor"):
+        if hasattr(self, "power_facade") and self.power_facade is not None:
+            await self.power_facade.shutdown()
+        if hasattr(self, "executor") and self.executor is not None:
             await self.executor.shutdown()
-        if hasattr(self, "store"):
+        if hasattr(self, "store") and self.store is not None:
             await self.store.close()
 
     def action_toggle_animations(self) -> None:
@@ -717,6 +731,14 @@ class CyGuideApp(App):
         """Open the Configuration modal dialog focused on Database."""
         self.action_show_config(focus_target="db_path")
 
+    def action_show_exports_palette(self) -> None:
+        """Open the Configuration modal dialog focused on Session Exports Directory."""
+        self.action_show_config(focus_target="exports_dir")
+
+    def action_show_reports_palette(self) -> None:
+        """Open the Configuration modal dialog focused on Markdown Reports Directory."""
+        self.action_show_config(focus_target="reports_dir")
+
     def action_show_tools_palette(self) -> None:
         """Open the Configuration modal dialog focused on Tools."""
         self.action_show_config(focus_target="tools_dir")
@@ -745,6 +767,8 @@ class CyGuideApp(App):
         default_db = get_default_db_path(getattr(self, "data_dir", None))
         self.db_path = default_db
         self.tools_dir = None
+        self.exports_dir = None
+        self.reports_dir = None
         # Preserve user's configured cloud keys
         existing_keys = list(self.cloud_keys) if hasattr(self, "cloud_keys") and self.cloud_keys is not None else []
         existing_active = self.active_key_id
@@ -757,6 +781,8 @@ class CyGuideApp(App):
             "active_key_id": existing_active,
             "db_path": default_db,
             "tools_dir": None,
+            "exports_dir": None,
+            "reports_dir": None,
         })
         self.reload_explainer()
         self.reload_registry()

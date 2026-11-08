@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import re
 import subprocess
 from typing import Dict, Any, List
 from textual import events, work
@@ -177,15 +178,19 @@ class JobQueue(Vertical):
         sorted_jobs = sorted(jobs, key=lambda j: (j.status == JobStatusEnum.RUNNING, j.started_at), reverse=True)
         for job in sorted_jobs:
             if job.status == JobStatusEnum.RUNNING:
-                status_icon = "◯"
+                status_icon = "[bold #34d399]◌[/]"
+                status_text = " [bold #34d399]RUNNING[/]"
             elif job.status == JobStatusEnum.DONE:
-                status_icon = "●"
+                status_icon = "[#64748b]●[/]"
+                status_text = ""
             elif job.status == JobStatusEnum.FAILED:
-                status_icon = "×"
+                status_icon = "[#f85149]×[/]"
+                status_text = " [red]FAILED[/]"
             else: # QUEUED
-                status_icon = "◌"
+                status_icon = "[#eab308]◌[/]"
+                status_text = " [yellow]QUEUED[/]"
 
-            label = f"  {status_icon} {job.tool_name} [#64748b]{job.job_id.hex[:4]}[/]"
+            label = f"  {status_icon} {job.tool_name} [#64748b]{job.job_id.hex[:4]}[/]{status_text}"
             item = ListItem(Static(label), id=f"job_item_{job.job_id.hex}")
             item.job_id = str(job.job_id)
             item.session_id = str(job.session_id)
@@ -262,6 +267,10 @@ class CommandPalette(Vertical):
         """Request to switch to the previous session."""
         pass
 
+    class CopyTabRequest(events.Event):
+        """Request to copy active tab log to clipboard."""
+        pass
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.resolved_vars: Dict[str, Any] = {}
@@ -289,14 +298,30 @@ class CommandPalette(Vertical):
         except Exception:
             self.branch = ""
 
+    def _update_lhost_badge(self) -> None:
+        try:
+            from cyguide.engine.network import get_lhost_info
+            ip, iface = get_lhost_info()
+            badge = self.query_one("#lhost_badge", Label)
+            is_vpn = iface.startswith(("tun", "wg", "tap", "ppp", "utun"))
+            badge.set_class(is_vpn, "vpn")
+            if is_vpn:
+                badge.update(f"[{iface}: {ip}]")
+            else:
+                badge.update(f"[{iface}: {ip}]" if iface != "lo" else f"[LHOST: {ip}]")
+        except Exception:
+            pass
+
     def on_mount(self) -> None:
         self._async_update_git_branch()
+        self._update_lhost_badge()
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="palette_header"):
             with Horizontal(id="palette_header_left"):
                 yield Label("● Tool Mode (! for shell)", id="mode_status")
                 yield Label("[SHELL LOCK: OFF]", id="lock_icon")
+                yield Label("[LHOST: -]", id="lhost_badge")
                 yield Label("pwd:", classes="pwd_label")
                 yield Label("~", id="pwd_line")
             yield Label("│", id="palette_header_sep")
@@ -338,6 +363,7 @@ class CommandPalette(Vertical):
 
         # Update mode status based on current input and shell_locked
         self._update_mode_label()
+        self._update_lhost_badge()
 
     def _update_mode_label(self):
         mode_label = self.query_one("#mode_status", Label)
@@ -367,6 +393,11 @@ class CommandPalette(Vertical):
             event.stop()
             event.prevent_default()
             self.post_message(self.CloseTabRequest())
+            return
+        elif event.key == "ctrl+y":
+            event.stop()
+            event.prevent_default()
+            self.post_message(self.CopyTabRequest())
             return
         elif event.key == "ctrl+k":
             event.stop()
@@ -479,10 +510,19 @@ class CommandPalette(Vertical):
             self._update_mode_label()
             return
 
-        # 2. Prefix protection
+        # Redundant multiple prefix protection: e.g. "> >", "! !", "> !", "! >", ">>", "!!"
+        if val.startswith(("> >", "! !", "> !", "! >", ">>", "!!")):
+            active_prefix = "! " if (self.shell_locked or val.startswith("!")) else "> "
+            clean_tail = val.lstrip(">! ")
+            event.input.value = active_prefix + clean_tail
+            event.input.cursor_position = len(event.input.value)
+            self._update_mode_label()
+            return
+
+        # 2. Prefix protection: Ensure prefix is never deleted
+        expected_prefix = "! " if self.shell_locked else "> "
         if not (val.startswith(">") or val.startswith("!")):
-            # User deleted prefix, restore default
-            event.input.value = "> " + val.lstrip()
+            event.input.value = expected_prefix + val.lstrip()
             event.input.cursor_position = len(event.input.value)
 
         self._update_mode_label()
@@ -502,11 +542,8 @@ class CommandPalette(Vertical):
         # Determine mode from prefix
         is_manual_shell = raw_cmd.startswith("!") or self.shell_locked
 
-        # Strip prefix
-        if raw_cmd.startswith("!") or raw_cmd.startswith(">"):
-            clean_cmd = raw_cmd[1:].strip()
-        else:
-            clean_cmd = raw_cmd.strip()
+        # Strip all leading prefix symbols (> or !) and whitespace
+        clean_cmd = re.sub(r'^[>!\s]+', '', raw_cmd).strip()
 
         if not clean_cmd:
             event.input.value = "! " if is_manual_shell and not self.shell_locked else "> "

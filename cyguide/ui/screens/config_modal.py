@@ -10,7 +10,7 @@ from textual.screen import ModalScreen
 from textual.command import Provider, Hit, Hits, DiscoveryHit
 from textual.widgets import Label, Button, Input, Switch, TabbedContent, TabPane, Tab, Tabs, Select
 from textual.containers import Vertical, Horizontal
-from cyguide.paths import get_default_db_path
+from cyguide.paths import get_default_db_path, get_default_exports_dir, get_default_reports_dir
 from cyguide.engine.explainer import is_placeholder_key
 
 PROVIDER_PRESETS: Dict[str, Dict[str, str]] = {
@@ -95,6 +95,52 @@ def normalize_and_validate_tools_dir(raw_path: str, create_if_missing: bool = Fa
     return raw, None
 
 
+def normalize_and_validate_export_dir(raw_path: str, create_if_missing: bool = False) -> Tuple[Optional[str], Optional[str]]:
+    """Normalize and validate session exports directory path.
+
+    Returns:
+        Tuple of (exports_dir_or_None, error_message_or_None)
+    """
+    raw = (raw_path or "").strip()
+    if not raw:
+        return None, None
+    expanded = os.path.abspath(os.path.expanduser(raw))
+    if os.path.exists(expanded) and not os.path.isdir(expanded):
+        return raw, f"Exports path is not a directory: {raw}"
+    if not os.path.exists(expanded):
+        if create_if_missing:
+            try:
+                os.makedirs(expanded, mode=0o700, exist_ok=True)
+            except Exception as e:
+                return raw, f"Cannot create exports directory: {e}"
+        else:
+            return raw, f"Exports directory does not exist: {raw}"
+    return expanded, None
+
+
+def normalize_and_validate_report_dir(raw_path: str, create_if_missing: bool = False) -> Tuple[Optional[str], Optional[str]]:
+    """Normalize and validate markdown reports directory path.
+
+    Returns:
+        Tuple of (reports_dir_or_None, error_message_or_None)
+    """
+    raw = (raw_path or "").strip()
+    if not raw:
+        return None, None
+    expanded = os.path.abspath(os.path.expanduser(raw))
+    if os.path.exists(expanded) and not os.path.isdir(expanded):
+        return raw, f"Reports path is not a directory: {raw}"
+    if not os.path.exists(expanded):
+        if create_if_missing:
+            try:
+                os.makedirs(expanded, mode=0o700, exist_ok=True)
+            except Exception as e:
+                return raw, f"Cannot create reports directory: {e}"
+        else:
+            return raw, f"Reports directory does not exist: {raw}"
+    return expanded, None
+
+
 def normalize_ollama_url(raw_url: str) -> str:
     """Normalize Ollama base URL ensuring protocol and stripped trailing slashes."""
     url = (raw_url or "http://localhost:11434").strip().rstrip("/")
@@ -176,12 +222,16 @@ class ConfigProvider(Provider):
         api_model = settings.get("api_model") or os.environ.get("CYGUIDE_API_MODEL", "gpt-4o")
         db_path = getattr(app, "db_path", None) or get_default_db_path()
         tools_dir = getattr(app, "tools_dir", None) or "bundled tools/"
+        exports_dir = getattr(app, "exports_dir", None) or (app.get_exports_dir() if hasattr(app, "get_exports_dir") else get_default_exports_dir())
+        reports_dir = getattr(app, "reports_dir", None) or (app.get_reports_dir() if hasattr(app, "get_reports_dir") else get_default_reports_dir())
 
         return [
             *self.category_commands,
             (f"Ollama Model: {ollama_model}", lambda: app.action_show_config(focus_target="ollama_model")),
             (f"Cloud API Model: {api_model}", lambda: app.action_show_config(focus_target="api_model")),
             (f"Database Path: {db_path}", lambda: app.action_show_config(focus_target="db_path")),
+            (f"Session Exports Directory: {exports_dir}", lambda: app.action_show_config(focus_target="exports_dir")),
+            (f"Markdown Reports Directory: {reports_dir}", lambda: app.action_show_config(focus_target="reports_dir")),
             (f"Tools Directory: {tools_dir}", lambda: app.action_show_config(focus_target="tools_dir")),
         ]
 
@@ -315,11 +365,21 @@ class DatabaseConfigProvider(Provider):
     def commands(self) -> List[Tuple[str, Callable[[], None]]]:
         app = self.app
         db_path = getattr(app, "db_path", None) or get_default_db_path()
+        exports_dir = getattr(app, "exports_dir", None) or (app.get_exports_dir() if hasattr(app, "get_exports_dir") else get_default_exports_dir())
+        reports_dir = getattr(app, "reports_dir", None) or (app.get_reports_dir() if hasattr(app, "get_reports_dir") else get_default_reports_dir())
 
         return [
             (
                 f"Database Path  [dim]{db_path}[/dim]",
                 lambda: app.action_show_config(focus_target="db_path"),
+            ),
+            (
+                f"Session Exports Directory  [dim]{exports_dir}[/dim]",
+                lambda: app.action_show_config(focus_target="exports_dir"),
+            ),
+            (
+                f"Markdown Reports Directory  [dim]{reports_dir}[/dim]",
+                lambda: app.action_show_config(focus_target="reports_dir"),
             ),
             (
                 "Open Configuration Panel  ⚙",
@@ -567,6 +627,10 @@ class ConfigModal(ModalScreen[None]):
         db_path = getattr(app, "db_path", None) or get_default_db_path(getattr(app, "data_dir", None))
         default_db_placeholder = get_default_db_path(getattr(app, "data_dir", None))
         tools_dir = getattr(app, "tools_dir", "") or ""
+        exports_dir = getattr(app, "exports_dir", "") or ""
+        default_exports_placeholder = getattr(app, "get_exports_dir", lambda: get_default_exports_dir(getattr(app, "data_dir", None)))()
+        reports_dir = getattr(app, "reports_dir", "") or ""
+        default_reports_placeholder = getattr(app, "get_reports_dir", lambda: get_default_reports_dir(getattr(app, "data_dir", None)))()
 
         with Vertical(id="config_card"):
             with Horizontal(id="config_header_row"):
@@ -648,6 +712,12 @@ class ConfigModal(ModalScreen[None]):
                     yield Label(self._get_db_quick_status(db_path), id="cfg_db_status_msg", classes="config_tab_banner")
                     yield Label("SQLite Database Path [--db]:", classes="config_field_label")
                     yield Input(value=db_path, placeholder=default_db_placeholder, id="cfg_db_path")
+
+                    yield Label("Session Exports Directory Path:", classes="config_field_label")
+                    yield Input(value=exports_dir, placeholder=default_exports_placeholder, id="cfg_exports_dir")
+
+                    yield Label("Markdown Reports Directory Path:", classes="config_field_label")
+                    yield Input(value=reports_dir, placeholder=default_reports_placeholder, id="cfg_reports_dir")
 
                 with TabPane("Tools", id="tab_tools"):
                     yield Label(self._get_tools_quick_status(tools_dir), id="cfg_tools_status_msg", classes="config_tab_banner")
@@ -759,6 +829,10 @@ class ConfigModal(ModalScreen[None]):
                 "api_base": ("tab_cloud", "#cfg_api_base"),
                 "db": ("tab_db", "#cfg_db_path"),
                 "db_path": ("tab_db", "#cfg_db_path"),
+                "exports": ("tab_db", "#cfg_exports_dir"),
+                "exports_dir": ("tab_db", "#cfg_exports_dir"),
+                "reports": ("tab_db", "#cfg_reports_dir"),
+                "reports_dir": ("tab_db", "#cfg_reports_dir"),
                 "tools": ("tab_tools", "#cfg_tools_dir"),
                 "tools_dir": ("tab_tools", "#cfg_tools_dir"),
             }
@@ -917,16 +991,22 @@ class ConfigModal(ModalScreen[None]):
                         banner.add_class("banner_error")
 
             elif target_tab == "tab_db":
-                banner.update("Testing Database path and writability...")
+                banner.update("Testing Database, exports, and reports paths...")
                 banner.add_class("banner_info")
                 raw_db = self.query_one("#cfg_db_path", Input).value
                 norm_db, db_err = normalize_and_validate_db_path(raw_db, getattr(self.app, "data_dir", None))
+                raw_exports = self.query_one("#cfg_exports_dir", Input).value
+                norm_exports, exp_err = normalize_and_validate_export_dir(raw_exports)
+                raw_reports = self.query_one("#cfg_reports_dir", Input).value
+                norm_reports, rep_err = normalize_and_validate_report_dir(raw_reports)
                 lbl = self.query_one("#cfg_db_status_msg", Label)
-                if db_err:
-                    lbl.update(f"▲ {db_err}")
+                errs = [e for e in (db_err, exp_err, rep_err) if e]
+                if errs:
+                    msg = "; ".join(errs)
+                    lbl.update(f"▲ {msg}")
                     lbl.remove_class("status_ok", "status_warn")
                     lbl.add_class("status_error")
-                    banner.update(f"▲ Issues detected: {db_err}")
+                    banner.update(f"▲ Issues detected: {msg}")
                     banner.remove_class("banner_info", "banner_error", "banner_warn")
                     banner.add_class("banner_error")
                 else:
@@ -1546,6 +1626,26 @@ class ConfigModal(ModalScreen[None]):
                 self.app.notify(tools_err, title="Tools Directory Error", severity="error")
                 return
 
+            # Validate Exports directory
+            raw_exports = self.query_one("#cfg_exports_dir", Input).value.strip()
+            norm_exports, exports_err = normalize_and_validate_export_dir(raw_exports, create_if_missing=True)
+            if exports_err:
+                banner.update(f"▲ Cannot save: {exports_err}")
+                banner.remove_class("banner_info", "banner_ok", "banner_warn")
+                banner.add_class("banner_error")
+                self.app.notify(exports_err, title="Exports Directory Error", severity="error")
+                return
+
+            # Validate Reports directory
+            raw_reports = self.query_one("#cfg_reports_dir", Input).value.strip()
+            norm_reports, reports_err = normalize_and_validate_report_dir(raw_reports, create_if_missing=True)
+            if reports_err:
+                banner.update(f"▲ Cannot save: {reports_err}")
+                banner.remove_class("banner_info", "banner_ok", "banner_warn")
+                banner.add_class("banner_error")
+                self.app.notify(reports_err, title="Reports Directory Error", severity="error")
+                return
+
             # 3. Normalize Ollama & Cloud AI settings
             use_ollama = self.query_one("#cfg_use_ollama", Switch).value
             use_cloud_api = self.query_one("#cfg_use_cloud_api", Switch).value
@@ -1624,6 +1724,8 @@ class ConfigModal(ModalScreen[None]):
             app.use_cloud_api = use_cloud_api
             app.ollama_model = ollama_model
             app.tools_dir = norm_tools
+            app.exports_dir = norm_exports
+            app.reports_dir = norm_reports
             app.cloud_keys = list(self.cloud_keys)
             app.active_key_id = self.active_key_id
 
@@ -1661,6 +1763,8 @@ class ConfigModal(ModalScreen[None]):
                 "active_key_id": self.active_key_id,
                 "db_path": norm_db,
                 "tools_dir": norm_tools,
+                "exports_dir": norm_exports,
+                "reports_dir": norm_reports,
             }
             if hasattr(app, "_save_settings"):
                 await asyncio.to_thread(app._save_settings, updates)
@@ -1734,6 +1838,8 @@ class ConfigModal(ModalScreen[None]):
                 self.query_one("#cfg_ollama_base_url", Input).value = "http://localhost:11434"
                 self.query_one("#cfg_db_path", Input).value = default_db
                 self.query_one("#cfg_tools_dir", Input).value = ""
+                self.query_one("#cfg_exports_dir", Input).value = ""
+                self.query_one("#cfg_reports_dir", Input).value = ""
 
                 # DO NOT wipe self.cloud_keys! Keep user API keys safe.
                 # Reset endpoints / models of current profile to provider defaults if applicable

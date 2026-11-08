@@ -152,7 +152,7 @@ async def test_job_queue_renders_without_headers():
         assert len(job_list.children) == 2
         static0 = job_list.children[0].query_one(Static)
         assert "nmap" in str(static0.content)
-        assert "◯" in str(static0.content)
+        assert "◌" in str(static0.content)
         static1 = job_list.children[1].query_one(Static)
         assert "gobuster" in str(static1.content)
         assert "●" in str(static1.content)
@@ -204,3 +204,77 @@ async def test_power_mode_screen_composition():
         assert sidebar.display is True
         assert not resizer.has_class("hidden")
         assert resizer.display is True
+
+
+@pytest.mark.asyncio
+async def test_power_mode_running_job_tab_restoration():
+    import uuid
+    from cyguide.ui.screens.power import PowerModeScreen
+    from cyguide.engine.power_facade import PowerWorkspaceFacade
+    from cyguide.engine.store import GraphStore
+    from cyguide.schemas.power import ActionRequest, ActionSource
+    from unittest.mock import MagicMock
+    from textual.widgets import TabbedContent, RichLog
+
+    store = GraphStore(":memory:")
+    await store.initialize()
+    facade = PowerWorkspaceFacade(store, MagicMock(), MagicMock())
+    ws_id = await facade.create_workspace("TestWS")
+    sess_id = await facade.create_session(ws_id, "TestSess")
+
+    job_id = uuid.uuid4()
+    job = JobStatus(
+        job_id=job_id,
+        session_id=uuid.UUID(sess_id),
+        tool_name="ncat",
+        status=JobStatusEnum.RUNNING,
+    )
+    facade._active_jobs[job_id] = job
+    facade._job_buffers[job_id] = ["Listening on 0.0.0.0 4444...\n"]
+    facade._job_actions[job_id] = ActionRequest(
+        action_id=job_id,
+        session_id=uuid.UUID(sess_id),
+        tool_name="ncat",
+        params={"raw_flags": "-lvnp 4444"},
+        triggered_by=ActionSource.USER,
+        is_explicit_shell=True
+    )
+
+    class PowerApp(App):
+        def __init__(self):
+            super().__init__()
+            self.store = store
+            self.power_facade = facade
+            self.selected_session_id = sess_id
+
+        def compose(self) -> ComposeResult:
+            yield PowerModeScreen()
+
+    app = PowerApp()
+    async with app.run_test() as pilot:
+        screen = app.query_one(PowerModeScreen)
+        tabs = screen.query_one("#job_tabs", TabbedContent)
+
+        # Ensure tab was restored for the running job
+        assert screen.terminal_count >= 1
+        active_tab_id = tabs.active
+        assert active_tab_id in screen.tab_to_job
+        assert screen.tab_to_job[active_tab_id] == str(job_id)
+
+        # Verify running indicator in tab title
+        tab_widget = tabs.get_tab(active_tab_id)
+        assert "◌" in str(tab_widget.label)
+
+        # Verify buffer content was written
+        log = screen.query_one(f"#log_{active_tab_id}", RichLog)
+        assert any("Listening on 0.0.0.0 4444" in str(line) for line in log.lines)
+
+        # Simulate job status change to DONE
+        job.status = JobStatusEnum.DONE
+        facade._notify_job_change(job)
+        await pilot.pause()
+
+        # Verify running indicator was stripped
+        assert "◌" not in str(tab_widget.label)
+
+    await store.close()
