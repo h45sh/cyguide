@@ -55,13 +55,16 @@ ScrollBarCorner {
 
 #sidebar, #learning_sidebar, #workspace_sidebar {
     width: 34;
+    min-width: 34;
+    max-width: 34;
     height: 100%;
     background: #14161b;
     border: round #334155;
-    padding: 0 1;
+    padding: 0;
     margin-right: 0;
     transition: width 200ms in_out_cubic;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 #sidebar:focus-within, #learning_sidebar:focus-within, #workspace_sidebar:focus-within {
@@ -541,6 +544,7 @@ ListItem {
 
 ListItem > Static {
     color: #cbd5e1;
+    text-wrap: nowrap;
 }
 
 ListItem:hover {
@@ -1217,13 +1221,16 @@ Footer > .footer--highlight-key {
 
 #power_sidebar {
     width: 34;
+    min-width: 34;
+    max-width: 34;
     height: 100%;
     background: #14161b;
     border: round #334155;
     margin-right: 0;
-    padding: 0 1;
+    padding: 0;
     transition: width 200ms in_out_cubic;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 #power_sidebar:focus-within {
@@ -1245,6 +1252,7 @@ Footer > .footer--highlight-key {
     color: #e2e8f0;
     text-style: bold;
     border-bottom: solid #283344;
+    padding: 0 1;
     margin-bottom: 0;
 }
 
@@ -1379,6 +1387,7 @@ RichLog {
 
 /* --- Command Palette (Grok-Style Dock Bar) --- */
 #command_palette {
+    dock: bottom;
     height: 6;
     min-height: 6;
     max-height: 6;
@@ -1390,6 +1399,7 @@ RichLog {
 }
 
 #command_palette.has-context {
+    dock: bottom;
     height: 7;
     min-height: 7;
     max-height: 7;
@@ -1432,6 +1442,17 @@ RichLog {
 
 #lock_icon.locked {
     color: #eab308;
+    text-style: bold;
+}
+
+#lhost_badge {
+    color: #38bdf8;
+    margin-right: 2;
+    text-style: bold;
+}
+
+#lhost_badge.vpn {
+    color: #c084fc;
     text-style: bold;
 }
 

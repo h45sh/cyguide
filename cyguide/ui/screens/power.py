@@ -18,6 +18,7 @@ from rich.text import Text
 from rich.markup import escape
 from cyguide.paths import get_default_exports_dir, get_default_reports_dir
 import os
+import re
 
 
 SHORTCUTS_MD = """
@@ -47,6 +48,7 @@ SHORTCUTS_MD = """
 * **`F1`**: Show Shortcuts / Help dialog
 * **`Ctrl+T`**: Open New Terminal Tab
 * **`Ctrl+W`**: Close Active Terminal Tab
+* **`Ctrl+Y`**: Copy Active Terminal Tab Log to Clipboard
 * **`Ctrl+K`**: Kill / Terminate Running Job (`SIGTERM`)
 * **`Ctrl+R`**: Reopen Archived Session (Restores Write Mode)
 * **`Ctrl+PageUp / PageDown`**: Switch Terminal Tabs
@@ -111,6 +113,7 @@ class PowerModeScreen(Screen):
         Binding("f1", "show_shortcuts", "Help"),
         Binding("ctrl+t", "new_terminal_tab", "New Tab"),
         Binding("ctrl+w", "close_terminal_tab", "Close Tab"),
+        Binding("ctrl+y", "copy_active_tab", "Copy Tab Log"),
         Binding("ctrl+k", "kill_job", "Kill Job"),
         Binding("ctrl+r", "reopen_session", "Reopen Session", show=False),
         Binding("ctrl+e", "export_session", "Export Session"),
@@ -136,6 +139,7 @@ class PowerModeScreen(Screen):
         self.tab_to_job: Dict[str, str] = {}
         self._scratchpad_file: Optional[str] = None
         self.show_global_graph: bool = False
+        self._active_subscriptions: Dict[UUID, Callable] = {}
 
     @property
     def scratchpad_file(self) -> str:
@@ -249,10 +253,46 @@ class PowerModeScreen(Screen):
                 except Exception:
                     pass
 
+        if hasattr(self.app, "power_facade"):
+            self.app.power_facade.on_job_status_change(self._handle_job_status_change)
         await self._restore_tabs()
         await self.refresh_ui()
         self.app.store.on_upsert(self.handle_live_update)
 
+    def on_unmount(self) -> None:
+        if hasattr(self.app, "power_facade"):
+            self.app.power_facade.remove_job_status_change(self._handle_job_status_change)
+            for j_id, cb in list(self._active_subscriptions.items()):
+                self.app.power_facade.unsubscribe_job_output(j_id, cb)
+        self._active_subscriptions.clear()
+
+    def _handle_job_status_change(self, job: JobStatus) -> None:
+        """Handle real-time job status updates from power_facade."""
+        if str(job.session_id) != str(self.active_session_id):
+            return
+
+        # If job completed or failed, remove subscription and clean tab title
+        if job.status in (JobStatusEnum.DONE, JobStatusEnum.FAILED):
+            cb = self._active_subscriptions.pop(job.job_id, None)
+            if cb and hasattr(self.app, "power_facade"):
+                self.app.power_facade.unsubscribe_job_output(job.job_id, cb)
+
+            try:
+                tabs = self.query_one("#job_tabs", TabbedContent)
+                for tab_id, j_id in self.tab_to_job.items():
+                    if j_id == str(job.job_id):
+                        tab = tabs.get_tab(tab_id)
+                        if tab:
+                            tab.label = str(tab.label).replace("◌ ", "").replace("[◯] ", "")
+                        for pane in tabs.query(TabPane):
+                            if pane.id == tab_id:
+                                pane.title = str(pane.title).replace("◌ ", "").replace("[◯] ", "")
+                                break
+                        break
+            except Exception:
+                pass
+
+        self.run_worker(self.refresh_ui())
 
     async def on_screen_resume(self) -> None:
         """Triggered when the screen is resumed (switched back to)."""
@@ -270,6 +310,11 @@ class PowerModeScreen(Screen):
             return
 
         if target_id != self.active_session_id:
+            # Clean up old subscriptions
+            for j_id, cb in list(self._active_subscriptions.items()):
+                self.app.power_facade.unsubscribe_job_output(j_id, cb)
+            self._active_subscriptions.clear()
+
             self.active_session_id = target_id
 
             tabs = self.query_one("#job_tabs", TabbedContent)
@@ -292,7 +337,7 @@ class PowerModeScreen(Screen):
         await self.refresh_ui()
 
     async def _restore_tabs(self) -> None:
-        """Restore previous job tabs from the event log."""
+        """Restore previous job tabs from the event log and active running jobs."""
         if not self.active_session_id: return
         events = await self.app.power_facade.get_session_events(self.active_session_id)
 
@@ -318,13 +363,22 @@ class PowerModeScreen(Screen):
             if "output" not in result:
                 continue
 
-            tool_name = action.get("tool_name", "unknown")
-            is_explicit = action.get("is_explicit_shell", False)
-            title_prefix = "[sh] " if is_explicit else ""
             action_id = action.get("action_id", "unknown")
-
             if action_id in self.app.power_facade.closed_job_ids:
                 continue
+
+            # If this job is actively running in power_facade, let running restoration handle it
+            try:
+                j_uuid = UUID(action_id)
+                active_job = self.app.power_facade._active_jobs.get(j_uuid)
+                if active_job and active_job.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED):
+                    continue
+            except Exception:
+                pass
+
+            tool_name = action.get("tool_name", "unknown")
+            is_explicit = action.get("is_explicit_shell", False)
+            title_prefix = "sh › " if is_explicit else ""
 
             short_id = str(action_id)[:4]
             title = f"{title_prefix}{tool_name} {short_id}"
@@ -339,7 +393,6 @@ class PowerModeScreen(Screen):
 
                     status = JobStatusEnum.FAILED if result.get("error") else JobStatusEnum.DONE
 
-                    # Ensure we have UTC timezone imported or use a naive fallback
                     from datetime import timezone
 
                     job = JobStatus(
@@ -376,6 +429,60 @@ class PowerModeScreen(Screen):
                 else:
                     job_log.write(Text.from_markup(f"\n[bold #f85149]Error:[/] [red]{escape(str(err))}[/]\n"))
 
+        # Restore any active/running jobs for this session that do not yet have a tab
+        running_jobs = [
+            j for j in self.app.power_facade._active_jobs.values()
+            if str(j.session_id) == str(self.active_session_id)
+            and j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
+        ]
+
+        for r_job in running_jobs:
+            if str(r_job.job_id) in self.tab_to_job.values():
+                continue
+            action = self.app.power_facade.get_job_action(r_job.job_id)
+            tool_name = r_job.tool_name or (action.tool_name if action else "job")
+            is_explicit = action.is_explicit_shell if action else False
+            title_prefix = "sh › " if is_explicit else ""
+            short_id = str(r_job.job_id)[:4]
+            title = f"◌ {title_prefix}{tool_name} {short_id}"
+
+            tab_id = await self.action_new_terminal_tab(title=title)
+            self.tab_to_job[tab_id] = str(r_job.job_id)
+
+            job_log = self.query_one(f"#log_{tab_id}", RichLog)
+
+            if action:
+                params = action.params or {}
+                raw_flags = (params.get("raw_flags") or "").strip()
+                if raw_flags.startswith(tool_name):
+                    cmd_display = raw_flags
+                elif raw_flags:
+                    cmd_display = f"{tool_name} {raw_flags}"
+                else:
+                    cmd_display = tool_name
+            else:
+                cmd_display = tool_name
+
+            job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n"))
+
+            # Populate already accumulated output buffer
+            buf = self.app.power_facade.get_job_buffer(r_job.job_id)
+            if buf:
+                job_log.write(Text.from_ansi(buf))
+
+            # Subscribe to live streaming output chunks
+            def make_chunk_subscriber(target_log):
+                async def _on_chunk(chunk: str):
+                    try:
+                        target_log.write(Text.from_ansi(chunk))
+                    except Exception:
+                        pass
+                return _on_chunk
+
+            chunk_cb = make_chunk_subscriber(job_log)
+            self._active_subscriptions[r_job.job_id] = chunk_cb
+            self.app.power_facade.subscribe_job_output(r_job.job_id, chunk_cb)
+
     async def refresh_ui(self) -> None:
         if not self.active_session_id: return
 
@@ -386,10 +493,36 @@ class PowerModeScreen(Screen):
 
         session_data = await self.app.store.get_session(self.active_session_id)
         is_closed = session_data and session_data.get("status") == "CLOSED"
+        running_cnt = self.app.power_facade.get_active_jobs_count(self.active_session_id)
 
         try:
-            status_suffix = " [dim #64748b][ARCHIVED — Ctrl+R to Reopen][/]" if is_closed else ""
-            self.query_one("#session_label", Label).update(f"◆ SESSION: {ctx.session_name}{status_suffix}")
+            if is_closed:
+                status_suffix = " [dim #64748b]⊘ ARCHIVED[/]"
+                badge_len = len(" ⊘ ARCHIVED")
+            elif running_cnt > 0:
+                status_suffix = f" [bold #34d399]● {running_cnt} RUNNING[/]"
+                badge_len = len(f" ● {running_cnt} RUNNING")
+            else:
+                status_suffix = " [dim #38bdf8]▪ IDLE[/]"
+                badge_len = len(" ▪ IDLE")
+
+            # In a 34-column sidebar, usable text width is ~30 characters.
+            sess_name = ctx.session_name
+            if sess_name.lower().startswith("session"):
+                base_title = f"◆ {sess_name}"
+            else:
+                base_title = f"◆ SESSION: {sess_name}"
+
+            if len(base_title) + badge_len > 29:
+                # Use compact status badge so it never truncates mid-text
+                if is_closed:
+                    status_suffix = " [dim #64748b]⊘[/]"
+                elif running_cnt > 0:
+                    status_suffix = f" [bold #34d399]● {running_cnt}[/]"
+                else:
+                    status_suffix = " [dim #38bdf8]▪[/]"
+
+            self.query_one("#session_label", Label).update(f"{base_title}{status_suffix}")
         except Exception: pass
 
         if self.show_global_graph:
@@ -405,12 +538,12 @@ class PowerModeScreen(Screen):
         except Exception: pass
 
         try:
-            tab_job_ids = set(self.tab_to_job.values())
-            tab_jobs = [
+            # Show all active jobs for this session (running, queued, or recently completed)
+            session_jobs = [
                 j for j in ctx.active_jobs
-                if str(j.session_id) == str(self.active_session_id) and str(j.job_id) in tab_job_ids
+                if str(j.session_id) == str(self.active_session_id)
             ]
-            await self.query_one("#job_queue", JobQueue).update_jobs(tab_jobs)
+            await self.query_one("#job_queue", JobQueue).update_jobs(session_jobs)
         except Exception: pass
 
 
@@ -451,10 +584,59 @@ class PowerModeScreen(Screen):
             if session_data:
                 self.notify(f"Switched to session: {session_data['name']}")
 
+        # Focus tab if already open
+        tabs = self.query_one("#job_tabs", TabbedContent)
         for tab_id, job_id in self.tab_to_job.items():
             if job_id == event.job_id:
-                self.query_one("#job_tabs", TabbedContent).active = tab_id
-                break
+                tabs.active = tab_id
+                return
+
+        # If tab was closed or not yet mounted, open it dynamically
+        try:
+            from rich.text import Text
+            j_uuid = UUID(event.job_id)
+            job = self.app.power_facade._active_jobs.get(j_uuid)
+            action = self.app.power_facade.get_job_action(j_uuid)
+            tool_name = (job.tool_name if job else None) or (action.tool_name if action else "job")
+            is_running = job and job.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
+            prefix = "◌ " if is_running else ""
+            short_id = event.job_id[:4]
+            is_explicit = action.is_explicit_shell if action else False
+            sh_prefix = "sh › " if is_explicit else ""
+            tab_title = f"{prefix}{sh_prefix}{tool_name} {short_id}"
+
+            new_tab_id = await self.action_new_terminal_tab(title=tab_title)
+            self.tab_to_job[new_tab_id] = event.job_id
+            log = self.query_one(f"#log_{new_tab_id}", RichLog)
+
+            if action:
+                params = action.params or {}
+                raw_flags = (params.get("raw_flags") or "").strip()
+                if raw_flags.startswith(tool_name):
+                    cmd_display = raw_flags
+                elif raw_flags:
+                    cmd_display = f"{tool_name} {raw_flags}"
+                else:
+                    cmd_display = tool_name
+            else:
+                cmd_display = tool_name
+
+            log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n"))
+
+            buf = self.app.power_facade.get_job_buffer(j_uuid)
+            if buf:
+                log.write(Text.from_ansi(buf))
+
+            if is_running:
+                async def _on_chunk(chunk: str):
+                    try:
+                        log.write(Text.from_ansi(chunk))
+                    except Exception:
+                        pass
+                self._active_subscriptions[j_uuid] = _on_chunk
+                self.app.power_facade.subscribe_job_output(j_uuid, _on_chunk)
+        except Exception:
+            pass
 
 
     async def on_tree_node_highlighted(self, event: EntityBrowser.NodeHighlighted) -> None:
@@ -511,6 +693,7 @@ class PowerModeScreen(Screen):
             if active_tab_id:
                 log = self.query_one(f"#log_{active_tab_id}", RichLog)
                 log.clear()
+            self.refresh(repaint=True, layout=True)
             return
 
         try:
@@ -554,8 +737,10 @@ class PowerModeScreen(Screen):
         tabs = self.query_one("#job_tabs", TabbedContent)
         active_tab_id = tabs.active
 
-        title_prefix = "[sh] " if action.is_explicit_shell else ""
-        title = f"{title_prefix}{tool_name} {action.action_id.hex[:4]}"
+        title_prefix = "sh › " if action.is_explicit_shell else ""
+        short_id = action.action_id.hex[:4]
+        title = f"◌ {title_prefix}{tool_name} {short_id}"
+        clean_title = f"{title_prefix}{tool_name} {short_id}"
 
         # Determine if we need a new tab
         needs_new_tab = event.new_tab
@@ -590,8 +775,9 @@ class PowerModeScreen(Screen):
                 if pane.id == active_tab_id:
                     pane.title = title
                     try:
-                        tab_widget = tabs.query_one(f"#tab-{active_tab_id}")
-                        tab_widget.update(title)
+                        tab_widget = tabs.get_tab(active_tab_id)
+                        if tab_widget:
+                            tab_widget.label = title
                     except Exception:
                         pass
                     break
@@ -604,14 +790,51 @@ class PowerModeScreen(Screen):
         cmd_display = f"{tool_name} {params_str}".strip() if params_str else tool_name
         job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n"))
 
+        flag_pattern = re.compile(r'(?:flag|FLAG|ctf|CTF|htb|HTB|thm|THM)\{[A-Za-z0-9_!@#$%^&*+=?.-]+\}')
+        detected_flags = set()
+        start_time = asyncio.get_event_loop().time()
+
         try:
             async def stream_output(text: str):
                 job_log.write(Text.from_ansi(text))
+                # CTF Flag Auto-Detection
+                for match in flag_pattern.finditer(text):
+                    flag_str = match.group(0)
+                    if flag_str not in detected_flags:
+                        detected_flags.add(flag_str)
+                        job_log.write(Text.from_markup(f"\n[bold black on #eab308] 🚩 CTF FLAG DETECTED [/] [bold #facc15]{escape(flag_str)}[/]\n"))
+                        self.notify(f"Captured: {flag_str}", title="🚩 Flag Detected!", severity="warning")
                 await asyncio.sleep(0)
+
             async def stream_error(text: str):
                 job_log.write(Text.from_ansi(text))
                 await asyncio.sleep(0)
+
             async def on_complete():
+                elapsed = asyncio.get_event_loop().time() - start_time
+                if elapsed >= 15.0:
+                    try:
+                        self.app.bell()
+                    except Exception:
+                        pass
+                    dur_str = f"{elapsed:.1f}s"
+                    asyncio.create_task(self._send_desktop_notification(
+                        f"Job Finished ({dur_str})",
+                        f"'{tool_name}' completed in session"
+                    ))
+                    self.notify(f"'{tool_name}' finished in {dur_str}", title="Long Job Complete")
+
+                try:
+                    tabs = self.query_one("#job_tabs", TabbedContent)
+                    tab_w = tabs.get_tab(active_tab_id)
+                    if tab_w:
+                        tab_w.label = clean_title
+                    for pane in tabs.query(TabPane):
+                        if pane.id == active_tab_id:
+                            pane.title = clean_title
+                            break
+                except Exception:
+                    pass
                 await self.refresh_ui()
 
             await self.app.power_facade.submit_action(
@@ -744,6 +967,13 @@ class PowerModeScreen(Screen):
         # Kill and remove job if it exists
         target_job_id = self.tab_to_job.get(active_tab_id)
         if target_job_id:
+            try:
+                j_uuid = UUID(target_job_id)
+                cb = self._active_subscriptions.pop(j_uuid, None)
+                if cb and hasattr(self.app, "power_facade"):
+                    self.app.power_facade.unsubscribe_job_output(j_uuid, cb)
+            except Exception:
+                pass
             await self.app.power_facade.executor.stop_task(target_job_id)
             await self.app.power_facade.remove_job(UUID(target_job_id))
             self.tab_to_job.pop(active_tab_id)
@@ -802,6 +1032,45 @@ class PowerModeScreen(Screen):
     async def on_command_palette_export_request(self, event: CommandPalette.ExportRequest) -> None:
         """Handle Export request from the command palette (bypassing Input widget)."""
         await self.action_export_session()
+
+    async def on_command_palette_copy_tab_request(self, event: CommandPalette.CopyTabRequest) -> None:
+        """Handle Copy Tab request from the command palette."""
+        self.action_copy_active_tab()
+
+    def action_copy_active_tab(self) -> None:
+        """Copy the active terminal tab's log output to the system clipboard."""
+        tabs = self.query_one("#job_tabs", TabbedContent)
+        active_tab_id = tabs.active
+        if not active_tab_id:
+            self.notify("No active terminal tab to copy.", severity="warning")
+            return
+
+        try:
+            log = self.query_one(f"#log_{active_tab_id}", RichLog)
+            lines = [line.text if hasattr(line, "text") else str(line) for line in log.lines]
+            full_text = "\n".join(lines).strip()
+            if not full_text:
+                self.notify("Active tab is empty.", severity="information")
+                return
+
+            self.app.copy_to_clipboard(full_text)
+            self.notify("Active tab log copied to clipboard! (Ctrl+Y)", title="Clipboard")
+        except Exception as e:
+            self.notify(f"Failed to copy log: {e}", severity="error")
+
+    async def _send_desktop_notification(self, title: str, message: str) -> None:
+        """Send a desktop notification using notify-send if available."""
+        try:
+            import shutil
+            if shutil.which("notify-send"):
+                proc = await asyncio.create_subprocess_exec(
+                    "notify-send", "-a", "CyGuide", title, message,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL
+                )
+                await proc.wait()
+        except Exception:
+            pass
 
     def _load_scratchpad(self) -> None:
         try:

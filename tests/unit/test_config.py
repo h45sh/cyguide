@@ -618,3 +618,73 @@ async def test_power_palette_async_git_branch():
     from cyguide.ui.widgets.power import CommandPalette
     palette = CommandPalette()
     assert palette.branch == ""
+
+
+@pytest.mark.asyncio
+async def test_database_provider_includes_export_and_report(tmp_path):
+    """Verify DatabaseConfigProvider discovers export and report options."""
+    db_file = str(tmp_path / "test.db")
+    app = CyGuideApp(db_path=db_file)
+    mock_screen = MagicMock()
+    mock_screen.app = app
+    provider = DatabaseConfigProvider(mock_screen)
+    provider._app = app
+
+    hits = [h async for h in provider.discover()]
+    displays = [str(h.prompt) for h in hits]
+    assert any("Database Path" in d for d in displays)
+    assert any("Session Exports Directory" in d for d in displays)
+    assert any("Markdown Reports Directory" in d for d in displays)
+
+
+@pytest.mark.asyncio
+async def test_config_provider_search_export_and_report(tmp_path):
+    """Verify searching for 'export' and 'report' in ConfigProvider matches options."""
+    db_file = str(tmp_path / "test.db")
+    app = CyGuideApp(db_path=db_file)
+    mock_screen = MagicMock()
+    mock_screen.app = app
+    provider = ConfigProvider(mock_screen)
+    provider._app = app
+
+    export_hits = [h async for h in provider.search("export")]
+    assert any("Session Exports Directory" in str(h.prompt) for h in export_hits)
+
+    report_hits = [h async for h in provider.search("report")]
+    assert any("Markdown Reports Directory" in str(h.prompt) for h in report_hits)
+
+
+@pytest.mark.asyncio
+async def test_config_modal_export_and_report_save(tmp_path):
+    """Verify configuring custom exports and reports directories persists and updates app paths."""
+    from textual.widgets import TabbedContent
+    db_file = str(tmp_path / "test.db")
+    app = CyGuideApp(db_path=db_file)
+    custom_exports = str(tmp_path / "custom_exports")
+    custom_reports = str(tmp_path / "custom_reports")
+
+    async with app.run_test() as pilot:
+        modal = ConfigModal(focus_target="exports_dir")
+        await app.push_screen(modal)
+        await pilot.pause()
+
+        tabs = modal.query_one("#config_tabs", TabbedContent)
+        assert tabs.active == "tab_db"
+
+        modal.query_one("#cfg_exports_dir", Input).value = custom_exports
+        modal.query_one("#cfg_reports_dir", Input).value = custom_reports
+
+        await pilot.click("#cfg_save_btn")
+        await pilot.pause()
+
+        assert app.exports_dir == custom_exports
+        assert app.reports_dir == custom_reports
+        assert app.get_exports_dir() == custom_exports
+        assert app.get_reports_dir() == custom_reports
+
+        settings_path = app._get_settings_path()
+        with open(settings_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        assert data.get("exports_dir") == custom_exports
+        assert data.get("reports_dir") == custom_reports
+

@@ -20,6 +20,7 @@ class GraphStore:
         self.db_path = db_path
         self._on_upsert_callbacks = []
         self._conn: Optional[aiosqlite.Connection] = None
+        self._closed: bool = False
 
     def on_upsert(self, callback):
         """Register an async callback to fire when any finding is upserted."""
@@ -28,6 +29,8 @@ class GraphStore:
     @asynccontextmanager
     async def _get_conn(self):
         """Helper to get a connection, supporting persistent connection for all paths."""
+        if self._closed:
+            raise ValueError("Cannot operate on a closed database.")
         if self._conn is None:
             if self.db_path != ":memory:":
                 db_dir = os.path.dirname(os.path.abspath(self.db_path))
@@ -127,8 +130,12 @@ class GraphStore:
 
     async def close(self):
         """Close the persistent connection if it exists."""
+        self._closed = True
         if self._conn:
-            await self._conn.close()
+            try:
+                await self._conn.close()
+            except Exception:
+                pass
             self._conn = None
 
     async def get_or_create_learning_sandbox(self) -> tuple[str, str]:

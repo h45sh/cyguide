@@ -171,10 +171,12 @@ class Executor:
                     # Wait for finding or a small timeout to check process state
                     finding = await asyncio.wait_for(finding_queue.get(), timeout=0.1)
 
-                    if session_id:
+                    if session_id and not getattr(self.store, "_closed", False):
                         try:
                             await self.store.upsert_finding(session_id, finding)
                         except Exception as upsert_e:
+                            if getattr(self.store, "_closed", False):
+                                break
                             logger.error(f"Failed to upsert finding: {upsert_e}")
                             if on_output:
                                 await on_output(f"\n[INTERNAL ERROR] Failed to save entity: {upsert_e}\n")
@@ -199,10 +201,12 @@ class Executor:
             # Final check of the queue for any remaining findings
             while not finding_queue.empty():
                 finding = finding_queue.get_nowait()
-                if session_id:
+                if session_id and not getattr(self.store, "_closed", False):
                     try:
                         await self.store.upsert_finding(session_id, finding)
                     except Exception as upsert_e:
+                        if getattr(self.store, "_closed", False):
+                            break
                         logger.error(f"Failed to upsert finding: {upsert_e}")
                         if on_output:
                             await on_output(f"\n[INTERNAL ERROR] Failed to save entity: {upsert_e}\n")

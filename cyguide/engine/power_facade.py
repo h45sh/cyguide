@@ -15,6 +15,7 @@ from cyguide.engine.executor import Executor, sanitize_subprocess_env
 from cyguide.engine.gateway import ActionGateway
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.adapter import ToolAdapter
+from cyguide.engine.network import get_lhost_info
 
 
 class ShellAdapter(ToolAdapter):
@@ -49,12 +50,25 @@ class PowerWorkspaceFacade:
         # job_id -> JobStatus
         self._active_jobs: Dict[UUID, JobStatus] = {}
 
+        # Job metadata & live output streaming
+        # job_id -> ActionRequest
+        self._job_actions: Dict[UUID, ActionRequest] = {}
+        # job_id -> list of output strings
+        self._job_buffers: Dict[UUID, List[str]] = {}
+        # job_id -> set of subscriber coroutines
+        self._job_subscribers: Dict[UUID, set] = {}
+        # Global status change listeners
+        self._job_change_listeners: List[Callable] = []
+
         # Session state tracking (CWD)
         # session_id -> current_working_dir
         self._session_cwd: Dict[str, str] = {}
 
         # Track jobs that the user explicitly closed so they aren't restored
         self.closed_job_ids: set[str] = set()
+
+        # Track background asyncio.Tasks for clean shutdown
+        self._running_tasks: Dict[UUID, asyncio.Task] = {}
 
     def _get_cwd(self, session_id: str) -> str:
         return self._session_cwd.get(session_id, os.getcwd())
@@ -237,6 +251,14 @@ class PowerWorkspaceFacade:
             status=JobStatusEnum.RUNNING
         )
         self._active_jobs[job.job_id] = job
+        self._job_actions[job.job_id] = action
+        self._job_buffers[job.job_id] = []
+        if job.job_id not in self._job_subscribers:
+            self._job_subscribers[job.job_id] = set()
+        if on_output:
+            self._job_subscribers[job.job_id].add(on_output)
+
+        self._notify_job_change(job)
 
         # 6. Get target finding (or create dummy for shell)
         if not action.is_explicit_shell and action.target_entity_id:
@@ -261,13 +283,23 @@ class PowerWorkspaceFacade:
         user_env = sanitize_subprocess_env(getattr(self, "user_env", os.environ.copy()))
         user_shell = getattr(self, "user_shell", "/bin/bash")
 
-        asyncio.create_task(self._run_action_task(
+        task = asyncio.create_task(self._run_action_task(
             action, adapter, target, on_output, on_complete,
             on_error_output=on_error_output,
             env=user_env, shell_path=user_shell
         ))
+        self._running_tasks[action.action_id] = task
+        task.add_done_callback(lambda t: self._running_tasks.pop(action.action_id, None))
 
         return job.job_id
+
+    async def shutdown(self) -> None:
+        """Cancel and drain all running action tasks before store closes."""
+        tasks = list(self._running_tasks.values())
+        if tasks:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def kill_job(self, job_id: UUID) -> bool:
         """Terminate a running job."""
@@ -277,6 +309,7 @@ class PowerWorkspaceFacade:
 
         await self.executor.stop_task(str(job_id))
         job.status = JobStatusEnum.FAILED
+        self._notify_job_change(job)
         return True
 
     async def _run_action_task(
@@ -293,19 +326,26 @@ class PowerWorkspaceFacade:
         job = self._active_jobs[action.action_id]
         cwd = self._get_cwd(str(action.session_id))
 
-        output_buffer = []
+        if action.action_id not in self._job_buffers:
+            self._job_buffers[action.action_id] = []
 
         async def intercept_output(text: str):
-            output_buffer.append(text)
-            if on_output:
-                await on_output(text)
+            self._job_buffers[action.action_id].append(text)
+            subs = list(self._job_subscribers.get(action.action_id, set()))
+            for sub in subs:
+                try:
+                    await sub(text)
+                except Exception:
+                    pass
 
         async def intercept_error(text: str):
-            output_buffer.append(text)
-            if on_error_output:
-                await on_error_output(text)
-            elif on_output:
-                await on_output(text)
+            self._job_buffers[action.action_id].append(text)
+            subs = list(self._job_subscribers.get(action.action_id, set()))
+            for sub in subs:
+                try:
+                    await sub(text)
+                except Exception:
+                    pass
 
         err_msg = None
         try:
@@ -329,21 +369,31 @@ class PowerWorkspaceFacade:
             # Only set to DONE if it hasn't been set to FAILED (e.g., by manual termination)
             if job.status == JobStatusEnum.RUNNING:
                 job.status = JobStatusEnum.DONE
+        except asyncio.CancelledError:
+            err_msg = "Job cancelled on shutdown"
+            job.status = JobStatusEnum.FAILED
         except Exception as e:
             err_msg = str(e)
             job.status = JobStatusEnum.FAILED
         finally:
             job.completed_at = datetime.now(UTC)
 
-            # Persist output to event log so tabs can be restored across sessions
-            await self.store.append_event(
-                str(action.session_id),
-                action,
-                {"output": "".join(output_buffer), "error": err_msg},
-                f"Ran {action.tool_name}" + (f" (failed: {err_msg})" if err_msg else "")
-            )
-            if str(action.action_id) in self.closed_job_ids:
-                await self.store.mark_event_closed(str(action.action_id), session_id=str(action.session_id))
+            # Persist output to event log so tabs can be restored across sessions (guard against closed store)
+            if not getattr(self.store, "_closed", False):
+                try:
+                    buf_output = "".join(self._job_buffers.get(action.action_id, []))
+                    await self.store.append_event(
+                        str(action.session_id),
+                        action,
+                        {"output": buf_output, "error": err_msg},
+                        f"Ran {action.tool_name}" + (f" (failed: {err_msg})" if err_msg else "")
+                    )
+                    if str(action.action_id) in self.closed_job_ids:
+                        await self.store.mark_event_closed(str(action.action_id), session_id=str(action.session_id))
+                except Exception:
+                    pass
+
+            self._notify_job_change(job)
 
             if on_complete:
                 try:
@@ -379,6 +429,14 @@ class PowerWorkspaceFacade:
                     resolved_vars["SERVICE"] = pik["service"]
                 if "protocol" in pik:
                     resolved_vars["PROTOCOL"] = pik["protocol"]
+
+        # Operator context resolution: Always resolve LHOST
+        try:
+            lhost_ip, _ = get_lhost_info()
+            if lhost_ip:
+                resolved_vars["LHOST"] = lhost_ip
+        except Exception:
+            pass
 
         # 2. Aggregate counts and jobs
         stats = await self.store.get_stats(session_id)
@@ -434,9 +492,50 @@ class PowerWorkspaceFacade:
     async def remove_job(self, job_id: UUID) -> None:
         """Remove a job from tracking, e.g., when its tab is closed."""
         job = self._active_jobs.pop(job_id, None)
+        self._job_actions.pop(job_id, None)
+        self._job_buffers.pop(job_id, None)
+        self._job_subscribers.pop(job_id, None)
         self.closed_job_ids.add(str(job_id))
         session_id = str(job.session_id) if job else None
         await self.store.mark_event_closed(str(job_id), session_id=session_id)
+        if job:
+            self._notify_job_change(job)
+
+    def subscribe_job_output(self, job_id: UUID, callback: Callable[[str], Coroutine]) -> None:
+        """Subscribe a live UI tab to output streaming for a running job."""
+        if job_id not in self._job_subscribers:
+            self._job_subscribers[job_id] = set()
+        self._job_subscribers[job_id].add(callback)
+
+    def unsubscribe_job_output(self, job_id: UUID, callback: Callable[[str], Coroutine]) -> None:
+        """Unsubscribe a tab from a job's output stream."""
+        if job_id in self._job_subscribers:
+            self._job_subscribers[job_id].discard(callback)
+
+    def get_job_buffer(self, job_id: UUID) -> str:
+        """Get accumulated stdout/stderr output for an active/running job."""
+        chunks = self._job_buffers.get(job_id, [])
+        return "".join(chunks)
+
+    def on_job_status_change(self, callback: Callable[[JobStatus], Any]) -> None:
+        """Register a callback for job state changes (started, running, completed, killed)."""
+        if callback not in self._job_change_listeners:
+            self._job_change_listeners.append(callback)
+
+    def remove_job_status_change(self, callback: Callable[[JobStatus], Any]) -> None:
+        """Unregister a job state change callback."""
+        if callback in self._job_change_listeners:
+            self._job_change_listeners.remove(callback)
+
+    def _notify_job_change(self, job: JobStatus) -> None:
+        """Notify all listeners that a job status changed."""
+        for cb in list(self._job_change_listeners):
+            try:
+                res = cb(job)
+                if asyncio.iscoroutine(res):
+                    asyncio.create_task(res)
+            except Exception:
+                pass
 
     def get_active_jobs_count(self, session_id: str) -> int:
         """Get count of active (running/queued) jobs for a session."""
@@ -445,6 +544,24 @@ class PowerWorkspaceFacade:
             1 for j in self._active_jobs.values()
             if str(j.session_id) == session_id and j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
         )
+
+    async def get_workspace_running_jobs_count(self, workspace_id: str) -> int:
+        """Get count of active (running/queued) jobs for all sessions in a workspace."""
+        from cyguide.schemas.power import JobStatusEnum
+        sessions = await self.store.list_sessions(workspace_id)
+        session_ids = {s["id"] for s in sessions}
+        return sum(
+            1 for j in self._active_jobs.values()
+            if str(j.session_id) in session_ids and j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
+        )
+
+    def get_session_active_jobs(self, session_id: str) -> List[JobStatus]:
+        """Get all active/tracked jobs for a session (running, queued, or recently completed)."""
+        return [j for j in self._active_jobs.values() if str(j.session_id) == str(session_id)]
+
+    def get_job_action(self, job_id: UUID) -> Optional[ActionRequest]:
+        """Get the original ActionRequest for a job."""
+        return self._job_actions.get(job_id)
 
     async def export_session(self, session_id: str, dest_db_path: str) -> None:
         """Export a session's database rows to a portable database."""
