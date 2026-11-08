@@ -4,11 +4,10 @@
 
 CyGuide receives active security updates and vulnerability patches on the following release branches:
 
-| Version | Supported          |
-| :------ | :----------------- |
-| 1.5.x   | Yes (Current)      |
-| 1.4.x   | Yes (Critical only)|
-| < 1.4.0 | No                 |
+| Version | Supported     |
+| :------ | :------------ |
+| 1.7.x   | Yes (Current) |
+| < 1.7.0 | No            |
 
 ---
 
@@ -19,7 +18,7 @@ The CyGuide team takes security seriously. If you discover a vulnerability, pote
 ### Preferred Reporting Channel
 
 * **GitHub Private Vulnerability Reporting**: Navigate to the [CyGuide Security Advisory tab](https://github.com/h45sh/cyguide/security/advisories/new) and submit a private report.
-* **Direct Maintainer Contact**: If the advisory portal is unavailable, contact the project maintainer directly at `harshwardhanpatil.contact@gmail.com` with the subject line `[SECURITY] CyGuide Vulnerability Report`.
+* **Direct Maintainer Contact**: If the advisory portal is unavailable, contact the project maintainer directly at `harshwardhan@h45sh.com` with the subject line `[SECURITY] CyGuide Vulnerability Report`.
 
 ### What to Include
 
