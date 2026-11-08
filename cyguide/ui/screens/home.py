@@ -8,6 +8,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from datetime import datetime
 from typing import Set, Optional, Dict, Any
+import asyncio
 
 def format_activity(session_name: str, schema_type: str, human_readable: str, finding_json: Optional[str] = None, finding_obj: Optional[Any] = None) -> str:
     # 1. Shorten session name
@@ -262,6 +263,7 @@ class DashboardScreen(Screen):
         self.organize_step = 1
         self.selected_ws_id: Optional[str] = None
         self.selected_session_id: Optional[str] = None
+        self._refresh_lock = asyncio.Lock()
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="workspace_manager"):
@@ -750,127 +752,128 @@ class DashboardScreen(Screen):
         await self.show_workspace_details(self.selected_ws_id)
 
     async def show_workspace_details(self, ws_id: str) -> None:
-        # If workspace changed, clear session details
-        if self.selected_ws_id != ws_id:
-            self.selected_session_id = None
-            self.app.selected_session_id = None
-            details_area = self.query_one("#session_details_content", Vertical)
-            await details_area.remove_children()
-            await details_area.mount(Label("Select a session to view details", classes="placeholder_text"))
+        async with self._refresh_lock:
+            # If workspace changed, clear session details
+            if self.selected_ws_id != ws_id:
+                self.selected_session_id = None
+                self.app.selected_session_id = None
+                details_area = self.query_one("#session_details_content", Vertical)
+                await details_area.remove_children()
+                await details_area.mount(Label("Select a session to view details", classes="placeholder_text"))
 
-        self.selected_ws_id = ws_id
-        self.app.selected_workspace_id = ws_id
-        store = self.app.store
-        ws = await store.get_workspace(ws_id)
-        if not ws: return
+            self.selected_ws_id = ws_id
+            self.app.selected_workspace_id = ws_id
+            store = self.app.store
+            ws = await store.get_workspace(ws_id)
+            if not ws: return
 
-        self.query_one("#ws_title", Label).update(ws["name"].upper())
-        ws_status = ws.get("status", "ACTIVE")
-        if ws_status == "CLOSED":
-            self.query_one("#ws_status_badge", Label).update("[dim #64748b][ARCHIVED][/]")
-        else:
-            self.query_one("#ws_status_badge", Label).update("")
-
-        all_sessions = await store.list_sessions(ws_id)
-        active_sessions = [s for s in all_sessions if s.get("status") == "ACTIVE"]
-        closed_sessions = [s for s in all_sessions if s.get("status") == "CLOSED"]
-        active_count = len(active_sessions)
-        closed_count = len(closed_sessions)
-        running_jobs_total = sum(self.app.power_facade.get_active_jobs_count(s["id"]) for s in all_sessions)
-
-        if self.session_filter == "HISTORY":
-            display_sessions = closed_sessions
-            try:
-                self.query_one("#sessions_pane_title", Label).update("◆ ARCHIVED SESSIONS")
-                self.query_one("#session_filter_badge", Label).update(f"[History: {closed_count}]")
-            except Exception: pass
-        else:
-            display_sessions = active_sessions
-            try:
-                self.query_one("#sessions_pane_title", Label).update("◆ ACTIVE SESSIONS")
-                self.query_one("#session_filter_badge", Label).update(f"[Active: {active_count}]")
-            except Exception: pass
-
-        sess_list = self.query_one("#session_list", ListView)
-        old_index = sess_list.index
-        was_focused = sess_list.has_focus
-
-        current_sess_ids = [c.id for c in sess_list.children if c.id]
-        expected_sess_ids = [f"sess_{s['id']}" for s in display_sessions]
-
-        def get_session_display(s: Dict) -> str:
-            is_active = s.get("status") == "ACTIVE"
-            active_jobs = self.app.power_facade.get_active_jobs_count(s["id"])
-            if is_active:
-                if active_jobs > 0:
-                    status_icon = "[bold #34d399]●[/]"
-                    suffix = f" [#34d399]({active_jobs} running)[/]"
-                else:
-                    status_icon = "[#38bdf8]●[/]"
-                    suffix = ""
+            self.query_one("#ws_title", Label).update(ws["name"].upper())
+            ws_status = ws.get("status", "ACTIVE")
+            if ws_status == "CLOSED":
+                self.query_one("#ws_status_badge", Label).update("[dim #64748b][ARCHIVED][/]")
             else:
-                status_icon = "[#94a3b8]■[/]"
-                closed_date = s.get("closed_at", "")[:10] if s.get("closed_at") else "archived"
-                suffix = f" [#94a3b8]({closed_date})[/]"
+                self.query_one("#ws_status_badge", Label).update("")
 
+            all_sessions = await store.list_sessions(ws_id)
+            active_sessions = [s for s in all_sessions if s.get("status") == "ACTIVE"]
+            closed_sessions = [s for s in all_sessions if s.get("status") == "CLOSED"]
+            active_count = len(active_sessions)
+            closed_count = len(closed_sessions)
+            running_jobs_total = sum(self.app.power_facade.get_active_jobs_count(s["id"]) for s in all_sessions)
 
-            if self.mode == "DELETE":
-                prefix = r"[bold #f85149]\[x][/]  " if s["id"] in self.selected_sessions else r"[#94a3b8]\[ ][/]  "
-            elif self.mode == "ORGANIZE" and self.organize_step == 1:
-                prefix = r"[bold #eab308]\[x][/]  " if s["id"] in self.selected_sessions else r"[#94a3b8]\[ ][/]  "
-            else:
-                prefix = f"{status_icon}  "
-            return f"{prefix}{s['name']}{suffix}"
-
-        if current_sess_ids == expected_sess_ids:
-            for i, s in enumerate(display_sessions):
-                try:
-                    label = sess_list.children[i].query_one(Static)
-                    label.update(get_session_display(s))
-                except Exception:
-                    pass
-        else:
-            await sess_list.remove_children()
-            for s in display_sessions:
-                sess_list.append(ListItem(Static(get_session_display(s)), id=f"sess_{s['id']}"))
-
-        if display_sessions and old_index is None:
-             sess_list.index = 0
-             await self.show_session_details(display_sessions[0]["id"], force=False)
-        elif display_sessions and old_index is not None:
-            sess_list.index = old_index if old_index < len(display_sessions) else 0
-            await self.show_session_details(display_sessions[sess_list.index]["id"], force=False)
-        elif not display_sessions:
-            await sess_list.remove_children()
-            placeholder = "[dim #94a3b8]No archived sessions[/]" if self.session_filter == "HISTORY" else "[dim #94a3b8]No active sessions · [Ctrl+S][/]"
-            sess_list.append(ListItem(Static(f"  {placeholder}"), id="empty_sess_placeholder", disabled=True))
-            self.selected_session_id = None
-            self.app.selected_session_id = None
-            details_area = self.query_one("#session_details_content", Vertical)
-            await details_area.remove_children()
             if self.session_filter == "HISTORY":
-                title = "No archived sessions in this workspace"
-                hint = "Press [Ctrl+A] on an active session to archive it."
+                display_sessions = closed_sessions
+                try:
+                    self.query_one("#sessions_pane_title", Label).update("◆ ARCHIVED SESSIONS")
+                    self.query_one("#session_filter_badge", Label).update(f"[History: {closed_count}]")
+                except Exception: pass
             else:
-                title = "No active sessions in this workspace"
-                hint = "Press [Ctrl+S] to create a session or [Ctrl+H] for History."
-            await details_area.mount(
-                Vertical(
-                    Label(title, classes="session_empty_title"),
-                    Label(hint, classes="session_empty_hint"),
-                    classes="session_empty_card",
+                display_sessions = active_sessions
+                try:
+                    self.query_one("#sessions_pane_title", Label).update("◆ ACTIVE SESSIONS")
+                    self.query_one("#session_filter_badge", Label).update(f"[Active: {active_count}]")
+                except Exception: pass
+
+            sess_list = self.query_one("#session_list", ListView)
+            old_index = sess_list.index
+            was_focused = sess_list.has_focus
+
+            current_sess_ids = [c.id for c in sess_list.children if c.id]
+            expected_sess_ids = [f"sess_{s['id']}" for s in display_sessions]
+
+            def get_session_display(s: Dict) -> str:
+                is_active = s.get("status") == "ACTIVE"
+                active_jobs = self.app.power_facade.get_active_jobs_count(s["id"])
+                if is_active:
+                    if active_jobs > 0:
+                        status_icon = "[bold #34d399]●[/]"
+                        suffix = f" [#34d399]({active_jobs} running)[/]"
+                    else:
+                        status_icon = "[#38bdf8]●[/]"
+                        suffix = ""
+                else:
+                    status_icon = "[#94a3b8]■[/]"
+                    closed_date = s.get("closed_at", "")[:10] if s.get("closed_at") else "archived"
+                    suffix = f" [#94a3b8]({closed_date})[/]"
+
+
+                if self.mode == "DELETE":
+                    prefix = r"[bold #f85149]\[x][/]  " if s["id"] in self.selected_sessions else r"[#94a3b8]\[ ][/]  "
+                elif self.mode == "ORGANIZE" and self.organize_step == 1:
+                    prefix = r"[bold #eab308]\[x][/]  " if s["id"] in self.selected_sessions else r"[#94a3b8]\[ ][/]  "
+                else:
+                    prefix = f"{status_icon}  "
+                return f"{prefix}{s['name']}{suffix}"
+
+            if current_sess_ids == expected_sess_ids:
+                for i, s in enumerate(display_sessions):
+                    try:
+                        label = sess_list.children[i].query_one(Static)
+                        label.update(get_session_display(s))
+                    except Exception:
+                        pass
+            else:
+                await sess_list.remove_children()
+                for s in display_sessions:
+                    sess_list.append(ListItem(Static(get_session_display(s)), id=f"sess_{s['id']}"))
+
+            if display_sessions and old_index is None:
+                 sess_list.index = 0
+                 await self.show_session_details(display_sessions[0]["id"], force=False)
+            elif display_sessions and old_index is not None:
+                sess_list.index = old_index if old_index < len(display_sessions) else 0
+                await self.show_session_details(display_sessions[sess_list.index]["id"], force=False)
+            elif not display_sessions:
+                await sess_list.remove_children()
+                placeholder = "[dim #94a3b8]No archived sessions[/]" if self.session_filter == "HISTORY" else "[dim #94a3b8]No active sessions · [Ctrl+S][/]"
+                sess_list.append(ListItem(Static(f"  {placeholder}"), id="empty_sess_placeholder", disabled=True))
+                self.selected_session_id = None
+                self.app.selected_session_id = None
+                details_area = self.query_one("#session_details_content", Vertical)
+                await details_area.remove_children()
+                if self.session_filter == "HISTORY":
+                    title = "No archived sessions in this workspace"
+                    hint = "Press [Ctrl+A] on an active session to archive it."
+                else:
+                    title = "No active sessions in this workspace"
+                    hint = "Press [Ctrl+S] to create a session or [Ctrl+H] for History."
+                await details_area.mount(
+                    Vertical(
+                        Label(title, classes="session_empty_title"),
+                        Label(hint, classes="session_empty_hint"),
+                        classes="session_empty_card",
+                    )
                 )
-            )
 
-        if was_focused: sess_list.focus()
+            if was_focused: sess_list.focus()
 
-        self.query_one("#metric_sessions", Static).update(f"Sessions: {active_count} Active · {closed_count} Archived")
-        self.query_one("#metric_active", Static).update(f"Running Jobs: {running_jobs_total}")
+            self.query_one("#metric_sessions", Static).update(f"Sessions: {active_count} Active · {closed_count} Archived")
+            self.query_one("#metric_active", Static).update(f"Running Jobs: {running_jobs_total}")
 
-        # Update Host/Service counts for the workspace
-        ws_stats = await store.get_stats()
-        self.query_one("#metric_hosts", Static).update(f"Hosts: {ws_stats.get('network.host', 0)}")
-        self.query_one("#metric_services", Static).update(f"Services: {ws_stats.get('network.service', 0)}")
+            # Update Host/Service counts for the workspace
+            ws_stats = await store.get_stats()
+            self.query_one("#metric_hosts", Static).update(f"Hosts: {ws_stats.get('network.host', 0)}")
+            self.query_one("#metric_services", Static).update(f"Services: {ws_stats.get('network.service', 0)}")
 
         # Activity list: Only update if the recent activities actually changed
         activity = await store.get_recent_activity(ws_id, limit=10)
