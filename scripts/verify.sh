@@ -9,7 +9,11 @@ export PYTHONPATH=.
 pytest
 
 echo -e "\n--- 2. Validating & Generating Schema Registry ---"
-python3 scripts/generate_schema_registry.py
+PYTHON_BIN="python3"
+if [ -f ".venv/bin/python" ]; then
+    PYTHON_BIN=".venv/bin/python"
+fi
+$PYTHON_BIN scripts/generate_schema_registry.py
 
 if command -v ruff &> /dev/null; then
     echo -e "\n--- 3. Running Lint Checks (ruff) ---"
