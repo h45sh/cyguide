@@ -721,7 +721,7 @@ class DashboardScreen(Screen):
                 except Exception:
                     pass
         else:
-            await ws_list.clear()
+            await ws_list.remove_children()
             for i, ws in enumerate(workspaces):
                 if self.mode == "DELETE":
                     prefix = r"[bold #f85149]\[x][/]  " if ws["id"] in self.selected_workspaces else r"[#94a3b8]\[ ][/]  "
@@ -841,7 +841,7 @@ class DashboardScreen(Screen):
             sess_list.index = old_index if old_index < len(display_sessions) else 0
             await self.show_session_details(display_sessions[sess_list.index]["id"], force=False)
         elif not display_sessions:
-            await sess_list.clear()
+            await sess_list.remove_children()
             placeholder = "[dim #94a3b8]No archived sessions[/]" if self.session_filter == "HISTORY" else "[dim #94a3b8]No active sessions · [Ctrl+S][/]"
             sess_list.append(ListItem(Static(f"  {placeholder}"), id="empty_sess_placeholder", disabled=True))
             self.selected_session_id = None
