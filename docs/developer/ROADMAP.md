@@ -12,12 +12,16 @@ This document is the **single authoritative source of truth** for all completed,
 | **Phase 2: Intelligence & Expansion** | **Completed** | 8 | 8 | 0 | 100% |
 | **Phase 3: Polish, Portability & Delivery** | **Completed** | 15 | 15 | 0 | 100% |
 | **Power Mode Operator Workbench** | **Completed** | 30 | 30 | 0 | 100% |
-| **Phase 3.5: Performance Optimization & UI Polish** | **Next Up / In Progress** | 18 | 0 | 18 | 0% |
+| **v1.8.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **Next Up / In Progress** | 18 | 0 | 18 | 0% |
+| **v1.9.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 8 | 0 | 8 | 0% |
+| **v1.9.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
+| **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
 | **Phase 4: Autonomous Agent Runtime & Co-Pilot HUD** | **Planned (Future)** | 10 | 0 | 10 | 0% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Tool Ecosystem Backlog** | **Planned (Future)** | 4 | 0 | 4 | 0% |
-| **Infrastructure & Community Distribution** | **Planned (Future)** | 5 | 3 | 2 | 60% |
-| **Total Project Tasks** | **In Progress** | **104** | **64** | **40** | **62%** |
+| **Total Project Tasks** | **In Progress** | **115** | **61** | **54** | **53%** |
+
+> [!NOTE]
+> For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
 
 ---
 
@@ -30,13 +34,17 @@ This document is the **single authoritative source of truth** for all completed,
               │
 [ Phase 3: Polish & Delivery ] ──── Diagnostics CLI & Modal, Portability (Export/Import), Hardening
               │
-[ Phase 3.5: Performance & UI ] ── Stream Throttling, Disk Spooling, Tab/Queue Sync, Tree Usability
+[ v1.8.0 / Phase 3.5: Engine ] ─── Stream Throttling, Disk Spooling, Tab/Queue Sync, Tree Usability
+              │
+[ v1.9.0: Terminal & Security ] ── Interactive PTY Shell, Decoupled IPC, AES Vault, CIDR Scope
+              │
+[ v1.9.5: Ecosystem & Showcase ] ─ cyg create-adapter, Nuclei, FFUF, SQLMap, VHS Recording
+              │
+[ v2.0.0: Flagship Launch ] ────── Standalone Binaries, Show HN, Reddit, Awesome-Lists, Kali/BlackArch
               │
 [ Phase 4: Autonomous Agent ] ──── ReAct Loop, ActionGateway CIDR Policies, Agentic HUD
               │
 [ Phase 5: Multi-Agent Swarm ] ─── Specialized Subagents (Recon, Web, Reporter, Critic)
-              │
-[ Post-Release Ecosystem ] ─────── Community Plugins, Docker Image, PyPI Packaging, Pre-Commit
 ```
 
 ---
@@ -168,7 +176,93 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 
 ---
 
-### Phase 4: Autonomous Agent Runtime & Co-Pilot Cockpit (Planned)
+### Milestone: v1.9.0 — Terminal Capabilities, IPC & Security/Encryption (Planned)
+
+> [!NOTE]
+> Detailed technical specifications, data models, and sequence flows are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:36-160`](V2_PLATFORM_SPECIFICATION.md#L36-L160).
+
+- [ ] **Dual-Path Interactive PTY Architecture**:
+  - *Priority*: **P1** | *Complexity*: High | *Track*: Terminal
+  - Implement OS pseudo-terminal pair (`master_fd`/`slave_fd`) via `os.openpty()` in `Executor` for interactive commands, replacing `stdin=DEVNULL`.
+  - Enables handling interactive prompts (`sudo`, `ssh`, `[y/N]` confirmations, and live bash shells) inside workbench tabs.
+- [ ] **Terminal Window Resize Signals (`SIGWINCH`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Terminal
+  - Forward terminal geometry adjustments to the active PTY via `fcntl.ioctl` with `termios.TIOCSWINSZ` on UI pane resize.
+- [ ] **Decoupled Asynchronous IPC & Daemon Architecture**:
+  - *Priority*: **P1** | *Complexity*: High | *Track*: Architecture
+  - Decouple background command execution from the Textual UI loop via an internal event bus and optional Unix domain socket (`~/.cyguide/run/cyguide.sock`).
+  - Allows background scans to continue across UI reloads and enables headless external triggers.
+- [ ] **Encrypted Session Archives (`cyg export --encrypt`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Security
+  - Add AES-256-GCM authenticated encryption for exported session databases with Argon2id passphrase key derivation.
+- [ ] **Zero-Leakage In-Memory Credential Scrubbing**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Security
+  - Scrub transient credentials, secret tokens, and API keys from memory upon task completion.
+- [ ] **Declarative CIDR Scope Enforcement**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Security
+  - Add explicit CIDR whitelist boundary validation in `ActionGateway` (e.g. `allowed_cidrs: ["10.0.0.0/24"]`) to reject out-of-scope targets.
+- [ ] **LLM Prompt Boundary Sandboxing**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: AI Safety
+  - Enclose untrusted terminal output in ephemeral cryptographically randomized tokens (`<<<UNTRUSTED_SCAN_OUTPUT_{UUID}>>>`) with XML escaping to neutralize prompt injections.
+- [ ] **Cross-Session Approval Context Swapping**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: UI/UX
+  - Automatically swap the active TUI session context when approving suggestions originated from another session in the global graph.
+
+---
+
+### Milestone: v1.9.5 — Tool Ecosystem Expansion & Contributor Scaffolding (Planned)
+
+> [!NOTE]
+> Detailed adapter generator templates and schema contracts are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:162-192`](V2_PLATFORM_SPECIFICATION.md#L162-L192).
+
+- [ ] **CLI Adapter Generator (`cyg create-adapter <name>`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Developer Experience
+  - Scaffolding generator creating `tools/<name>/manifest.toml`, `adapter.py`, typed finding models, and hermetic pytest tests in one step.
+- [ ] **Nuclei Tool Adapter (`tools/nuclei/`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Tool Plugins
+  - Fast, template-based vulnerability scanning using community YAML signatures. Emits `vulnerability.found` and `web.vulnerability`.
+- [ ] **FFUF Tool Adapter (`tools/ffuf/`)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Tool Plugins
+  - High-performance Go web fuzzer alternative to `gobuster`, leveraging v1.8.0 log batching. Emits `web.endpoint`.
+- [ ] **SQLMap Tool Adapter (`tools/sqlmap/`)**:
+  - *Priority*: **P2** | *Complexity*: High | *Track*: Tool Plugins
+  - Automated SQL injection detection and database takeover. Emits `vulnerability.found` (SQLi) and `credential.found`.
+- [ ] **External User Plugin Loading**:
+  - *Priority*: **P3** | *Complexity*: Medium | *Track*: Extensibility
+  - Support dynamic runtime discovery of custom user-defined adapters from `~/.config/cyguide/tools/` and `$CYGUIDE_PLUGIN_PATH`.
+- [ ] **Visual Terminal Showcase Script (`demo.tape` via VHS)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Showcase
+  - Script a repeatable Charm VHS tape recording CyGuide launching, selecting a target, running a recipe, and exploring the graph.
+
+---
+
+### Milestone: v2.0.0 — The Mature Flagship Platform & Public Launch (Planned)
+
+> [!NOTE]
+> Detailed packaging specifications and launch playbooks are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:194-245`](V2_PLATFORM_SPECIFICATION.md#L194-L245).
+
+- [ ] **Standalone Linux Binary Distribution (`cyguide-linux-x86_64`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Distribution
+  - Configure GitHub Actions workflow building portable single-file binary releases via PyInstaller/Shiv with zero Python dependency requirements.
+- [ ] **Target Delta / Diff View**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Operator Features
+  - Visually highlight newly opened ports, services, or endpoints discovered across assessment sessions in diff colors.
+- [ ] **Headless CLI Scripting Execution (`cyg run`)**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Automation
+  - Support non-interactive CLI execution storing findings directly into the SQLite graph without launching the TUI.
+- [ ] **GitHub Social Preview Card & Out-of-the-Box Badges**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Branding
+  - Deploy 1280×640 Open Graph banner and adapter badges (`Nmap`, `Gobuster`, `Nikto`, `Nuclei`, `FFUF`, `SQLMap`) to `README.md`.
+- [ ] **Public Community Launch Sequence**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Community
+  - Execute coordinated releases across Hacker News (Show HN), Reddit (`r/commandline`, `r/Python`, `r/cybersecurity`), and PRs to `awesome-python`, `awesome-tui`, and `awesome-pentest`.
+- [ ] **Security Distribution Packaging Requests**:
+  - *Priority*: **P3** | *Complexity*: Low | *Track*: Distribution
+  - Submit Intent-to-Package (ITP) issues to Kali Linux and BlackArch package repositories.
+
+---
+
+### Phase 4: Autonomous Agent Runtime & Co-Pilot Cockpit (Post-v2.0.0)
 
 Evolves CyGuide from a manual terminal operator into an **AI Mission-Control Cockpit** engineered for hypothesis-driven, supervised autonomous cyber operations:
 
@@ -241,37 +335,6 @@ Evolves CyGuide from a manual terminal operator into an **AI Mission-Control Coc
 - [ ] **Cross-Session Knowledge Sharing & Workspace Graph Rollups**:
   - *Priority*: **P3** | *Complexity*: Medium | *Track*: Intelligence
   - Correlate discoveries across multiple engagements to detect shared infrastructure, identical SSL certificates, and enterprise-wide vulnerabilities.
-
----
-
-### Tool Ecosystem Backlog (Planned)
-- [ ] **Nuclei Tool Adapter (`tools/nuclei/`)**:
-  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Tool Plugins
-  - Fast, template-based vulnerability scanning using community YAML signatures. Emits `vulnerability.found` and `web.vulnerability`.
-- [ ] **SQLMap Tool Adapter (`tools/sqlmap/`)**:
-  - *Priority*: **P2** | *Complexity*: High | *Track*: Tool Plugins
-  - Automated SQL injection detection and database takeover. Emits `vulnerability.found` (SQLi) and `credential.found` findings.
-- [ ] **FFUF Tool Adapter (`tools/ffuf/`)**:
-  - *Priority*: **P3** | *Complexity*: Low | *Track*: Tool Plugins
-  - High-performance Go web fuzzer alternative to `gobuster`.
-- [ ] **External User Plugin Loading**:
-  - *Priority*: **P3** | *Complexity*: Medium | *Track*: Extensibility
-  - Support dynamic runtime discovery of custom user-defined adapters from `~/.config/cyguide/tools/` and `$CYGUIDE_PLUGIN_PATH`.
-
----
-
-### Database, Quality & Community Distribution Backlog (Planned)
-- [x] **Automated GitHub Actions CI Workflow**: Continuous integration testing and schema registry validation on every push/PR via `./scripts/verify.sh` ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)).
-- [ ] **SQLite WAL Mode & Connection Pooling**:
-  - *Priority*: **P2** | *Complexity*: Low | *Track*: Database
-  - Enable Write-Ahead Logging (`PRAGMA journal_mode = WAL;`) and connection pooling in `GraphStore` for high-throughput concurrent jobs.
-- [ ] **Pre-Commit Code Quality Hooks**:
-  - *Priority*: **P3** | *Complexity*: Low | *Track*: DevOps
-  - Add `.pre-commit-config.yaml` running `ruff check`, `ruff format`, and schema validation before commits.
-- [x] **Containerized Docker Distribution**:
-  - Multi-arch Dockerfile and GitHub Actions workflow building and publishing to GitHub Container Registry (`ghcr.io/h45sh/cyguide`) with all 5 security binaries pre-installed ([`Dockerfile`](../../Dockerfile), [`.github/workflows/docker.yml`](../../.github/workflows/docker.yml)).
-- [x] **Official PyPI Release**:
-  - Automated GitHub Actions OIDC Trusted Publishing workflow releasing sdist/wheel on tags to PyPI ([`.github/workflows/release.yml`](../../.github/workflows/release.yml)).
 
 ---
 
