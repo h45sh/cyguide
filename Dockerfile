@@ -1,5 +1,5 @@
 # Multi-arch compatible Debian image with pre-installed security tools
-FROM python:3.11-slim-bookworm
+FROM python:3.15-slim-bookworm
 
 LABEL org.opencontainers.image.title="CyGuide" \
       org.opencontainers.image.description="TUI-Based Guided Cybersecurity Learning and Terminal Tool Orchestration Platform" \
