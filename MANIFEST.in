@@ -1,0 +1,7 @@
+# Exclude heavy media assets and repository documentation from PyPI distribution
+prune assets
+prune docs
+prune tests
+prune scripts
+exclude .dockerignore
+exclude .pre-commit-config.yaml
