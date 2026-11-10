@@ -1,5 +1,7 @@
 from uuid import uuid4
+
 from cyguide.schemas.power import ActionRequest, ActionSource, WorkspaceContext
+
 
 def test_action_request_creation():
     session_id = uuid4()

@@ -2,15 +2,15 @@
 
 import os
 
+from cyguide.app import CyGuideApp
 from cyguide.paths import (
     get_default_data_dir,
     get_default_db_path,
-    get_default_settings_path,
-    get_default_scratchpad_path,
     get_default_exports_dir,
     get_default_reports_dir,
+    get_default_scratchpad_path,
+    get_default_settings_path,
 )
-from cyguide.app import CyGuideApp
 
 
 def test_get_default_data_dir_env_override(tmp_path, monkeypatch):

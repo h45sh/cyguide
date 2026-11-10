@@ -1,9 +1,10 @@
 """Learning Mode logic and constraints."""
 
-from typing import Dict, Any, Optional, AsyncIterator, Callable, Coroutine
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, Optional
+
 from cyguide.engine.executor import Executor
-from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.explainer import LearningExplainer
+from cyguide.engine.registry import ToolRegistry
 from cyguide.schemas.base import BaseFinding
 
 

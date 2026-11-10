@@ -1,9 +1,12 @@
-import pytest
 import json
+from uuid import uuid4
+
+import pytest
+
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost, NetworkService
 from cyguide.schemas.power import ActionRequest
-from uuid import uuid4
+
 
 @pytest.mark.asyncio
 async def test_structured_event_log():

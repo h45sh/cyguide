@@ -2,10 +2,11 @@
 
 import logging
 from typing import List
-from cyguide.schemas.base import BaseFinding
-from cyguide.schemas.web import WebEndpoint, WebVulnerability
-from cyguide.schemas.dns import DnsRecord, DomainInfo
+
 from cyguide.engine.store import GraphStore
+from cyguide.schemas.base import BaseFinding
+from cyguide.schemas.dns import DnsRecord, DomainInfo
+from cyguide.schemas.web import WebEndpoint, WebVulnerability
 
 logger = logging.getLogger(__name__)
 

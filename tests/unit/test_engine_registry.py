@@ -1,5 +1,7 @@
 import textwrap
+
 from cyguide.engine.registry import ToolRegistry
+
 
 def test_tool_registry_discovery(tmp_path):
     # Create a mock tool structure

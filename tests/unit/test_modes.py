@@ -1,11 +1,13 @@
 import pytest
-from cyguide.modes.learning import LearningModeEngine
-from cyguide.engine.registry import ToolRegistry
+
 from cyguide.engine.executor import Executor
-from cyguide.engine.store import GraphStore
 from cyguide.engine.manifest import Manifest
+from cyguide.engine.registry import ToolRegistry
+from cyguide.engine.store import GraphStore
+from cyguide.modes.learning import LearningModeEngine
 from cyguide.schemas.network import NetworkHost
 from tests.fixtures.mock_tools import MockSimpleAdapter
+
 
 @pytest.fixture
 def mock_registry():

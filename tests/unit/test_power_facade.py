@@ -1,10 +1,13 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
+
+import pytest
+
 from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.store import GraphStore
-from cyguide.schemas.power import ActionRequest, ActionSource
 from cyguide.schemas.network import NetworkHost
+from cyguide.schemas.power import ActionRequest, ActionSource
+
 
 @pytest.mark.asyncio
 async def test_facade_get_context_resolution():
@@ -144,9 +147,10 @@ async def test_facade_deletion_cleanup():
     sess_id = await facade.create_session(ws_id, "Session A")
 
     # Mock active jobs
-    from cyguide.schemas.power import JobStatus, JobStatusEnum
-    from uuid import UUID
     import datetime
+    from uuid import UUID
+
+    from cyguide.schemas.power import JobStatus, JobStatusEnum
 
     job_uuid = uuid4()
     job = JobStatus(
@@ -172,8 +176,9 @@ async def test_facade_deletion_cleanup():
 
 @pytest.mark.asyncio
 async def test_facade_job_output_buffering_and_subscription():
-    from cyguide.schemas.power import JobStatus, JobStatusEnum
     from uuid import UUID
+
+    from cyguide.schemas.power import JobStatus, JobStatusEnum
 
     store = GraphStore(":memory:")
     await store.initialize()
@@ -215,8 +220,9 @@ async def test_facade_job_output_buffering_and_subscription():
 
 @pytest.mark.asyncio
 async def test_facade_workspace_and_session_running_counts():
-    from cyguide.schemas.power import JobStatus, JobStatusEnum
     from uuid import UUID
+
+    from cyguide.schemas.power import JobStatus, JobStatusEnum
 
     store = GraphStore(":memory:")
     await store.initialize()

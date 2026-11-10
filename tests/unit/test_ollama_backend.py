@@ -1,6 +1,9 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from cyguide.engine.explainer import OllamaBackend
+
 
 class AsyncMockIterator:
     def __init__(self, items):

@@ -30,12 +30,12 @@ class ThinScrollBarRender(ScrollBarRender):
         position: float = 0,
         thickness: int = 1,
         vertical: bool = True,
-        back_color: Color = Color.parse("#14161b"),
-        bar_color: Color = Color.parse("#38bdf8"),
+        back_color: Color | None = None,
+        bar_color: Color | None = None,
     ) -> Segments:
         """Render a thin, uniform scrollbar."""
-        back = back_color
-        bar = bar_color
+        back = back_color if back_color is not None else Color.parse("#14161b")
+        bar = bar_color if bar_color is not None else Color.parse("#38bdf8")
         _Segment = Segment
         _Style = Style
         blank = cls.BLANK_GLYPH * thickness

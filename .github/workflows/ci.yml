@@ -29,6 +29,9 @@ jobs:
       - name: Run Ruff Lint Check
         run: ruff check .
 
+      - name: Run Dependency Vulnerability Audit
+        run: pip-audit
+
       - name: Verify Schema Registry Documentation Sync
         run: python3 scripts/generate_schema_registry.py --check
 

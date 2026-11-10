@@ -1,11 +1,14 @@
-import pytest
 from unittest.mock import MagicMock
 from uuid import uuid4
+
+import pytest
+
 from cyguide.engine.gateway import ActionGateway, ActionValidationError
 from cyguide.engine.store import GraphStore
-from cyguide.schemas.power import ActionRequest, ActionSource
-from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.dns import DnsRecord
+from cyguide.schemas.network import NetworkHost
+from cyguide.schemas.power import ActionRequest, ActionSource
+
 
 def get_mock_registry():
     registry = MagicMock()

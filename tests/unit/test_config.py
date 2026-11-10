@@ -1,22 +1,23 @@
 """Unit tests for CyGuide configuration options and Command Palette integration."""
 
-import os
-import json
 import asyncio
-import pytest
+import json
+import os
 from unittest.mock import MagicMock
-from textual.widgets import Input, Switch, Label
+
+import pytest
+from textual.widgets import Input, Label, Switch
 
 from cyguide.app import CyGuideApp, CyGuideCommandPalette
+from cyguide.engine.explainer import CloudAPIBackend, OllamaBackend
 from cyguide.ui.screens.config_modal import (
+    CloudAPIConfigProvider,
     ConfigModal,
     ConfigProvider,
-    OllamaConfigProvider,
-    CloudAPIConfigProvider,
     DatabaseConfigProvider,
+    OllamaConfigProvider,
     ToolsConfigProvider,
 )
-from cyguide.engine.explainer import OllamaBackend, CloudAPIBackend
 
 
 def test_system_commands_single_config_entry(tmp_path):
@@ -346,8 +347,8 @@ def test_app_init_loads_saved_settings(tmp_path, monkeypatch):
 
 def test_db_path_normalization_edge_cases(tmp_path):
     """Verify database path normalization handles directory paths, :memory:, and empty inputs."""
-    from cyguide.ui.screens.config_modal import normalize_and_validate_db_path
     from cyguide.paths import get_default_db_path
+    from cyguide.ui.screens.config_modal import normalize_and_validate_db_path
 
     # 1. Empty string yields default
     res, err = normalize_and_validate_db_path("", data_dir=str(tmp_path))
@@ -458,6 +459,7 @@ async def test_config_modal_diagnostics_button(tmp_path):
 async def test_palette_reopening_resets_to_first_option(tmp_path):
     """Verify command palette resets highlight to first option upon fresh opening, but preserves it during traversal."""
     from textual.command import CommandList
+
     from cyguide.ui.screens.config_modal import ConfigModal
 
     db_file = str(tmp_path / "test_nav.db")

@@ -1,9 +1,9 @@
 """Network interface and local host (LHOST) discovery utilities for CyGuide."""
 
-import time
 import socket
 import subprocess
-from typing import Tuple, Optional
+import time
+from typing import Optional, Tuple
 
 _cached_lhost: Optional[Tuple[float, Tuple[str, str]]] = None
 

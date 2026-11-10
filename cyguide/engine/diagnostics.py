@@ -1,18 +1,18 @@
 """Environment and dependency diagnostic checks for CyGuide."""
 
 import os
-import sys
-import shutil
 import platform
-from typing import Optional, Dict, List, Any
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, UTC
+import shutil
+import sys
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from typing import Any, Dict, List, Optional
 
 import httpx
+
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
 from cyguide.paths import get_default_db_path
-
 
 INSTALLATION_HINTS: Dict[str, str] = {
     "nmap": "sudo apt install nmap  (or: brew install nmap)",

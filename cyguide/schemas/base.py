@@ -2,9 +2,11 @@
 # Changes to this file require team agreement.
 """Foundational Pydantic models for CyGuide findings."""
 
-from datetime import datetime, UTC
-from typing import Optional, Dict, List, Any, ClassVar, Literal
+from datetime import UTC, datetime
+from typing import Any, ClassVar, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field, field_validator
+
 from cyguide.engine.canonicalize import canonicalize
 
 

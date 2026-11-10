@@ -1,7 +1,9 @@
 import pytest
-from tools.nikto.adapter import NiktoAdapter
+
+from cyguide.schemas.network import NetworkHost, NetworkService
 from cyguide.schemas.web import WebEndpoint
-from cyguide.schemas.network import NetworkService, NetworkHost
+from tools.nikto.adapter import NiktoAdapter
+
 
 @pytest.fixture
 def adapter():

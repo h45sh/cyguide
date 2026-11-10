@@ -1,15 +1,17 @@
 """Workspace and Session Management Dashboard with refined Delete/Organize flows."""
 
+import asyncio
+from datetime import datetime
+from typing import Any, Dict, Optional, Set
+
 from textual import events
-from textual.screen import Screen, ModalScreen
-from textual.widgets import Footer, Static, Button, ListItem, ListView, Label, Input
-from textual.containers import Vertical, Horizontal
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
-from datetime import datetime
-from typing import Set, Optional, Dict, Any
-import asyncio
+from textual.screen import ModalScreen, Screen
+from textual.widgets import Button, Footer, Input, Label, ListItem, ListView, Static
+
 
 def format_activity(session_name: str, schema_type: str, human_readable: str, finding_json: Optional[str] = None, finding_obj: Optional[Any] = None) -> str:
     # 1. Shorten session name

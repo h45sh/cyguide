@@ -1,10 +1,12 @@
 """Tool Selection screen for Learning Mode."""
 
-from textual.screen import Screen
-from textual.widgets import Footer, Label, ListItem, ListView, Input
-from textual.containers import Vertical, Horizontal
+from typing import Dict, List
+
 from textual.app import ComposeResult
-from typing import List, Dict
+from textual.containers import Horizontal, Vertical
+from textual.screen import Screen
+from textual.widgets import Footer, Input, Label, ListItem, ListView
+
 
 class ToolListItem(ListItem):
     """A custom list item for the tool browser."""

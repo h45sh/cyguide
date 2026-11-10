@@ -1,8 +1,9 @@
 """TLS and certificate schemas."""
 
 from typing import ClassVar
-from cyguide.schemas.base import BaseFinding, Relation
+
 from cyguide.engine.canonicalize import canonicalize_host, canonicalize_port
+from cyguide.schemas.base import BaseFinding, Relation
 
 
 class TLSCertificate(BaseFinding):

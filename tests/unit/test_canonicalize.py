@@ -1,5 +1,6 @@
 from cyguide.engine.canonicalize import canonicalize_host, canonicalize_port, canonicalize_url
 
+
 def test_canonicalize_host():
     assert canonicalize_host(" 127.0.0.1 ") == "127.0.0.1"
     assert canonicalize_host("GOOGLE.COM") == "google.com"

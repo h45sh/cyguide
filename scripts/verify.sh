@@ -23,4 +23,12 @@ elif [ -f ".venv/bin/ruff" ]; then
     .venv/bin/ruff check .
 fi
 
+if command -v pip-audit &> /dev/null; then
+    echo -e "\n--- 4. Running Dependency Vulnerability Audit (pip-audit) ---"
+    pip-audit
+elif [ -f ".venv/bin/pip-audit" ]; then
+    echo -e "\n--- 4. Running Dependency Vulnerability Audit (venv pip-audit) ---"
+    .venv/bin/pip-audit
+fi
+
 echo -e "\n[SUCCESS] All checks passed! The codebase is stable and documentation is in sync."

@@ -1,14 +1,16 @@
-import pytest
 import json
-from cyguide.engine.store import GraphStore
+
+import pytest
+
 from cyguide.engine.recommendation import RecommendationEngine
+from cyguide.engine.store import GraphStore
 from cyguide.schemas.dns import DomainInfo
 from cyguide.schemas.network import NetworkHost, NetworkService
 from cyguide.schemas.web import WebEndpoint
-from tools.subfinder.adapter import SubfinderAdapter
-from tools.nmap.adapter import NmapAdapter
 from tools.gobuster.adapter import GobusterAdapter
 from tools.nikto.adapter import NiktoAdapter
+from tools.nmap.adapter import NmapAdapter
+from tools.subfinder.adapter import SubfinderAdapter
 
 
 @pytest.mark.asyncio

@@ -1,12 +1,14 @@
-import pytest
-import os
-import sys
+import asyncio
 import io
 import json
-import asyncio
+import os
+import sys
 from unittest.mock import patch
-from cyguide.main import main
+
+import pytest
+
 from cyguide.engine.store import GraphStore
+from cyguide.main import main
 from cyguide.schemas.network import NetworkHost
 
 

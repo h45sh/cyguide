@@ -5,12 +5,14 @@ import json
 import os
 import re
 import subprocess
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from textual import events, work
-from textual.widgets import Tree, Static, Label, ListView, ListItem, Input
-from textual.containers import Vertical, Horizontal
-from textual.geometry import Offset
 from textual.app import ComposeResult
+from textual.containers import Horizontal, Vertical
+from textual.geometry import Offset
+from textual.widgets import Input, Label, ListItem, ListView, Static, Tree
+
 from cyguide.schemas.power import JobStatus, JobStatusEnum
 
 

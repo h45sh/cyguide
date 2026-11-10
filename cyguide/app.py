@@ -1,18 +1,27 @@
 """Main CyGuide TUI Application."""
 
-import os
-import json
 import asyncio
-from typing import Any
+import json
+import os
 from pathlib import Path
+from typing import Any
+
 from textual import events, work
-from textual.app import App, SystemCommand, ComposeResult
+from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
-from textual.command import SearchIcon, CommandPalette, CommandList, CommandInput, DiscoveryHit, Hits
-from textual.system_commands import SystemCommandsProvider
-from textual.widgets import LoadingIndicator, Button
-from textual.containers import Vertical, Horizontal
+from textual.command import (
+    CommandInput,
+    CommandList,
+    CommandPalette,
+    DiscoveryHit,
+    Hits,
+    SearchIcon,
+)
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
+from textual.system_commands import SystemCommandsProvider
+from textual.widgets import Button, LoadingIndicator
+
 from cyguide.engine.explainer import is_placeholder_key
 
 # Replace default emoji search icon with clean terminal glyph
@@ -20,6 +29,7 @@ SearchIcon.icon = "›"
 
 # Ensure thin, uniform scrollbars across all screens and widgets
 from cyguide.ui.widgets.scrollbar import setup_thin_scrollbars
+
 setup_thin_scrollbars()
 
 
@@ -162,29 +172,29 @@ class CyGuideCommandPalette(CommandPalette):
             event.stop()
             self.handle_left_arrow()
 
-from cyguide.ui.screens.home import DashboardScreen
-from cyguide.ui.screens.learning import LearningModeScreen
-from cyguide.ui.screens.tool_browser import ToolBrowserScreen
-from cyguide.ui.screens.power import PowerModeScreen
-from cyguide.ui.screens.config_modal import ConfigModal
-
-from typing import Optional, Dict, Any, List
 import subprocess
+from typing import Any, Dict, List, Optional
 
-from cyguide.engine.registry import ToolRegistry
-from cyguide.engine.store import GraphStore
 from cyguide.engine.executor import Executor
 from cyguide.engine.explainer import LearningExplainer, OllamaBackend
-from cyguide.modes.learning import LearningModeEngine
 from cyguide.engine.power_facade import PowerWorkspaceFacade
+from cyguide.engine.registry import ToolRegistry
+from cyguide.engine.store import GraphStore
+from cyguide.modes.learning import LearningModeEngine
 from cyguide.paths import (
     get_default_data_dir,
     get_default_db_path,
-    get_default_settings_path,
-    get_default_scratchpad_path,
     get_default_exports_dir,
     get_default_reports_dir,
+    get_default_scratchpad_path,
+    get_default_settings_path,
 )
+from cyguide.ui.screens.config_modal import ConfigModal
+from cyguide.ui.screens.home import DashboardScreen
+from cyguide.ui.screens.learning import LearningModeScreen
+from cyguide.ui.screens.power import PowerModeScreen
+from cyguide.ui.screens.tool_browser import ToolBrowserScreen
+
 
 class CyGuideApp(App):
     """The central orchestrator for the CyGuide TUI."""

@@ -1,6 +1,8 @@
 import pytest
+
+from cyguide.schemas.dns import DnsRecord, DomainInfo
 from tools.subfinder.adapter import SubfinderAdapter
-from cyguide.schemas.dns import DomainInfo, DnsRecord
+
 
 @pytest.fixture
 def adapter():

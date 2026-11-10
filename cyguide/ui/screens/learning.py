@@ -1,15 +1,28 @@
 """Learning Mode screen with redesigned Phase 2 lesson layout."""
 
 import asyncio
-from typing import List, Any
+from datetime import datetime
+from typing import Any, List
 
 from textual import work
-from textual.screen import Screen
-from textual.widgets import Footer, Static, Label, ListItem, ListView, Button, Input, Markdown, TabbedContent, TabPane
-from textual.containers import Vertical, Horizontal, VerticalScroll
 from textual.app import ComposeResult
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.screen import Screen
+from textual.widgets import (
+    Button,
+    Footer,
+    Input,
+    Label,
+    ListItem,
+    ListView,
+    Markdown,
+    Static,
+    TabbedContent,
+    TabPane,
+)
+
 from cyguide.schemas.network import NetworkHost
-from datetime import datetime
+
 
 class RecipeListItem(ListItem):
     """A list item that shows a recipe name and description."""
@@ -404,7 +417,7 @@ class LearningModeScreen(Screen):
             target = NetworkHost.create(ip=target_ip)
 
         try:
-            async for finding in self.app.learning_engine.execute(
+            async for _finding in self.app.learning_engine.execute(
                 self.active_tool,
                 target,
                 params,

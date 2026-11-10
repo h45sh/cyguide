@@ -1,7 +1,9 @@
 import pytest
-from tools.gobuster.adapter import GobusterAdapter
-from cyguide.schemas.web import WebEndpoint
+
 from cyguide.schemas.network import NetworkService
+from cyguide.schemas.web import WebEndpoint
+from tools.gobuster.adapter import GobusterAdapter
+
 
 @pytest.fixture
 def adapter():

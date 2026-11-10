@@ -1,7 +1,9 @@
-import pytest
 import json
-from cyguide.engine.store import GraphStore
+
+import pytest
+
 from cyguide.engine.recommendation import RecommendationEngine
+from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkService
 from cyguide.schemas.web import WebEndpoint
 

@@ -1,8 +1,10 @@
 import pytest
+
 from cyguide.engine.executor import Executor
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost
 from tests.fixtures.mock_tools import MockNmapAdapter
+
 
 @pytest.mark.asyncio
 async def test_executor_run_tool():

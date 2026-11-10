@@ -1,6 +1,8 @@
 import pytest
-from tools.nmap.adapter import NmapAdapter
+
 from cyguide.schemas.network import NetworkHost
+from tools.nmap.adapter import NmapAdapter
+
 
 @pytest.fixture
 def adapter():

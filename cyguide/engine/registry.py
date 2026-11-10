@@ -2,13 +2,13 @@
 # Changes to this file require team agreement.
 """Dynamic tool discovery and loading."""
 
-from importlib.util import spec_from_file_location, module_from_spec
 import tomllib
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from cyguide.engine.manifest import Manifest
 from cyguide.engine.adapter import ToolAdapter
+from cyguide.engine.manifest import Manifest
 
 
 class ToolRegistry:

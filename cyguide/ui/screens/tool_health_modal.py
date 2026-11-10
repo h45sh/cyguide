@@ -1,11 +1,12 @@
 """Modal dialog for viewing system and security tool health status."""
 
 from typing import Any
+
 from textual import events, work
-from textual.screen import ModalScreen
-from textual.widgets import Label, Button, Static, ListView, ListItem
-from textual.containers import Vertical, Horizontal
 from textual.app import ComposeResult
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
+from textual.widgets import Button, Label, ListItem, ListView, Static
 
 
 class ToolHealthModal(ModalScreen[None]):

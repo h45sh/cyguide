@@ -1,7 +1,9 @@
 import pytest
-from tools.whois.adapter import WhoisAdapter
+
 from cyguide.schemas.dns import DnsRecord
 from cyguide.schemas.network import NetworkHost
+from tools.whois.adapter import WhoisAdapter
+
 
 @pytest.fixture
 def adapter():

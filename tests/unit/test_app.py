@@ -1,5 +1,7 @@
 import pytest
+
 from cyguide.app import CyGuideApp
+
 
 def test_app_structure():
     """Verify the app has the expected screens and title."""
@@ -20,8 +22,9 @@ async def test_app_component_init(tmp_path):
 
 def test_format_activity():
     """Verify that format_activity formats different schemas and event types correctly."""
-    from cyguide.ui.screens.home import format_activity
     import json
+
+    from cyguide.ui.screens.home import format_activity
 
     # 1. System event (Ran nmap)
     line = format_activity("Session 22:40:20", "system.event", "Ran nmap")
@@ -55,9 +58,11 @@ def test_format_activity():
 @pytest.mark.asyncio
 async def test_learning_screen_resume_preserves_buffer():
     """Verify that returning from expanded output view does not erase learning mode output."""
-    from cyguide.ui.screens.learning import LearningModeScreen
-    from textual._context import active_app
     from unittest.mock import MagicMock
+
+    from textual._context import active_app
+
+    from cyguide.ui.screens.learning import LearningModeScreen
 
     mock_app = MagicMock()
     mock_app.learning_mode_tool = "nmap"
@@ -128,9 +133,10 @@ async def test_app_headless_mount_and_screens(tmp_path):
 @pytest.mark.asyncio
 async def test_confirmation_dialog_keyboard_navigation():
     """Verify that left/right/up/down keys switch button focus and Escape cancels."""
-    from cyguide.ui.screens.home import ConfirmationDialog
     from textual.app import App
     from textual.widgets import Label
+
+    from cyguide.ui.screens.home import ConfirmationDialog
 
     class DummyApp(App):
         def compose(self):
@@ -163,9 +169,10 @@ async def test_confirmation_dialog_keyboard_navigation():
 @pytest.mark.asyncio
 async def test_rename_dialog_keyboard_navigation():
     """Verify that down/up/left/right navigate and Escape cancels in RenameDialog."""
-    from cyguide.ui.screens.home import RenameDialog
     from textual.app import App
     from textual.widgets import Label
+
+    from cyguide.ui.screens.home import RenameDialog
 
     class DummyApp(App):
         def compose(self):
@@ -308,9 +315,10 @@ async def test_dashboard_tool_health_conditional_visibility(monkeypatch):
 @pytest.mark.asyncio
 async def test_palette_right_arrow_executes_leaf_and_preserves_memory():
     """Verify right arrow executes leaf command in palette and restores highlight on left arrow."""
+    from textual.command import CommandList
+
     from cyguide.app import CyGuideApp
     from cyguide.ui.screens.tool_health_modal import ToolHealthModal
-    from textual.command import CommandList
 
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
@@ -522,8 +530,9 @@ async def test_settings_persistence(tmp_path):
 @pytest.mark.asyncio
 async def test_palette_theme_in_and_out_navigation():
     """Verify right arrow steps into Theme sub-palette and left arrow steps back with Theme highlighted."""
-    from cyguide.app import CyGuideApp
     from textual.command import CommandList
+
+    from cyguide.app import CyGuideApp
 
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
@@ -563,6 +572,7 @@ async def test_palette_theme_in_and_out_navigation():
 async def test_new_workspace_session_rename_dialog():
     """Verify creating a new workspace or session triggers RenameDialog with current time as default name."""
     import re
+
     from cyguide.ui.screens.home import RenameDialog
 
     app = CyGuideApp(db_path=":memory:")
@@ -670,8 +680,9 @@ async def test_learning_sidebar_layout_and_wrapping():
 async def test_session_overview_hierarchy_and_formatting(tmp_path):
     """Verify session overview card hierarchy, schema formatting, and power mode launch."""
     import uuid
-    from cyguide.schemas.network import NetworkHost, NetworkService
+
     from cyguide.schemas.netblock import NetworkNetblock
+    from cyguide.schemas.network import NetworkHost, NetworkService
 
     db_path = str(tmp_path / f"test_overview_{uuid.uuid4().hex}.db")
     app = CyGuideApp(db_path=db_path)
