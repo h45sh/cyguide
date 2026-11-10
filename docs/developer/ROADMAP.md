@@ -246,9 +246,9 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **External User Plugin Loading**:
   - *Priority*: **P3** | *Complexity*: Medium | *Track*: Extensibility
   - Support dynamic runtime discovery of custom user-defined adapters from `~/.config/cyguide/tools/` and `$CYGUIDE_PLUGIN_PATH`.
-- [ ] **Visual Terminal Showcase Script (`demo.tape` via VHS)**:
+- [x] **Visual Terminal Showcase Script (`demo.tape` via VHS)**:
   - *Priority*: **P1** | *Complexity*: Low | *Track*: Showcase
-  - Script a repeatable Charm VHS tape recording CyGuide launching, selecting a target, running a recipe, and exploring the graph.
+  - Script a repeatable Charm VHS tape recording CyGuide launching, selecting a target, running a recipe, and exploring the graph ([`demo.tape`](../../demo.tape), [`assets/demo.gif`](../../assets/demo.gif), [`assets/`](../../assets/)).
 
 ---
 

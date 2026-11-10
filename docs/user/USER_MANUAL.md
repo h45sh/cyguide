@@ -22,6 +22,10 @@ When you launch CyGuide (`cyg`), you enter the **Dashboard Engagement Hub**. The
 └─────────────────────────┴─────────────────────────────────────────────────┘
 ```
 
+<p align="center">
+  <img src="../../assets/dashboard.png" alt="CyGuide Dashboard Engagement Hub" width="100%">
+</p>
+
 ### Workspace & Session Management
 * **Create a Workspace (`Ctrl+N`)**: Prompts for a unique workspace name to isolate an engagement.
 * **Create a Session (`Ctrl+S`)**: Creates an investigation session within the highlighted workspace.
@@ -36,6 +40,10 @@ When you launch CyGuide (`cyg`), you enter the **Dashboard Engagement Hub**. The
 ## 2. Power Mode: Advanced Operator Workbench
 
 Power Mode is an asynchronous terminal IDE designed for multi-target security operations.
+
+<p align="center">
+  <img src="../../assets/powermode.png" alt="CyGuide Power Mode Operator Workbench" width="100%">
+</p>
 
 ### Multi-Tab Job Execution
 * **New Tab (`Ctrl+T`)**: Spawns an empty terminal tab.
@@ -82,11 +90,19 @@ The prompt supports dual execution modes:
 
 Press `Ctrl+L` from the Dashboard to switch to Learning Mode.
 
+<p align="center">
+  <img src="../../assets/learning_mode.png" alt="CyGuide Guided Learning Mode" width="100%">
+</p>
+
 ### 1. Tool Browser
 Browse all registered security adapters (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`):
 * Type to filter tools by name, category, or capability.
 * Inspect tool recipes, supported inputs, and emitted finding types.
 * Press `Enter` on any tool to enter its interactive Lesson Screen.
+
+<p align="center">
+  <img src="../../assets/learning_mode_tools.png" alt="CyGuide Learning Mode Tool Selection" width="100%">
+</p>
 
 ### 2. Interactive Lesson Screen
 * **Recipe Selection**: Choose a pre-configured recipe (e.g. "Pingless Service Scan") to auto-populate flags.
@@ -106,6 +122,10 @@ Browse all registered security adapters (`nmap`, `gobuster`, `nikto`, `whois`, `
 
 Press `Ctrl+P` from anywhere in CyGuide to open the Command Palette.
 
+<p align="center">
+  <img src="../../assets/command_pallete.png" alt="CyGuide Command Palette" width="100%">
+</p>
+
 ### Configuration Modal (`Ctrl+Shift+C`)
 Access the multi-tab settings panel:
 * **Local LLM (Ollama)**: Enable/disable local inference, set model names (e.g., `llama3`, `gemma`), configure custom endpoints, and run live connection checks.
@@ -113,8 +133,16 @@ Access the multi-tab settings panel:
 * **Database Settings**: Bind to custom database paths (`--db`) or verify the unified database.
 * **Custom Tools**: Configure external plugin directories (`--tools`) to load third-party adapters at runtime.
 
+<p align="center">
+  <img src="../../assets/config_api.png" alt="CyGuide Configuration Modal" width="100%">
+</p>
+
 ### Live Tool Health Modal
 Select **Tool Health** in the Command Palette to inspect binary availability on PATH (`nmap`, `gobuster`, `nikto`, `subfinder`, `whois`) with exact filesystem paths and package manager installation hints.
+
+<p align="center">
+  <img src="../../assets/tool_health.png" alt="CyGuide Tool Health Diagnostics Modal" width="100%">
+</p>
 
 ---
 
@@ -188,6 +216,10 @@ cyg --tools /path/to/custom_tools
 
 
 ## 7. Master Keyboard Shortcuts Reference
+
+<p align="center">
+  <img src="../../assets/hotkeys.png" alt="CyGuide Keyboard Shortcuts Reference" width="100%">
+</p>
 
 ### Global Shortcuts
 | Shortcut | Action |

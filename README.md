@@ -14,6 +14,10 @@
 
 CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models.
 
+<p align="center">
+  <img src="assets/powermode.png" alt="CyGuide Power Mode Terminal Workstation" width="100%">
+</p>
+
 ---
 
 ## Why CyGuide?

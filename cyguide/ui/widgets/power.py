@@ -191,7 +191,7 @@ class JobQueue(Vertical):
                 status_text = " [yellow]QUEUED[/]"
 
             label = f"  {status_icon} {job.tool_name} [#64748b]{job.job_id.hex[:4]}[/]{status_text}"
-            item = ListItem(Static(label), id=f"job_item_{job.job_id.hex}")
+            item = ListItem(Static(label))
             item.job_id = str(job.job_id)
             item.session_id = str(job.session_id)
             job_list.append(item)
