@@ -1,5 +1,4 @@
-"""Network interface and local host (LHOST) discovery utilities for CyGuide."""
-
+import os
 import time
 import socket
 import subprocess
@@ -18,6 +17,26 @@ def get_lhost_info(ttl: float = 10.0, force_refresh: bool = False) -> Tuple[str,
     now = time.time()
     if not force_refresh and _cached_lhost is not None and (now - _cached_lhost[0] < ttl):
         return _cached_lhost[1]
+
+    # 0. Check for explicit demo / dummy IP override
+    demo_override = os.environ.get("CYGUIDE_LHOST") or os.environ.get("CYGUIDE_DUMMY_IP")
+    if demo_override:
+        if ":" in demo_override:
+            parts = demo_override.split(":", 1)
+            if parts[0].isdigit() or "." in parts[0]:
+                res = (parts[0].strip(), parts[1].strip())
+            else:
+                res = (parts[1].strip(), parts[0].strip())
+        else:
+            res = (demo_override.strip(), "tun0")
+        _cached_lhost = (now, res)
+        return res
+
+    is_demo = os.environ.get("CYGUIDE_DEMO", "").lower() in ("1", "true", "yes", "on")
+    if is_demo:
+        res = ("10.10.14.45", "tun0")
+        _cached_lhost = (now, res)
+        return res
 
     # 1. Try 'ip -brief -4 addr show' (Linux standard)
     try:

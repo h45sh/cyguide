@@ -127,14 +127,34 @@ Press `Ctrl+P` from anywhere in CyGuide to open the Command Palette.
 </p>
 
 ### Configuration Modal (`Ctrl+Shift+C`)
-Access the multi-tab settings panel:
-* **Local LLM (Ollama)**: Enable/disable local inference, set model names (e.g., `llama3`, `gemma`), configure custom endpoints, and run live connection checks.
-* **Cloud AI & Multi-Key Profiles**: Configure API keys for OpenAI, Anthropic Claude, Groq, OpenRouter, DeepSeek, and Gemini. Set fallback chains to prevent scan interruptions during rate limits.
-* **Database Settings**: Bind to custom database paths (`--db`) or verify the unified database.
-* **Custom Tools**: Configure external plugin directories (`--tools`) to load third-party adapters at runtime.
+Access the multi-tab settings panel to customize local models, cloud API providers, databases, and plugins:
+
+#### 1. Local LLM (Ollama)
+Enable/disable local inference, set model names (e.g., `llama3`, `gemma`), configure custom endpoints, and run live connection checks:
 
 <p align="center">
-  <img src="../../assets/config_api.png" alt="CyGuide Configuration Modal" width="100%">
+  <img src="../../assets/config_ollama.png" alt="CyGuide Local LLM Configuration" width="100%">
+</p>
+
+#### 2. Cloud AI & Multi-Key Profiles
+Configure API keys for OpenAI, Anthropic Claude, Groq, OpenRouter, DeepSeek, and Gemini. Set fallback chains to prevent scan interruptions during rate limits:
+
+<p align="center">
+  <img src="../../assets/config_api.png" alt="CyGuide Cloud AI Profiles Configuration" width="100%">
+</p>
+
+#### 3. Database Settings
+Bind to custom database paths (`--db`) or verify the centralized SQLite store:
+
+<p align="center">
+  <img src="../../assets/config_db.png" alt="CyGuide Database Settings" width="100%">
+</p>
+
+#### 4. Custom Tools & Plugins
+Configure external plugin directories (`--tools`) to load third-party adapters at runtime:
+
+<p align="center">
+  <img src="../../assets/config_tools.png" alt="CyGuide Custom Tools Configuration" width="100%">
 </p>
 
 ### Live Tool Health Modal

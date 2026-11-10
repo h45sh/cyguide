@@ -644,6 +644,24 @@ class CyGuideApp(App):
             self.add_class("no-animations")
             self.notify("Animations Disabled")
 
+    def action_toggle_demo_mode(self) -> None:
+        """Toggle demo mode with dummy IP (10.10.14.45 tun0) for video recording and privacy."""
+        if os.environ.get("CYGUIDE_DEMO", "").lower() in ("1", "true", "yes", "on"):
+            os.environ.pop("CYGUIDE_DEMO", None)
+            os.environ.pop("CYGUIDE_DUMMY_IP", None)
+            self.notify("Live Network Mode: discovering host IP", timeout=2.5)
+        else:
+            os.environ["CYGUIDE_DEMO"] = "1"
+            self.notify("Demo Mode: [tun0: 10.10.14.45] activated", timeout=2.5)
+        from cyguide.engine.network import get_lhost_info
+        get_lhost_info(force_refresh=True)
+        try:
+            palette = self.screen.query_one("CommandPalette")
+            if hasattr(palette, "_update_lhost_badge"):
+                palette._update_lhost_badge(force_refresh=True)
+        except Exception:
+            pass
+
     def action_command_palette(self, preserve_highlight: bool = False) -> None:
         """Show the custom CyGuide command palette with left/right arrow sub-menu navigation."""
         self.check_and_update_tool_health()
