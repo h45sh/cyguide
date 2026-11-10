@@ -42,16 +42,6 @@ def main():
         default=None,
         help="Path to the tools directory (default: bundled tools/)"
     )
-    parser.add_argument(
-        "--demo",
-        action="store_true",
-        help="Run in demo mode with a sanitized dummy IP (10.10.14.45 tun0) for video recording and presentations"
-    )
-    parser.add_argument(
-        "--dummy-ip",
-        default=None,
-        help="Explicit dummy IP to display in demo mode (e.g. 10.10.14.45 or tun0:10.10.14.45)"
-    )
 
     subparsers = parser.add_subparsers(dest="subcommand", help="Subcommands (optional)")
 
@@ -71,12 +61,6 @@ def main():
     check_parser.add_argument("--json", action="store_true", help="Output diagnostics in JSON format")
 
     args = parser.parse_args()
-
-    import os
-    if args.demo:
-        os.environ["CYGUIDE_DEMO"] = "1"
-    if args.dummy_ip:
-        os.environ["CYGUIDE_DUMMY_IP"] = args.dummy_ip
 
     data_dir = args.data_dir or get_default_data_dir()
     db_path = args.db or get_default_db_path(data_dir)

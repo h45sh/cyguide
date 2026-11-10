@@ -42,7 +42,11 @@ When you launch CyGuide (`cyg`), you enter the **Dashboard Engagement Hub**. The
 Power Mode is an asynchronous terminal IDE designed for multi-target security operations.
 
 <p align="center">
-  <img src="../../assets/powermode.png" alt="CyGuide Power Mode Operator Workbench" width="100%">
+  <a href="../../assets/demo.mp4">
+    <img src="../../assets/powermode.png" alt="CyGuide Power Mode Operator Workbench" width="100%">
+  </a>
+  <br>
+  <a href="../../assets/demo.mp4">🎬 <b>Watch Power Mode Operator Workbench Video Demonstration (assets/demo.mp4)</b></a>
 </p>
 
 ### Multi-Tab Job Execution

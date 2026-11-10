@@ -298,10 +298,10 @@ class CommandPalette(Vertical):
         except Exception:
             self.branch = ""
 
-    def _update_lhost_badge(self, force_refresh: bool = False) -> None:
+    def _update_lhost_badge(self) -> None:
         try:
             from cyguide.engine.network import get_lhost_info
-            ip, iface = get_lhost_info(force_refresh=force_refresh)
+            ip, iface = get_lhost_info()
             badge = self.query_one("#lhost_badge", Label)
             is_vpn = iface.startswith(("tun", "wg", "tap", "ppp", "utun"))
             badge.set_class(is_vpn, "vpn")
@@ -311,20 +311,6 @@ class CommandPalette(Vertical):
                 badge.update(f"[{iface}: {ip}]" if iface != "lo" else f"[LHOST: {ip}]")
         except Exception:
             pass
-
-    def on_click(self, event) -> None:
-        target = getattr(event, "target", None)
-        if target and getattr(target, "id", None) == "lhost_badge":
-            event.stop()
-            if hasattr(self.app, "action_toggle_demo_mode"):
-                self.app.action_toggle_demo_mode()
-            else:
-                if os.environ.get("CYGUIDE_DEMO", "").lower() in ("1", "true", "yes", "on"):
-                    os.environ.pop("CYGUIDE_DEMO", None)
-                    os.environ.pop("CYGUIDE_DUMMY_IP", None)
-                else:
-                    os.environ["CYGUIDE_DEMO"] = "1"
-                self._update_lhost_badge(force_refresh=True)
 
     def on_mount(self) -> None:
         self._async_update_git_branch()
