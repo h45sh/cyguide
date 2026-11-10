@@ -36,6 +36,7 @@ data
 tests
 docs
 scripts
+assets
 .pre-commit-config.yaml
 
 # Temporary and editor files

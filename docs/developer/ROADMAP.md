@@ -12,13 +12,13 @@ This document is the **single authoritative source of truth** for all completed,
 | **Phase 2: Intelligence & Expansion** | **Completed** | 8 | 8 | 0 | 100% |
 | **Phase 3: Polish, Portability & Delivery** | **Completed** | 15 | 15 | 0 | 100% |
 | **Power Mode Operator Workbench** | **Completed** | 30 | 30 | 0 | 100% |
-| **v1.8.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **In Progress** | 22 | 1 | 21 | 5% |
+| **v1.8.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **In Progress** | 23 | 1 | 22 | 4% |
 | **v1.9.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 9 | 0 | 9 | 0% |
 | **v1.9.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
 | **Phase 4: Autonomous Agent Runtime & Co-Pilot HUD** | **Planned (Future)** | 10 | 0 | 10 | 0% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **120** | **62** | **58** | **52%** |
+| **Total Project Tasks** | **In Progress** | **121** | **62** | **59** | **51%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -246,9 +246,9 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **External User Plugin Loading**:
   - *Priority*: **P3** | *Complexity*: Medium | *Track*: Extensibility
   - Support dynamic runtime discovery of custom user-defined adapters from `~/.config/cyguide/tools/` and `$CYGUIDE_PLUGIN_PATH`.
-- [ ] **Visual Terminal Showcase Script (`demo.tape` via VHS)**:
+- [x] **Visual Terminal Showcase Script (`demo.tape` via VHS)**:
   - *Priority*: **P1** | *Complexity*: Low | *Track*: Showcase
-  - Script a repeatable Charm VHS tape recording CyGuide launching, selecting a target, running a recipe, and exploring the graph.
+  - Script a repeatable Charm VHS tape recording CyGuide launching, selecting a target, running a recipe, and exploring the graph ([`demo.tape`](../../demo.tape), [`assets/demo.gif`](../../assets/demo.gif), [`assets/`](../../assets/)).
 
 ---
 
@@ -323,6 +323,10 @@ Evolves CyGuide from a manual terminal operator into an **AI Mission-Control Coc
   - Configurable concurrency quotas per target host, request-per-second throttling, and target backoff on connection resets to prevent WAF bans or accidental denial-of-service.
 
 #### Track 4: Multi-Session Recommendations & Workspace Scaling
+- [ ] **Remove Recommendation Engine Store Seam Leakage (Deepening Candidate 5)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Architecture / Recommendations
+  - Make recommendation rules pure finding transformers: stop reaching into `GraphStore._generate_node_id` and remove unused `store` references from rule APIs.
+  - Keep identity generation behind a public schema or store interface so recommendation logic no longer depends on a private persistence implementation detail.
 - [ ] **Workspace-Scoped Suggestion Toggling in Global View**:
   - *Priority*: **P2** | *Complexity*: Low
   - When Global Graph view (`Ctrl+G`) is active, query and display proposed findings across *all* sessions in the workspace.

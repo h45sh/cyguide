@@ -3,7 +3,7 @@
 import json
 import pytest
 from unittest.mock import MagicMock, patch
-from textual.widgets import Input, Switch
+from textual.widgets import Button, Input, Switch
 
 from cyguide.app import CyGuideApp
 from cyguide.engine.explainer import (
@@ -712,9 +712,7 @@ async def test_cloud_ai_view_switching_and_editor_behavior(tmp_path, monkeypatch
         assert editor_view.has_class("hidden")
 
         # 2. Add Key switches to editor view
-        modal.query_one("#cfg_key_add_btn").scroll_visible(animate=False)
-        await pilot.pause()
-        await pilot.click("#cfg_key_add_btn")
+        modal.query_one("#cfg_key_add_btn", Button).press()
         await pilot.pause()
 
         new_id = modal.editing_profile_id
@@ -730,9 +728,7 @@ async def test_cloud_ai_view_switching_and_editor_behavior(tmp_path, monkeypatch
         await pilot.pause()
 
         # 3. Save & Back returns to list view
-        modal.query_one("#cfg_editor_save_btn").scroll_visible(animate=False)
-        await pilot.pause()
-        await pilot.click("#cfg_editor_save_btn")
+        modal.query_one("#cfg_editor_save_btn", Button).press()
         await pilot.pause()
 
         assert not list_view.has_class("hidden")
@@ -744,18 +740,14 @@ async def test_cloud_ai_view_switching_and_editor_behavior(tmp_path, monkeypatch
         assert "Anthropic Production" in str(modal.query_one(f"#cfg_title_{new_id}").render())
 
         # 4. Open editor via Edit button and delete from editor
-        modal.query_one(f"#cfg_edit_key_{new_id}").scroll_visible(animate=False)
-        await pilot.pause()
-        await pilot.click(f"#cfg_edit_key_{new_id}")
+        modal.query_one(f"#cfg_edit_key_{new_id}", Button).press()
         await pilot.pause()
 
         assert list_view.has_class("hidden")
         assert not editor_view.has_class("hidden")
 
         # Click delete in editor
-        modal.query_one("#cfg_key_del_btn").scroll_visible(animate=False)
-        await pilot.pause()
-        await pilot.click("#cfg_key_del_btn")
+        modal.query_one("#cfg_key_del_btn", Button).press()
         await pilot.pause()
 
         # Automatically returned to list view and profile deleted

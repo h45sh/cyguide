@@ -14,6 +14,14 @@
 
 CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models.
 
+<p align="center">
+  <a href="assets/demo.mp4">
+    <img src="assets/powermode.png" alt="CyGuide Power Mode Terminal Workstation Demo" width="100%">
+  </a>
+  <br>
+  <a href="assets/demo.mp4">🎬 <b>Watch the Full Terminal Workstation Video Walkthrough (assets/demo.mp4)</b></a>
+</p>
+
 ---
 
 ## Why CyGuide?
@@ -23,6 +31,42 @@ CyGuide transforms penetration testing and security learning from disorganized t
 * **Universal Variable Injection**: Click any node in your target tree to bind variables (`$TARGET`, `$PORT`, `$SERVICE`) into subsequent commands without retyping IP addresses.
 * **Offline-First AI Tutor**: Get immediate, structured breakdowns of scan results and security recommendations powered by local Ollama models or cloud APIs.
 * **Portable Engagement Archives**: Export investigations into standalone `.db` archives and Markdown reports (`cyg export`). Instructors can import (`cyg import`) and replay a student's exact methodology step-by-step.
+
+---
+
+## Workstation Interface
+
+CyGuide features two distinct terminal operational modes and an integrated diagnostic suite:
+
+### 1. Power Mode (Multi-Tab Concurrent Workbench)
+Run multiple asynchronous security tools concurrently, interact with live target graphs, and resolve `$TARGET`, `$PORT`, and `$SERVICE` variables on the fly:
+<p align="center">
+  <img src="assets/powermode.png" alt="CyGuide Power Mode" width="100%">
+</p>
+
+### 2. Dashboard Hub (Workspace & Session Management)
+Organize complex penetration tests and CTFs into discrete workspaces and isolated sessions with full archive, rename, and export support (`Ctrl+N`, `Ctrl+S`):
+<p align="center">
+  <img src="assets/dashboard.png" alt="CyGuide Dashboard Hub" width="100%">
+</p>
+
+### 3. Guided Learning Mode & Interactive Tool Browser
+Explore tool recipes, inspect command flags before execution, and receive AI-guided security breakdowns and hardening steps:
+<p align="center">
+  <img src="assets/learning_mode.png" alt="CyGuide Guided Learning Mode" width="100%">
+</p>
+<p align="center">
+  <img src="assets/learning_mode_tools.png" alt="CyGuide Learning Mode Tool Selection" width="100%">
+</p>
+
+### 4. In-App Diagnostics & Unified Command Palette
+Inspect security binary availability on `$PATH` in real time with `Ctrl+P` -> **Tool Health**, and configure AI providers, database paths, and custom plugins:
+<p align="center">
+  <img src="assets/tool_health.png" alt="CyGuide Tool Health Diagnostics" width="100%">
+</p>
+<p align="center">
+  <img src="assets/command_pallete.png" alt="CyGuide Command Palette" width="100%">
+</p>
 
 ---
 
