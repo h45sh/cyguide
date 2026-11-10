@@ -13,7 +13,7 @@ body:
     attributes:
       label: Tool Name & Binary
       description: Name of the tool and executable name on PATH.
-      placeholder: e.g., ffuf (binary: ffuf)
+      placeholder: "e.g., ffuf (binary: ffuf)"
     validations:
       required: true
   - type: input
