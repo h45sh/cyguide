@@ -12,13 +12,13 @@ This document is the **single authoritative source of truth** for all completed,
 | **Phase 2: Intelligence & Expansion** | **Completed** | 8 | 8 | 0 | 100% |
 | **Phase 3: Polish, Portability & Delivery** | **Completed** | 15 | 15 | 0 | 100% |
 | **Power Mode Operator Workbench** | **Completed** | 30 | 30 | 0 | 100% |
-| **v1.8.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **Next Up / In Progress** | 18 | 0 | 18 | 0% |
-| **v1.9.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 8 | 0 | 8 | 0% |
+| **v1.8.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **In Progress** | 22 | 1 | 21 | 5% |
+| **v1.9.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 9 | 0 | 9 | 0% |
 | **v1.9.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
 | **Phase 4: Autonomous Agent Runtime & Co-Pilot HUD** | **Planned (Future)** | 10 | 0 | 10 | 0% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **115** | **61** | **54** | **53%** |
+| **Total Project Tasks** | **In Progress** | **120** | **62** | **58** | **52%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -105,6 +105,10 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
   - *Priority*: **P1** | *Complexity*: Medium
   - Stream subprocess stdout directly to append-only disk files in real time.
   - Maintains $O(1)$ memory consumption so scans running for hours or days never cause RAM bloat or OOM crashes.
+- [ ] **Decouple Database Ingestion from Subprocess Executor (Deepening Candidate 1)**:
+  - *Priority*: **P1** | *Complexity*: Medium
+  - Remove direct SQLite `GraphStore.upsert_finding()` calls from `Executor._drain_stream` / `run_tool()`.
+  - Turns `Executor` into a pure subprocess lifecycle engine yielding `BaseFinding` streams, eliminating connection teardown race conditions and enabling atomic micro-batched ingestion at the coordination seam.
 - [ ] **Capped UI Ring Buffer**:
   - *Priority*: **P1** | *Complexity*: Low
   - Keep a rolling window of the last 5,000 lines in the interactive UI terminal tab for instant rendering and smooth scrolling.
@@ -122,6 +126,9 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
   - Automatically update the queue item when subsequent tasks execute in the same tab.
 
 #### Track 3: Graph Tree Optimization & Usability
+- [x] **Refined Widget Exception Boundaries (NoMatches Enforced)**:
+  - *Priority*: **P1** | *Complexity*: Low
+  - Replaced bare `except Exception: pass` across `DashboardScreen` and `PowerModeScreen` with specific `except NoMatches: pass` to eliminate silent DOM query masking without breaking on unmounted widgets.
 - [ ] **Zero-Rebuild Navigation**:
   - *Priority*: **P1** | *Complexity*: Low
   - Make `on_tree_node_highlighted` purely update the context bar variables (`$TARGET`, `$PORT`, `$SERVICE`).
@@ -166,6 +173,12 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
   - *Priority*: **P1** | *Complexity*: Medium
   - Implement cryptographically randomized boundary tokens (e.g. `<<<UNTRUSTED_SCAN_OUTPUT_{UUID}>>>`) and XML/HTML escaping to ensure untrusted scan payloads cannot execute prompt injection attacks or break prompt boundaries.
   - Strict semantic demarcation separating System Directives, User Inquiries, and Untrusted Scanner Output.
+- [ ] **Collapse Shallow LearningModeEngine into Unified Action Gateway (Deepening Candidate 2)**:
+  - *Priority*: **P1** | *Complexity*: Low
+  - Eliminate redundant 49-line `LearningModeEngine` pass-through module; route Learning Mode tool executions through `ActionGateway` / `PowerWorkspaceFacade.submit_action()` to inherit SSRF policy validation, live job buffers, and unified logging.
+- [ ] **Eliminate Shallow LearningExplainer Wrapper (Deepening Candidate 3)**:
+  - *Priority*: **P1** | *Complexity*: Low
+  - Delete 10-line `LearningExplainer` indirection wrapper in `cyguide/engine/explainer.py` and unify callers directly against `MultiKeyCloudBackend.explain()` / `OllamaBackend.explain()`.
 - [ ] **UI Structural Boundaries & Visual Cards**:
   - *Priority*: **P2** | *Complexity*: Low
   - Refactor the right workbench pane into distinct visual containers with explicit border separations:
@@ -192,6 +205,9 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
   - *Priority*: **P1** | *Complexity*: High | *Track*: Architecture
   - Decouple background command execution from the Textual UI loop via an internal event bus and optional Unix domain socket (`~/.cyguide/run/cyguide.sock`).
   - Allows background scans to continue across UI reloads and enables headless external triggers.
+- [ ] **Unify Split Workspace & Session Management (Deepening Candidate 4)**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Architecture / IPC
+  - Consolidate parallel entity operations currently split across `GraphStore` and `PowerWorkspaceFacade` in dashboard views into a single deep Workspace/Session repository seam, designed to serve both the local TUI and the Unix domain socket IPC daemon.
 - [ ] **Encrypted Session Archives (`cyg export --encrypt`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Security
   - Add AES-256-GCM authenticated encryption for exported session databases with Argon2id passphrase key derivation.

@@ -23,6 +23,22 @@ flowchart LR
 3. **Deterministic Separation of PTY and Structured Tools**: Structured adapters run through standard non-interactive pipelines with finding parsers; interactive shells and prompt-driven tools run through an explicit pseudo-terminal (PTY) channel.
 4. **Defense-in-Depth Cryptographic Isolation**: Session archives must support authenticated encryption (AES-256-GCM), and untrusted terminal text passed to LLMs must be strictly sandboxed by cryptographically randomized boundary tokens.
 
+### 1.1 Architectural Deepening & Seam Discipline
+
+Following the formal codebase architecture review, the platform enforces strict module depth and seam locality across all upcoming phases:
+
+#### 1. Pure Subprocess Executor (v1.8.0 - Track 1 & 4)
+* **Problem**: In v1.7.0, `Executor` directly invokes `self.store.upsert_finding()` inside low-level OS pipe-draining loops, creating teardown race conditions and coupling process lifecycle to database transactions.
+* **Contract**: `Executor` becomes a pure process execution engine yielding `AsyncIterator[BaseFinding]`. Interface parameters shrink from 12 down to 4. Persistence moves to the coordination layer (`PowerWorkspaceFacade`), where findings are buffered into atomic micro-batches (flush every 250ms or 50 items).
+
+#### 2. Unified Action Seam & Deletion of Shallow Engines (v1.8.0 - Track 5)
+* **Problem**: `LearningModeEngine` is a 49-line pass-through module that bypassed `ActionGateway`, creating a critical security loophole where learning scans skipped link-local SSRF validation and live job tracking. `LearningExplainer` was similarly an empty 10-line alias renaming `explain()` to `ask()`.
+* **Contract**: Delete `LearningModeEngine` and `LearningExplainer`. All tool executions route through `ActionGateway` / `PowerWorkspaceFacade.submit_action()`, giving Learning Mode identical SSRF safeguards, job buffers, and desktop notifications without duplicated code.
+
+#### 3. Cohesive Workspace & Session Repository Seam (v1.9.0 - Track 3)
+* **Problem**: Dashboard screens currently juggle two parallel interfaces (`GraphStore` for reads, `PowerWorkspaceFacade` for mutations and forensic audits).
+* **Contract**: Consolidate workspace/session queries and lifecycle rules behind a single deep repository interface, engineered to support both the Textual UI and the headless Unix domain socket IPC daemon (`~/.cyguide/run/cyguide.sock`).
+
 ---
 
 ## 2. Full Terminal Capabilities & Interactive PTY Architecture

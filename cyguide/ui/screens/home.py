@@ -6,6 +6,7 @@ from textual.widgets import Footer, Static, Button, ListItem, ListView, Label, I
 from textual.containers import Vertical, Horizontal
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.css.query import NoMatches
 from datetime import datetime
 from typing import Set, Optional, Dict, Any
 import asyncio
@@ -786,13 +787,15 @@ class DashboardScreen(Screen):
                 try:
                     self.query_one("#sessions_pane_title", Label).update("◆ ARCHIVED SESSIONS")
                     self.query_one("#session_filter_badge", Label).update(f"[History: {closed_count}]")
-                except Exception: pass
+                except NoMatches:
+                    pass
             else:
                 display_sessions = active_sessions
                 try:
                     self.query_one("#sessions_pane_title", Label).update("◆ ACTIVE SESSIONS")
                     self.query_one("#session_filter_badge", Label).update(f"[Active: {active_count}]")
-                except Exception: pass
+                except NoMatches:
+                    pass
 
             sess_list = self.query_one("#session_list", ListView)
             old_index = sess_list.index
