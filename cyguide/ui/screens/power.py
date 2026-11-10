@@ -10,6 +10,7 @@ from textual.screen import Screen, ModalScreen
 from textual.widgets import TabbedContent, TabPane, RichLog, Input, Label, Static, TextArea, Markdown, Button
 from textual.containers import Vertical, Horizontal
 from textual.binding import Binding
+from textual.css.query import NoMatches
 
 from cyguide.ui.widgets.power import EntityBrowser, JobQueue, CommandPalette
 from cyguide.ui.widgets.resizer import ResizeHandle
@@ -523,7 +524,8 @@ class PowerModeScreen(Screen):
                     status_suffix = " [dim #38bdf8]▪[/]"
 
             self.query_one("#session_label", Label).update(f"{base_title}{status_suffix}")
-        except Exception: pass
+        except NoMatches:
+            pass
 
         if self.show_global_graph:
             if session_data:
@@ -535,7 +537,8 @@ class PowerModeScreen(Screen):
 
         try:
             await self.query_one("#entity_browser", EntityBrowser).refresh_entities(graph_data)
-        except Exception: pass
+        except NoMatches:
+            pass
 
         try:
             # Show all active jobs for this session (running, queued, or recently completed)
@@ -544,7 +547,8 @@ class PowerModeScreen(Screen):
                 if str(j.session_id) == str(self.active_session_id)
             ]
             await self.query_one("#job_queue", JobQueue).update_jobs(session_jobs)
-        except Exception: pass
+        except NoMatches:
+            pass
 
 
         palette = self.query_one("#command_palette", CommandPalette)
@@ -559,7 +563,7 @@ class PowerModeScreen(Screen):
             browser = self.query_one("#entity_browser")
             if not scratchpad.has_focus and not browser.has_focus:
                 cmd_input.focus()
-        except Exception:
+        except NoMatches:
             cmd_input.focus()
 
     async def handle_live_update(self, session_id: str, finding: Any) -> None:
@@ -574,7 +578,8 @@ class PowerModeScreen(Screen):
                 nodes = await self.app.power_facade.get_graph_snapshot(self.active_session_id)
             try:
                 await self.query_one("#entity_browser", EntityBrowser).refresh_entities(nodes)
-            except Exception: pass
+            except NoMatches:
+                pass
 
     async def on_job_queue_job_selected(self, event: JobQueue.JobSelected) -> None:
         if event.session_id != self.active_session_id:
