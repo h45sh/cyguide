@@ -41,6 +41,15 @@ Initially, opening and closing the SQLite file for every single port or vulnerab
 ### 6. Safe Process Termination
 When a user terminates a scan, race conditions can occur if the process completes naturally at the exact same moment. We replaced direct dict deletions (`del self._active_processes[session_id]`) with safe pops (`self._active_processes.pop(session_id, None)`) to prevent unhandled `KeyErrors` during termination.
 
+### 7. Upstream Textual Text-Selection Race & Markdown Tables (Technical Debt)
+* **The Roadblock**: Clicking inside rapidly streaming Markdown documents (such as during AI tutor explanations with tables in Learning Mode) triggered `AttributeError: 'NoneType' object has no attribute 'region'` inside Textual's `Screen._forward_event`.
+* **Root Cause**: Textual assumes `content_widget.parent` is always non-None when calculating container text-selection bounds. When clicking on unmounting nodes or grid containers (`MarkdownTableContent`), `parent` evaluates to `None`, terminating the application. Additionally, calling `Markdown.update()` unawaited at 50ms intervals caused overlapping tasks to contend on `Markdown.lock`, dumping unretrieved `CancelledError` warnings to the terminal.
+* **The Workaround (`cyguide/ui/compat.py`)**:
+  1. Disabled `ALLOW_SELECT` on `MarkdownTableContent` so container grids do not trigger container offset calculations (cell contents remain selectable).
+  2. Wrapped `Screen._forward_event` to safely catch `AttributeError` on `NoneType.region`, clearing `_select_state` and passing raw events directly.
+  3. Throttled explanation streaming to 250ms and explicitly awaited `explainer_pane.update()` in `LearningModeScreen`.
+* **Decommissioning Criteria**: This technical debt can be retired once upstream Textual implements defensive null checks (`if container is not None:`) before evaluating `container.region` in `_forward_event`. Tracked and verified via `tests/unit/test_textual_compat.py`.
+
 ---
 
 ## 3. General Developer Lessons
