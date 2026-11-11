@@ -1,6 +1,6 @@
 # CyGuide v2.0.0: The Mature Platform Specification
 
-This document provides the exhaustive technical specification, engineering contracts, security boundaries, and community distribution strategies for the milestone progression from **v1.8.0** through **v2.0.0 (The Mature Flagship Platform)**.
+This document provides the exhaustive technical specification, engineering contracts, security boundaries, and community distribution strategies for the milestone progression from **v1.9.0** through **v2.0.0 (The Mature Flagship Platform)** (following the **v1.8.0** release which delivered the terminal video showcase, upstream Textual 0.89+ resilience, and Release Please CI/CD automation).
 
 It serves as the deep-dive architectural companion to [`docs/developer/ROADMAP.md`](ROADMAP.md) and [`docs/developer/ARCHITECTURE.md`](ARCHITECTURE.md).
 
@@ -12,8 +12,8 @@ To reach enterprise-grade maturity without destabilizing the application or comp
 
 ```mermaid
 flowchart LR
-    M1["v1.8.0: Dataflow & DB<br><i>Micro-Batching, Disk Logs, WAL</i>"] --> M2["v1.9.0: Terminal & Security<br><i>PTY Shell, Decoupled IPC, AES Vault</i>"]
-    M2 --> M3["v1.9.5: Ecosystem & Showcase<br><i>Adapter Scaffolder, Nuclei, FFUF, VHS</i>"]
+    M1["v1.9.0: Dataflow & DB<br><i>Micro-Batching, Disk Logs, WAL</i>"] --> M2["v1.10.0: Terminal & Security<br><i>PTY Shell, Decoupled IPC, AES Vault</i>"]
+    M2 --> M3["v1.10.5: Ecosystem & Scaffolding<br><i>Adapter Scaffolder, Nuclei, FFUF, SQLMap</i>"]
     M3 --> M4["v2.0.0: Mature Flagship<br><i>Standalone Binary, Headless CLI, Public Launch</i>"]
 ```
 
@@ -27,15 +27,15 @@ flowchart LR
 
 Following the formal codebase architecture review, the platform enforces strict module depth and seam locality across all upcoming phases:
 
-#### 1. Pure Subprocess Executor (v1.8.0 - Track 1 & 4)
+#### 1. Pure Subprocess Executor (v1.9.0 - Track 1 & 4)
 * **Problem**: In v1.7.0, `Executor` directly invokes `self.store.upsert_finding()` inside low-level OS pipe-draining loops, creating teardown race conditions and coupling process lifecycle to database transactions.
 * **Contract**: `Executor` becomes a pure process execution engine yielding `AsyncIterator[BaseFinding]`. Interface parameters shrink from 12 down to 4. Persistence moves to the coordination layer (`PowerWorkspaceFacade`), where findings are buffered into atomic micro-batches (flush every 250ms or 50 items).
 
-#### 2. Unified Action Seam & Deletion of Shallow Engines (v1.8.0 - Track 5)
+#### 2. Unified Action Seam & Deletion of Shallow Engines (v1.9.0 - Track 5)
 * **Problem**: `LearningModeEngine` is a 49-line pass-through module that bypassed `ActionGateway`, creating a critical security loophole where learning scans skipped link-local SSRF validation and live job tracking. `LearningExplainer` was similarly an empty 10-line alias renaming `explain()` to `ask()`.
 * **Contract**: Delete `LearningModeEngine` and `LearningExplainer`. All tool executions route through `ActionGateway` / `PowerWorkspaceFacade.submit_action()`, giving Learning Mode identical SSRF safeguards, job buffers, and desktop notifications without duplicated code.
 
-#### 3. Cohesive Workspace & Session Repository Seam (v1.9.0 - Track 3)
+#### 3. Cohesive Workspace & Session Repository Seam (v1.10.0 - Track 3)
 * **Problem**: Dashboard screens currently juggle two parallel interfaces (`GraphStore` for reads, `PowerWorkspaceFacade` for mutations and forensic audits).
 * **Contract**: Consolidate workspace/session queries and lifecycle rules behind a single deep repository interface, engineered to support both the Textual UI and the headless Unix domain socket IPC daemon (`~/.cyguide/run/cyguide.sock`).
 
@@ -50,7 +50,7 @@ Currently, [`cyguide/engine/executor.py`](../../cyguide/engine/executor.py) spaw
 * Programs do not receive terminal geometry changes (`SIGWINCH`), resulting in broken ANSI cursor positioning and formatting artifacts.
 
 ### 2.2 PTY Architecture Specification
-The v1.9.0 executor introduces a dual-path execution strategy in `Executor`:
+The v1.10.0 executor introduces a dual-path execution strategy in `Executor`:
 1. **Structured Mode (Default)**: Uses standard `PIPE` streams for tools with structured output parsers (`nmap`, `gobuster`, `nikto`).
 2. **Interactive PTY Mode**: Uses an OS pseudo-terminal pair (`master_fd`, `slave_fd`) via Python's standard `pty` and `os.openpty()` (or `ptyprocess` on POSIX systems).
 
@@ -202,7 +202,7 @@ tools/nuclei/
 └── test_adapter.py       # Hermetic pytest tests mocking command execution
 ```
 
-### 5.2 Key v1.9.5 Tool Adapters
+### 5.2 Key v1.10.5 Tool Adapters
 
 | Tool | Category | Primary Output Schemas | Key Capabilities |
 | :--- | :--- | :--- | :--- |

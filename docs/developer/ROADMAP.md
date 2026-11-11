@@ -12,13 +12,14 @@ This document is the **single authoritative source of truth** for all completed,
 | **Phase 2: Intelligence & Expansion** | **Completed** | 8 | 8 | 0 | 100% |
 | **Phase 3: Polish, Portability & Delivery** | **Completed** | 15 | 15 | 0 | 100% |
 | **Power Mode Operator Workbench** | **Completed** | 30 | 30 | 0 | 100% |
-| **v1.8.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **In Progress** | 23 | 1 | 22 | 4% |
-| **v1.9.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 10 | 0 | 10 | 0% |
-| **v1.9.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 7 | 1 | 6 | 14% |
+| **v1.8.0: Showcase, Textual Resilience & Automated Release** | **Completed** | 4 | 4 | 0 | 100% |
+| **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **In Progress** | 23 | 1 | 22 | 4% |
+| **v1.10.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 10 | 0 | 10 | 0% |
+| **v1.10.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 8 | 0 | 8 | 0% |
 | **Phase 4: Autonomous Agent Runtime & Co-Pilot HUD** | **Planned (Future)** | 10 | 0 | 10 | 0% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **125** | **62** | **63** | **50%** |
+| **Total Project Tasks** | **In Progress** | **128** | **66** | **62** | **52%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -34,11 +35,13 @@ This document is the **single authoritative source of truth** for all completed,
               │
 [ Phase 3: Polish & Delivery ] ──── Diagnostics CLI & Modal, Portability (Export/Import), Hardening
               │
-[ v1.8.0 / Phase 3.5: Engine ] ─── Stream Throttling, Disk Spooling, Tab/Queue Sync, Tree Usability
+[ v1.8.0: Showcase & Resilience ] ─ VHS Demo, Textual 0.89+ Crash Resilience, Release Please Automation
               │
-[ v1.9.0: Terminal & Security ] ── Interactive PTY Shell, Decoupled IPC, AES Vault, CIDR Scope
+[ v1.9.0 / Phase 3.5: Engine ] ─── Stream Throttling, Disk Spooling, Tab/Queue Sync, Tree Usability
               │
-[ v1.9.5: Ecosystem & Showcase ] ─ cyg create-adapter, Nuclei, FFUF, SQLMap, VHS Recording
+[ v1.10.0: Terminal & Security ] ─ Interactive PTY Shell, Decoupled IPC, AES Vault, CIDR Scope
+              │
+[ v1.10.5: Ecosystem Expansion ] ─ cyg create-adapter, Nuclei, FFUF, SQLMap, Mock Scanner Testbed
               │
 [ v2.0.0: Flagship Launch ] ────── Standalone Binaries, Show HN, Reddit, Awesome-Lists, Kali/BlackArch
               │
@@ -92,7 +95,15 @@ This document is the **single authoritative source of truth** for all completed,
 
 ---
 
-### Phase 3.5: Performance Optimization, Streaming Resilience & UI Polish (Next Up / In Progress)
+### Release: v1.8.0 — Terminal Showcase, Textual Resilience & Automated Release (Completed)
+- [x] **Visual Terminal Showcase Script (`demo.tape` via VHS)**: Scripted a repeatable Charm VHS recording capturing CyGuide startup, target selection, recipe execution, and graph exploration ([`demo.tape`](../../demo.tape), [`assets/demo.mp4`](../../assets/demo.mp4), [`assets/demo.gif`](../../assets/demo.gif), [`README.md`](../../README.md)).
+- [x] **Upstream Textual 0.89+ Runtime Resilience & Event Guard**: Guarded against fatal `AttributeError: 'NoneType' object has no attribute 'region'` inside Textual's `Screen._forward_event` during Markdown table click interactions and AI streaming by disabling table selection (`MarkdownTableContent.ALLOW_SELECT = False`) and applying safe event forwarding fallback monkeypatch ([`cyguide/ui/compat.py`](../../cyguide/ui/compat.py), [`docs/developer/DEVELOPER_NOTES.md`](DEVELOPER_NOTES.md)).
+- [x] **Learning Mode UI Stream Decoupling & Async Safety**: Throttled explainer Markdown pane rendering to 250ms micro-batches and properly awaited `explainer_pane.update()`, neutralizing race conditions and unhandled `asyncio.CancelledError` task crashes ([`cyguide/ui/screens/learning.py`](../../cyguide/ui/screens/learning.py), [`tests/unit/test_textual_compat.py`](../../tests/unit/test_textual_compat.py)).
+- [x] **Automated Release Please Pipeline & Changelog Generation**: Integrated Google's Release Please action for automated semantic version bumping, CHANGELOG generation, and GitHub release tagging via Conventional Commits ([`.github/workflows/release.yml`](../../.github/workflows/release.yml)).
+
+---
+
+### Milestone: v1.9.0 (Phase 3.5) — Engine, Dataflow & Concurrency (In Progress)
 
 This critical hardening phase eliminates UI bottlenecks, decouples stream draining from terminal rendering, prevents RAM bloat during multi-hour/multi-day tasks, fixes tab lifecycle synchronization, and elevates the graph tree into a high-utility operator HUD:
 
@@ -189,7 +200,7 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 
 ---
 
-### Milestone: v1.9.0 — Terminal Capabilities, IPC & Security/Encryption (Planned)
+### Milestone: v1.10.0 — Terminal Capabilities, IPC & Security/Encryption (Planned)
 
 > [!NOTE]
 > Detailed technical specifications, data models, and sequence flows are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:36-160`](V2_PLATFORM_SPECIFICATION.md#L36-L160).
@@ -229,7 +240,7 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 
 ---
 
-### Milestone: v1.9.5 — Tool Ecosystem Expansion & Contributor Scaffolding (Planned)
+### Milestone: v1.10.5 — Tool Ecosystem Expansion & Contributor Scaffolding (Planned)
 
 > [!NOTE]
 > Detailed adapter generator templates and schema contracts are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:162-192`](V2_PLATFORM_SPECIFICATION.md#L162-L192).
@@ -242,16 +253,13 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
   - Fast, template-based vulnerability scanning using community YAML signatures. Emits `vulnerability.found` and `web.vulnerability`.
 - [ ] **FFUF Tool Adapter (`tools/ffuf/`)**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: Tool Plugins
-  - High-performance Go web fuzzer alternative to `gobuster`, leveraging v1.8.0 log batching. Emits `web.endpoint`.
+  - High-performance Go web fuzzer alternative to `gobuster`, leveraging v1.9.0 log batching. Emits `web.endpoint`.
 - [ ] **SQLMap Tool Adapter (`tools/sqlmap/`)**:
   - *Priority*: **P2** | *Complexity*: High | *Track*: Tool Plugins
   - Automated SQL injection detection and database takeover. Emits `vulnerability.found` (SQLi) and `credential.found`.
 - [ ] **External User Plugin Loading**:
   - *Priority*: **P3** | *Complexity*: Medium | *Track*: Extensibility
   - Support dynamic runtime discovery of custom user-defined adapters from `~/.config/cyguide/tools/` and `$CYGUIDE_PLUGIN_PATH`.
-- [x] **Visual Terminal Showcase Script (`demo.tape` via VHS)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Showcase
-  - Script a repeatable Charm VHS tape recording CyGuide launching, selecting a target, running a recipe, and exploring the graph ([`demo.tape`](../../demo.tape), [`assets/demo.gif`](../../assets/demo.gif), [`assets/`](../../assets/)).
 - [ ] **Hermetic Mock Scanner Testbed (`tests/fixtures/mock_tools/`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Testing / Reliability
   - Pre-recorded CLI output dumps and mock runner fixtures across `nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `nuclei`, and `ffuf` to run full end-to-end adapter tests in CI without requiring external network connectivity or root security binaries.
