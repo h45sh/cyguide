@@ -5,6 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/cyguide.svg)](https://pypi.org/project/cyguide/)
 [![Python](https://img.shields.io/pypi/pyversions/cyguide.svg)](https://pypi.org/project/cyguide/)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/h45sh/cyguide/pkgs/container/cyguide)
+[![Website](https://img.shields.io/badge/website-h45sh.com-blue.svg)](https://h45sh.com/portfolio/cyguide/)
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](.github/SECURITY.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -13,6 +14,8 @@
 **TUI-Based Guided Cybersecurity Learning and Terminal Tool Orchestration Platform.**
 
 CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models.
+
+For an interactive overview and project showcase, visit the official webpage at [https://h45sh.com/portfolio/cyguide/](https://h45sh.com/portfolio/cyguide/).
 
 <p align="center">
   <a href="assets/demo.mp4">
@@ -305,6 +308,7 @@ cyg check
 
 Our complete documentation is organized using the **[Diátaxis Framework](docs/README.md)**:
 
+* **[Project Webpage](https://h45sh.com/portfolio/cyguide/)**: Interactive project overview, features, and showcase.
 * **[Documentation Master Hub](docs/README.md)**: Central portal with role-based reading paths.
 * **[User Manual](docs/user/USER_MANUAL.md)**: Navigation guide, hotkeys master table, and UI workflows.
 * **[Architecture & Domain Context](docs/developer/ARCHITECTURE.md)**: Subsystem pipelines, ADRs, and facade contracts.
