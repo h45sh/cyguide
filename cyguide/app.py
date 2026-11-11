@@ -1,26 +1,38 @@
 """Main CyGuide TUI Application."""
 
-import os
-import json
 import asyncio
-from typing import Any
+import json
+import os
 from pathlib import Path
+from typing import Any
+
 from textual import events, work
-from textual.app import App, SystemCommand, ComposeResult
+from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
-from textual.command import SearchIcon, CommandPalette, CommandList, CommandInput, DiscoveryHit, Hits
-from textual.system_commands import SystemCommandsProvider
-from textual.widgets import LoadingIndicator, Button
-from textual.containers import Vertical, Horizontal
+from textual.command import (
+    CommandInput,
+    CommandList,
+    CommandPalette,
+    DiscoveryHit,
+    Hits,
+    SearchIcon,
+)
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
+from textual.system_commands import SystemCommandsProvider
+from textual.widgets import Button, LoadingIndicator
+
 from cyguide.engine.explainer import is_placeholder_key
 
 # Replace default emoji search icon with clean terminal glyph
 SearchIcon.icon = "›"
 
 # Ensure thin, uniform scrollbars across all screens and widgets
+from cyguide.ui.compat import setup_textual_compat
 from cyguide.ui.widgets.scrollbar import setup_thin_scrollbars
+
 setup_thin_scrollbars()
+setup_textual_compat()
 
 
 class ToolHealthChanged(Message):
@@ -29,7 +41,6 @@ class ToolHealthChanged(Message):
     def __init__(self, health: dict) -> None:
         super().__init__()
         self.health = health
-
 
 
 class CyGuideSystemCommandsProvider(SystemCommandsProvider):
@@ -162,29 +173,30 @@ class CyGuideCommandPalette(CommandPalette):
             event.stop()
             self.handle_left_arrow()
 
-from cyguide.ui.screens.home import DashboardScreen
-from cyguide.ui.screens.learning import LearningModeScreen
-from cyguide.ui.screens.tool_browser import ToolBrowserScreen
-from cyguide.ui.screens.power import PowerModeScreen
-from cyguide.ui.screens.config_modal import ConfigModal
 
-from typing import Optional, Dict, Any, List
 import subprocess
+from typing import Any, Dict, List, Optional
 
-from cyguide.engine.registry import ToolRegistry
-from cyguide.engine.store import GraphStore
 from cyguide.engine.executor import Executor
 from cyguide.engine.explainer import LearningExplainer, OllamaBackend
-from cyguide.modes.learning import LearningModeEngine
 from cyguide.engine.power_facade import PowerWorkspaceFacade
+from cyguide.engine.registry import ToolRegistry
+from cyguide.engine.store import GraphStore
+from cyguide.modes.learning import LearningModeEngine
 from cyguide.paths import (
     get_default_data_dir,
     get_default_db_path,
-    get_default_settings_path,
-    get_default_scratchpad_path,
     get_default_exports_dir,
     get_default_reports_dir,
+    get_default_scratchpad_path,
+    get_default_settings_path,
 )
+from cyguide.ui.screens.config_modal import ConfigModal
+from cyguide.ui.screens.home import DashboardScreen
+from cyguide.ui.screens.learning import LearningModeScreen
+from cyguide.ui.screens.power import PowerModeScreen
+from cyguide.ui.screens.tool_browser import ToolBrowserScreen
+
 
 class CyGuideApp(App):
     """The central orchestrator for the CyGuide TUI."""
@@ -273,22 +285,31 @@ class CyGuideApp(App):
         else:
             # One-time migration only if 'cloud_keys' was NEVER configured in settings
             self.cloud_keys = []
-            legacy_key = self.settings.get("api_key") or os.environ.get("CYGUIDE_API_KEY") or os.environ.get("GROQ_API_KEY")
+            legacy_key = (
+                self.settings.get("api_key")
+                or os.environ.get("CYGUIDE_API_KEY")
+                or os.environ.get("GROQ_API_KEY")
+            )
             if legacy_key and not is_placeholder_key(legacy_key):
                 legacy_profile = {
                     "id": "key_1",
                     "name": "Primary Key",
-                    "provider": self.settings.get("api_type") or os.environ.get("CYGUIDE_API_TYPE", "openai"),
+                    "provider": self.settings.get("api_type")
+                    or os.environ.get("CYGUIDE_API_TYPE", "openai"),
                     "api_key": legacy_key,
-                    "model": self.settings.get("api_model") or os.environ.get("CYGUIDE_API_MODEL", ""),
-                    "base_url": self.settings.get("api_base") or os.environ.get("CYGUIDE_API_BASE", ""),
+                    "model": self.settings.get("api_model")
+                    or os.environ.get("CYGUIDE_API_MODEL", ""),
+                    "base_url": self.settings.get("api_base")
+                    or os.environ.get("CYGUIDE_API_BASE", ""),
                     "enabled": True,
                 }
                 self.cloud_keys = [legacy_profile]
 
         self.active_key_id: Optional[str] = self.settings.get("active_key_id")
         if self.cloud_keys:
-            if not self.active_key_id or not any(k.get("id") == self.active_key_id for k in self.cloud_keys):
+            if not self.active_key_id or not any(
+                k.get("id") == self.active_key_id for k in self.cloud_keys
+            ):
                 self.active_key_id = self.cloud_keys[0]["id"]
         else:
             self.active_key_id = None
@@ -335,10 +356,12 @@ class CyGuideApp(App):
                 found = True
                 break
         if found:
-            self._save_settings({
-                "active_key_id": self.active_key_id,
-                "cloud_keys": self.cloud_keys,
-            })
+            self._save_settings(
+                {
+                    "active_key_id": self.active_key_id,
+                    "cloud_keys": self.cloud_keys,
+                }
+            )
             self.reload_explainer()
             self.notify(f"Switched active AI key to: {target_name}", title="AI Key Switcher")
 
@@ -439,8 +462,7 @@ class CyGuideApp(App):
         try:
             # Run a login shell to capture the fully resolved environment
             result = subprocess.run(
-                [shell, "-l", "-c", "env"],
-                capture_output=True, text=True, timeout=5
+                [shell, "-l", "-c", "env"], capture_output=True, text=True, timeout=5
             )
             env = {}
             for line in result.stdout.splitlines():
@@ -473,7 +495,11 @@ class CyGuideApp(App):
         tools_dir = getattr(reg, "tools_dir", None)
         if tools_dir and Path(tools_dir).exists():
             try:
-                current_dirs = {p.name for p in Path(tools_dir).iterdir() if p.is_dir() and not p.name.startswith((".", "_"))}
+                current_dirs = {
+                    p.name
+                    for p in Path(tools_dir).iterdir()
+                    if p.is_dir() and not p.name.startswith((".", "_"))
+                }
                 loaded_dirs = {v.get("path").name for v in reg.tools.values() if v.get("path")}
                 if current_dirs != loaded_dirs:
                     reg.load_tools()
@@ -482,6 +508,7 @@ class CyGuideApp(App):
 
         try:
             from cyguide.engine.diagnostics import check_tool_health
+
             new_health = check_tool_health(reg)
         except Exception:
             return getattr(self, "_cached_tool_health", {}) or {}
@@ -527,7 +554,7 @@ class CyGuideApp(App):
         self.user_env = os.environ.copy()
         self._async_load_shell_env()
 
-        self.learning_mode_tool = "nmap" # Default
+        self.learning_mode_tool = "nmap"  # Default
         # 1. Initialize Engines
         self.registry = ToolRegistry(tools_dir=self.tools_dir)
         self.registry.load_tools()
@@ -540,9 +567,13 @@ class CyGuideApp(App):
         await self.store.initialize()
 
         # Ensure singleton Learning Sandbox exists
-        self.learning_ws_id, self.learning_session_id = await self.store.get_or_create_learning_sandbox()
+        (
+            self.learning_ws_id,
+            self.learning_session_id,
+        ) = await self.store.get_or_create_learning_sandbox()
 
         from cyguide.engine.recommendation import RecommendationEngine
+
         self.recommendation_engine = RecommendationEngine(self.store)
         self.store.on_upsert(self.recommendation_engine.handle_upsert)
 
@@ -564,12 +595,16 @@ class CyGuideApp(App):
     def reload_explainer(self) -> None:
         """Setup or reload explanation backend based on current settings and environment."""
         from dotenv import load_dotenv
+
         load_dotenv()
         ollama_base_url = self.settings.get("ollama_base_url", "http://localhost:11434")
         if self.use_ollama or not getattr(self, "use_cloud_api", True):
-            self.explainer_backend = OllamaBackend(model=self.ollama_model, base_url=ollama_base_url)
+            self.explainer_backend = OllamaBackend(
+                model=self.ollama_model, base_url=ollama_base_url
+            )
         else:
             from cyguide.engine.explainer import CloudKeyProfile, MultiKeyCloudBackend
+
             profiles: List[CloudKeyProfile] = []
             if hasattr(self, "cloud_keys") and self.cloud_keys:
                 for k in self.cloud_keys:
@@ -579,25 +614,41 @@ class CyGuideApp(App):
 
             # Only fallback to legacy if 'cloud_keys' was NEVER configured in settings
             if "cloud_keys" not in self.settings and not profiles:
-                api_key = self.settings.get("api_key") or os.environ.get("CYGUIDE_API_KEY") or os.environ.get("GROQ_API_KEY")
+                api_key = (
+                    self.settings.get("api_key")
+                    or os.environ.get("CYGUIDE_API_KEY")
+                    or os.environ.get("GROQ_API_KEY")
+                )
                 if api_key and not is_placeholder_key(api_key):
-                    api_type = self.settings.get("api_type") or os.environ.get("CYGUIDE_API_TYPE", "openai")
-                    if (os.environ.get("GROQ_API_KEY") or api_type == "groq") and not (self.settings.get("api_base") or os.environ.get("CYGUIDE_API_BASE")):
+                    api_type = self.settings.get("api_type") or os.environ.get(
+                        "CYGUIDE_API_TYPE", "openai"
+                    )
+                    if (os.environ.get("GROQ_API_KEY") or api_type == "groq") and not (
+                        self.settings.get("api_base") or os.environ.get("CYGUIDE_API_BASE")
+                    ):
                         api_base = "https://api.groq.com/openai/v1"
-                        api_model = self.settings.get("api_model") or os.environ.get("CYGUIDE_API_MODEL", "llama-3.3-70b-versatile")
+                        api_model = self.settings.get("api_model") or os.environ.get(
+                            "CYGUIDE_API_MODEL", "llama-3.3-70b-versatile"
+                        )
                     else:
-                        api_base = self.settings.get("api_base") or os.environ.get("CYGUIDE_API_BASE", "https://api.openai.com/v1")
-                        api_model = self.settings.get("api_model") or os.environ.get("CYGUIDE_API_MODEL", "gpt-4o")
+                        api_base = self.settings.get("api_base") or os.environ.get(
+                            "CYGUIDE_API_BASE", "https://api.openai.com/v1"
+                        )
+                        api_model = self.settings.get("api_model") or os.environ.get(
+                            "CYGUIDE_API_MODEL", "gpt-4o"
+                        )
 
-                    profiles.append(CloudKeyProfile(
-                        id="key_1",
-                        name="Primary Key",
-                        provider=api_type,
-                        api_key=api_key,
-                        model=api_model,
-                        base_url=api_base,
-                        enabled=True,
-                    ))
+                    profiles.append(
+                        CloudKeyProfile(
+                            id="key_1",
+                            name="Primary Key",
+                            provider=api_type,
+                            api_key=api_key,
+                            model=api_model,
+                            base_url=api_base,
+                            enabled=True,
+                        )
+                    )
 
             if profiles:
                 ollama_fallback = OllamaBackend(model=self.ollama_model, base_url=ollama_base_url)
@@ -608,7 +659,9 @@ class CyGuideApp(App):
                     ollama_backend=ollama_fallback,
                 )
             else:
-                self.explainer_backend = OllamaBackend(model=self.ollama_model, base_url=ollama_base_url)
+                self.explainer_backend = OllamaBackend(
+                    model=self.ollama_model, base_url=ollama_base_url
+                )
 
         self.explainer = LearningExplainer(self.explainer_backend)
         if hasattr(self, "learning_engine") and self.learning_engine is not None:
@@ -656,6 +709,7 @@ class CyGuideApp(App):
     def action_show_tool_health(self) -> None:
         """Open the Tool Health & System Status modal."""
         from cyguide.ui.screens.tool_health_modal import ToolHealthModal
+
         self.last_palette_highlight = None
         self._navigating_sub_palette = False
         self.push_screen(ToolHealthModal())
@@ -663,6 +717,7 @@ class CyGuideApp(App):
     def action_show_config(self, focus_target: Optional[str] = None) -> None:
         """Open the Configuration modal dialog."""
         from cyguide.ui.screens.config_modal import ConfigModal
+
         self.last_palette_highlight = None
         self._navigating_sub_palette = False
         self.push_screen(ConfigModal(focus_target=focus_target))
@@ -671,7 +726,10 @@ class CyGuideApp(App):
         """Safely switch to a new database file, migrating schemas and rebinding engines."""
         if not new_db_path:
             return
-        if getattr(self, "db_path", None) == new_db_path and getattr(self, "store", None) is not None:
+        if (
+            getattr(self, "db_path", None) == new_db_path
+            and getattr(self, "store", None) is not None
+        ):
             return
 
         old_path = getattr(self, "db_path", None)
@@ -770,27 +828,36 @@ class CyGuideApp(App):
         self.exports_dir = None
         self.reports_dir = None
         # Preserve user's configured cloud keys
-        existing_keys = list(self.cloud_keys) if hasattr(self, "cloud_keys") and self.cloud_keys is not None else []
+        existing_keys = (
+            list(self.cloud_keys)
+            if hasattr(self, "cloud_keys") and self.cloud_keys is not None
+            else []
+        )
         existing_active = self.active_key_id
-        self._save_settings({
-            "use_ollama": False,
-            "use_cloud_api": True,
-            "ollama_model": "gemma",
-            "ollama_base_url": "http://localhost:11434",
-            "cloud_keys": existing_keys,
-            "active_key_id": existing_active,
-            "db_path": default_db,
-            "tools_dir": None,
-            "exports_dir": None,
-            "reports_dir": None,
-        })
+        self._save_settings(
+            {
+                "use_ollama": False,
+                "use_cloud_api": True,
+                "ollama_model": "gemma",
+                "ollama_base_url": "http://localhost:11434",
+                "cloud_keys": existing_keys,
+                "active_key_id": existing_active,
+                "db_path": default_db,
+                "tools_dir": None,
+                "exports_dir": None,
+                "reports_dir": None,
+            }
+        )
         self.reload_explainer()
         self.reload_registry()
-        self.notify("Configuration reset to CLI defaults (API keys preserved)", title="Config Reset")
+        self.notify(
+            "Configuration reset to CLI defaults (API keys preserved)", title="Config Reset"
+        )
 
     def search_themes(self) -> None:
         """Show the theme selection palette with unified left/right arrow navigation."""
         from textual.theme import ThemeProvider
+
         self.last_palette_highlight = "Theme"
         self.push_screen(
             CyGuideCommandPalette(
@@ -804,6 +871,7 @@ class CyGuideApp(App):
     def action_show_hotkeys(self) -> None:
         """Open the F1 Shortcuts / Help dialog."""
         from cyguide.ui.screens.power import ShortcutsDialog
+
         self.push_screen(ShortcutsDialog())
 
     def action_show_help_panel(self) -> None:
@@ -819,12 +887,10 @@ class CyGuideApp(App):
             base_cmds[cmd.title.lower()] = cmd
 
         # 1. Screen / View Toggles
-        anim_badge = "[bold green]● ON[/bold green]" if self.animations_enabled else "[dim]⊘ OFF[/dim]"
-        yield SystemCommand(
-            f"Toggle Animations  {anim_badge}",
-            "",
-            self.action_toggle_animations
+        anim_badge = (
+            "[bold green]● ON[/bold green]" if self.animations_enabled else "[dim]⊘ OFF[/dim]"
         )
+        yield SystemCommand(f"Toggle Animations  {anim_badge}", "", self.action_toggle_animations)
 
         # 2. Tool Diagnostics / Health
         health = self.check_and_update_tool_health()
@@ -836,13 +902,11 @@ class CyGuideApp(App):
         elif not issues:
             health_badge = f"[bold green]● Healthy ({ok_count}/{total})[/bold green]"
         else:
-            health_badge = f"[bold red]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold red]"
+            health_badge = (
+                f"[bold red]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold red]"
+            )
 
-        yield SystemCommand(
-            f"Tool Health  {health_badge}",
-            "",
-            self.action_show_tool_health
-        )
+        yield SystemCommand(f"Tool Health  {health_badge}", "", self.action_show_tool_health)
 
         # 3. Settings & Configuration (opens full config panel directly)
         yield SystemCommand(
@@ -857,11 +921,7 @@ class CyGuideApp(App):
             yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
 
         # 5. Hotkeys
-        yield SystemCommand(
-            "Hotkeys",
-            "",
-            self.action_show_hotkeys
-        )
+        yield SystemCommand("Hotkeys", "", self.action_show_hotkeys)
 
         # 6. Utilities
         if "screenshot" in base_cmds:
@@ -874,6 +934,7 @@ class CyGuideApp(App):
             yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
         else:
             yield SystemCommand("Quit", "", self.action_quit)
+
 
 if __name__ == "__main__":
     app = CyGuideApp()

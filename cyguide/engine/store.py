@@ -2,13 +2,15 @@
 # Changes to this file require team agreement.
 """SQLite-based graph store for workspaces and sessions."""
 
+import json
 import os
 import re
-import json
 import uuid
-import aiosqlite
-from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
+from typing import Any, Dict, List, Optional
+
+import aiosqlite
+
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.power import ActionRequest
 
@@ -684,7 +686,7 @@ class GraphStore:
                         if not isinstance(pik_val, dict) or not isinstance(data_val, dict):
                             raise ValueError
                     except Exception:
-                        raise ValueError(f"Corrupt JSON payload in imported node {n['id']}.")
+                        raise ValueError(f"Corrupt JSON payload in imported node {n['id']}.") from None
 
                     await db.execute(
                         "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",

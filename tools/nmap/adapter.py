@@ -1,11 +1,12 @@
 """Nmap tool adapter."""
 
-import shutil
 import re
-from typing import AsyncIterator, List, Dict, Any
+import shutil
+from typing import Any, AsyncIterator, Dict, List
+
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.schemas.base import BaseFinding
-from cyguide.schemas.network import NetworkService, NetworkHost
+from cyguide.schemas.network import NetworkHost, NetworkService
 
 
 class NmapAdapter(ToolAdapter):

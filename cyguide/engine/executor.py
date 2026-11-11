@@ -5,7 +5,8 @@ import logging
 import os
 import shlex
 import shutil
-from typing import Dict, Any, Optional, AsyncIterator, Callable, Coroutine
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, Optional
+
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.base import BaseFinding

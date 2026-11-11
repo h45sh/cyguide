@@ -1,6 +1,7 @@
 """Interactive edge resizer widget for split panes."""
 
 from typing import Optional
+
 from rich.text import Text
 from textual import events
 from textual.widget import Widget

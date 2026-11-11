@@ -1,13 +1,14 @@
 """Nikto tool adapter."""
 
-import shutil
-import shlex
 import re
-from typing import AsyncIterator, List, Dict, Any
+import shlex
+import shutil
+from typing import Any, AsyncIterator, Dict, List
+
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.schemas.base import BaseFinding
-from cyguide.schemas.web import WebVulnerability
 from cyguide.schemas.vulnerability import VulnerabilityFound
+from cyguide.schemas.web import WebVulnerability
 
 
 class NiktoAdapter(ToolAdapter):

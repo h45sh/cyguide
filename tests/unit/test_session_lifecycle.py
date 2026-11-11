@@ -1,11 +1,12 @@
-import pytest
-from uuid import UUID
 from unittest.mock import AsyncMock, MagicMock
+from uuid import UUID
 
-from cyguide.engine.store import GraphStore
-from cyguide.engine.power_facade import PowerWorkspaceFacade
-from cyguide.schemas.power import ActionRequest, ActionSource
+import pytest
+
 from cyguide.app import CyGuideApp
+from cyguide.engine.power_facade import PowerWorkspaceFacade
+from cyguide.engine.store import GraphStore
+from cyguide.schemas.power import ActionRequest, ActionSource
 
 
 @pytest.mark.asyncio

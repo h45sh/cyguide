@@ -1,7 +1,8 @@
 """Abstract base class for all tool plugins."""
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, List, Dict, Any
+from typing import Any, AsyncIterator, Dict, List
+
 from cyguide.schemas.base import BaseFinding
 
 

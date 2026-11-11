@@ -1,6 +1,7 @@
 """Network netblock related schemas."""
 
-from typing import Optional, ClassVar
+from typing import ClassVar, Optional
+
 from cyguide.schemas.base import BaseFinding
 
 

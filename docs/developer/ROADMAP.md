@@ -13,12 +13,12 @@ This document is the **single authoritative source of truth** for all completed,
 | **Phase 3: Polish, Portability & Delivery** | **Completed** | 15 | 15 | 0 | 100% |
 | **Power Mode Operator Workbench** | **Completed** | 30 | 30 | 0 | 100% |
 | **v1.8.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **In Progress** | 23 | 1 | 22 | 4% |
-| **v1.9.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 9 | 0 | 9 | 0% |
-| **v1.9.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
-| **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
+| **v1.9.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 10 | 0 | 10 | 0% |
+| **v1.9.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 7 | 1 | 6 | 14% |
+| **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 8 | 0 | 8 | 0% |
 | **Phase 4: Autonomous Agent Runtime & Co-Pilot HUD** | **Planned (Future)** | 10 | 0 | 10 | 0% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **121** | **62** | **59** | **51%** |
+| **Total Project Tasks** | **In Progress** | **125** | **62** | **63** | **50%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -223,6 +223,9 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **Cross-Session Approval Context Swapping**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: UI/UX
   - Automatically swap the active TUI session context when approving suggestions originated from another session in the global graph.
+- [ ] **Encrypted Archive Integrity & Tamper Fuzzing**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Security / Reliability
+  - Automated test suite verifying cryptographic rejection of truncated, bit-flipped, or maliciously crafted session archives (Argon2id + AES-256-GCM auth tag failures).
 
 ---
 
@@ -249,6 +252,9 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [x] **Visual Terminal Showcase Script (`demo.tape` via VHS)**:
   - *Priority*: **P1** | *Complexity*: Low | *Track*: Showcase
   - Script a repeatable Charm VHS tape recording CyGuide launching, selecting a target, running a recipe, and exploring the graph ([`demo.tape`](../../demo.tape), [`assets/demo.gif`](../../assets/demo.gif), [`assets/`](../../assets/)).
+- [ ] **Hermetic Mock Scanner Testbed (`tests/fixtures/mock_tools/`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Testing / Reliability
+  - Pre-recorded CLI output dumps and mock runner fixtures across `nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `nuclei`, and `ffuf` to run full end-to-end adapter tests in CI without requiring external network connectivity or root security binaries.
 
 ---
 
@@ -275,6 +281,12 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **Security Distribution Packaging Requests**:
   - *Priority*: **P3** | *Complexity*: Low | *Track*: Distribution
   - Submit Intent-to-Package (ITP) issues to Kali Linux and BlackArch package repositories.
+- [ ] **Architectural Boundary Linting & Import Isolation**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Codebase Integrity
+  - Automated CI check enforcing import isolation: `tools/` adapters cannot import UI or SQLite layers, and `cyguide.schemas` cannot depend on external execution logic.
+- [ ] **LLM Anti-Injection & Golden Dataset Evaluation**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: AI Safety & Reliability
+  - Automated evaluation harness testing LLM Explainer and future ReAct agents against golden benchmark scan outputs to ensure prompt boundaries (`<<<UNTRUSTED_SCAN_OUTPUT>>>`) neutralize injection payloads and maintain schema compliance.
 
 ---
 

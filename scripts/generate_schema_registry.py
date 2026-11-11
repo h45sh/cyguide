@@ -4,9 +4,9 @@ Auto-generates docs/developer/SCHEMA_REGISTRY.md from cyguide/schemas.
 Acts as a linter: fails if any schema is missing documentation or pik_fields.
 """
 
-import sys
 import importlib
 import inspect
+import sys
 from pathlib import Path
 
 # Add the project root to sys.path
@@ -27,7 +27,7 @@ def get_all_finding_schemas():
         module_name = f"cyguide.schemas.{file.stem}"
         module = importlib.import_module(module_name)
 
-        for name, obj in inspect.getmembers(module):
+        for _name, obj in inspect.getmembers(module):
             if (inspect.isclass(obj) and
                 issubclass(obj, BaseFinding) and
                 obj is not BaseFinding):

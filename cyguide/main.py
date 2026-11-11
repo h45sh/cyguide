@@ -11,36 +11,24 @@ from cyguide.paths import get_default_data_dir, get_default_db_path
 
 def main():
     load_dotenv()
-    parser = argparse.ArgumentParser(description="CyGuide: TUI-based guided cybersecurity learning platform.")
-    parser.add_argument(
-        "--version", "-V",
-        action="version",
-        version=f"CyGuide {__version__}"
+    parser = argparse.ArgumentParser(
+        description="CyGuide: TUI-based guided cybersecurity learning platform."
     )
+    parser.add_argument("--version", "-V", action="version", version=f"CyGuide {__version__}")
     parser.add_argument(
         "--data-dir",
         default=None,
-        help="Path to the CyGuide unified data directory (default: ~/.cyguide or $CYGUIDE_DATA_DIR)"
+        help="Path to the CyGuide unified data directory (default: ~/.cyguide or $CYGUIDE_DATA_DIR)",
     )
     parser.add_argument(
-        "--db",
-        default=None,
-        help="Path to the SQLite database (default: ~/.cyguide/cyguide.db)"
+        "--db", default=None, help="Path to the SQLite database (default: ~/.cyguide/cyguide.db)"
     )
     parser.add_argument(
-        "--ollama",
-        action="store_true",
-        help="Enable local LLM explanations via Ollama"
+        "--ollama", action="store_true", help="Enable local LLM explanations via Ollama"
     )
+    parser.add_argument("--model", default="gemma", help="Ollama model to use (default: gemma)")
     parser.add_argument(
-        "--model",
-        default="gemma",
-        help="Ollama model to use (default: gemma)"
-    )
-    parser.add_argument(
-        "--tools",
-        default=None,
-        help="Path to the tools directory (default: bundled tools/)"
+        "--tools", default=None, help="Path to the tools directory (default: bundled tools/)"
     )
 
     subparsers = parser.add_subparsers(dest="subcommand", help="Subcommands (optional)")
@@ -52,13 +40,21 @@ def main():
     export_parser.add_argument("--report", help="Path to save the structured Markdown report")
 
     # import subcommand
-    import_parser = subparsers.add_parser("import", help="Import a portable session SQLite .db file")
+    import_parser = subparsers.add_parser(
+        "import", help="Import a portable session SQLite .db file"
+    )
     import_parser.add_argument("input_path", help="Path to the portable SQLite .db file")
-    import_parser.add_argument("--workspace-id", help="ID of the workspace to import the session into (optional)")
+    import_parser.add_argument(
+        "--workspace-id", help="ID of the workspace to import the session into (optional)"
+    )
 
     # check subcommand
-    check_parser = subparsers.add_parser("check", help="Verify environment dependencies, database health, and tool installations")
-    check_parser.add_argument("--json", action="store_true", help="Output diagnostics in JSON format")
+    check_parser = subparsers.add_parser(
+        "check", help="Verify environment dependencies, database health, and tool installations"
+    )
+    check_parser.add_argument(
+        "--json", action="store_true", help="Output diagnostics in JSON format"
+    )
 
     args = parser.parse_args()
 
@@ -133,7 +129,9 @@ def main():
             print(f"[*] Importing session from {args.input_path}...")
             exit_code = 0
             try:
-                new_sess_id = await store.import_session(args.input_path, target_workspace_id=args.workspace_id)
+                new_sess_id = await store.import_session(
+                    args.input_path, target_workspace_id=args.workspace_id
+                )
                 print("[+] Session imported successfully!")
                 print(f"[+] New Session ID: {new_sess_id}")
             except Exception as e:
@@ -161,19 +159,23 @@ def main():
         sys.exit(asyncio.run(run_check()))
 
     from cyguide.app import CyGuideApp
+    from cyguide.ui.compat import setup_textual_compat
+
+    setup_textual_compat()
 
     app = CyGuideApp(
         db_path=args.db,
         data_dir=args.data_dir,
         use_ollama=args.ollama,
         ollama_model=args.model,
-        tools_dir=args.tools
+        tools_dir=args.tools,
     )
     try:
         app.run()
     except KeyboardInterrupt:
         # i case the user hits Ctrl+C at the exact moment of shutdown.
         print("\n[!] CyGuide terminated by user.")
+
 
 if __name__ == "__main__":
     main()

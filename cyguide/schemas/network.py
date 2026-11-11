@@ -1,8 +1,9 @@
 """Network-related finding schemas."""
 
-from typing import Optional, ClassVar
-from cyguide.schemas.base import BaseFinding, Relation
+from typing import ClassVar, Optional
+
 from cyguide.engine.canonicalize import canonicalize_host, canonicalize_port
+from cyguide.schemas.base import BaseFinding, Relation
 
 
 class NetworkHost(BaseFinding):

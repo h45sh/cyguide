@@ -1,17 +1,17 @@
 """Tests for ResizeHandle and Power mode UI enhancements."""
 
-import pytest
-from uuid import uuid4
 from datetime import datetime, timezone
+from uuid import uuid4
 
+import pytest
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.events import MouseDown, MouseMove, MouseUp
 from textual.widgets import Static
 
-from cyguide.ui.widgets.resizer import ResizeHandle
-from cyguide.ui.widgets.power import JobQueue
 from cyguide.schemas.power import JobStatus, JobStatusEnum
+from cyguide.ui.widgets.power import JobQueue
+from cyguide.ui.widgets.resizer import ResizeHandle
 
 
 class ResizerTestApp(App):
@@ -209,12 +209,14 @@ async def test_power_mode_screen_composition():
 @pytest.mark.asyncio
 async def test_power_mode_running_job_tab_restoration():
     import uuid
-    from cyguide.ui.screens.power import PowerModeScreen
+    from unittest.mock import MagicMock
+
+    from textual.widgets import RichLog, TabbedContent
+
     from cyguide.engine.power_facade import PowerWorkspaceFacade
     from cyguide.engine.store import GraphStore
     from cyguide.schemas.power import ActionRequest, ActionSource
-    from unittest.mock import MagicMock
-    from textual.widgets import TabbedContent, RichLog
+    from cyguide.ui.screens.power import PowerModeScreen
 
     store = GraphStore(":memory:")
     await store.initialize()

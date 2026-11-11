@@ -1,8 +1,9 @@
 """DNS and Domain related schemas."""
 
-from typing import Optional, List, ClassVar
-from cyguide.schemas.base import BaseFinding, Relation
+from typing import ClassVar, List, Optional
+
 from cyguide.engine.canonicalize import canonicalize_host
+from cyguide.schemas.base import BaseFinding, Relation
 
 
 class DnsRecord(BaseFinding):

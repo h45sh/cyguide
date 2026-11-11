@@ -1,26 +1,36 @@
 """The main Power Mode screen for advanced investigation."""
 
-from typing import Optional, Dict, Any, Callable
-from uuid import UUID
-from datetime import datetime
 import asyncio
-from textual import events
-from textual.app import ComposeResult
-from textual.screen import Screen, ModalScreen
-from textual.widgets import TabbedContent, TabPane, RichLog, Input, Label, Static, TextArea, Markdown, Button
-from textual.containers import Vertical, Horizontal
-from textual.binding import Binding
-from textual.css.query import NoMatches
-
-from cyguide.ui.widgets.power import EntityBrowser, JobQueue, CommandPalette
-from cyguide.ui.widgets.resizer import ResizeHandle
-from cyguide.schemas.power import ActionRequest, JobStatusEnum, ActionSource, JobStatus
-from rich.text import Text
-from rich.markup import escape
-from cyguide.paths import get_default_exports_dir, get_default_reports_dir
 import os
 import re
+from datetime import datetime
+from typing import Any, Callable, Dict, Optional
+from uuid import UUID
 
+from rich.markup import escape
+from rich.text import Text
+from textual import events
+from textual.app import ComposeResult
+from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
+from textual.css.query import NoMatches
+from textual.screen import ModalScreen, Screen
+from textual.widgets import (
+    Button,
+    Input,
+    Label,
+    Markdown,
+    RichLog,
+    Static,
+    TabbedContent,
+    TabPane,
+    TextArea,
+)
+
+from cyguide.paths import get_default_exports_dir, get_default_reports_dir
+from cyguide.schemas.power import ActionRequest, ActionSource, JobStatus, JobStatusEnum
+from cyguide.ui.widgets.power import CommandPalette, EntityBrowser, JobQueue
+from cyguide.ui.widgets.resizer import ResizeHandle
 
 SHORTCUTS_MD = """
 # CyGuide Keyboard Shortcuts & Hotkeys
@@ -343,6 +353,7 @@ class PowerModeScreen(Screen):
         events = await self.app.power_facade.get_session_events(self.active_session_id)
 
         import json
+
         from rich.text import Text
 
         for event in events:
@@ -728,8 +739,8 @@ class PowerModeScreen(Screen):
             from cyguide.engine.executor import sanitize_subprocess_env
             clean_env = sanitize_subprocess_env(self.app.user_env)
             with self.app.suspend():
-                import subprocess
                 import shlex
+                import subprocess
                 cmd_args = ["sudo"] + shlex.split(' '.join(expanded_params))
                 subprocess.run(cmd_args, shell=False, env=clean_env)
 

@@ -1,8 +1,9 @@
 """Web-related finding schemas."""
 
-from typing import Optional, ClassVar
+from typing import ClassVar, Optional
+
+from cyguide.engine.canonicalize import canonicalize_host, canonicalize_port, canonicalize_url
 from cyguide.schemas.base import BaseFinding, Relation
-from cyguide.engine.canonicalize import canonicalize_url, canonicalize_host, canonicalize_port
 
 
 class WebEndpoint(BaseFinding):

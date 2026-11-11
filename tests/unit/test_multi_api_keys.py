@@ -1,8 +1,9 @@
 """Unit tests for Multi-API key management, automatic fallback, and key switching."""
 
 import json
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from textual.widgets import Button, Input, Switch
 
 from cyguide.app import CyGuideApp
@@ -11,7 +12,7 @@ from cyguide.engine.explainer import (
     MultiKeyCloudBackend,
     OllamaBackend,
 )
-from cyguide.ui.screens.config_modal import ConfigModal, CloudAPIConfigProvider
+from cyguide.ui.screens.config_modal import CloudAPIConfigProvider, ConfigModal
 
 
 def test_cloud_key_profile_dataclass_and_cooldown():

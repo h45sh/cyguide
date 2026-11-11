@@ -3,19 +3,18 @@
 import asyncio
 import json
 import os
+from datetime import UTC, datetime
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional
 from uuid import UUID
-from datetime import datetime, UTC
-from typing import Optional, Dict, List, Any, Callable, AsyncIterator, Coroutine
-from cyguide.schemas.power import (
-    ActionRequest, WorkspaceContext, JobStatus, JobStatusEnum
-)
-from cyguide.schemas.base import BaseFinding
-from cyguide.engine.store import GraphStore
+
+from cyguide.engine.adapter import ToolAdapter
 from cyguide.engine.executor import Executor, sanitize_subprocess_env
 from cyguide.engine.gateway import ActionGateway
-from cyguide.engine.registry import ToolRegistry
-from cyguide.engine.adapter import ToolAdapter
 from cyguide.engine.network import get_lhost_info
+from cyguide.engine.registry import ToolRegistry
+from cyguide.engine.store import GraphStore
+from cyguide.schemas.base import BaseFinding
+from cyguide.schemas.power import ActionRequest, JobStatus, JobStatusEnum, WorkspaceContext
 
 
 class ShellAdapter(ToolAdapter):
@@ -350,7 +349,7 @@ class PowerWorkspaceFacade:
         err_msg = None
         try:
             findings_count = 0
-            async for finding in self.executor.run_tool(
+            async for _finding in self.executor.run_tool(
                 adapter=adapter,
                 target=target,
                 params=action.params,

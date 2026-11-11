@@ -1,10 +1,12 @@
-import pytest
 import asyncio
 import os
 import stat
 from unittest.mock import patch
-from cyguide.engine.store import GraphStore
+
+import pytest
+
 from cyguide.engine.executor import Executor
+from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost
 from tools.nmap.adapter import NmapAdapter
 

@@ -1,17 +1,19 @@
 """Configuration modal dialog and Command Palette providers for CyGuide."""
 
-import os
 import asyncio
+import os
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 import httpx
-from typing import Optional, List, Tuple, Callable, Dict, Any
 from textual import events, work
 from textual.app import ComposeResult
+from textual.command import DiscoveryHit, Hit, Hits, Provider
+from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.command import Provider, Hit, Hits, DiscoveryHit
-from textual.widgets import Label, Button, Input, Switch, TabbedContent, TabPane, Tab, Tabs, Select
-from textual.containers import Vertical, Horizontal
-from cyguide.paths import get_default_db_path, get_default_exports_dir, get_default_reports_dir
+from textual.widgets import Button, Input, Label, Select, Switch, Tab, TabbedContent, TabPane, Tabs
+
 from cyguide.engine.explainer import is_placeholder_key
+from cyguide.paths import get_default_db_path, get_default_exports_dir, get_default_reports_dir
 
 PROVIDER_PRESETS: Dict[str, Dict[str, str]] = {
     "openai": {
@@ -1100,8 +1102,9 @@ class ConfigModal(ModalScreen[None]):
             return False, f"Cannot read tools directory: {e}"
 
     async def _test_cloud_api(self, api_key: str, api_type: str, api_model: str, api_base: str) -> Tuple[bool, str]:
-        import httpx
         import time
+
+        import httpx
         clean_key = api_key.strip().strip("'\"")
         api_type_clean = (api_type or "openai").lower().strip()
         base_url = (api_base or ("https://api.anthropic.com/v1" if api_type_clean == "anthropic" else "https://api.openai.com/v1")).strip().rstrip("/")

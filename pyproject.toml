@@ -34,6 +34,7 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "ruff>=0.4.0",
     "pre-commit>=3.7.0",
+    "pip-audit>=2.7.0",
 ]
 
 [project.urls]
@@ -64,10 +65,19 @@ line-length = 100
 
 [tool.ruff.lint]
 select = [
-    "E9",   # Runtime syntax errors
-    "F63",  # Assertions and test syntax
-    "F7",   # Fatal syntax errors
-    "F82",  # Undefined names and variable lookup failures
+    "E9",    # Runtime syntax errors
+    "F63",   # Assertions and test syntax
+    "F7",    # Fatal syntax errors
+    "F82",   # Undefined names and variable lookup failures
+    "F401",  # Unused imports
+    "I",     # isort (clean import order)
+    "ASYNC", # flake8-async (concurrency & async pitfalls)
+    "B",     # flake8-bugbear (common design gotchas)
+]
+ignore = [
+    "ASYNC240", # os.path operations in async functions
+    "ASYNC230", # blocking open in async functions (temporary until v1.8.0 disk spooling)
+    "ASYNC221", # subprocess.run in async functions (temporary until v1.8.0/v1.9.0 PTY)
 ]
 
 [tool.ruff.lint.isort]

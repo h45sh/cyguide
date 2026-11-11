@@ -1,9 +1,11 @@
 import html
 import json
 import re
-from datetime import datetime, UTC
-from typing import Dict, Any, List
+from datetime import UTC, datetime
+from typing import Any, Dict, List
+
 from cyguide.engine.store import GraphStore
+
 
 def build_markdown_table_for_type(schema_type: str, nodes: List[Dict[str, Any]]) -> List[str]:
     """Dynamically construct a clean Markdown table with columns for all unique keys present in the nodes."""

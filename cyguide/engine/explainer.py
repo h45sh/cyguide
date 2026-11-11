@@ -2,8 +2,9 @@
 
 import abc
 import json
+from typing import Any, AsyncIterator, Dict, List, Optional
+
 import httpx
-from typing import AsyncIterator, List, Optional, Dict, Any
 
 
 class ExplainerBackend(abc.ABC):
@@ -58,8 +59,10 @@ class OllamaBackend(ExplainerBackend):
             yield f"[Error: Ollama connection failed ({e}). Please ensure Ollama is running (`ollama serve`).]\n"
 
 
-from dataclasses import dataclass
 import time
+from dataclasses import dataclass
+
+
 def is_placeholder_key(key: Optional[str]) -> bool:
     """Check if an API key is empty or a common placeholder/documentation string."""
     if not key:

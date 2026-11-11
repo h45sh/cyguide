@@ -1,6 +1,14 @@
-import pytest
 import json
-from cyguide.engine.diagnostics import run_diagnostics, format_terminal_report, DiagnosticReport, DiagnosticCheck
+
+import pytest
+
+from cyguide.engine.diagnostics import (
+    DiagnosticCheck,
+    DiagnosticReport,
+    format_terminal_report,
+    run_diagnostics,
+)
+
 
 @pytest.mark.asyncio
 async def test_run_diagnostics_healthy():
@@ -70,10 +78,12 @@ def test_missing_tool_installation_hint():
     assert "Tool: nmap" in output
 
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
+
 from cyguide.app import CyGuideApp, ToolHealthChanged
 from cyguide.engine.registry import ToolRegistry
 from cyguide.ui.screens.home import DashboardScreen
+
 
 def test_app_check_and_update_tool_health_broadcasting():
     """Verify check_and_update_tool_health updates cache and emits ToolHealthChanged."""

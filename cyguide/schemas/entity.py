@@ -1,7 +1,9 @@
 """Entity aliasing and linkage schemas."""
 
 from typing import ClassVar
+
 from cyguide.schemas.base import BaseFinding
+
 
 class EntityAlias(BaseFinding):
     """Links two identifiers that represent the same entity (e.g. hostname to IP). Produced by resolvers."""

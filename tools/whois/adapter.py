@@ -1,13 +1,14 @@
 """Whois tool adapter."""
 
-import shutil
 import re
-from typing import AsyncIterator, List, Dict, Any, Optional
+import shutil
+from typing import Any, AsyncIterator, Dict, List, Optional
+
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.dns import DomainInfo
-from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.netblock import NetworkNetblock
+from cyguide.schemas.network import NetworkHost
 
 
 class WhoisAdapter(ToolAdapter):

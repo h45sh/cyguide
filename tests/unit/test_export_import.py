@@ -1,11 +1,14 @@
-import os
-import pytest
 import json
+import os
 from uuid import uuid4
-from cyguide.engine.store import GraphStore
+
+import pytest
+
 from cyguide.engine.reporter import generate_markdown_report
+from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.power import ActionRequest, ActionSource
+
 
 @pytest.mark.asyncio
 async def test_report_generation(tmp_path):

@@ -1,6 +1,9 @@
-import pytest
 from typing import AsyncIterator
-from cyguide.engine.explainer import LearningExplainer, ExplainerBackend
+
+import pytest
+
+from cyguide.engine.explainer import ExplainerBackend, LearningExplainer
+
 
 class DummyBackend(ExplainerBackend):
     async def explain(self, prompt: str) -> AsyncIterator[str]:

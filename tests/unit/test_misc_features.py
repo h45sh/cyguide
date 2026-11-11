@@ -1,14 +1,15 @@
 """Unit tests for miscellaneous Power Mode features: LHOST detection, tab copying, flag detection, and notifications."""
 
 import re
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from uuid import uuid4
+
 from cyguide.engine.network import get_lhost_info
 from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.store import GraphStore
-from cyguide.ui.widgets.power import CommandPalette
 from cyguide.ui.screens.power import PowerModeScreen
+from cyguide.ui.widgets.power import CommandPalette
 
 
 def test_get_lhost_info_vpn_priority():

@@ -1,12 +1,13 @@
-from cyguide.schemas.network import NetworkHost, NetworkService
-from cyguide.schemas.netblock import NetworkNetblock
-from cyguide.schemas.dns import DnsRecord, DomainInfo
 from cyguide.schemas.credential import CredentialFound
+from cyguide.schemas.dns import DnsRecord, DomainInfo
 from cyguide.schemas.entity import EntityAlias
-from cyguide.schemas.host_internal import ProcessRunning, FileSystemObject, SoftwarePackage
+from cyguide.schemas.host_internal import FileSystemObject, ProcessRunning, SoftwarePackage
+from cyguide.schemas.netblock import NetworkNetblock
+from cyguide.schemas.network import NetworkHost, NetworkService
 from cyguide.schemas.tls import TLSCertificate
 from cyguide.schemas.vulnerability import VulnerabilityFound
 from cyguide.schemas.web import WebEndpoint, WebResource, WebVulnerability
+
 
 def test_network_host():
     host = NetworkHost.create(ip="192.168.1.1", hostname="TEST-HOST")
