@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0](https://github.com/h45sh/cyguide/compare/v1.7.0...v1.8.0) (2026-11-11)
+
+
+### Features
+
+* add demo mode dummy IP support and enrich documentation showcase ([1d45844](https://github.com/h45sh/cyguide/commit/1d458442d796f051f872ff41930e75dfb2ac7ea8))
+* **docs:** embed terminal demo video and revert recording dummy IP logic ([a61d0d3](https://github.com/h45sh/cyguide/commit/a61d0d3674f81dd10eef88977e20f5f80ecf3d00))
+
+
+### Bug Fixes
+
+* **ci:** upgrade setuptools to resolve runner vulnerability in pip audit ([b7fa94c](https://github.com/h45sh/cyguide/commit/b7fa94cb1db0e1a99e27cbbdd91c683c263082d2))
+* **ui:** protect against Textual NoneType region crash and throttle Markdown updates ([2124980](https://github.com/h45sh/cyguide/commit/212498067e11f7d9de3f71426e39b98ac5643ee5))
+* **ui:** stabilize Textual updates and automate releases ([3b002be](https://github.com/h45sh/cyguide/commit/3b002becdf0539356b6dec17e54b04a305f4e4ab))
+
+
+### Documentation
+
+* add official project webpage to README ([c964f65](https://github.com/h45sh/cyguide/commit/c964f651dd120eab8d58beb5e6c5ab7c3637af20))
+* add official project webpage to README ([aea0f49](https://github.com/h45sh/cyguide/commit/aea0f491fe34985e2394dc4c512c6257521e9484))
+* add recommendation cleanup to roadmap ([4ce4840](https://github.com/h45sh/cyguide/commit/4ce4840ce4934efd1525e824155a09515a06c035))
+* formalize v1.8.0 through v2.0.0 progression ([701a97e](https://github.com/h45sh/cyguide/commit/701a97ea996b79bc2ea6b9f281d7f010df6c4eb9))
+* formalize v1.8.0 through v2.0.0 progression and platform specification ([5418587](https://github.com/h45sh/cyguide/commit/5418587a28237c85212a27e05810ccb40272f7ee))
+* integrate authentic UI screenshots and set Power Mode as hero preview ([e0b0cad](https://github.com/h45sh/cyguide/commit/e0b0cad2716bc0f7d1a6bc11ff3fac3d234e78e8))
+* **security:** update contact email and supported versions ([5129090](https://github.com/h45sh/cyguide/commit/5129090b2378787da701bbc1005dc530dff4b7d5))
+* showcase visual workstation interface, embed demo video, and enrich user manual ([68f8fd2](https://github.com/h45sh/cyguide/commit/68f8fd2750d8eab3f66bef401c6e4d8f987ded85))
+* **ui:** document technical debt and upstream decommissioning criteria for Textual compat ([b9a5eb4](https://github.com/h45sh/cyguide/commit/b9a5eb42010ba01d0a0e9724b9bc7542913f28a3))
+
 ## [1.7.0] - 2026-11-08
 
 ### Power Mode & Concurrency
