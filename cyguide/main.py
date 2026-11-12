@@ -1,69 +1,174 @@
 """Entry point script for CyGuide."""
 
 import argparse
+import os
 import sys
 
 from dotenv import load_dotenv
 
 from cyguide import __version__
+from cyguide.cli_format import RichArgumentParser
 from cyguide.paths import get_default_data_dir, get_default_db_path
 
 
 def main():
     load_dotenv()
-    parser = argparse.ArgumentParser(
-        description="CyGuide: TUI-based guided cybersecurity learning platform."
-    )
-    parser.add_argument("--version", "-V", action="version", version=f"CyGuide {__version__}")
-    parser.add_argument(
+
+    # Common options inherited across root and subcommands so ordering is flexible:
+    # e.g. `cyg --db custom.db check` and `cyg check --db custom.db` both work!
+    common_options = argparse.ArgumentParser(add_help=False)
+    common_options.add_argument(
         "--data-dir",
-        default=None,
+        metavar="PATH",
+        default=argparse.SUPPRESS,
         help="Path to the CyGuide unified data directory (default: ~/.cyguide or $CYGUIDE_DATA_DIR)",
     )
+    common_options.add_argument(
+        "--db",
+        metavar="PATH",
+        default=argparse.SUPPRESS,
+        help="Path to the SQLite database (default: ~/.cyguide/cyguide.db)",
+    )
+    common_options.add_argument(
+        "--tools",
+        metavar="DIR",
+        default=argparse.SUPPRESS,
+        help="Path to the tools directory (default: bundled tools/)",
+    )
+
+    parser = RichArgumentParser(
+        prog="cyg",
+        description="CyGuide: TUI-based guided cybersecurity learning & operations platform.\n"
+        "[dim]Run without commands to launch the interactive TUI workbench.[/dim]",
+        parents=[common_options],
+    )
     parser.add_argument(
-        "--db", default=None, help="Path to the SQLite database (default: ~/.cyguide/cyguide.db)"
+        "-V",
+        "--version",
+        action="version",
+        version=f"CyGuide {__version__}",
+        help="Show program's version number and exit.",
     )
     parser.add_argument(
         "--ollama", action="store_true", help="Enable local LLM explanations via Ollama"
     )
-    parser.add_argument("--model", default="gemma", help="Ollama model to use (default: gemma)")
     parser.add_argument(
-        "--tools", default=None, help="Path to the tools directory (default: bundled tools/)"
+        "--ollama-model",
+        dest="ollama_model",
+        metavar="MODEL",
+        default="gemma",
+        help="Ollama model to use (default: gemma)",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model_alias",
+        metavar="MODEL",
+        default=None,
+        help="(Alias for --ollama-model)",
+    )
+    parser.add_argument(
+        "--no-ai",
+        "--offline",
+        dest="no_ai",
+        action="store_true",
+        help="Disable all LLM explanations and AI features",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="Enable verbose debug logging to stderr",
     )
 
-    subparsers = parser.add_subparsers(dest="subcommand", help="Subcommands (optional)")
+    subparsers = parser.add_subparsers(
+        dest="subcommand",
+        parser_class=RichArgumentParser,
+    )
 
     # export subcommand
-    export_parser = subparsers.add_parser("export", help="Export a session's findings/logs")
-    export_parser.add_argument("session_id", help="UUID of the session to export")
-    export_parser.add_argument("output_path", help="Path to save the portable SQLite .db file")
-    export_parser.add_argument("--report", help="Path to save the structured Markdown report")
+    export_parser = subparsers.add_parser(
+        "export",
+        parents=[common_options],
+        help="Export a session's finding graph (.db) and/or Markdown report",
+    )
+    export_parser.add_argument(
+        "session_id", metavar="SESSION_ID", help="UUID of the session to export"
+    )
+    export_parser.add_argument(
+        "output_path",
+        metavar="OUTPUT_FILE",
+        nargs="?",
+        default=None,
+        help="Path to save the portable SQLite .db file (optional if --report is provided, default: ./<SESSION_ID>.db)",
+    )
+    export_parser.add_argument(
+        "-o",
+        "--output",
+        dest="output_opt",
+        metavar="OUTPUT_FILE",
+        default=None,
+        help="Alternative flag to specify output database path",
+    )
+    export_parser.add_argument(
+        "-r",
+        "--report",
+        metavar="REPORT_FILE",
+        help="Path to save the structured Markdown report",
+    )
 
     # import subcommand
     import_parser = subparsers.add_parser(
-        "import", help="Import a portable session SQLite .db file"
+        "import",
+        parents=[common_options],
+        help="Import a portable session SQLite .db file into a workspace",
     )
-    import_parser.add_argument("input_path", help="Path to the portable SQLite .db file")
     import_parser.add_argument(
-        "--workspace-id", help="ID of the workspace to import the session into (optional)"
+        "input_path",
+        metavar="INPUT_FILE",
+        help="Path to the portable session SQLite .db file",
+    )
+    import_parser.add_argument(
+        "-w",
+        "--workspace-id",
+        dest="workspace_id",
+        metavar="ID",
+        help="ID of the workspace to import the session into (optional)",
     )
 
     # check subcommand
     check_parser = subparsers.add_parser(
-        "check", help="Verify environment dependencies, database health, and tool installations"
+        "check",
+        parents=[common_options],
+        help="Verify environment dependencies, database health, and tool installations",
     )
     check_parser.add_argument(
-        "--json", action="store_true", help="Output diagnostics in JSON format"
+        "-j",
+        "--json",
+        action="store_true",
+        help="Output diagnostics in JSON format",
     )
 
     args = parser.parse_args()
 
-    data_dir = args.data_dir or get_default_data_dir()
-    db_path = args.db or get_default_db_path(data_dir)
+    data_dir_arg = getattr(args, "data_dir", None)
+    db_arg = getattr(args, "db", None)
+    tools_arg = getattr(args, "tools", None)
+
+    data_dir = data_dir_arg or get_default_data_dir()
+    db_path = db_arg or get_default_db_path(data_dir)
+
+    selected_model = args.model_alias or getattr(args, "ollama_model", "gemma")
+
+    if getattr(args, "no_ai", False):
+        os.environ["CYGUIDE_OFFLINE"] = "1"
+        os.environ["CYGUIDE_NO_AI"] = "1"
+        use_ollama = False
+    else:
+        use_ollama = getattr(args, "ollama", False)
 
     if args.subcommand == "export":
         import asyncio
-        import os
 
         from cyguide.engine.reporter import generate_markdown_report
         from cyguide.engine.store import GraphStore
@@ -73,22 +178,28 @@ def main():
             await store.initialize()
             exit_code = 0
 
-            # Export DB
-            print(f"[*] Exporting session {args.session_id} to database {args.output_path}...")
-            out_dir = os.path.dirname(os.path.abspath(args.output_path))
-            if out_dir:
-                os.makedirs(out_dir, exist_ok=True)
-            try:
-                await store.export_session(args.session_id, args.output_path)
-                if os.path.exists(args.output_path):
-                    try:
-                        os.chmod(args.output_path, 0o600)
-                    except OSError:
-                        pass
-                print(f"[+] Session database exported successfully to {args.output_path}")
-            except Exception as e:
-                print(f"[!] Database export failed: {e!s}")
-                exit_code = 1
+            # Determine export target DB
+            output_db = args.output_path or getattr(args, "output_opt", None)
+            if not output_db and not args.report:
+                output_db = f"{args.session_id}.db"
+
+            # Export DB if requested or defaulted
+            if output_db:
+                print(f"[*] Exporting session {args.session_id} to database {output_db}...")
+                out_dir = os.path.dirname(os.path.abspath(output_db))
+                if out_dir:
+                    os.makedirs(out_dir, exist_ok=True)
+                try:
+                    await store.export_session(args.session_id, output_db)
+                    if os.path.exists(output_db):
+                        try:
+                            os.chmod(output_db, 0o600)
+                        except OSError:
+                            pass
+                    print(f"[+] Session database exported successfully to {output_db}")
+                except Exception as e:
+                    print(f"[!] Database export failed: {e!s}")
+                    exit_code = 1
 
             # Export Report if requested
             if args.report:
@@ -124,13 +235,17 @@ def main():
         from cyguide.engine.store import GraphStore
 
         async def run_import() -> int:
+            if not os.path.exists(args.input_path):
+                print(f"[!] Import failed: File not found: {args.input_path}")
+                return 1
+
             store = GraphStore(db_path)
             await store.initialize()
             print(f"[*] Importing session from {args.input_path}...")
             exit_code = 0
             try:
                 new_sess_id = await store.import_session(
-                    args.input_path, target_workspace_id=args.workspace_id
+                    args.input_path, target_workspace_id=getattr(args, "workspace_id", None)
                 )
                 print("[+] Session imported successfully!")
                 print(f"[+] New Session ID: {new_sess_id}")
@@ -149,7 +264,7 @@ def main():
         from cyguide.engine.diagnostics import format_terminal_report, run_diagnostics
 
         async def run_check():
-            report = await run_diagnostics(db_path=db_path, tools_dir=args.tools)
+            report = await run_diagnostics(db_path=db_path, tools_dir=tools_arg)
             if getattr(args, "json", False):
                 print(json.dumps(report.to_dict(), indent=2))
             else:
@@ -164,16 +279,15 @@ def main():
     setup_textual_compat()
 
     app = CyGuideApp(
-        db_path=args.db,
-        data_dir=args.data_dir,
-        use_ollama=args.ollama,
-        ollama_model=args.model,
-        tools_dir=args.tools,
+        db_path=db_arg,
+        data_dir=data_dir_arg,
+        use_ollama=use_ollama,
+        ollama_model=selected_model,
+        tools_dir=tools_arg,
     )
     try:
         app.run()
     except KeyboardInterrupt:
-        # i case the user hits Ctrl+C at the exact moment of shutdown.
         print("\n[!] CyGuide terminated by user.")
 
 

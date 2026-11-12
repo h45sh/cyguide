@@ -139,3 +139,54 @@ async def test_cli_version_flag():
     output = await asyncio.to_thread(_run_cli_in_thread, test_args)
     assert f"CyGuide {__version__}" in output
 
+
+@pytest.mark.asyncio
+async def test_cli_rich_help_output():
+    """Integration test: Running `cyg --help` renders Rich panels and usage."""
+    test_args = ["cyg", "--help"]
+    output = await asyncio.to_thread(_run_cli_in_thread, test_args)
+
+    assert "Usage: cyg [OPTIONS] [COMMAND]" in output
+    assert "Options" in output
+    assert "Commands" in output
+    assert "--ollama-model" in output
+    assert "--offline" in output
+
+
+@pytest.mark.asyncio
+async def test_cli_subcommand_flag_after_subcommand(tmp_path):
+    """Integration test: Subcommand inherits global options placed AFTER subcommand."""
+    custom_db = str(tmp_path / "after_subcommand.db")
+    # Notice --db is placed AFTER check
+    test_args = ["cyg", "check", "--db", custom_db]
+    output = await asyncio.to_thread(_run_cli_in_thread, test_args)
+
+    assert "CYGUIDE SYSTEM & ENVIRONMENT DIAGNOSTICS" in output
+    assert os.path.exists(custom_db)
+
+
+@pytest.mark.asyncio
+async def test_cli_export_report_only(tmp_path):
+    """Integration test: `cyg export <session_id> --report <path>` works without output DB."""
+    src_db = tmp_path / "export_src.db"
+    store = GraphStore(str(src_db))
+    await store.initialize()
+    _ws_id, sess_id = await store.get_or_create_learning_sandbox()
+    host = NetworkHost.create(ip="10.10.10.20", hostname="report-target")
+    await store.upsert_finding(sess_id, host)
+    await store.close()
+
+    report_md = tmp_path / "report_only.md"
+    test_args = [
+        "cyg",
+        "--db", str(src_db),
+        "export",
+        str(sess_id),
+        "--report", str(report_md),
+    ]
+    output = await asyncio.to_thread(_run_cli_in_thread, test_args)
+
+    assert "[+] Markdown report exported successfully" in output
+    assert report_md.exists()
+
+
