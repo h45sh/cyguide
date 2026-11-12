@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0](https://github.com/h45sh/cyguide/compare/v1.8.0...v1.9.0) (2026-11-12)
+
+
+### Features
+
+* **cli:** enhance argument parser with rich boxed styling and flexible option ordering ([76a55f6](https://github.com/h45sh/cyguide/commit/76a55f6cada0f0cb122b8db1b6d373248b6aa469))
+
+
+### Documentation
+
+* record v1.8.0 release and shift future roadmap milestones ([251d8bd](https://github.com/h45sh/cyguide/commit/251d8bda8b2d8f0f013bd4f731a5e405adefc4ca))
+
 ## [1.8.0](https://github.com/h45sh/cyguide/compare/v1.7.0...v1.8.0) (2026-11-11)
 
 
