@@ -62,6 +62,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.8.0' }}
           files: dist/*
           generate_release_notes: true
         env:
