@@ -432,7 +432,7 @@ To maintain codebase stability for university evaluation and production deployme
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        TIER 1: FROZEN CORE                             │
 │   • cyguide/schemas/base.py       • cyguide/engine/store.py            │
-│   • cyguide/engine/canonicalize.py • cyguide/engine/registry.py        │
+│   • cyguide/common/canonicalize.py • cyguide/engine/registry.py       │
 │   • cyguide/paths.py                                                   │
 │   Governance: Core infrastructure. Changes require deep review and      │
 │   team agreement.                                                      │

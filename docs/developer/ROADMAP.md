@@ -72,7 +72,7 @@ This document is the **single authoritative source of truth** for all completed,
 - [x] **Web Vulnerability Scanner Adapter (`nikto`)**: Flaw profiling yielding `web.vulnerability` findings ([`tools/nikto/`](../../tools/nikto)).
 - [x] **Passive Subdomain Discovery Adapter (`subfinder`)**: Attack surface mapping yielding `dns.record` findings ([`tools/subfinder/`](../../tools/subfinder)).
 - [x] **OSINT & Domain Registration Adapter (`whois`)**: Netblock and registrar extraction yielding `network.netblock` and `domain.info` findings ([`tools/whois/`](../../tools/whois)).
-- [x] **Reactive Recommendation Engine**: Declarative suggestion rules proposing tools based on graph upsert events ([`cyguide/engine/recommendation.py`](../../cyguide/engine/recommendation.py)).
+- [x] **Reactive Recommendation Engine (Historical - Decommissioned in Phase 3.5)**: Declarative suggestion rules proposing tools based on graph upsert events (superseded by Phase 4 on-demand `TargetAdvisor`).
 
 ---
 

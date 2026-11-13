@@ -339,17 +339,17 @@ graph TD
     TLS["tls.certificate<br><b>Fingerprint: 7f8a...</b>"]:::confirmed
     DNS["dns.record<br><b>api.target.com -> 192.168.1.10</b>"]:::assoc
     WHOIS["domain.info<br><b>target.com (Registrar: MarkMonitor)</b>"]:::assoc
-    REC["web.endpoint (proposed)<br><b>gobuster /admin</b>"]:::proposed
+    EP2["web.endpoint<br><b>/admin</b>"]:::confirmed
 
     NB -->|contains| H
     H -->|parent| S80
     H -->|parent| S22
     S80 -->|parent| EP
+    S80 -->|parent| EP2
     EP -->|parent| VULN
     S80 -->|has_cert| TLS
     DNS -.->|resolves_to| H
     WHOIS -.->|whois_data_for| DNS
-    S80 -.->|recommendation| REC
 ```
 
 ### 6.2. Auto-Wiring Mechanics in `GraphStore.upsert_finding()`
@@ -397,18 +397,12 @@ sequenceDiagram
     participant Store as GraphStore
     participant DB as SQLite Engine
     participant UI as Textual TUI
-    participant RecEngine as RecommendationEngine
 
     Adapter->>Store: upsert_finding(session_id, finding)
     Store->>Store: Calculate Node ID (SHA-256)
 
-    rect rgb(28, 35, 45)
-        Note over Store,DB: Step 1: Append Audit Record
-        Store->>DB: INSERT INTO event_log (...)
-    end
-
     rect rgb(30, 45, 35)
-        Note over Store,DB: Step 2: Idempotent Node Upsert
+        Note over Store,DB: Step 1: Idempotent Node Upsert
         Store->>DB: SELECT data_json FROM nodes WHERE session_id=? AND id=?
         alt Node Exists
             Store->>DB: UPDATE nodes SET data_json=merged_json, updated_at=CURRENT_TIMESTAMP
@@ -418,16 +412,15 @@ sequenceDiagram
     end
 
     rect rgb(45, 30, 45)
-        Note over Store,DB: Step 3: Wire Parent & Association Edges
+        Note over Store,DB: Step 2: Wire Parent & Association Edges
         Store->>DB: INSERT OR IGNORE INTO nodes (Parent/Assoc Stubs)
         Store->>DB: INSERT OR IGNORE INTO edges (session_id, source, target, relation_type)
         Store->>DB: COMMIT Transaction
     end
 
     rect rgb(45, 45, 30)
-        Note over Store,RecEngine: Step 4: Reactive Event Callbacks
+        Note over Store,UI: Step 3: Reactive Event Callback
         Store-)UI: Fire on_upsert callback -> Live Re-render
-        Store-)RecEngine: Fire on_upsert callback -> Generate Suggestions (status='proposed')
     end
 ```
 
@@ -521,9 +514,9 @@ WHERE session_id = :session_id
 ORDER BY timestamp ASC;
 ```
 
-### 9.4. Fetching Pending AI Recommendations
+### 9.4. Querying Proposed Findings (Autonomous Agent / TargetAdvisor)
 ```sql
--- Extract all proposed suggestions waiting for operator approval
+-- Extract proposed findings awaiting operator approval (reserved for Phase 4 TargetAdvisor)
 SELECT
     id,
     schema_type,

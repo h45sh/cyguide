@@ -153,7 +153,7 @@ To protect system determinism and database stability, CyGuide follows a three-ti
 > These files define core engine contracts. Breaking changes here can silently corrupt the entity graph or break all registered adapters. Modifications require full test validation and consensus.
 * `cyguide/schemas/base.py`: The `BaseFinding` and `Relation` models.
 * `cyguide/engine/store.py`: Upsert logic, PIK SHA-256 calculation, and database schemas.
-* `cyguide/engine/canonicalize.py`: Value normalization rules.
+* `cyguide/common/canonicalize.py`: Value and schema normalization rules.
 * `cyguide/engine/registry.py`: Dynamic tool discovery and manifest loader.
 * `cyguide/paths.py`: Centralized application data path resolution.
 
