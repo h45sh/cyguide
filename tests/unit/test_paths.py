@@ -86,9 +86,11 @@ def test_app_custom_db_path_scopes_subpaths(tmp_path):
     assert app.get_reports_dir() == str(custom_dir / "reports")
 
 
-def test_app_memory_db_handling():
-    """Verify :memory: database handles paths gracefully."""
-    app = CyGuideApp(db_path=":memory:")
+def test_app_memory_db_handling(tmp_path):
+    """Verify :memory: database handles paths gracefully and scopes to data_dir."""
+    app = CyGuideApp(db_path=":memory:", data_dir=str(tmp_path))
     assert app.db_path == ":memory:"
     assert app.get_scratchpad_path() == ":memory:"
     assert app._get_settings_path() is None
+    assert app.get_exports_dir() == str(tmp_path / "exports")
+    assert app.get_reports_dir() == str(tmp_path / "reports")

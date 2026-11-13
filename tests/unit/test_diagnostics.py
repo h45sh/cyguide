@@ -277,3 +277,15 @@ async def test_tool_health_modal_realtime_apply_health():
         "● All 2 registered tools are operational and available."
     )
     assert items_list.append.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_diagnostic_engine_direct():
+    from cyguide.engine.diagnostics import DiagnosticEngine
+
+    engine = DiagnosticEngine(db_path=":memory:")
+    report = await engine.run()
+    assert report.healthy is True
+    assert "System" in {c.category for c in report.checks}
+    text = DiagnosticEngine.format_terminal_report(report)
+    assert "STATUS: HEALTHY" in text

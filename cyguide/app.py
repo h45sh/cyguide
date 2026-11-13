@@ -385,6 +385,8 @@ class CyGuideApp(App):
         if getattr(self, "exports_dir", None):
             os.makedirs(self.exports_dir, mode=0o700, exist_ok=True)
             return self.exports_dir
+        if getattr(self, "db_path", None) == ":memory:":
+            return get_default_exports_dir(getattr(self, "data_dir", None))
         if hasattr(self, "data_dir") and self.data_dir:
             default_db = get_default_db_path(self.data_dir)
             if os.path.abspath(self.db_path) == os.path.abspath(default_db):
@@ -399,6 +401,8 @@ class CyGuideApp(App):
         if getattr(self, "reports_dir", None):
             os.makedirs(self.reports_dir, mode=0o700, exist_ok=True)
             return self.reports_dir
+        if getattr(self, "db_path", None) == ":memory:":
+            return get_default_reports_dir(getattr(self, "data_dir", None))
         if hasattr(self, "data_dir") and self.data_dir:
             default_db = get_default_db_path(self.data_dir)
             if os.path.abspath(self.db_path) == os.path.abspath(default_db):

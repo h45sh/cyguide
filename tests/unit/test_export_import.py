@@ -171,3 +171,34 @@ async def test_export_import_session(tmp_path):
     assert "Target Session (Imported 1)" in session_names
 
     await dest_store.close()
+
+
+@pytest.mark.asyncio
+async def test_session_report_service(tmp_path):
+    from cyguide.engine.reporter import SessionReportService
+
+    db_file = str(tmp_path / "test_report_service.db")
+    store = GraphStore(db_file)
+    await store.initialize()
+
+    ws_id = await store.create_workspace("Report WS")
+    sess_id = await store.create_session(ws_id, "Report Session")
+
+    host = NetworkHost.create(ip="10.20.30.40")
+    await store.upsert_finding(sess_id, host)
+
+    service = SessionReportService(store)
+    data = await service.fetch_report_data(sess_id)
+    assert data["session"]["id"] == sess_id
+    assert data["workspace_name"] == "Report WS"
+
+    md = await service.generate_markdown_report(sess_id)
+    assert "# CyGuide Investigation Report: Report Session" in md
+    assert "10.20.30.40" in md
+
+    out_file = str(tmp_path / "report.md")
+    await service.export_markdown_report(sess_id, out_file)
+    assert os.path.exists(out_file)
+    with open(out_file, "r") as f:
+        assert f.read() == md
+    await store.close()

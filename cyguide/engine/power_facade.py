@@ -1,12 +1,12 @@
 """Coordination layer for Power Mode investigation sessions."""
 
 import asyncio
-import json
 import os
 from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional
 from uuid import UUID
 
 from cyguide.engine.adapter import ToolAdapter
+from cyguide.engine.context_builder import WorkspaceContextBuilder
 from cyguide.engine.execution_session import (
     CommandRunner,
     ExecutionEvent,
@@ -23,6 +23,8 @@ from cyguide.engine.workspace_repository import WorkspaceRepository
 from cyguide.paths import get_action_log_path
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.power import ActionRequest, JobStatus, JobStatusEnum, WorkspaceContext
+
+__all__ = ["PowerWorkspaceFacade", "ShellAdapter", "get_lhost_info"]
 
 
 class ShellAdapter(ToolAdapter):
@@ -73,6 +75,7 @@ class PowerWorkspaceFacade:
             user_shell=getattr(self, "user_shell", "/bin/bash"),
         )
         self.workspaces = WorkspaceRepository(self._store, self.execution)
+        self.context_builder = WorkspaceContextBuilder(self._store, self.execution)
 
         # Global status change listeners
         self._job_change_listeners: List[Callable] = []
@@ -94,6 +97,8 @@ class PowerWorkspaceFacade:
             self.execution.store = new_store
         if hasattr(self, "gateway"):
             self.gateway.store = new_store
+        if hasattr(self, "context_builder"):
+            self.context_builder.store = new_store
 
     @property
     def _active_jobs(self) -> Dict[UUID, JobStatus]:
@@ -287,63 +292,7 @@ class PowerWorkspaceFacade:
         self, session_id: str, selected_entity_id: Optional[str] = None
     ) -> WorkspaceContext:
         """Build a point-in-time snapshot of the workspace context."""
-        session_data = await self.store.get_session(session_id)
-        if not session_data:
-            raise ValueError(f"Session {session_id} not found.")
-
-        # 1. Resolve selected entity and variables
-        selected_entity = None
-        resolved_vars = {}
-        if selected_entity_id:
-            node_data = await self.store.get_node(session_id, selected_entity_id)
-            if node_data:
-                pik = json.loads(node_data["pik_json"])
-                selected_entity = BaseFinding(
-                    schema_type=node_data["schema_type"],
-                    pik=pik,
-                    data=json.loads(node_data["data_json"]),
-                    status=node_data.get("status", "confirmed"),
-                )
-
-                # Context Resolution Logic
-                resolved_vars["TARGET"] = pik.get("ip") or pik.get("domain") or pik.get("host_ip")
-                if "port" in pik:
-                    resolved_vars["PORT"] = pik["port"]
-                if "service" in pik:
-                    resolved_vars["SERVICE"] = pik["service"]
-                if "protocol" in pik:
-                    resolved_vars["PROTOCOL"] = pik["protocol"]
-
-        # Operator context resolution: Always resolve LHOST
-        try:
-            lhost_ip, _ = get_lhost_info()
-            if lhost_ip:
-                resolved_vars["LHOST"] = lhost_ip
-        except Exception:
-            pass
-
-        # 2. Aggregate counts and jobs
-        stats = await self.store.get_stats(session_id)
-
-        workspace_id = session_data["workspace_id"]
-        workspace_sessions = await self.store.list_sessions(workspace_id)
-        workspace_session_ids = {s["id"] for s in workspace_sessions}
-
-        active_jobs = [
-            j
-            for j in self.execution.get_active_jobs()
-            if str(j.session_id) in workspace_session_ids
-        ]
-
-        return WorkspaceContext(
-            session_id=UUID(session_id),
-            session_name=session_data["name"],
-            selected_entity=selected_entity,
-            resolved_vars=resolved_vars,
-            active_jobs=active_jobs,
-            entity_counts=stats,
-            cwd=self.execution.get_cwd(session_id),
-        )
+        return await self.context_builder.build(session_id, selected_entity_id)
 
     async def get_session_events(self, session_id: str) -> List[Dict]:
         return await self.store.get_event_log(session_id)

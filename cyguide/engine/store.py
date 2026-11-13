@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import aiosqlite
 
+from cyguide.engine.timeline import ActionTimelineRepository
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.power import ActionRequest
 
@@ -23,6 +24,7 @@ class GraphStore:
         self._on_upsert_callbacks = []
         self._conn: Optional[aiosqlite.Connection] = None
         self._closed: bool = False
+        self.timeline = ActionTimelineRepository(self)
 
     def on_upsert(self, callback):
         """Register an async callback to fire when any finding is upserted."""
@@ -495,38 +497,15 @@ class GraphStore:
 
     async def get_event_log(self, session_id: str) -> List[Dict]:
         """Fetch all events for a session."""
-        async with self._get_conn() as db:
-            db.row_factory = aiosqlite.Row
-            cursor = await db.execute(
-                "SELECT * FROM event_log WHERE session_id = ? AND (closed IS NULL OR closed = 0) ORDER BY timestamp ASC",
-                (session_id,),
-            )
-            rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
+        return await self.timeline.get_event_log(session_id)
 
     async def mark_event_closed(self, action_id: str, session_id: Optional[str] = None) -> None:
         """Mark an event log entry as closed/deleted."""
-        async with self._get_conn() as db:
-            if session_id:
-                await db.execute(
-                    "UPDATE event_log SET closed = 1 WHERE session_id = ? AND action_payload LIKE ?",
-                    (session_id, f'%"{action_id}"%'),
-                )
-            else:
-                await db.execute(
-                    "UPDATE event_log SET closed = 1 WHERE action_payload LIKE ?",
-                    (f'%"{action_id}"%',),
-                )
-            await db.commit()
+        await self.timeline.mark_event_closed(action_id, session_id)
 
     async def get_closed_events_count(self, session_id: str) -> int:
         """Get the count of closed events/tabs for a session."""
-        async with self._get_conn() as db:
-            cursor = await db.execute(
-                "SELECT COUNT(*) FROM event_log WHERE session_id = ? AND closed = 1", (session_id,)
-            )
-            row = await cursor.fetchone()
-            return row[0] if row else 0
+        return await self.timeline.get_closed_events_count(session_id)
 
     async def get_all_nodes(self, session_id: str) -> List[Dict]:
         async with self._get_conn() as db:
@@ -631,39 +610,13 @@ class GraphStore:
         self, session_id: str, action: ActionRequest, result: Dict[str, Any], message: str
     ):
         """Append a structured action/result event to the log."""
-        async with self._get_conn() as db:
-            await db.execute(
-                """INSERT INTO event_log (session_id, action_payload, result_payload, human_readable, schema_type, finding_json)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (
-                    session_id,
-                    action.model_dump_json(),
-                    json.dumps(result),
-                    message,
-                    "system.event",
-                    "{}",
-                ),
-            )
-            await db.commit()
+        await self.timeline.append_event(session_id, action, result, message)
 
     async def log_audit_event(
         self, session_id: str, action_name: str, message: str, status: str
     ) -> None:
         """Append an audit lifecycle event (e.g. session closed/reopened) to event_log."""
-        async with self._get_conn() as db:
-            await db.execute(
-                """INSERT INTO event_log (session_id, action_payload, result_payload, human_readable, schema_type, finding_json)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (
-                    session_id,
-                    json.dumps({"action": action_name}),
-                    json.dumps({"status": status}),
-                    message,
-                    f"system.{action_name}",
-                    "{}",
-                ),
-            )
-            await db.commit()
+        await self.timeline.log_audit_event(session_id, action_name, message, status)
 
     async def export_session(self, session_id: str, dest_db_path: str) -> None:
         """Export session metadata, nodes, edges, and event_log rows to a new SQLite database."""

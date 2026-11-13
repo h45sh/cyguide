@@ -309,3 +309,33 @@ async def test_facade_shutdown_graceful_drain():
     # Now closing store should succeed with no dangling tasks
     await store.close()
     assert store._closed is True
+
+
+@pytest.mark.asyncio
+async def test_workspace_context_builder():
+    from cyguide.engine.context_builder import WorkspaceContextBuilder
+    from cyguide.schemas.network import NetworkHost
+
+    store = GraphStore(":memory:")
+    await store.initialize()
+    executor = MagicMock()
+    registry = MagicMock()
+    facade = PowerWorkspaceFacade(store, executor, registry)
+
+    ws_id = await facade.create_workspace("Context WS")
+    sess_id = await facade.create_session(ws_id, "Context Sess")
+
+    host = NetworkHost.create(ip="172.16.0.5", hostname="target.corp")
+    await store.upsert_finding(sess_id, host)
+    node_id = store.generate_node_id(host.schema_type, host.pik)
+
+    builder = WorkspaceContextBuilder(store, facade.execution)
+    ctx = await builder.build(sess_id, selected_entity_id=node_id)
+
+    assert str(ctx.session_id) == sess_id
+    assert ctx.session_name == "Context Sess"
+    assert ctx.selected_entity is not None
+    assert ctx.selected_entity.pik["ip"] == "172.16.0.5"
+    assert ctx.resolved_vars["TARGET"] == "172.16.0.5"
+    assert "network.host" in ctx.entity_counts
+    await store.close()

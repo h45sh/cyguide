@@ -36,3 +36,19 @@ _Avoid_: LLM client, AI assistant, chatbot, prompt runner
 The deep module managing persistent lifecycle operations, entity indexing, forensic archiving, and portability for Workspaces and Sessions.
 _Avoid_: Workspace manager, session service, database helper, CRUD layer
 
+**SessionReportService**:
+The deep module managing forensic investigation reporting, Markdown table synthesis, Mermaid graph visualization, and secure file export.
+_Avoid_: Reporter helper, markdown generator, export script
+
+**ActionTimelineRepository**:
+The deep module managing persistent event logging, audit trails, and active/closed tab status for investigation sessions.
+_Avoid_: Event logger, audit store, timeline manager
+
+**WorkspaceContextBuilder**:
+The deep module responsible for compiling point-in-time snapshots of investigation context, resolving target entity variables, operator LHOST networking, and active job status.
+_Avoid_: Context helper, context assembler, facade query
+
+**DiagnosticEngine**:
+The deep module managing environmental health auditing, tool availability checks, database integrity validation, and explainer connectivity probing.
+_Avoid_: Diagnostics runner, health check script, test utility
+
