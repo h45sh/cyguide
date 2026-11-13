@@ -13,13 +13,13 @@ This document is the **single authoritative source of truth** for all completed,
 | **Phase 3: Polish, Portability & Delivery** | **Completed** | 15 | 15 | 0 | 100% |
 | **Power Mode Operator Workbench** | **Completed** | 30 | 30 | 0 | 100% |
 | **v1.8.0: Showcase, Textual Resilience & Automated Release** | **Completed** | 4 | 4 | 0 | 100% |
-| **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **In Progress** | 23 | 14 | 9 | 61% |
+| **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **Completed** | 22 | 22 | 0 | 100% |
 | **v1.10.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 13 | 1 | 12 | 8% |
 | **v1.10.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 11 | 0 | 11 | 0% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 12 | 0 | 12 | 0% |
 | **Phase 4: Tactical Research Co-Pilot & Offensive Engine** | **Planned (Future)** | 15 | 1 | 14 | 7% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **145** | **81** | **64** | **56%** |
+| **Total Project Tasks** | **In Progress** | **144** | **89** | **55** | **62%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -103,7 +103,7 @@ This document is the **single authoritative source of truth** for all completed,
 
 ---
 
-### Milestone: v1.9.0 (Phase 3.5) — Engine, Dataflow & Concurrency (In Progress)
+### Milestone: v1.9.0 (Phase 3.5) — Engine, Dataflow & Concurrency (Completed)
 
 This critical hardening phase eliminates UI bottlenecks, decouples stream draining from terminal rendering, prevents RAM bloat during multi-hour/multi-day tasks, fixes tab lifecycle synchronization, and elevates the graph tree into a high-utility operator HUD:
 
