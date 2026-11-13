@@ -15,12 +15,10 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
-from textual.screen import ModalScreen, Screen
+from textual.screen import Screen
 from textual.widgets import (
-    Button,
     Input,
     Label,
-    Markdown,
     RichLog,
     Static,
     TabbedContent,
@@ -30,7 +28,7 @@ from textual.widgets import (
 
 from cyguide.paths import get_default_exports_dir, get_default_reports_dir
 from cyguide.schemas.power import ActionRequest, ActionSource, JobStatus, JobStatusEnum
-from cyguide.ui.dialogs import SHORTCUTS_MD, RenameDialog, ShortcutsDialog
+from cyguide.ui.dialogs import RenameDialog, ShortcutsDialog
 from cyguide.ui.widgets.power import CommandPalette, EntityBrowser, JobQueue
 from cyguide.ui.widgets.resizer import ResizeHandle
 

@@ -2,8 +2,8 @@
 
 from typing import ClassVar, List, Optional
 
-from cyguide.schemas.canonicalize import canonicalize_host
 from cyguide.schemas.base import BaseFinding, Relation
+from cyguide.schemas.canonicalize import canonicalize_host
 
 
 class DnsRecord(BaseFinding):

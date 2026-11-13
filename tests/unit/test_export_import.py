@@ -4,11 +4,13 @@ from uuid import uuid4
 
 import pytest
 
-from cyguide.engine.reporter import fetch_report_data, generate_markdown_report, render_markdown_report
+from cyguide.engine.reporter import (
+    generate_markdown_report,
+    render_markdown_report,
+)
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.power import ActionRequest, ActionSource
-
 
 
 @pytest.mark.asyncio

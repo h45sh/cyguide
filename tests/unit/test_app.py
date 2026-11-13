@@ -734,7 +734,6 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
 
     the 1st session is immediately and correctly highlighted without needing a Down arrow press.
     """
-    import asyncio
     import uuid
 
     from textual.widgets import Static

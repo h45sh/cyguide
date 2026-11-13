@@ -113,9 +113,8 @@ async def test_web_vuln_recommendation():
 def test_recommendation_rule_pure_evaluation():
     """Verify recommendation rules evaluate findings purely in memory without database fixtures."""
     from cyguide.engine.recommendation import (
-        WebServiceRecommendationRule,
-        WebVulnerabilityRecommendationRule,
         SubdomainRecommendationRule,
+        WebServiceRecommendationRule,
         WhoisRecommendationRule,
     )
     from cyguide.schemas.network import NetworkHost, NetworkService

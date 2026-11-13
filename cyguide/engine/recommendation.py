@@ -1,7 +1,7 @@
 """Recommendation Engine for suggesting tools based on discovered findings."""
 
 import logging
-from typing import List
+from typing import Any, List, Optional
 
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.base import BaseFinding

@@ -307,9 +307,9 @@ def setup_textual_compat() -> None:
     # 2) Textual's App._check_bindings looks up only event.key directly without consulting aliases.
     # 3) In legacy ANSI parsing, XTermParser._sequence_to_key_events strips alt when name length > 1.
     try:
+        from textual._xterm_parser import XTermParser
         from textual.app import App
         from textual.events import _get_key_aliases
-        from textual._xterm_parser import XTermParser
 
         if hasattr(_get_key_aliases, "__globals__") and "KEY_ALIASES" in _get_key_aliases.__globals__:
             key_aliases_dict = _get_key_aliases.__globals__["KEY_ALIASES"]

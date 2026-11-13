@@ -1,6 +1,5 @@
 """Unit tests for Textual compatibility and resilience hardening."""
 
-import asyncio
 
 import pytest
 from textual.app import App, ComposeResult

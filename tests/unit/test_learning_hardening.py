@@ -306,8 +306,9 @@ async def test_learning_slash_commands_and_copy():
 @pytest.mark.asyncio
 async def test_learning_recipes_tab_and_circular_navigation():
     """Verify single-line recipe items, dedicated Recipes tab, recipe cards, and 3-tab navigation."""
+    from textual.widgets import Button, TabbedContent
+
     from cyguide.app import CyGuideApp
-    from textual.widgets import TabbedContent, Button
 
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test(size=(120, 45)) as pilot:
@@ -382,8 +383,9 @@ async def test_learning_recipes_tab_and_circular_navigation():
 @pytest.mark.asyncio
 async def test_learning_ask_ai_and_run_buttons():
     """Verify sidebar Ask AI button, recipe card Ask AI & Run buttons, and run/stop button toggling."""
-    from cyguide.app import CyGuideApp
     from textual.widgets import Button, TabbedContent
+
+    from cyguide.app import CyGuideApp
 
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test(size=(120, 45)) as pilot:

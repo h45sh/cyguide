@@ -1,6 +1,5 @@
 """Unit tests for CyGuide configuration options and Command Palette integration."""
 
-import asyncio
 import json
 import os
 from unittest.mock import MagicMock

@@ -2,7 +2,6 @@
 # Changes to this file require team agreement.
 """Dynamic tool discovery and loading."""
 
-import shutil
 import tomllib
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path

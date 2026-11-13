@@ -2,7 +2,6 @@
 
 import pytest
 
-
 from cyguide.engine.executor import Executor
 from cyguide.engine.manifest import Manifest
 from cyguide.engine.registry import ToolRegistry

@@ -10,7 +10,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Footer, Input, Label, ListItem, ListView, Static
+from textual.widgets import Button, Footer, Label, ListItem, ListView, Static
 
 from cyguide.ui.dialogs import RenameDialog, ShortcutsDialog
 

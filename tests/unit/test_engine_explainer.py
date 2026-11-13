@@ -50,8 +50,9 @@ async def test_dual_ai_error_when_no_cloud_keys_and_ollama_offline():
 
 @pytest.mark.asyncio
 async def test_dual_ai_error_when_cloud_auth_fails_and_ollama_offline():
-    from cyguide.engine.explainer import CloudKeyProfile, MultiKeyCloudBackend, OllamaBackend
     from unittest.mock import patch
+
+    from cyguide.engine.explainer import CloudKeyProfile, MultiKeyCloudBackend, OllamaBackend
 
     k1 = CloudKeyProfile(id="k1", name="Groq Primary", provider="groq", api_key="bad-key")
     ollama = OllamaBackend(model="gemma", base_url="http://127.0.0.1:54321")
