@@ -756,12 +756,14 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         ws_list = dashboard.query_one("#workspace_list")
         sess_list = dashboard.query_one("#session_list")
 
-        # 1. Focus workspaces list and navigate down to Workspace One
+        # 1. Start at index 0 and navigate down to index 1
+        dashboard.selected_ws_id = ws_list.children[0].id[3:]
+        ws_list.index = 0
         ws_list.focus()
-        await pilot.pause()
+        await pilot.pause(0.15)
         await pilot.press("down")
-        await pilot.pause()
-        # Unicode pointer ▸ should move immediately to Workspace One
+        await pilot.pause(0.15)
+        # Unicode pointer ▸ should move immediately to index 1
         assert "▸" in str(ws_list.children[1].query_one(Static).render())
 
         await pilot.pause()
@@ -920,7 +922,8 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         first_sess_name = "Alpha Session" if first_ws_name == "Default Project" else "Beta Session"
         second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
 
-        # 1. Start at index 0
+        # 1. Start at index 0 with corresponding selected_ws_id
+        d.selected_ws_id = ws_items[0]["id"]
         ws_list.index = 0
         ws_list.focus()
         await pilot.pause(0.15)
