@@ -52,3 +52,42 @@ def canonicalize_port(port) -> int:
         return int(port)
     except (ValueError, TypeError):
         return 0
+
+
+def canonicalize_field(key: str, value) -> object:
+    """Normalize a specific key-value pair based on semantic key naming conventions."""
+    if value is None:
+        return None
+
+    k = str(key).lower()
+    if k in ("ip", "host_ip", "resolved_ip", "target_ip"):
+        if isinstance(value, str):
+            return canonicalize_host(value)
+    elif k in ("port",):
+        return canonicalize_port(value)
+    elif k in ("url", "endpoint"):
+        if isinstance(value, str):
+            return canonicalize_url(value)
+    elif k in ("protocol",):
+        if isinstance(value, str):
+            return value.strip().lower()
+
+    return canonicalize(value)
+
+
+def canonicalize_mapping(data: dict) -> dict:
+    """Recursively canonicalize keys and values in a dictionary."""
+    normalized = {}
+    for k, v in data.items():
+        if isinstance(v, dict):
+            normalized[k] = canonicalize_mapping(v)
+        elif isinstance(v, list):
+            normalized[k] = [
+                canonicalize_mapping(item)
+                if isinstance(item, dict)
+                else canonicalize_field(k, item)
+                for item in v
+            ]
+        else:
+            normalized[k] = canonicalize_field(k, v)
+    return normalized

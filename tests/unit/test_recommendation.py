@@ -21,10 +21,7 @@ async def test_web_service_recommendation():
 
     # 1. Create a service finding on port 80
     service = NetworkService.create(
-        host_ip="10.0.0.1",
-        port=80,
-        protocol="tcp",
-        service_name="http"
+        host_ip="10.0.0.1", port=80, protocol="tcp", service_name="http"
     )
 
     # Save the finding (status defaults to 'confirmed')
@@ -60,12 +57,7 @@ async def test_unrelated_service_no_recommendation():
     sess_id = await store.create_session(ws_id, "Test Session")
 
     # Create an SSH service (port 22)
-    service = NetworkService.create(
-        host_ip="10.0.0.1",
-        port=22,
-        protocol="tcp",
-        service_name="ssh"
-    )
+    service = NetworkService.create(host_ip="10.0.0.1", port=22, protocol="tcp", service_name="ssh")
 
     await store.upsert_finding(sess_id, service)
 
@@ -89,11 +81,7 @@ async def test_web_vuln_recommendation():
     sess_id = await store.create_session(ws_id, "Test Session")
 
     # Create a confirmed WebEndpoint
-    endpoint = WebEndpoint.create(
-        url="http://10.0.0.1/admin",
-        host_ip="10.0.0.1",
-        port=80
-    )
+    endpoint = WebEndpoint.create(url="http://10.0.0.1/admin", host_ip="10.0.0.1", port=80)
 
     await store.upsert_finding(sess_id, endpoint)
 
@@ -120,7 +108,9 @@ def test_recommendation_rule_pure_evaluation():
     from cyguide.schemas.network import NetworkHost, NetworkService
 
     # 1. WebService rule
-    service = NetworkService.create(host_ip="192.168.1.50", port=443, protocol="tcp", service_name="https")
+    service = NetworkService.create(
+        host_ip="192.168.1.50", port=443, protocol="tcp", service_name="https"
+    )
     web_rule = WebServiceRecommendationRule()
     results = web_rule.evaluate(service)
     assert len(results) == 1
@@ -140,4 +130,3 @@ def test_recommendation_rule_pure_evaluation():
     whois_results = whois_rule.evaluate(public_host)
     assert len(whois_results) == 1
     assert whois_results[0].schema_type == "domain.info"
-

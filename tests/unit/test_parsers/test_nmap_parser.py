@@ -8,13 +8,15 @@ from tools.nmap.adapter import NmapAdapter
 def adapter():
     return NmapAdapter()
 
+
 def test_nmap_validate_install(adapter):
     # validate_install should return a boolean based on whether nmap is in PATH
     assert isinstance(adapter.validate_install(), bool)
 
+
 def test_nmap_build_command(adapter):
     target = NetworkHost.create(ip="192.168.1.10")
-    
+
     # 1. Standard command build
     cmd = adapter.build_command(target, {})
     assert cmd == ["nmap", "--noninteractive", "192.168.1.10"]
@@ -30,6 +32,7 @@ def test_nmap_build_command(adapter):
     empty_target.pik = {}
     with pytest.raises(ValueError, match="Target finding must have an IP address"):
         adapter.build_command(empty_target, {})
+
 
 @pytest.mark.asyncio
 async def test_nmap_parse_output(adapter):
@@ -57,7 +60,7 @@ Nmap done: 2 IP addresses (2 hosts up) scanned in 1.23 seconds
 
     # 2 hosts + 4 services = 6 findings
     assert len(findings) == 6
-    
+
     hosts = [f for f in findings if f.schema_type == "network.host"]
     services = [f for f in findings if f.schema_type == "network.service"]
 
@@ -66,7 +69,7 @@ Nmap done: 2 IP addresses (2 hosts up) scanned in 1.23 seconds
     assert hosts[1].pik["ip"] == "10.0.0.5"
 
     assert len(services) == 4
-    
+
     # Check individual services
     s1 = next(s for s in services if s.pik["port"] == 22)
     assert s1.pik["host_ip"] == "192.168.1.50"
@@ -85,12 +88,15 @@ Nmap done: 2 IP addresses (2 hosts up) scanned in 1.23 seconds
     assert s4.pik["host_ip"] == "10.0.0.5"
     assert s4.data["service_name"] == "http-proxy"
 
+
 @pytest.mark.asyncio
 async def test_nmap_parse_empty_or_malformed(adapter):
     target = NetworkHost.create(ip="127.0.0.1")
     findings = [f async for f in adapter.parse_output("", target)]
     assert findings == []
 
-    noisy_output = "No open ports found.\nAll 1000 scanned ports on 127.0.0.1 are in ignored states."
+    noisy_output = (
+        "No open ports found.\nAll 1000 scanned ports on 127.0.0.1 are in ignored states."
+    )
     findings = [f async for f in adapter.parse_output(noisy_output, target)]
     assert findings == []

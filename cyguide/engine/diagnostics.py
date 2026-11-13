@@ -48,13 +48,12 @@ class DiagnosticReport:
             "system_info": self.system_info,
             "healthy": self.healthy,
             "tool_counts": self.tool_counts,
-            "checks": [asdict(c) for c in self.checks]
+            "checks": [asdict(c) for c in self.checks],
         }
 
 
 async def run_diagnostics(
-    db_path: Optional[str] = None,
-    tools_dir: Optional[str] = None
+    db_path: Optional[str] = None, tools_dir: Optional[str] = None
 ) -> DiagnosticReport:
     """Run all system, database, tool dependency, and explainer checks."""
     if db_path is None:
@@ -71,37 +70,46 @@ async def run_diagnostics(
     }
 
     if py_version >= (3, 11):
-        report.checks.append(DiagnosticCheck(
-            name="Python Version",
-            category="System",
-            status="ok",
-            message=f"Python {py_version_str} (>= 3.11 requirement satisfied)"
-        ))
+        report.checks.append(
+            DiagnosticCheck(
+                name="Python Version",
+                category="System",
+                status="ok",
+                message=f"Python {py_version_str} (>= 3.11 requirement satisfied)",
+            )
+        )
     else:
-        report.checks.append(DiagnosticCheck(
-            name="Python Version",
-            category="System",
-            status="error",
-            message=f"Python {py_version_str} is below minimum requirement 3.11"
-        ))
+        report.checks.append(
+            DiagnosticCheck(
+                name="Python Version",
+                category="System",
+                status="error",
+                message=f"Python {py_version_str} is below minimum requirement 3.11",
+            )
+        )
         report.healthy = False
 
     # Textual dependency check
     try:
         import textual
-        report.checks.append(DiagnosticCheck(
-            name="Textual TUI Framework",
-            category="System",
-            status="ok",
-            message=f"Textual v{textual.__version__} installed"
-        ))
+
+        report.checks.append(
+            DiagnosticCheck(
+                name="Textual TUI Framework",
+                category="System",
+                status="ok",
+                message=f"Textual v{textual.__version__} installed",
+            )
+        )
     except Exception as e:
-        report.checks.append(DiagnosticCheck(
-            name="Textual TUI Framework",
-            category="System",
-            status="error",
-            message=f"Failed to import textual: {str(e)}"
-        ))
+        report.checks.append(
+            DiagnosticCheck(
+                name="Textual TUI Framework",
+                category="System",
+                status="error",
+                message=f"Failed to import textual: {str(e)}",
+            )
+        )
         report.healthy = False
 
     # 2. Storage & SQLite Database Health
@@ -110,19 +118,23 @@ async def run_diagnostics(
         os.makedirs(db_dir, exist_ok=True)
         is_writable = os.access(db_dir, os.W_OK)
         if is_writable:
-            report.checks.append(DiagnosticCheck(
-                name="Storage Directory",
-                category="Database",
-                status="ok",
-                message=f"Directory '{db_dir}' is writable"
-            ))
+            report.checks.append(
+                DiagnosticCheck(
+                    name="Storage Directory",
+                    category="Database",
+                    status="ok",
+                    message=f"Directory '{db_dir}' is writable",
+                )
+            )
         else:
-            report.checks.append(DiagnosticCheck(
-                name="Storage Directory",
-                category="Database",
-                status="error",
-                message=f"Directory '{db_dir}' is not writable"
-            ))
+            report.checks.append(
+                DiagnosticCheck(
+                    name="Storage Directory",
+                    category="Database",
+                    status="error",
+                    message=f"Directory '{db_dir}' is not writable",
+                )
+            )
             report.healthy = False
 
     try:
@@ -133,32 +145,39 @@ async def run_diagnostics(
         await store.close()
 
         if integrity_status == "ok":
-            report.checks.append(DiagnosticCheck(
-                name="SQLite Integrity",
-                category="Database",
-                status="ok",
-                message=f"Database '{db_path}' integrity verified ({len(tables)} tables present)",
-                details={"tables": tables}
-            ))
+            report.checks.append(
+                DiagnosticCheck(
+                    name="SQLite Integrity",
+                    category="Database",
+                    status="ok",
+                    message=f"Database '{db_path}' integrity verified ({len(tables)} tables present)",
+                    details={"tables": tables},
+                )
+            )
         else:
-            report.checks.append(DiagnosticCheck(
-                name="SQLite Integrity",
-                category="Database",
-                status="error",
-                message=f"Database integrity check failed: {integrity_status}"
-            ))
+            report.checks.append(
+                DiagnosticCheck(
+                    name="SQLite Integrity",
+                    category="Database",
+                    status="error",
+                    message=f"Database integrity check failed: {integrity_status}",
+                )
+            )
             report.healthy = False
     except Exception as e:
-        report.checks.append(DiagnosticCheck(
-            name="SQLite Database",
-            category="Database",
-            status="error",
-            message=f"Failed to connect to database '{db_path}': {str(e)}"
-        ))
+        report.checks.append(
+            DiagnosticCheck(
+                name="SQLite Database",
+                category="Database",
+                status="error",
+                message=f"Failed to connect to database '{db_path}': {str(e)}",
+            )
+        )
         report.healthy = False
 
     # 3. Security Tool Dependencies
     from cyguide.engine.registry import ToolRegistry
+
     registry = ToolRegistry(tools_dir=tools_dir)
     registry.load_tools()
     tool_names = registry.list_tools()
@@ -185,27 +204,33 @@ async def run_diagnostics(
 
         if is_installed:
             installed_count += 1
-            report.checks.append(DiagnosticCheck(
-                name=f"Tool: {name}",
-                category="Tools",
-                status="ok",
-                message=f"Installed at {binary_path or 'PATH'}",
-                details={"description": description, "binary": binary_path}
-            ))
+            report.checks.append(
+                DiagnosticCheck(
+                    name=f"Tool: {name}",
+                    category="Tools",
+                    status="ok",
+                    message=f"Installed at {binary_path or 'PATH'}",
+                    details={"description": description, "binary": binary_path},
+                )
+            )
         else:
-            hint = INSTALLATION_HINTS.get(name, f"Install '{name}' using your system package manager.")
-            report.checks.append(DiagnosticCheck(
-                name=f"Tool: {name}",
-                category="Tools",
-                status="warning",
-                message=f"Not found in PATH. Install hint: {hint}",
-                details={"description": description, "install_hint": hint}
-            ))
+            hint = INSTALLATION_HINTS.get(
+                name, f"Install '{name}' using your system package manager."
+            )
+            report.checks.append(
+                DiagnosticCheck(
+                    name=f"Tool: {name}",
+                    category="Tools",
+                    status="warning",
+                    message=f"Not found in PATH. Install hint: {hint}",
+                    details={"description": description, "install_hint": hint},
+                )
+            )
 
     report.tool_counts = {
         "installed": installed_count,
         "total": total_tools,
-        "missing": total_tools - installed_count
+        "missing": total_tools - installed_count,
     }
 
     # 4. Explainer & AI Backends
@@ -215,40 +240,48 @@ async def run_diagnostics(
             resp = await client.get("http://localhost:11434/api/tags")
             if resp.status_code == 200:
                 models = [m.get("name") for m in resp.json().get("models", [])]
-                report.checks.append(DiagnosticCheck(
-                    name="Ollama Local LLM",
-                    category="Explainer",
-                    status="ok",
-                    message=f"Connected to local Ollama ({len(models)} models available: {', '.join(models[:3])})",
-                    details={"models": models}
-                ))
+                report.checks.append(
+                    DiagnosticCheck(
+                        name="Ollama Local LLM",
+                        category="Explainer",
+                        status="ok",
+                        message=f"Connected to local Ollama ({len(models)} models available: {', '.join(models[:3])})",
+                        details={"models": models},
+                    )
+                )
             else:
-                report.checks.append(DiagnosticCheck(
-                    name="Ollama Local LLM",
-                    category="Explainer",
-                    status="info",
-                    message="Ollama returned non-200 status (optional backend)"
-                ))
+                report.checks.append(
+                    DiagnosticCheck(
+                        name="Ollama Local LLM",
+                        category="Explainer",
+                        status="info",
+                        message="Ollama returned non-200 status (optional backend)",
+                    )
+                )
     except Exception:
-        report.checks.append(DiagnosticCheck(
-            name="Ollama Local LLM",
-            category="Explainer",
-            status="info",
-            message="Ollama service is not running on http://localhost:11434 (optional backend)"
-        ))
+        report.checks.append(
+            DiagnosticCheck(
+                name="Ollama Local LLM",
+                category="Explainer",
+                status="info",
+                message="Ollama service is not running on http://localhost:11434 (optional backend)",
+            )
+        )
 
     # Cloud API Keys check
     if os.getenv("CYGUIDE_API_KEY"):
-        report.checks.append(DiagnosticCheck(
-            name="Cloud LLM Keys",
-            category="Explainer",
-            status="ok",
-            message=(
-                f"CYGUIDE_API_KEY set (type="
-                f"{os.getenv('CYGUIDE_API_TYPE', 'openai')}, "
-                f"model={os.getenv('CYGUIDE_API_MODEL', 'gpt-4o')})"
+        report.checks.append(
+            DiagnosticCheck(
+                name="Cloud LLM Keys",
+                category="Explainer",
+                status="ok",
+                message=(
+                    f"CYGUIDE_API_KEY set (type="
+                    f"{os.getenv('CYGUIDE_API_TYPE', 'openai')}, "
+                    f"model={os.getenv('CYGUIDE_API_MODEL', 'gpt-4o')})"
+                ),
             )
-        ))
+        )
     else:
         cloud_keys = [
             "GROQ_API_KEY",
@@ -260,19 +293,23 @@ async def run_diagnostics(
         ]
         configured_keys = [k for k in cloud_keys if os.getenv(k)]
         if configured_keys:
-            report.checks.append(DiagnosticCheck(
-                name="Cloud LLM Keys",
-                category="Explainer",
-                status="ok",
-                message=f"Configured API keys: {', '.join(configured_keys)}"
-            ))
+            report.checks.append(
+                DiagnosticCheck(
+                    name="Cloud LLM Keys",
+                    category="Explainer",
+                    status="ok",
+                    message=f"Configured API keys: {', '.join(configured_keys)}",
+                )
+            )
         else:
-            report.checks.append(DiagnosticCheck(
-                name="Cloud LLM Keys",
-                category="Explainer",
-                status="info",
-                message="CYGUIDE_API_KEY is not set (optional backend)"
-            ))
+            report.checks.append(
+                DiagnosticCheck(
+                    name="Cloud LLM Keys",
+                    category="Explainer",
+                    status="info",
+                    message="CYGUIDE_API_KEY is not set (optional backend)",
+                )
+            )
 
     return report
 
@@ -285,7 +322,9 @@ def format_terminal_report(report: DiagnosticReport) -> str:
     lines.append("=" * 68)
     lines.append(f"  Timestamp : {report.timestamp}")
     lines.append(f"  Platform  : {report.system_info.get('platform', 'unknown')}")
-    lines.append(f"  Python    : {report.system_info.get('python_version', 'unknown')} ({report.system_info.get('executable', '')})")
+    lines.append(
+        f"  Python    : {report.system_info.get('python_version', 'unknown')} ({report.system_info.get('executable', '')})"
+    )
     lines.append("-" * 68)
 
     # Group by category
@@ -299,7 +338,7 @@ def format_terminal_report(report: DiagnosticReport) -> str:
             "System": "[SYS]",
             "Database": "[DB] ",
             "Tools": "[TOOL]",
-            "Explainer": "[AI] "
+            "Explainer": "[AI] ",
         }.get(cat, "[*]  ")
 
         lines.append(f"\n{header_icon} {cat.upper()}")
@@ -346,7 +385,7 @@ def check_tool_health(registry: "ToolRegistry") -> Dict[str, Dict[str, Any]]:
             "healthy": False,
             "message": f"Plugin load error: {err}",
             "binary": None,
-            "hint": "Check tool manifest and adapter implementation"
+            "hint": "Check tool manifest and adapter implementation",
         }
 
     # 2. Check registered tools
@@ -374,7 +413,7 @@ def check_tool_health(registry: "ToolRegistry") -> Dict[str, Dict[str, Any]]:
                 "healthy": True,
                 "message": f"Installed ({binary_path or 'PATH'})",
                 "binary": binary_path,
-                "hint": None
+                "hint": None,
             }
         else:
             health[name] = {
@@ -382,7 +421,7 @@ def check_tool_health(registry: "ToolRegistry") -> Dict[str, Dict[str, Any]]:
                 "healthy": False,
                 "message": "Not installed (missing from PATH)",
                 "binary": None,
-                "hint": hint
+                "hint": hint,
             }
 
     return health

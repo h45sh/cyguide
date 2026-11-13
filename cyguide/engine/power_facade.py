@@ -78,8 +78,8 @@ class PowerWorkspaceFacade:
         self._job_change_listeners: List[Callable] = []
         self.execution.add_status_listener(self._notify_job_change)
 
-        # Legacy callback subscribers for output chunks (job_id -> set of callbacks)
-        self._legacy_output_subscribers: Dict[UUID, set] = {}
+        # Callback subscribers for output chunks (job_id -> set of callbacks)
+        self._output_subscribers: Dict[UUID, set] = {}
 
     @property
     def store(self) -> GraphStore:
@@ -105,7 +105,7 @@ class PowerWorkspaceFacade:
 
     @property
     def _job_subscribers(self) -> Dict[UUID, set]:
-        return self._legacy_output_subscribers
+        return self._output_subscribers
 
     @property
     def _job_buffers(self) -> Dict[UUID, List[str]]:
@@ -226,10 +226,6 @@ class PowerWorkspaceFacade:
         """Register a callback for finding upserts."""
         self.store.on_upsert(callback)
 
-    def on_upsert(self, callback: Any) -> None:
-        """Alias for on_finding_upsert."""
-        self.store.on_upsert(callback)
-
     async def get_report_data(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Fetch structured session audit and findings data bundle for reporting."""
         from cyguide.engine.reporter import fetch_report_data
@@ -260,7 +256,7 @@ class PowerWorkspaceFacade:
                         await res
                 except Exception:
                     pass
-            for sub in list(self._legacy_output_subscribers.get(action.action_id, set())):
+            for sub in list(self._output_subscribers.get(action.action_id, set())):
                 try:
                     res = sub(text)
                     if asyncio.iscoroutine(res):
@@ -381,7 +377,7 @@ class PowerWorkspaceFacade:
         job = self.execution._active_jobs.pop(job_id, None)
         self.execution._job_actions.pop(job_id, None)
         self.execution._job_buffers.pop(job_id, None)
-        self._legacy_output_subscribers.pop(job_id, None)
+        self._output_subscribers.pop(job_id, None)
         self.execution.closed_job_ids.add(str(job_id))
         session_id = str(job.session_id) if job else None
         await self.store.mark_event_closed(str(job_id), session_id=session_id)
@@ -389,15 +385,15 @@ class PowerWorkspaceFacade:
             self._notify_job_change(job)
 
     def subscribe_job_output(self, job_id: UUID, callback: Callable[[str], Coroutine]) -> None:
-        """Subscribe a live UI tab to output streaming for a running job (backward compatible)."""
-        if job_id not in self._legacy_output_subscribers:
-            self._legacy_output_subscribers[job_id] = set()
-        self._legacy_output_subscribers[job_id].add(callback)
+        """Subscribe a live UI tab to output streaming for a running job."""
+        if job_id not in self._output_subscribers:
+            self._output_subscribers[job_id] = set()
+        self._output_subscribers[job_id].add(callback)
 
     def unsubscribe_job_output(self, job_id: UUID, callback: Callable[[str], Coroutine]) -> None:
         """Unsubscribe a tab from a job's output stream."""
-        if job_id in self._legacy_output_subscribers:
-            self._legacy_output_subscribers[job_id].discard(callback)
+        if job_id in self._output_subscribers:
+            self._output_subscribers[job_id].discard(callback)
 
     def get_job_buffer(self, job_id: UUID) -> str:
         """Get accumulated stdout/stderr output for an active/running job."""

@@ -69,11 +69,13 @@ async def test_cli_export_and_import_command(tmp_path):
     # 2. Test export subcommand
     export_args = [
         "cyg",
-        "--db", str(src_db),
+        "--db",
+        str(src_db),
         "export",
         str(sess_id),
         str(export_db),
-        "--report", str(export_md)
+        "--report",
+        str(export_md),
     ]
     export_out = await asyncio.to_thread(_run_cli_in_thread, export_args)
 
@@ -85,12 +87,7 @@ async def test_cli_export_and_import_command(tmp_path):
 
     # 3. Test import subcommand into a destination database
     dst_db = tmp_path / "destination.db"
-    import_args = [
-        "cyg",
-        "--db", str(dst_db),
-        "import",
-        str(export_db)
-    ]
+    import_args = ["cyg", "--db", str(dst_db), "import", str(export_db)]
     import_out = await asyncio.to_thread(_run_cli_in_thread, import_args)
 
     assert "[+] Session imported successfully!" in import_out
@@ -135,6 +132,7 @@ async def test_cli_data_dir_flag(tmp_path):
 async def test_cli_version_flag():
     """Integration test: Running `cyg --version` outputs version string."""
     from cyguide import __version__
+
     test_args = ["cyg", "--version"]
     output = await asyncio.to_thread(_run_cli_in_thread, test_args)
     assert f"CyGuide {__version__}" in output
@@ -179,14 +177,14 @@ async def test_cli_export_report_only(tmp_path):
     report_md = tmp_path / "report_only.md"
     test_args = [
         "cyg",
-        "--db", str(src_db),
+        "--db",
+        str(src_db),
         "export",
         str(sess_id),
-        "--report", str(report_md),
+        "--report",
+        str(report_md),
     ]
     output = await asyncio.to_thread(_run_cli_in_thread, test_args)
 
     assert "[+] Markdown report exported successfully" in output
     assert report_md.exists()
-
-

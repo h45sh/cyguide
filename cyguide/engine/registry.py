@@ -25,6 +25,7 @@ class ToolRegistry:
                 # 2. Fall back to imported tools package location (installed package mode)
                 try:
                     import tools
+
                     self.tools_dir = Path(tools.__file__).parent
                 except Exception:
                     self.tools_dir = candidate
@@ -61,10 +62,12 @@ class ToolRegistry:
                             self.tools[manifest.meta.name] = {
                                 "manifest": manifest,
                                 "adapter": adapter_instance,
-                                "path": tool_path
+                                "path": tool_path,
                             }
                         else:
-                             self.load_errors[tool_path.name] = "No ToolAdapter subclass found in adapter.py"
+                            self.load_errors[tool_path.name] = (
+                                "No ToolAdapter subclass found in adapter.py"
+                            )
                     except Exception as e:
                         self.load_errors[tool_path.name] = str(e)
 
@@ -80,9 +83,11 @@ class ToolRegistry:
                 # Look for a subclass of ToolAdapter
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (isinstance(attr, type) and
-                        issubclass(attr, ToolAdapter) and
-                        attr is not ToolAdapter):
+                    if (
+                        isinstance(attr, type)
+                        and issubclass(attr, ToolAdapter)
+                        and attr is not ToolAdapter
+                    ):
                         return attr()
             return None
         except Exception:

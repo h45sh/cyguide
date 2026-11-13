@@ -18,7 +18,7 @@ class ThinScrollBarRender(ScrollBarRender):
     """Sleek, thin scrollbar renderer for Textual."""
 
     HORIZONTAL_THUMB: ClassVar[str] = "▂"  # Lower 1/4 block: ~4.5px high
-    VERTICAL_THUMB: ClassVar[str] = "▌"    # Left 1/2 block: ~4.0px wide
+    VERTICAL_THUMB: ClassVar[str] = "▌"  # Left 1/2 block: ~4.0px wide
     BLANK_GLYPH: ClassVar[str] = " "
 
     @classmethod
@@ -44,7 +44,13 @@ class ThinScrollBarRender(ScrollBarRender):
         upper = {"@mouse.down": "scroll_up"}
         lower = {"@mouse.down": "scroll_down"}
 
-        if not (window_size and size and virtual_size and size != virtual_size and window_size < virtual_size):
+        if not (
+            window_size
+            and size
+            and virtual_size
+            and size != virtual_size
+            and window_size < virtual_size
+        ):
             style = _Style(bgcolor=back)
             segments = [_Segment(blank, style=style)] * int(size)
             if vertical:

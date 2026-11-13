@@ -2,7 +2,6 @@
 
 from typing import ClassVar, List, Optional
 
-from cyguide.common.canonicalize import canonicalize_host
 from cyguide.schemas.base import BaseFinding, Relation
 
 
@@ -22,10 +21,9 @@ class DnsRecord(BaseFinding):
 
         associations = []
         if resolved_ip:
-            normalized_ip = canonicalize_host(resolved_ip)
             associations.append(
                 Relation(
-                    target_type="network.host", target_pik={"ip": normalized_ip}, via="resolves_to"
+                    target_type="network.host", target_pik={"ip": resolved_ip}, via="resolves_to"
                 )
             )
 

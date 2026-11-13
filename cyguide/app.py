@@ -277,7 +277,6 @@ class CyGuideApp(App):
         self.use_cloud_api: bool = self.settings.get("use_cloud_api", True)
         raw_cloud_keys = self.settings.get("cloud_keys")
         if raw_cloud_keys is not None:
-            # Multi-key system already configured in settings! Keep user profiles, normalizing placeholder keys to blank
             self.cloud_keys: List[Dict[str, Any]] = []
             for k in raw_cloud_keys:
                 kd = dict(k)
@@ -285,27 +284,23 @@ class CyGuideApp(App):
                     kd["api_key"] = ""
                 self.cloud_keys.append(kd)
         else:
-            # One-time migration only if 'cloud_keys' was NEVER configured in settings
             self.cloud_keys = []
-            legacy_key = (
-                self.settings.get("api_key")
-                or os.environ.get("CYGUIDE_API_KEY")
-                or os.environ.get("GROQ_API_KEY")
-            )
-            if legacy_key and not is_placeholder_key(legacy_key):
-                legacy_profile = {
-                    "id": "key_1",
-                    "name": "Primary Key",
-                    "provider": self.settings.get("api_type")
-                    or os.environ.get("CYGUIDE_API_TYPE", "openai"),
-                    "api_key": legacy_key,
-                    "model": self.settings.get("api_model")
-                    or os.environ.get("CYGUIDE_API_MODEL", ""),
-                    "base_url": self.settings.get("api_base")
-                    or os.environ.get("CYGUIDE_API_BASE", ""),
-                    "enabled": True,
-                }
-                self.cloud_keys = [legacy_profile]
+            env_key = self.settings.get("api_key") or os.environ.get("CYGUIDE_API_KEY")
+            if env_key and not is_placeholder_key(env_key):
+                self.cloud_keys = [
+                    {
+                        "id": "key_1",
+                        "name": "Primary Key",
+                        "provider": self.settings.get("api_type")
+                        or os.environ.get("CYGUIDE_API_TYPE", "openai"),
+                        "api_key": env_key,
+                        "model": self.settings.get("api_model")
+                        or os.environ.get("CYGUIDE_API_MODEL", ""),
+                        "base_url": self.settings.get("api_base")
+                        or os.environ.get("CYGUIDE_API_BASE", ""),
+                        "enabled": True,
+                    }
+                ]
 
         self.active_key_id: Optional[str] = self.settings.get("active_key_id")
         if self.cloud_keys:
@@ -326,15 +321,6 @@ class CyGuideApp(App):
                 os.environ["CYGUIDE_API_MODEL"] = str(active_prof["model"])
             if active_prof.get("base_url"):
                 os.environ["CYGUIDE_API_BASE"] = str(active_prof["base_url"])
-        else:
-            for env_k, set_k in (
-                ("CYGUIDE_API_KEY", "api_key"),
-                ("CYGUIDE_API_TYPE", "api_type"),
-                ("CYGUIDE_API_BASE", "api_base"),
-                ("CYGUIDE_API_MODEL", "api_model"),
-            ):
-                if self.settings.get(set_k):
-                    os.environ[env_k] = str(self.settings[set_k])
 
     def get_active_cloud_key(self) -> Optional[Dict[str, Any]]:
         """Return the active cloud key profile dictionary."""
@@ -617,44 +603,6 @@ class CyGuideApp(App):
                 raw_k = k.get("api_key")
                 if raw_k and not is_placeholder_key(raw_k):
                     profiles.append(CloudKeyProfile.from_dict(k))
-
-        # Only fallback to legacy if 'cloud_keys' was NEVER configured in settings
-        if "cloud_keys" not in self.settings and not profiles:
-            api_key = (
-                self.settings.get("api_key")
-                or os.environ.get("CYGUIDE_API_KEY")
-                or os.environ.get("GROQ_API_KEY")
-            )
-            if api_key and not is_placeholder_key(api_key):
-                api_type = self.settings.get("api_type") or os.environ.get(
-                    "CYGUIDE_API_TYPE", "openai"
-                )
-                if (os.environ.get("GROQ_API_KEY") or api_type == "groq") and not (
-                    self.settings.get("api_base") or os.environ.get("CYGUIDE_API_BASE")
-                ):
-                    api_base = "https://api.groq.com/openai/v1"
-                    api_model = self.settings.get("api_model") or os.environ.get(
-                        "CYGUIDE_API_MODEL", "llama-3.3-70b-versatile"
-                    )
-                else:
-                    api_base = self.settings.get("api_base") or os.environ.get(
-                        "CYGUIDE_API_BASE", "https://api.openai.com/v1"
-                    )
-                    api_model = self.settings.get("api_model") or os.environ.get(
-                        "CYGUIDE_API_MODEL", "gpt-4o"
-                    )
-
-                profiles.append(
-                    CloudKeyProfile(
-                        id="key_1",
-                        name="Primary Key",
-                        provider=api_type,
-                        api_key=api_key,
-                        model=api_model,
-                        base_url=api_base,
-                        enabled=True,
-                    )
-                )
 
         ollama_fallback = OllamaBackend(model=self.ollama_model, base_url=ollama_base_url)
         self.explainer_backend = ExplanationTutor(

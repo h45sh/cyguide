@@ -62,7 +62,6 @@ def test_subpaths_resolution(tmp_path):
     assert log_path == os.path.join(logs_dir, "act-1234.log")
 
 
-
 def test_app_uses_uniform_paths(tmp_path):
     """Verify CyGuideApp initializes uniform database, scratchpad, exports, and reports paths."""
     data_dir = str(tmp_path / "uniform_dir")

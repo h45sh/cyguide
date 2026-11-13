@@ -33,6 +33,7 @@ class ToolHealthModal(ModalScreen[None]):
 
     def on_mount(self) -> None:
         self.refresh_health()
+
         def focus_items():
             try:
                 items = self.query_one("#tool_health_items", ListView)
@@ -41,6 +42,7 @@ class ToolHealthModal(ModalScreen[None]):
                     items.index = 0
             except Exception:
                 pass
+
         self.call_after_refresh(focus_items)
 
     def on_key(self, event: events.Key) -> None:
@@ -92,7 +94,9 @@ class ToolHealthModal(ModalScreen[None]):
             summary_label.set_class(True, "summary_green")
             summary_label.set_class(False, "summary_red")
         else:
-            summary_label.update(f"▲ {len(issues)} issue(s) detected across {total} registered tools.")
+            summary_label.update(
+                f"▲ {len(issues)} issue(s) detected across {total} registered tools."
+            )
             summary_label.set_class(True, "summary_red")
             summary_label.set_class(False, "summary_green")
 
@@ -112,9 +116,7 @@ class ToolHealthModal(ModalScreen[None]):
                 desc = info.get("message", "Error")
                 classes = "tool_status_row status_error"
 
-            content = (
-                f"{name:<12} {status_glyph:<12} {desc}"
-            )
+            content = f"{name:<12} {status_glyph:<12} {desc}"
             item_list.append(ListItem(Static(content, classes=classes)))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

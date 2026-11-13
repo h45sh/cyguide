@@ -36,14 +36,13 @@ async def test_executor_timeout():
     adapter = MockHangingAdapter()
 
     output_lines = []
+
     async def record_output(text):
         output_lines.append(text)
 
     with pytest.raises(TimeoutError):
         async for _ in executor.run_tool(
-            adapter, target, {},
-            timeout_seconds=0.2,
-            on_output=record_output
+            adapter, target, {}, timeout_seconds=0.2, on_output=record_output
         ):
             pass
 

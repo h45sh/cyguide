@@ -48,7 +48,22 @@ def build_markdown_table_for_type(schema_type: str, nodes: List[Dict[str, Any]])
         return ["*No detailed properties recorded.*"]
 
     # Column order priority list (important headers show first)
-    important_keys = ["ID", "ip", "host_ip", "domain", "url", "port", "protocol", "service_name", "vuln_type", "vuln_id", "severity", "username", "password", "Status"]
+    important_keys = [
+        "ID",
+        "ip",
+        "host_ip",
+        "domain",
+        "url",
+        "port",
+        "protocol",
+        "service_name",
+        "vuln_type",
+        "vuln_id",
+        "severity",
+        "username",
+        "password",
+        "Status",
+    ]
 
     columns = []
     for k in important_keys:
@@ -72,11 +87,14 @@ def build_markdown_table_for_type(schema_type: str, nodes: List[Dict[str, Any]])
             val = node.get(col, "-")
             if isinstance(val, (dict, list)):
                 val = json.dumps(val)
-            val_str = html.escape(str(val)).replace("|", "\\|").replace("\r\n", " ").replace("\n", " ")
+            val_str = (
+                html.escape(str(val)).replace("|", "\\|").replace("\r\n", " ").replace("\n", " ")
+            )
             row_values.append(val_str)
         lines.append("| " + " | ".join(row_values) + " |")
 
     return lines
+
 
 def render_markdown_report(data: Dict[str, Any]) -> str:
     """Pure in-memory Markdown report generator from a structured session data bundle.
@@ -110,7 +128,9 @@ def render_markdown_report(data: Dict[str, Any]) -> str:
     report.append(f"- **Workspace**: {workspace_name}")
     report.append(f"- **Status**: {session_status}")
     report.append(f"- **Created At**: {session_created}")
-    report.append(f"- **Report Generated At**: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    report.append(
+        f"- **Report Generated At**: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    )
     report.append("")
 
     # 2. Summary Metrics
@@ -162,7 +182,7 @@ def render_markdown_report(data: Dict[str, Any]) -> str:
                 lbl = n["id"][:8]
 
             # Clean label of quotes/brackets for Mermaid safety
-            lbl_clean = str(lbl).replace('"', '\\"').replace('[', '(').replace(']', ')')
+            lbl_clean = str(lbl).replace('"', '\\"').replace("[", "(").replace("]", ")")
             id_labels[n["id"]] = f'{n["id"][:8]}["{lbl_clean}"]'
 
         for edge in edges:
@@ -262,7 +282,6 @@ async def generate_markdown_report(store: GraphStore, session_id: str) -> str:
     if not data:
         return "# Session Not Found\n"
     return render_markdown_report(data)
-
 
 
 async def export_markdown_report(store: GraphStore, session_id: str, output_path: str) -> None:

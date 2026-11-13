@@ -2,7 +2,6 @@
 
 from typing import ClassVar
 
-from cyguide.common.canonicalize import canonicalize_host, canonicalize_port
 from cyguide.schemas.base import BaseFinding, Relation
 
 
@@ -14,20 +13,17 @@ class TLSCertificate(BaseFinding):
 
     @classmethod
     def create(cls, fingerprint: str, host_ip: str, port: int, **kwargs):
-        normalized_ip = canonicalize_host(host_ip)
-        normalized_port = canonicalize_port(port)
-
         return cls(
             pik={"fingerprint": fingerprint},
             parent=Relation(
                 target_type="network.service",
-                target_pik={"host_ip": normalized_ip, "port": normalized_port, "protocol": "tcp"},
+                target_pik={"host_ip": host_ip, "port": port, "protocol": "tcp"},
                 via="uses_certificate",
             ),
             data={
                 "fingerprint": fingerprint,
-                "host_ip": normalized_ip,
-                "port": normalized_port,
+                "host_ip": host_ip,
+                "port": port,
                 **kwargs,
             },
         )

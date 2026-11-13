@@ -185,7 +185,10 @@ def main():
 
             # Export DB if requested or defaulted
             if output_db:
-                print(f"[*] Exporting session {args.session_id} to database {output_db}...", file=sys.stdout)
+                print(
+                    f"[*] Exporting session {args.session_id} to database {output_db}...",
+                    file=sys.stdout,
+                )
                 out_dir = os.path.dirname(os.path.abspath(output_db))
                 if out_dir:
                     os.makedirs(out_dir, exist_ok=True)
@@ -196,7 +199,10 @@ def main():
                             os.chmod(output_db, 0o600)
                         except OSError:
                             pass
-                    print(f"[+] Session database exported successfully to {output_db}", file=sys.stdout)
+                    print(
+                        f"[+] Session database exported successfully to {output_db}",
+                        file=sys.stdout,
+                    )
                 except Exception as e:
                     print(f"[!] Database export failed: {e!s}", file=sys.stderr)
                     exit_code = 1
@@ -206,7 +212,10 @@ def main():
                 print(f"[*] Generating Markdown report to {args.report}...", file=sys.stdout)
                 try:
                     await export_markdown_report(store, args.session_id, args.report)
-                    print(f"[+] Markdown report exported successfully to {args.report}", file=sys.stdout)
+                    print(
+                        f"[+] Markdown report exported successfully to {args.report}",
+                        file=sys.stdout,
+                    )
                 except Exception as e:
                     print(f"[!] Report generation failed: {e!s}", file=sys.stderr)
                     exit_code = 1

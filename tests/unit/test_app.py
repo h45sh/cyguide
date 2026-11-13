@@ -12,6 +12,7 @@ def test_app_structure():
     assert "power_mode" in app.SCREENS
     assert "tool_browser" in app.SCREENS
 
+
 @pytest.mark.asyncio
 async def test_app_component_init(tmp_path):
     """Smoke test for app component setup without running the full TUI."""
@@ -19,6 +20,7 @@ async def test_app_component_init(tmp_path):
     # We can't easily call on_mount because it's managed by Textual's loop,
     # but we can verify the class structure.
     assert hasattr(app, "SCREENS")
+
 
 def test_format_activity():
     """Verify that format_activity formats different schemas and event types correctly."""
@@ -32,28 +34,45 @@ def test_format_activity():
 
     # 2. network.host
     host_json = json.dumps({"pik": {"ip": "192.168.1.1"}, "data": {}})
-    line = format_activity("Session 22:40:20", "network.host", "Discovered network.host", finding_json=host_json)
+    line = format_activity(
+        "Session 22:40:20", "network.host", "Discovered network.host", finding_json=host_json
+    )
     assert line == "[22:40:20] Host: 192.168.1.1"
 
     # 3. network.service
     service_json = json.dumps({"pik": {"port": 80}, "data": {"service_name": "http"}})
-    line = format_activity("Session 22:40:20", "network.service", "Discovered network.service", finding_json=service_json)
+    line = format_activity(
+        "Session 22:40:20",
+        "network.service",
+        "Discovered network.service",
+        finding_json=service_json,
+    )
     assert line == "[22:40:20] Port: 80 (http)"
 
     # 4. dns.record
     dns_json = json.dumps({"pik": {"domain": "api.example.com"}})
-    line = format_activity("Session 22:40:20", "dns.record", "Discovered dns.record", finding_json=dns_json)
+    line = format_activity(
+        "Session 22:40:20", "dns.record", "Discovered dns.record", finding_json=dns_json
+    )
     assert line == "[22:40:20] Domain: api.example.com"
 
     # 5. web.endpoint
     web_json = json.dumps({"pik": {"url": "https://example.com/admin"}})
-    line = format_activity("Session 22:40:20", "web.endpoint", "Discovered web.endpoint", finding_json=web_json)
+    line = format_activity(
+        "Session 22:40:20", "web.endpoint", "Discovered web.endpoint", finding_json=web_json
+    )
     assert line == "[22:40:20] URL: example.com/admin"
 
     # 6. network.netblock
     net_json = json.dumps({"pik": {"cidr": "10.0.0.0/24"}})
-    line = format_activity("MyLongSessionName", "network.netblock", "Discovered network.netblock", finding_json=net_json)
+    line = format_activity(
+        "MyLongSessionName",
+        "network.netblock",
+        "Discovered network.netblock",
+        finding_json=net_json,
+    )
     assert line == "[MyLongSe..] Netblock: 10.0.0.0/24"
+
 
 @pytest.mark.asyncio
 async def test_learning_screen_resume_preserves_buffer():
@@ -80,6 +99,7 @@ async def test_learning_screen_resume_preserves_buffer():
         assert screen.explanation_buffer == "Explanation content"
     finally:
         active_app.reset(token)
+
 
 @pytest.mark.asyncio
 async def test_learning_screen_clear_buttons(tmp_path):
@@ -110,13 +130,16 @@ async def test_learning_screen_clear_buttons(tmp_path):
         await pilot.pause()
         assert screen.log_buffer == []
 
+
 def test_css_stylesheet_syntax():
     """Verify that the Textual CSS stylesheet contains zero parsing or property errors."""
     from textual.css.stylesheet import Stylesheet
+
     ss = Stylesheet()
     ss.read("cyguide/ui/style.css")
     ss.parse()
     assert len(ss.rules) > 0
+
 
 @pytest.mark.asyncio
 async def test_app_headless_mount_and_screens(tmp_path):
@@ -128,6 +151,7 @@ async def test_app_headless_mount_and_screens(tmp_path):
             app.switch_screen(screen_name)
             await pilot.pause()
             assert app.screen is not None
+
 
 @pytest.mark.asyncio
 async def test_confirmation_dialog_keyboard_navigation():
@@ -143,7 +167,9 @@ async def test_confirmation_dialog_keyboard_navigation():
 
     app = DummyApp()
     async with app.run_test() as pilot:
-        dialog = ConfirmationDialog("Test Confirmation?", confirm_label="Delete", cancel_label="Cancel", is_destructive=True)
+        dialog = ConfirmationDialog(
+            "Test Confirmation?", confirm_label="Delete", cancel_label="Cancel", is_destructive=True
+        )
         app.push_screen(dialog)
         await pilot.pause(0.2)
 
@@ -164,6 +190,7 @@ async def test_confirmation_dialog_keyboard_navigation():
         await pilot.press("escape")
         await pilot.pause(0.1)
         assert app.screen != dialog
+
 
 @pytest.mark.asyncio
 async def test_rename_dialog_keyboard_navigation():
@@ -206,10 +233,12 @@ async def test_rename_dialog_keyboard_navigation():
         await pilot.pause(0.1)
         assert app.screen != dialog
 
+
 @pytest.mark.asyncio
 async def test_system_commands_show_setting_state():
     """Verify get_system_commands displays setting status with visual indicator without long descriptions."""
     from cyguide.app import CyGuideApp
+
     app = CyGuideApp()
     async with app.run_test():
         commands = list(app.get_system_commands(app.screen))
@@ -226,6 +255,7 @@ async def test_tool_health_in_command_palette():
     """Verify tool health has one consolidated option in command palette, with tools under it."""
     from cyguide.app import CyGuideApp
     from cyguide.ui.screens.tool_health_modal import ToolHealthModal
+
     app = CyGuideApp()
     async with app.run_test() as pilot:
         commands = list(app.get_system_commands(app.screen))
@@ -250,6 +280,7 @@ async def test_tool_health_arrow_navigation():
     """Verify right arrow navigates into Tool Health list and left arrow navigates back out."""
     from cyguide.app import CyGuideApp
     from cyguide.ui.screens.tool_health_modal import ToolHealthModal
+
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
         await pilot.press("ctrl+p")
@@ -257,7 +288,9 @@ async def test_tool_health_arrow_navigation():
         assert app.screen.__class__.__name__ == "CyGuideCommandPalette"
 
         cl = app.screen.query_one("CommandList")
-        tool_health_idx = next(i for i, opt in enumerate(cl.options) if "Tool Health" in str(opt.prompt))
+        tool_health_idx = next(
+            i for i, opt in enumerate(cl.options) if "Tool Health" in str(opt.prompt)
+        )
         cl.highlighted = tool_health_idx
         await pilot.pause(0.1)
 
@@ -297,9 +330,15 @@ async def test_dashboard_tool_health_conditional_visibility(monkeypatch):
 
         # Simulate a negative tool health status (load error)
         fake_unhealthy = {
-            "faulty_tool": {"healthy": False, "status": "error", "message": "Crash during initialization"}
+            "faulty_tool": {
+                "healthy": False,
+                "status": "error",
+                "message": "Crash during initialization",
+            }
         }
-        monkeypatch.setattr(cyguide.engine.diagnostics, "check_tool_health", lambda reg: fake_unhealthy)
+        monkeypatch.setattr(
+            cyguide.engine.diagnostics, "check_tool_health", lambda reg: fake_unhealthy
+        )
         await dashboard.refresh_diagnostics()
         await pilot.pause(0.1)
 
@@ -326,7 +365,9 @@ async def test_palette_right_arrow_executes_leaf_and_preserves_memory():
         await pilot.press("ctrl+p")
         await pilot.pause(0.2)
         cl = app.screen.query_one(CommandList)
-        anim_idx = next(i for i, opt in enumerate(cl.options) if "Toggle Animations" in str(opt.prompt))
+        anim_idx = next(
+            i for i, opt in enumerate(cl.options) if "Toggle Animations" in str(opt.prompt)
+        )
         cl.highlighted = anim_idx
         await pilot.pause(0.1)
         await pilot.press("right")
@@ -500,6 +541,7 @@ async def test_dashboard_arrow_navigation_in_delete_and_organize_modes():
 async def test_settings_persistence(tmp_path):
     """Verify animations setting persists across app restarts."""
     import json
+
     db_file = str(tmp_path / "cyguide.db")
     settings_file = tmp_path / "settings.json"
 
@@ -637,6 +679,7 @@ async def test_new_workspace_session_rename_dialog():
 async def test_learning_sidebar_layout_and_wrapping():
     """Verify Learning Mode Plan A sidebar: unclipped run button, launchpad container, and wrapping preview."""
     from cyguide.app import CyGuideApp
+
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test(size=(120, 45)) as pilot:
         await app.push_screen("learning_mode")
@@ -657,7 +700,9 @@ async def test_learning_sidebar_layout_and_wrapping():
         # 2. Verify run button is unclipped (within the pane boundary)
         pane_bottom = pane.region.y + pane.region.height
         btn_bottom = run_btn.region.y + run_btn.region.height
-        assert btn_bottom <= pane_bottom, f"Button bottom {btn_bottom} exceeds pane bottom {pane_bottom}"
+        assert btn_bottom <= pane_bottom, (
+            f"Button bottom {btn_bottom} exceeds pane bottom {pane_bottom}"
+        )
         assert run_btn.region.height == 3
 
         # 3. Test recipe selection updates preview
@@ -669,7 +714,9 @@ async def test_learning_sidebar_layout_and_wrapping():
 
         # 4. Test long command wrapping expands preview height
         initial_height = preview.size.height
-        screen.query_one("#flags_input").value = "-sV -sC -A -T4 -p 1-65535 -oN scan.txt --script=vuln,default"
+        screen.query_one(
+            "#flags_input"
+        ).value = "-sV -sC -A -T4 -p 1-65535 -oN scan.txt --script=vuln,default"
         await pilot.pause()
         assert preview.size.height >= initial_height
         assert "vuln" in str(preview.render())
@@ -704,7 +751,12 @@ async def test_session_overview_hierarchy_and_formatting(tmp_path):
 
         # 2. Add findings and verify formatted entity rows without truncation
         await app.store.upsert_finding(sess_id, NetworkHost.create(ip="192.168.1.50"))
-        await app.store.upsert_finding(sess_id, NetworkService.create(host_ip="192.168.1.50", port=80, protocol="tcp", service_name="http"))
+        await app.store.upsert_finding(
+            sess_id,
+            NetworkService.create(
+                host_ip="192.168.1.50", port=80, protocol="tcp", service_name="http"
+            ),
+        )
         await app.store.upsert_finding(sess_id, NetworkNetblock.create(cidr="192.168.1.0/24"))
 
         await dashboard.show_session_details(sess_id, force=True)
@@ -853,7 +905,11 @@ async def test_sidebar_resize_alt_brackets(tmp_path):
         await pilot.pause()
         power = app.get_screen("power_mode")
         ppane = power.query_one("#power_sidebar")
-        init_pw = int(ppane.styles.width.value if ppane.styles.width and ppane.styles.width.value else (ppane.region.width or 34))
+        init_pw = int(
+            ppane.styles.width.value
+            if ppane.styles.width and ppane.styles.width.value
+            else (ppane.region.width or 34)
+        )
 
         # Shrink via alt+[ and alt+left_square_bracket
         await pilot.press("alt+[")
@@ -878,7 +934,11 @@ async def test_sidebar_resize_alt_brackets(tmp_path):
         await pilot.pause()
         sp_pane = power.query_one("#scratchpad_pane")
         assert sp_pane.display is True
-        init_spw = int(sp_pane.styles.width.value if sp_pane.styles.width and sp_pane.styles.width.value else (sp_pane.region.width or 32))
+        init_spw = int(
+            sp_pane.styles.width.value
+            if sp_pane.styles.width and sp_pane.styles.width.value
+            else (sp_pane.region.width or 32)
+        )
 
         # Expand scratchpad via alt+[ and alt+left_square_bracket (moves left divider leftward)
         await pilot.press("alt+[")
@@ -917,7 +977,9 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         await app.power_facade.create_session(ws2, "Beta Session")
 
         await d.refresh_workspaces()
-        ws_items = [w for w in (await app.power_facade.list_workspaces()) if w.get("status") != "SYSTEM"]
+        ws_items = [
+            w for w in (await app.power_facade.list_workspaces()) if w.get("status") != "SYSTEM"
+        ]
         first_ws_name = ws_items[0]["name"]
         first_sess_name = "Alpha Session" if first_ws_name == "Default Project" else "Beta Session"
         second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
@@ -935,7 +997,9 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         assert ws_list.index == 1
 
         details = d.query_one("#session_details_content")
-        assert not details.query(".session_empty_card"), "Must not display empty card when workspace has sessions"
+        assert not details.query(".session_empty_card"), (
+            "Must not display empty card when workspace has sessions"
+        )
         assert details.query(".session_id_card"), "Must render session card immediately"
         title_label = d.query_one("#session_title_text")
         assert second_sess_name in str(title_label.render())
@@ -946,7 +1010,9 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         assert ws_list.index == 0
 
         details = d.query_one("#session_details_content")
-        assert not details.query(".session_empty_card"), "Must not display empty card when workspace has sessions"
+        assert not details.query(".session_empty_card"), (
+            "Must not display empty card when workspace has sessions"
+        )
         assert details.query(".session_id_card"), "Must render session card immediately"
         title_label = d.query_one("#session_title_text")
         assert first_sess_name in str(title_label.render())

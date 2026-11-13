@@ -70,6 +70,7 @@ SHORTCUTS_MD = """
 
 class ConfirmDialog(ModalScreen[bool]):
     """A generic confirmation dialog (Yes/No or Action/Cancel)."""
+
     def __init__(
         self,
         prompt: str,
@@ -98,6 +99,7 @@ class ConfirmDialog(ModalScreen[bool]):
                 self.query_one(target_id, Button).focus()
             except Exception:
                 pass
+
         self.call_after_refresh(focus_default)
 
     def on_key(self, event: events.Key) -> None:
@@ -120,6 +122,7 @@ class ConfirmDialog(ModalScreen[bool]):
 
 class RenameDialog(ModalScreen[str]):
     """A modal dialog to rename a workspace, session, or entity."""
+
     def __init__(self, prompt: str, initial_value: str):
         super().__init__()
         self.prompt = prompt
@@ -141,6 +144,7 @@ class RenameDialog(ModalScreen[str]):
                 inp.action_select_all()
             except Exception:
                 pass
+
         self.call_after_refresh(focus_input)
 
     def on_key(self, event: events.Key) -> None:
@@ -188,6 +192,7 @@ class RenameDialog(ModalScreen[str]):
 
 class ShortcutsDialog(ModalScreen):
     """Modal displaying keyboard shortcuts and help."""
+
     BINDINGS = [
         ("escape", "app.pop_screen", "Close"),
         ("f1", "app.pop_screen", "Close"),
@@ -206,6 +211,7 @@ class ShortcutsDialog(ModalScreen):
                 self.query_one("#close_shortcuts", Button).focus()
             except Exception:
                 pass
+
         self.call_after_refresh(focus_close)
 
     def on_key(self, event: events.Key) -> None:

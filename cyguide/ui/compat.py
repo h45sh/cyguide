@@ -123,7 +123,12 @@ def setup_textual_compat() -> None:
             if getattr(self, "_allow_select_override", None) is not None:
                 return self._allow_select_override
             widget_id = getattr(self, "id", None)
-            if widget_id in ("explanation_text", "raw_output_text", "command_preview", "test_static"):
+            if widget_id in (
+                "explanation_text",
+                "raw_output_text",
+                "command_preview",
+                "test_static",
+            ):
                 return True
             classes = getattr(self, "classes", ())
             if "selectable" in classes:
@@ -173,14 +178,26 @@ def setup_textual_compat() -> None:
 
         orig_static_render_line = Static.render_line
 
-        def _stylize_strip_selection(strip: Strip, start_x: int, end_x: int, sel_style: Style) -> Strip:
+        def _stylize_strip_selection(
+            strip: Strip, start_x: int, end_x: int, sel_style: Style
+        ) -> Strip:
             if end_x == -1:
                 end_x = strip.cell_length
             if start_x >= end_x or start_x >= strip.cell_length or end_x <= 0:
                 return strip
             start_x = max(0, start_x)
             end_x = min(strip.cell_length, end_x)
-            cuts = sorted(list(set([c for c in (start_x, end_x, strip.cell_length) if 0 < c <= strip.cell_length])))
+            cuts = sorted(
+                list(
+                    set(
+                        [
+                            c
+                            for c in (start_x, end_x, strip.cell_length)
+                            if 0 < c <= strip.cell_length
+                        ]
+                    )
+                )
+            )
             parts = list(strip.divide(cuts))
             new_parts = []
             curr = 0
@@ -213,7 +230,11 @@ def setup_textual_compat() -> None:
                     start_x, end_x = span
                     try:
                         screen_sel = getattr(self.screen, "selection_style", None)
-                        if screen_sel and screen_sel.color != screen_sel.bgcolor and screen_sel.bgcolor:
+                        if (
+                            screen_sel
+                            and screen_sel.color != screen_sel.bgcolor
+                            and screen_sel.bgcolor
+                        ):
                             sel_style = screen_sel
                         else:
                             sel_style = Style.parse("bold #ffffff on #0284c7")
@@ -232,7 +253,11 @@ def setup_textual_compat() -> None:
                 if not lines:
                     return "", "\n"
                 start_y, start_x = (0, 0) if selection.start is None else selection.start.transpose
-                end_y, end_x = (len(lines) - 1, len(lines[-1])) if selection.end is None else selection.end.transpose
+                end_y, end_x = (
+                    (len(lines) - 1, len(lines[-1]))
+                    if selection.end is None
+                    else selection.end.transpose
+                )
                 start_y = max(0, min(len(lines) - 1, start_y))
                 end_y = max(0, min(len(lines) - 1, end_y))
                 if start_y > end_y or (start_y == end_y and start_x > end_x):
@@ -273,22 +298,27 @@ def setup_textual_compat() -> None:
             start_widget = select_state.start.content_widget
             if start_widget is not None and getattr(start_widget, "allow_select", False):
                 start_offset = select_state.start.content_offset or Offset(0, 0)
-                if select_state.end.content_widget is start_widget and select_state.end.content_offset is not None:
+                if (
+                    select_state.end.content_widget is start_widget
+                    and select_state.end.content_offset is not None
+                ):
                     end_offset = select_state.end.content_offset
                 else:
                     region = start_widget.region
                     rel_x = max(0, min(region.width, select_state.screen_offset.x - region.x))
                     rel_y = max(0, select_state.screen_offset.y - region.y)
-                    if hasattr(start_widget, "_render_cache") and start_widget._render_cache and start_widget._render_cache.lines:
+                    if (
+                        hasattr(start_widget, "_render_cache")
+                        and start_widget._render_cache
+                        and start_widget._render_cache.lines
+                    ):
                         rel_y = min(len(start_widget._render_cache.lines) - 1, rel_y)
                     end_offset = Offset(rel_x, rel_y)
 
                 s_off, e_off = start_offset, end_offset
                 if e_off.transpose < s_off.transpose:
                     s_off, e_off = e_off, s_off
-                self.selections = {
-                    start_widget: Selection.from_offsets(s_off, e_off + (1, 0))
-                }
+                self.selections = {start_widget: Selection.from_offsets(s_off, e_off + (1, 0))}
                 return
 
             # If start_widget is not a designated selectable widget, NEVER select anything.
@@ -311,20 +341,25 @@ def setup_textual_compat() -> None:
         from textual.app import App
         from textual.events import _get_key_aliases
 
-        if hasattr(_get_key_aliases, "__globals__") and "KEY_ALIASES" in _get_key_aliases.__globals__:
+        if (
+            hasattr(_get_key_aliases, "__globals__")
+            and "KEY_ALIASES" in _get_key_aliases.__globals__
+        ):
             key_aliases_dict = _get_key_aliases.__globals__["KEY_ALIASES"]
-            key_aliases_dict.update({
-                "alt+left_square_bracket": ["alt+[", "alt+{", "alt_left_square_bracket"],
-                "alt+[": ["alt+left_square_bracket"],
-                "alt+right_square_bracket": ["alt+]", "alt+}", "alt_right_square_bracket"],
-                "alt+]": ["alt+right_square_bracket"],
-                "alt+left_curly_bracket": ["alt+{", "alt+[", "alt_left_curly_bracket"],
-                "alt+{": ["alt+left_curly_bracket", "alt+left_square_bracket"],
-                "alt+right_curly_bracket": ["alt+}", "alt+]", "alt_right_curly_bracket"],
-                "alt+}": ["alt+right_curly_bracket", "alt+right_square_bracket"],
-                "alt+shift+left_square_bracket": ["alt+{", "alt+left_curly_bracket", "alt+["],
-                "alt+shift+right_square_bracket": ["alt+}", "alt+right_curly_bracket", "alt+]"],
-            })
+            key_aliases_dict.update(
+                {
+                    "alt+left_square_bracket": ["alt+[", "alt+{", "alt_left_square_bracket"],
+                    "alt+[": ["alt+left_square_bracket"],
+                    "alt+right_square_bracket": ["alt+]", "alt+}", "alt_right_square_bracket"],
+                    "alt+]": ["alt+right_square_bracket"],
+                    "alt+left_curly_bracket": ["alt+{", "alt+[", "alt_left_curly_bracket"],
+                    "alt+{": ["alt+left_curly_bracket", "alt+left_square_bracket"],
+                    "alt+right_curly_bracket": ["alt+}", "alt+]", "alt_right_curly_bracket"],
+                    "alt+}": ["alt+right_curly_bracket", "alt+right_square_bracket"],
+                    "alt+shift+left_square_bracket": ["alt+{", "alt+left_curly_bracket", "alt+["],
+                    "alt+shift+right_square_bracket": ["alt+}", "alt+right_curly_bracket", "alt+]"],
+                }
+            )
 
         orig_check_bindings = App._check_bindings
 

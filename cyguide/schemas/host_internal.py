@@ -2,7 +2,6 @@
 
 from typing import ClassVar, Optional
 
-from cyguide.common.canonicalize import canonicalize_host
 from cyguide.schemas.base import BaseFinding, Relation
 
 
@@ -14,13 +13,12 @@ class ProcessRunning(BaseFinding):
 
     @classmethod
     def create(cls, host_ip: str, pid: int, name: str, **kwargs):
-        normalized_ip = canonicalize_host(host_ip)
         return cls(
-            pik={"host_ip": normalized_ip, "pid": pid},
+            pik={"host_ip": host_ip, "pid": pid},
             parent=Relation(
-                target_type="network.host", target_pik={"ip": normalized_ip}, via="hosts_process"
+                target_type="network.host", target_pik={"ip": host_ip}, via="hosts_process"
             ),
-            data={"host_ip": normalized_ip, "pid": pid, "name": name, **kwargs},
+            data={"host_ip": host_ip, "pid": pid, "name": name, **kwargs},
         )
 
 
@@ -32,13 +30,12 @@ class FileSystemObject(BaseFinding):
 
     @classmethod
     def create(cls, host_ip: str, path: str, **kwargs):
-        normalized_ip = canonicalize_host(host_ip)
         return cls(
-            pik={"host_ip": normalized_ip, "path": path},
+            pik={"host_ip": host_ip, "path": path},
             parent=Relation(
-                target_type="network.host", target_pik={"ip": normalized_ip}, via="hosts_file"
+                target_type="network.host", target_pik={"ip": host_ip}, via="hosts_file"
             ),
-            data={"host_ip": normalized_ip, "path": path, **kwargs},
+            data={"host_ip": host_ip, "path": path, **kwargs},
         )
 
 
@@ -50,14 +47,13 @@ class SoftwarePackage(BaseFinding):
 
     @classmethod
     def create(cls, host_ip: str, package_name: str, version: Optional[str] = None, **kwargs):
-        normalized_ip = canonicalize_host(host_ip)
         return cls(
-            pik={"host_ip": normalized_ip, "package_name": package_name},
+            pik={"host_ip": host_ip, "package_name": package_name},
             parent=Relation(
-                target_type="network.host", target_pik={"ip": normalized_ip}, via="hosts_software"
+                target_type="network.host", target_pik={"ip": host_ip}, via="hosts_software"
             ),
             data={
-                "host_ip": normalized_ip,
+                "host_ip": host_ip,
                 "package_name": package_name,
                 "version": version,
                 **kwargs,

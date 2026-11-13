@@ -2,7 +2,6 @@
 
 from typing import ClassVar, Optional
 
-from cyguide.common.canonicalize import canonicalize_host, canonicalize_port, canonicalize_url
 from cyguide.schemas.base import BaseFinding, Relation
 
 
@@ -14,23 +13,19 @@ class WebEndpoint(BaseFinding):
 
     @classmethod
     def create(cls, url: str, host_ip: Optional[str] = None, port: Optional[int] = None, **kwargs):
-        normalized_url = canonicalize_url(url)
-
         parent = None
         if host_ip and port:
             parent = Relation(
                 target_type="network.service",
                 target_pik={
-                    "host_ip": canonicalize_host(host_ip),
-                    "port": canonicalize_port(port),
+                    "host_ip": host_ip,
+                    "port": port,
                     "protocol": "tcp",  # Default for web
                 },
                 via="hosts_endpoint",
             )
 
-        return cls(
-            pik={"url": normalized_url}, parent=parent, data={"url": normalized_url, **kwargs}
-        )
+        return cls(pik={"url": url}, parent=parent, data={"url": url, **kwargs})
 
 
 class WebResource(BaseFinding):
@@ -41,13 +36,12 @@ class WebResource(BaseFinding):
 
     @classmethod
     def create(cls, url: str, resource_path: str, **kwargs):
-        normalized_url = canonicalize_url(url)
         return cls(
-            pik={"url": normalized_url, "resource_path": resource_path},
+            pik={"url": url, "resource_path": resource_path},
             parent=Relation(
-                target_type="web.endpoint", target_pik={"url": normalized_url}, via="hosts_resource"
+                target_type="web.endpoint", target_pik={"url": url}, via="hosts_resource"
             ),
-            data={"url": normalized_url, "resource_path": resource_path, **kwargs},
+            data={"url": url, "resource_path": resource_path, **kwargs},
         )
 
 
@@ -59,11 +53,10 @@ class WebVulnerability(BaseFinding):
 
     @classmethod
     def create(cls, url: str, vuln_type: str, parameter: Optional[str] = None, **kwargs):
-        normalized_url = canonicalize_url(url)
         return cls(
-            pik={"url": normalized_url, "vuln_type": vuln_type, "parameter": parameter or ""},
+            pik={"url": url, "vuln_type": vuln_type, "parameter": parameter or ""},
             parent=Relation(
-                target_type="web.endpoint", target_pik={"url": normalized_url}, via="has_web_vuln"
+                target_type="web.endpoint", target_pik={"url": url}, via="has_web_vuln"
             ),
-            data={"url": normalized_url, "vuln_type": vuln_type, "parameter": parameter, **kwargs},
+            data={"url": url, "vuln_type": vuln_type, "parameter": parameter, **kwargs},
         )

@@ -2,7 +2,6 @@
 
 from typing import ClassVar, Optional
 
-from cyguide.common.canonicalize import canonicalize_host
 from cyguide.schemas.base import BaseFinding, Relation
 
 
@@ -25,7 +24,7 @@ class CredentialFound(BaseFinding):
         if host_ip:
             parent = Relation(
                 target_type="network.host",
-                target_pik={"ip": canonicalize_host(host_ip)},
+                target_pik={"ip": host_ip},
                 via="credential_for_host",
             )
 

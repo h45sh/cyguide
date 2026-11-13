@@ -338,7 +338,17 @@ def test_app_init_loads_saved_settings(tmp_path, monkeypatch):
                 "use_ollama": True,
                 "ollama_model": "deepseek-coder",
                 "tools_dir": "extra_tools/",
-                "api_key": "saved_key_123",
+                "cloud_keys": [
+                    {
+                        "id": "key_1",
+                        "name": "Primary Key",
+                        "provider": "openai",
+                        "api_key": "saved_key_123",
+                        "model": "gpt-4o",
+                        "base_url": "",
+                        "enabled": True,
+                    }
+                ],
             }
         )
     )

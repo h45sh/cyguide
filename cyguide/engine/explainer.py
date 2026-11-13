@@ -276,7 +276,7 @@ class MockProviderAdapter:
             yield c
 
 
-# --- Legacy / Standalone Ollama Backend ---
+# --- Standalone Ollama Backend ---
 
 
 class OllamaBackend(ExplainerBackend):
@@ -759,7 +759,7 @@ class ExplanationTutor(ExplainerBackend):
         )
 
     async def explain(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
-        """Stream plain text tokens with formatted notices and errors for backward compatibility."""
+        """Stream plain text tokens with formatted notices and errors."""
         async for event in self.stream(prompt, system=system):
             if isinstance(event, TutorToken):
                 yield event.text

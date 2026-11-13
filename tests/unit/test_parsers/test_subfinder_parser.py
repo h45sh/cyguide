@@ -8,8 +8,10 @@ from tools.subfinder.adapter import SubfinderAdapter
 def adapter():
     return SubfinderAdapter()
 
+
 def test_subfinder_validate_install(adapter):
     assert isinstance(adapter.validate_install(), bool)
+
 
 def test_subfinder_build_command(adapter):
     # 1. Target is domain.info
@@ -21,6 +23,7 @@ def test_subfinder_build_command(adapter):
     dns_rec = DnsRecord.create(domain="target.org", record_type="A", value="1.2.3.4")
     cmd_dns = adapter.build_command(dns_rec, {"raw_flags": "-d {domain}"})
     assert cmd_dns == ["subfinder", "-d", "target.org"]
+
 
 @pytest.mark.asyncio
 async def test_subfinder_parse_output(adapter):
@@ -44,7 +47,7 @@ mail.example.com
 
     assert len(findings) == 4
     domains = [f.pik["domain"] for f in findings]
-    
+
     assert set(domains) == {
         "api.example.com",
         "admin.example.com",

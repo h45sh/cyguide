@@ -75,7 +75,9 @@ async def test_facade_resolves_lhost():
 
 
 def test_flag_regex_detection():
-    flag_pattern = re.compile(r'(?:flag|FLAG|ctf|CTF|htb|HTB|thm|THM)\{[A-Za-z0-9_!@#$%^&*+=?.-]+\}')
+    flag_pattern = re.compile(
+        r"(?:flag|FLAG|ctf|CTF|htb|HTB|thm|THM)\{[A-Za-z0-9_!@#$%^&*+=?.-]+\}"
+    )
 
     sample_output = """
     Target scanned successfully.
@@ -195,4 +197,3 @@ def test_command_palette_submission_strips_duplicate_prefixes():
     assert sub.tool_name == "whois"
     assert sub.expanded_params == ["104.20.23.154"]
     assert sub.value == "whois 104.20.23.154"
-

@@ -16,10 +16,10 @@ async def test_structured_event_log():
     sess_id = await store.create_session(ws_id, "Session")
 
     action = ActionRequest(
-        session_id=uuid4(), # different just for payload test
+        session_id=uuid4(),  # different just for payload test
         tool_name="nmap",
         target_entity_id="test_node",
-        params={"f": "v"}
+        params={"f": "v"},
     )
 
     await store.append_event(sess_id, action, {"status": "ok"}, "Ran nmap")
@@ -32,6 +32,7 @@ async def test_structured_event_log():
 
     await store.close()
 
+
 @pytest.mark.asyncio
 async def test_mark_event_closed():
     store = GraphStore(":memory:")
@@ -40,10 +41,7 @@ async def test_mark_event_closed():
     sess_id = await store.create_session(ws_id, "Session")
 
     action = ActionRequest(
-        session_id=uuid4(),
-        tool_name="nmap",
-        target_entity_id="test_node",
-        params={"f": "v"}
+        session_id=uuid4(), tool_name="nmap", target_entity_id="test_node", params={"f": "v"}
     )
 
     await store.append_event(sess_id, action, {"status": "ok"}, "Ran nmap")
@@ -66,6 +64,7 @@ async def test_mark_event_closed():
 
     await store.close()
 
+
 @pytest.mark.asyncio
 async def test_store_initialization():
     store = GraphStore(":memory:")
@@ -82,6 +81,7 @@ async def test_store_initialization():
         assert "event_log" in tables
     await store.close()
 
+
 @pytest.mark.asyncio
 async def test_learning_sandbox_creation():
     store = GraphStore(":memory:")
@@ -97,6 +97,7 @@ async def test_learning_sandbox_creation():
     assert sess_id == sess_id2
     await store.close()
 
+
 @pytest.mark.asyncio
 async def test_upsert_and_query_finding():
     store = GraphStore(":memory:")
@@ -111,6 +112,7 @@ async def test_upsert_and_query_finding():
     assert results[0]["id"] == node_id
     assert json.loads(results[0]["pik_json"]) == {"ip": "127.0.0.1"}
     await store.close()
+
 
 @pytest.mark.asyncio
 async def test_graph_wiring_parent():
@@ -133,6 +135,7 @@ async def test_graph_wiring_parent():
         count = (await cursor.fetchone())[0]
         assert count == 1
     await store.close()
+
 
 @pytest.mark.asyncio
 async def test_auto_create_nonexistent_parent_dir(tmp_path):
@@ -223,6 +226,7 @@ async def test_upsert_findings_batch(tmp_path):
     ]
 
     callback_findings = []
+
     async def on_upsert_hook(s_id, finding):
         callback_findings.append((s_id, finding))
 

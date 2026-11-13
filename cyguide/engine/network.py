@@ -26,7 +26,7 @@ def get_lhost_info(ttl: float = 10.0, force_refresh: bool = False) -> Tuple[str,
             capture_output=True,
             text=True,
             timeout=1.0,
-            check=False
+            check=False,
         )
         if res.returncode == 0:
             vpn_candidates = []

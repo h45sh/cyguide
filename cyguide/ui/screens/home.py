@@ -15,7 +15,13 @@ from textual.widgets import Button, Footer, Label, ListItem, ListView, Static
 from cyguide.ui.dialogs import RenameDialog, ShortcutsDialog
 
 
-def format_activity(session_name: str, schema_type: str, human_readable: str, finding_json: Optional[str] = None, finding_obj: Optional[Any] = None) -> str:
+def format_activity(
+    session_name: str,
+    schema_type: str,
+    human_readable: str,
+    finding_json: Optional[str] = None,
+    finding_obj: Optional[Any] = None,
+) -> str:
     # 1. Shorten session name
     s_name = session_name
     if s_name.startswith("Session "):
@@ -28,6 +34,7 @@ def format_activity(session_name: str, schema_type: str, human_readable: str, fi
     if schema_type != "system.event":
         try:
             import json
+
             if finding_obj:
                 pik = finding_obj.pik
                 data = finding_obj.data
@@ -93,25 +100,25 @@ SCHEMA_DISPLAY_MAP: Dict[str, tuple[str, str, str]] = {
 
 SCHEMA_CANONICAL_ORDER: list[str] = [
     # Infrastructure: Device -> Netblock -> Services
-    "network.host",          # Hosts / Devices / IPs
-    "network.netblock",      # Netblocks / CIDRs
-    "network.service",       # Services / Ports
+    "network.host",  # Hosts / Devices / IPs
+    "network.netblock",  # Netblocks / CIDRs
+    "network.service",  # Services / Ports
     # Web & Application Layer
-    "web.endpoint",          # Web Endpoints
-    "web.resource",          # Web Resources
+    "web.endpoint",  # Web Endpoints
+    "web.resource",  # Web Resources
     # Domains & DNS Layer
-    "domain.info",           # Domains
-    "dns.record",            # DNS Records
-    "tls.certificate",       # TLS Certificates
+    "domain.info",  # Domains
+    "dns.record",  # DNS Records
+    "tls.certificate",  # TLS Certificates
     # Security Findings & Credentials
-    "vulnerability.found",   # Vulnerabilities
-    "web.vulnerability",     # Web Vulnerabilities
-    "credential.found",      # Credentials
+    "vulnerability.found",  # Vulnerabilities
+    "web.vulnerability",  # Web Vulnerabilities
+    "credential.found",  # Credentials
     # Internal Host & Processes
-    "process.running",       # Processes
-    "software.package",      # Packages
-    "file.system_object",    # Files
-    "entity.alias",          # Aliases
+    "process.running",  # Processes
+    "software.package",  # Packages
+    "file.system_object",  # Files
+    "entity.alias",  # Aliases
 ]
 
 
@@ -119,7 +126,11 @@ def format_schema_label(schema_type: str) -> tuple[str, str, str]:
     """Return a bullet symbol, color, and human-friendly name for a schema type."""
     if schema_type in SCHEMA_DISPLAY_MAP:
         return SCHEMA_DISPLAY_MAP[schema_type]
-    clean_name = schema_type.split(".")[-1].replace("_", " ").title() if "." in schema_type else schema_type.replace("_", " ").title()
+    clean_name = (
+        schema_type.split(".")[-1].replace("_", " ").title()
+        if "." in schema_type
+        else schema_type.replace("_", " ").title()
+    )
     return ("◆", "#94a3b8", clean_name)
 
 
@@ -133,7 +144,14 @@ def get_schema_sort_key(schema_type: str) -> tuple[int, str]:
 
 class ConfirmationDialog(ModalScreen[bool]):
     """A generic centered confirmation dialog."""
-    def __init__(self, message: str, confirm_label: str = "Confirm", cancel_label: str = "Cancel", is_destructive: bool = True):
+
+    def __init__(
+        self,
+        message: str,
+        confirm_label: str = "Confirm",
+        cancel_label: str = "Cancel",
+        is_destructive: bool = True,
+    ):
         super().__init__()
         self.message = message
         self.confirm_label = confirm_label
@@ -156,6 +174,7 @@ class ConfirmationDialog(ModalScreen[bool]):
                 self.query_one(target_id, Button).focus()
             except Exception:
                 pass
+
         self.call_after_refresh(focus_default)
 
     def on_key(self, event: events.Key) -> None:
@@ -174,6 +193,7 @@ class ConfirmationDialog(ModalScreen[bool]):
             self.dismiss(True)
         else:
             self.dismiss(False)
+
 
 # Note: RenameDialog is imported from cyguide.ui.dialogs
 
@@ -238,8 +258,12 @@ class DashboardScreen(Screen):
                 with Horizontal(id="session_container"):
                     with Vertical(id="session_sidebar"):
                         with Horizontal(classes="pane_header"):
-                            yield Label("◆ SESSIONS", classes="pane_title", id="sessions_pane_title")
-                            yield Label("[Active]", id="session_filter_badge", classes="pane_filter_badge")
+                            yield Label(
+                                "◆ SESSIONS", classes="pane_title", id="sessions_pane_title"
+                            )
+                            yield Label(
+                                "[Active]", id="session_filter_badge", classes="pane_filter_badge"
+                            )
                         yield ListView(id="session_list")
 
                         with Vertical(id="tool_health_container", classes="hidden"):
@@ -251,7 +275,9 @@ class DashboardScreen(Screen):
                         with Horizontal(classes="pane_header"):
                             yield Label("◆ SESSION OVERVIEW", classes="pane_title")
                         with Vertical(id="session_details_content"):
-                            yield Label("Select a session to view details", classes="placeholder_text")
+                            yield Label(
+                                "Select a session to view details", classes="placeholder_text"
+                            )
 
                 with Vertical(id="activity_container"):
                     with Horizontal(classes="pane_header"):
@@ -333,9 +359,18 @@ class DashboardScreen(Screen):
             container.remove_class("hidden")
             for tool, info in sorted(issues.items()):
                 if info.get("status") == "missing":
-                    diag_list.append(ListItem(Static(f"×  {tool}: Not installed", classes="diagnostics_error")))
+                    diag_list.append(
+                        ListItem(Static(f"×  {tool}: Not installed", classes="diagnostics_error"))
+                    )
                 else:
-                    diag_list.append(ListItem(Static(f"▲  {tool}: {info.get('message', 'Issue detected')}", classes="diagnostics_error")))
+                    diag_list.append(
+                        ListItem(
+                            Static(
+                                f"▲  {tool}: {info.get('message', 'Issue detected')}",
+                                classes="diagnostics_error",
+                            )
+                        )
+                    )
 
     async def handle_new_finding(self, session_id: str, finding: Any) -> None:
         """Reactive callback triggered by the GraphStore on every finding."""
@@ -350,13 +385,20 @@ class DashboardScreen(Screen):
         # 2. Surgical Metrics Update
         ws_stats = await self.app.power_facade.get_stats()
         self.query_one("#metric_hosts", Static).update(f"Hosts: {ws_stats.get('network.host', 0)}")
-        self.query_one("#metric_services", Static).update(f"Services: {ws_stats.get('network.service', 0)}")
+        self.query_one("#metric_services", Static).update(
+            f"Services: {ws_stats.get('network.service', 0)}"
+        )
 
         # 3. Surgical Activity Prepend
         act_list = self.query_one("#activity_list", ListView)
         ts = datetime.utcnow().strftime("%H:%M")
 
-        msg = format_activity(session["name"], finding.schema_type, f"Discovered {finding.schema_type}", finding_obj=finding)
+        msg = format_activity(
+            session["name"],
+            finding.schema_type,
+            f"Discovered {finding.schema_type}",
+            finding_obj=finding,
+        )
         new_item = ListItem(Static(f"{ts} {msg}"))
         await act_list.insert(0, [new_item])
         if len(act_list.children) > 15:
@@ -366,7 +408,9 @@ class DashboardScreen(Screen):
         if self.selected_session_id == session_id:
             if self._sess_debounce_task and not self._sess_debounce_task.done():
                 self._sess_debounce_task.cancel()
-            self._sess_debounce_task = asyncio.create_task(self._debounced_show_session(session_id, delay=0.15))
+            self._sess_debounce_task = asyncio.create_task(
+                self._debounced_show_session(session_id, delay=0.15)
+            )
 
     def action_toggle_sidebar(self) -> None:
         sidebar = self.query_one("#workspace_sidebar")
@@ -386,14 +430,20 @@ class DashboardScreen(Screen):
             sidebar.add_class("delete-mode-border")
             status_label.remove_class("hidden")
             status_label.add_class("delete-status")
-            status_label.update(r"[bold #f85149]DELETE MODE:[/] \[Space] Toggle | \[Ctrl+D] Confirm | \[Esc] Cancel")
+            status_label.update(
+                r"[bold #f85149]DELETE MODE:[/] \[Space] Toggle | \[Ctrl+D] Confirm | \[Esc] Cancel"
+            )
         elif self.mode == "ORGANIZE":
             status_label.remove_class("hidden")
             status_label.add_class("organize-status")
             if self.organize_step == 1:
-                status_label.update(r"[bold #eab308]ORGANIZE MODE:[/] Step 1: Select sessions | \[Space] Toggle | \[Ctrl+M] Next | \[Esc] Cancel")
+                status_label.update(
+                    r"[bold #eab308]ORGANIZE MODE:[/] Step 1: Select sessions | \[Space] Toggle | \[Ctrl+M] Next | \[Esc] Cancel"
+                )
             else:
-                status_label.update(r"[bold #eab308]ORGANIZE MODE:[/] Step 2: Choose destination | \[Enter] Move | \[Esc] Cancel")
+                status_label.update(
+                    r"[bold #eab308]ORGANIZE MODE:[/] Step 2: Choose destination | \[Enter] Move | \[Esc] Cancel"
+                )
 
     async def action_toggle_delete_mode(self) -> None:
         if self.mode == "DELETE":
@@ -433,7 +483,9 @@ class DashboardScreen(Screen):
         """Render Staged Sessions in middle pane and destination preview in right pane during Step 2."""
         try:
             self.query_one("#sessions_pane_title", Label).update("◆ SESSIONS TO MOVE")
-            self.query_one("#session_filter_badge", Label).update(f"[{len(self.selected_sessions)} Selected]")
+            self.query_one("#session_filter_badge", Label).update(
+                f"[{len(self.selected_sessions)} Selected]"
+            )
         except Exception:
             pass
 
@@ -503,14 +555,27 @@ class DashboardScreen(Screen):
                 ),
                 Vertical(
                     Label("TARGET WORKSPACE", classes="session_stat_box_label"),
-                    Label(dest_name, classes="session_stat_box_val discoveries-val", id="organize_target_ws_name"),
+                    Label(
+                        dest_name,
+                        classes="session_stat_box_val discoveries-val",
+                        id="organize_target_ws_name",
+                    ),
                     classes="session_stat_box",
                 ),
                 classes="session_metrics_grid",
             ),
             Vertical(
-                Label("Press [Enter] to move sessions to target · [Esc] to cancel", classes="session_quick_hint", markup=False),
-                Button("❯  CONFIRM MOVE", classes="enter_session_btn", variant="primary", id="confirm_move_btn"),
+                Label(
+                    "Press [Enter] to move sessions to target · [Esc] to cancel",
+                    classes="session_quick_hint",
+                    markup=False,
+                ),
+                Button(
+                    "❯  CONFIRM MOVE",
+                    classes="enter_session_btn",
+                    variant="primary",
+                    id="confirm_move_btn",
+                ),
                 classes="session_actions_card",
                 id="session_actions_card",
             ),
@@ -540,7 +605,8 @@ class DashboardScreen(Screen):
                 self.app.push_screen(RenameDialog("Rename Workspace", old_name), handle_ws_rename)
 
         elif sess_list.has_focus and sess_list.index is not None:
-            if not self.selected_ws_id: return
+            if not self.selected_ws_id:
+                return
             sessions = await self.app.power_facade.list_sessions(self.selected_ws_id)
             if sess_list.index < len(sessions):
                 sess = sessions[sess_list.index]
@@ -578,7 +644,7 @@ class DashboardScreen(Screen):
                 if ws_list.index is not None and ws_list.index < len(ws_list.children):
                     item_id = ws_list.children[ws_list.index].id
                     if item_id and item_id.startswith("ws_"):
-                        ws_id = item_id[3:] # Remove prefix
+                        ws_id = item_id[3:]  # Remove prefix
                         if ws_id in self.selected_workspaces:
                             self.selected_workspaces.remove(ws_id)
                         else:
@@ -590,7 +656,7 @@ class DashboardScreen(Screen):
                 if sess_list.index is not None and sess_list.index < len(sess_list.children):
                     item_id = sess_list.children[sess_list.index].id
                     if item_id and item_id.startswith("sess_"):
-                        sess_id = item_id[5:] # Remove prefix
+                        sess_id = item_id[5:]  # Remove prefix
                         if sess_id in self.selected_sessions:
                             self.selected_sessions.remove(sess_id)
                         else:
@@ -631,7 +697,9 @@ class DashboardScreen(Screen):
                     for wid in list(self.selected_workspaces):
                         ws = await self.app.power_facade.get_workspace(wid)
                         if ws and ws.get("status") == "SYSTEM":
-                            self.notify(f"Cannot delete system workspace: {ws['name']}", severity="error")
+                            self.notify(
+                                f"Cannot delete system workspace: {ws['name']}", severity="error"
+                            )
                             continue
                         await self.app.power_facade.delete_workspace(wid)
                     for sid in self.selected_sessions:
@@ -644,8 +712,10 @@ class DashboardScreen(Screen):
                     await self.refresh_all()
 
             self.app.push_screen(
-                ConfirmationDialog(msg, confirm_label="Delete", cancel_label="Cancel", is_destructive=True),
-                check_confirm
+                ConfirmationDialog(
+                    msg, confirm_label="Delete", cancel_label="Cancel", is_destructive=True
+                ),
+                check_confirm,
             )
 
         elif self.mode == "ORGANIZE":
@@ -688,9 +758,9 @@ class DashboardScreen(Screen):
                         f"Move {count} session(s) to '{dest_name}'?",
                         confirm_label="Move",
                         cancel_label="Cancel",
-                        is_destructive=False
+                        is_destructive=False,
                     ),
-                    check_move
+                    check_move,
                 )
 
     async def refresh_all(self):
@@ -721,7 +791,7 @@ class DashboardScreen(Screen):
 
         avail_name = max_width - prefix_plain_len - badge_len
         if len(ws_name) > avail_name and avail_name > 3:
-            display_name = ws_name[:avail_name - 1] + "…"
+            display_name = ws_name[: avail_name - 1] + "…"
         else:
             display_name = ws_name
 
@@ -742,7 +812,11 @@ class DashboardScreen(Screen):
                 if i >= len(ws_list.children):
                     break
                 if self.mode == "DELETE":
-                    prefix = r"[bold #f85149]\[x][/]  " if ws["id"] in self.selected_workspaces else r"[#94a3b8]\[ ][/]  "
+                    prefix = (
+                        r"[bold #f85149]\[x][/]  "
+                        if ws["id"] in self.selected_workspaces
+                        else r"[#94a3b8]\[ ][/]  "
+                    )
                 elif self.mode == "ORGANIZE" and self.organize_step == 2:
                     prefix = r"[bold #eab308]->[/]  " if i == active_index else "    "
                 else:
@@ -795,7 +869,11 @@ class DashboardScreen(Screen):
         if current_ids == expected_ids:
             for i, ws in enumerate(workspaces):
                 if self.mode == "DELETE":
-                    prefix = r"[bold #f85149]\[x][/]  " if ws["id"] in self.selected_workspaces else r"[#94a3b8]\[ ][/]  "
+                    prefix = (
+                        r"[bold #f85149]\[x][/]  "
+                        if ws["id"] in self.selected_workspaces
+                        else r"[#94a3b8]\[ ][/]  "
+                    )
                 elif self.mode == "ORGANIZE" and self.organize_step == 2:
                     prefix = r"[bold #eab308]->[/]  " if i == old_index else "    "
                 else:
@@ -812,11 +890,19 @@ class DashboardScreen(Screen):
             await ws_list.remove_children()
             for i, ws in enumerate(workspaces):
                 if self.mode == "DELETE":
-                    prefix = r"[bold #f85149]\[x][/]  " if ws["id"] in self.selected_workspaces else r"[#94a3b8]\[ ][/]  "
+                    prefix = (
+                        r"[bold #f85149]\[x][/]  "
+                        if ws["id"] in self.selected_workspaces
+                        else r"[#94a3b8]\[ ][/]  "
+                    )
                 elif self.mode == "ORGANIZE" and self.organize_step == 2:
                     prefix = r"[bold #eab308]->[/]  " if i == old_index else "    "
                 else:
-                    prefix = r"[#38bdf8]▸[/]  " if (old_index == i or (old_index is None and i == 0)) else r"[#94a3b8]▪[/]  "
+                    prefix = (
+                        r"[#38bdf8]▸[/]  "
+                        if (old_index == i or (old_index is None and i == 0))
+                        else r"[#94a3b8]▪[/]  "
+                    )
                 cnt = ws_running_counts.get(ws["id"], 0)
                 formatted_label = self._format_workspace_label(prefix, ws["name"], cnt)
                 ws_list.append(ListItem(Static(formatted_label), id=f"ws_{ws['id']}"))
@@ -834,7 +920,8 @@ class DashboardScreen(Screen):
             ws_list.index = old_index if old_index < len(workspaces) else 0
         elif workspaces and ws_list.index is None:
             ws_list.index = 0
-        if was_focused: ws_list.focus()
+        if was_focused:
+            ws_list.focus()
 
         if workspaces and ws_list.index is not None:
             try:
@@ -845,7 +932,8 @@ class DashboardScreen(Screen):
                 pass
 
     async def refresh_session_list(self) -> None:
-        if not self.selected_ws_id: return
+        if not self.selected_ws_id:
+            return
         await self.show_workspace_details(self.selected_ws_id)
 
     async def show_workspace_details(self, ws_id: str) -> None:
@@ -858,7 +946,7 @@ class DashboardScreen(Screen):
         ):
             self._sess_debounce_task.cancel()
         async with self._refresh_lock:
-            is_new_workspace = (self.selected_ws_id != ws_id)
+            is_new_workspace = self.selected_ws_id != ws_id
             self.selected_ws_id = ws_id
             self.app.selected_workspace_id = ws_id
             try:
@@ -873,7 +961,8 @@ class DashboardScreen(Screen):
                 pass
             facade = self.app.power_facade
             ws = await facade.get_workspace(ws_id)
-            if not ws: return
+            if not ws:
+                return
 
             self.query_one("#ws_title", Label).update(ws["name"].upper())
             ws_status = ws.get("status", "ACTIVE")
@@ -887,20 +976,26 @@ class DashboardScreen(Screen):
             closed_sessions = [s for s in all_sessions if s.get("status") == "CLOSED"]
             active_count = len(active_sessions)
             closed_count = len(closed_sessions)
-            running_jobs_total = sum(self.app.power_facade.get_active_jobs_count(s["id"]) for s in all_sessions)
+            running_jobs_total = sum(
+                self.app.power_facade.get_active_jobs_count(s["id"]) for s in all_sessions
+            )
 
             if self.session_filter == "HISTORY":
                 display_sessions = closed_sessions
                 try:
                     self.query_one("#sessions_pane_title", Label).update("◆ ARCHIVED SESSIONS")
-                    self.query_one("#session_filter_badge", Label).update(f"[History: {closed_count}]")
+                    self.query_one("#session_filter_badge", Label).update(
+                        f"[History: {closed_count}]"
+                    )
                 except NoMatches:
                     pass
             else:
                 display_sessions = active_sessions
                 try:
                     self.query_one("#sessions_pane_title", Label).update("◆ ACTIVE SESSIONS")
-                    self.query_one("#session_filter_badge", Label).update(f"[Active: {active_count}]")
+                    self.query_one("#session_filter_badge", Label).update(
+                        f"[Active: {active_count}]"
+                    )
                 except NoMatches:
                     pass
 
@@ -926,11 +1021,18 @@ class DashboardScreen(Screen):
                     closed_date = s.get("closed_at", "")[:10] if s.get("closed_at") else "archived"
                     suffix = f" [#94a3b8]({closed_date})[/]"
 
-
                 if self.mode == "DELETE":
-                    prefix = r"[bold #f85149]\[x][/]  " if s["id"] in self.selected_sessions else r"[#94a3b8]\[ ][/]  "
+                    prefix = (
+                        r"[bold #f85149]\[x][/]  "
+                        if s["id"] in self.selected_sessions
+                        else r"[#94a3b8]\[ ][/]  "
+                    )
                 elif self.mode == "ORGANIZE" and self.organize_step == 1:
-                    prefix = r"[bold #eab308]\[x][/]  " if s["id"] in self.selected_sessions else r"[#94a3b8]\[ ][/]  "
+                    prefix = (
+                        r"[bold #eab308]\[x][/]  "
+                        if s["id"] in self.selected_sessions
+                        else r"[#94a3b8]\[ ][/]  "
+                    )
                 else:
                     prefix = f"{status_icon}  "
                 return f"{prefix}{s['name']}{suffix}"
@@ -948,18 +1050,34 @@ class DashboardScreen(Screen):
                     sess_list.append(ListItem(Static(get_session_display(s)), id=f"sess_{s['id']}"))
 
             if display_sessions:
-                target_idx = 0 if is_new_workspace else (old_index if (old_index is not None and old_index < len(display_sessions)) else 0)
+                target_idx = (
+                    0
+                    if is_new_workspace
+                    else (
+                        old_index
+                        if (old_index is not None and old_index < len(display_sessions))
+                        else 0
+                    )
+                )
                 sess_list.index = None
                 sess_list.index = target_idx
                 if sess_list.children and target_idx < len(sess_list.children):
                     for idx, ch in enumerate(sess_list.children):
-                        ch.highlighted = (idx == target_idx)
-                await self.show_session_details(display_sessions[target_idx]["id"], force=is_new_workspace)
+                        ch.highlighted = idx == target_idx
+                await self.show_session_details(
+                    display_sessions[target_idx]["id"], force=is_new_workspace
+                )
             elif not display_sessions:
                 sess_list.index = None
                 await sess_list.remove_children()
-                placeholder = "[dim #94a3b8]No archived sessions[/]" if self.session_filter == "HISTORY" else "[dim #94a3b8]No active sessions · [Ctrl+S][/]"
-                sess_list.append(ListItem(Static(f"  {placeholder}"), id="empty_sess_placeholder", disabled=True))
+                placeholder = (
+                    "[dim #94a3b8]No archived sessions[/]"
+                    if self.session_filter == "HISTORY"
+                    else "[dim #94a3b8]No active sessions · [Ctrl+S][/]"
+                )
+                sess_list.append(
+                    ListItem(Static(f"  {placeholder}"), id="empty_sess_placeholder", disabled=True)
+                )
                 self.selected_session_id = None
                 self.app.selected_session_id = None
                 details_area = self.query_one("#session_details_content", Vertical)
@@ -978,15 +1096,22 @@ class DashboardScreen(Screen):
                     )
                 )
 
-            if was_focused: sess_list.focus()
+            if was_focused:
+                sess_list.focus()
 
-            self.query_one("#metric_sessions", Static).update(f"Sessions: {active_count} Active · {closed_count} Archived")
+            self.query_one("#metric_sessions", Static).update(
+                f"Sessions: {active_count} Active · {closed_count} Archived"
+            )
             self.query_one("#metric_active", Static).update(f"Running Jobs: {running_jobs_total}")
 
             # Update Host/Service counts for the workspace
             ws_stats = await facade.get_stats(workspace_id=ws_id)
-            self.query_one("#metric_hosts", Static).update(f"Hosts: {ws_stats.get('network.host', 0)}")
-            self.query_one("#metric_services", Static).update(f"Services: {ws_stats.get('network.service', 0)}")
+            self.query_one("#metric_hosts", Static).update(
+                f"Hosts: {ws_stats.get('network.host', 0)}"
+            )
+            self.query_one("#metric_services", Static).update(
+                f"Services: {ws_stats.get('network.service', 0)}"
+            )
 
         # Activity list: Only update if the recent activities actually changed
         activity = await self.app.power_facade.get_recent_activity(ws_id, limit=10)
@@ -997,7 +1122,12 @@ class DashboardScreen(Screen):
             await act_list.clear()
             for a in activity:
                 ts = a["timestamp"][11:16] if a["timestamp"] else "--:--"
-                msg = format_activity(a["session_name"], a["schema_type"], a["human_readable"], finding_json=a["finding_json"])
+                msg = format_activity(
+                    a["session_name"],
+                    a["schema_type"],
+                    a["human_readable"],
+                    finding_json=a["finding_json"],
+                )
                 act_list.append(ListItem(Static(f"{ts} {msg}")))
 
     async def on_key(self, event: events.Key) -> None:
@@ -1011,18 +1141,27 @@ class DashboardScreen(Screen):
                 event.stop()
                 if sess_list.children:
                     sess_list.focus()
-                    target = sess_list.index if (sess_list.index is not None and sess_list.index < len(sess_list.children)) else 0
+                    target = (
+                        sess_list.index
+                        if (
+                            sess_list.index is not None
+                            and sess_list.index < len(sess_list.children)
+                        )
+                        else 0
+                    )
                     sess_list.index = None
                     sess_list.index = target
                     if sess_list.children and target < len(sess_list.children):
                         for idx, ch in enumerate(sess_list.children):
-                            ch.highlighted = (idx == target)
+                            ch.highlighted = idx == target
             elif sess_list.has_focus and self.mode == "NORMAL":
                 # Move IN from session list to execute/enter the session (only in NORMAL mode)
                 event.stop()
                 if sess_list.index is not None and sess_list.children:
                     item = sess_list.children[sess_list.index]
-                    sess_id = self.selected_session_id or (item.id[5:] if item.id and item.id.startswith("sess_") else None)
+                    sess_id = self.selected_session_id or (
+                        item.id[5:] if item.id and item.id.startswith("sess_") else None
+                    )
                     if sess_id:
                         self.selected_session_id = sess_id
                         self.app.selected_session_id = sess_id
@@ -1056,27 +1195,50 @@ class DashboardScreen(Screen):
             pass
 
     async def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
-        if self.mode in ("NORMAL", "DELETE") or (self.mode == "ORGANIZE" and self.organize_step == 1):
+        if self.mode in ("NORMAL", "DELETE") or (
+            self.mode == "ORGANIZE" and self.organize_step == 1
+        ):
             if event.list_view.id == "workspace_list":
                 if event.item and event.item.id and event.item.id.startswith("ws_"):
                     ws_id = event.item.id[3:]
-                    active_idx = event.list_view.index if event.list_view.index is not None else (
-                        event.list_view.children.index(event.item) if event.item in event.list_view.children else None
+                    active_idx = (
+                        event.list_view.index
+                        if event.list_view.index is not None
+                        else (
+                            event.list_view.children.index(event.item)
+                            if event.item in event.list_view.children
+                            else None
+                        )
                     )
                     self._update_workspace_list_prefixes(active_idx)
                     if self._ws_debounce_task and not self._ws_debounce_task.done():
                         self._ws_debounce_task.cancel()
-                    self._ws_debounce_task = asyncio.create_task(self._debounced_show_workspace(ws_id))
+                    self._ws_debounce_task = asyncio.create_task(
+                        self._debounced_show_workspace(ws_id)
+                    )
             elif event.list_view.id == "session_list":
-                if event.list_view.has_focus and event.item and event.item.id and event.item.id.startswith("sess_"):
+                if (
+                    event.list_view.has_focus
+                    and event.item
+                    and event.item.id
+                    and event.item.id.startswith("sess_")
+                ):
                     sess_id = event.item.id[5:]
                     if self._sess_debounce_task and not self._sess_debounce_task.done():
                         self._sess_debounce_task.cancel()
-                    self._sess_debounce_task = asyncio.create_task(self._debounced_show_session(sess_id))
+                    self._sess_debounce_task = asyncio.create_task(
+                        self._debounced_show_session(sess_id)
+                    )
         elif self.mode == "ORGANIZE" and self.organize_step == 2:
             if event.list_view.id == "workspace_list":
-                active_idx = event.list_view.index if event.list_view.index is not None else (
-                    event.list_view.children.index(event.item) if event.item in event.list_view.children else None
+                active_idx = (
+                    event.list_view.index
+                    if event.list_view.index is not None
+                    else (
+                        event.list_view.children.index(event.item)
+                        if event.item in event.list_view.children
+                        else None
+                    )
                 )
                 self._update_workspace_list_prefixes(active_idx)
                 if event.item and event.item.id and event.item.id.startswith("ws_"):
@@ -1084,7 +1246,9 @@ class DashboardScreen(Screen):
                     dest_ws = await self.app.power_facade.get_workspace(dest_id)
                     if dest_ws:
                         try:
-                            self.query_one("#organize_target_ws_name", Label).update(dest_ws["name"])
+                            self.query_one("#organize_target_ws_name", Label).update(
+                                dest_ws["name"]
+                            )
                         except Exception:
                             pass
 
@@ -1103,7 +1267,14 @@ class DashboardScreen(Screen):
                     sess_list = self.query_one("#session_list", ListView)
                     if sess_list.children:
                         sess_list.focus()
-                        target = sess_list.index if (sess_list.index is not None and sess_list.index < len(sess_list.children)) else 0
+                        target = (
+                            sess_list.index
+                            if (
+                                sess_list.index is not None
+                                and sess_list.index < len(sess_list.children)
+                            )
+                            else 0
+                        )
                         if sess_list.index != target:
                             sess_list.index = target
             elif event.list_view.id == "session_list":
@@ -1119,7 +1290,7 @@ class DashboardScreen(Screen):
             await self.action_toggle_selection()
         elif self.mode == "ORGANIZE":
             if self.organize_step == 1 and event.list_view.id == "session_list":
-                 await self.action_toggle_selection()
+                await self.action_toggle_selection()
             elif self.organize_step == 2 and event.list_view.id == "workspace_list":
                 await self.action_confirm_action()
 
@@ -1142,12 +1313,13 @@ class DashboardScreen(Screen):
         if self.selected_session_id == sess_id and not force:
             return
 
-        is_same_session = (self.selected_session_id == sess_id)
+        is_same_session = self.selected_session_id == sess_id
         self.selected_session_id = sess_id
         self.app.selected_session_id = sess_id
         facade = self.app.power_facade
         session = await facade.get_session(sess_id)
-        if not session: return
+        if not session:
+            return
 
         stats = await facade.get_stats(sess_id)
 
@@ -1173,7 +1345,9 @@ class DashboardScreen(Screen):
         last_entity_stats = self._last_rendered_entity_stats.get(sess_id)
 
         created_str = session.get("created_at", "")[:16] if session.get("created_at") else "--:--"
-        closed_str = f" · Archived: {session.get('closed_at', '')[:16]}" if session.get("closed_at") else ""
+        closed_str = (
+            f" · Archived: {session.get('closed_at', '')[:16]}" if session.get("closed_at") else ""
+        )
         short_id = session.get("id", "")[:8]
 
         has_skeleton = bool(container.query(".session_id_card"))
@@ -1181,9 +1355,13 @@ class DashboardScreen(Screen):
         # If the session card skeleton is already mounted, update in place without unmounting!
         if has_skeleton:
             try:
-                self.query_one("#session_title_text", Label).update(session.get("name", "Untitled Session"))
+                self.query_one("#session_title_text", Label).update(
+                    session.get("name", "Untitled Session")
+                )
                 self.query_one("#session_status_pill", Static).update(status_text)
-                self.query_one("#session_meta_text", Label).update(f"Created: {created_str}{closed_str}")
+                self.query_one("#session_meta_text", Label).update(
+                    f"Created: {created_str}{closed_str}"
+                )
                 self.query_one("#session_meta_id", Label).update(f"ID: {short_id}")
 
                 act_lbl = self.query_one("#session_stat_active_val", Label)
@@ -1193,10 +1371,15 @@ class DashboardScreen(Screen):
 
                 self.query_one("#session_stat_closed_val", Label).update(str(closed_jobs_count))
                 self.query_one("#session_stat_entities_val", Label).update(str(total_entities))
-                self.query_one("#session_graph_total_badge", Label).update(f"{total_entities} Total")
+                self.query_one("#session_graph_total_badge", Label).update(
+                    f"{total_entities} Total"
+                )
 
                 # Update Graph Entities list only if data changed
-                if last_entity_stats != entity_stats or getattr(self, "_rendered_sess_for_graph", None) != sess_id:
+                if (
+                    last_entity_stats != entity_stats
+                    or getattr(self, "_rendered_sess_for_graph", None) != sess_id
+                ):
                     self._last_rendered_entity_stats[sess_id] = dict(entity_stats)
                     self._rendered_sess_for_graph = sess_id
                     graph_body = self.query_one("#session_graph_card_body", Vertical)
@@ -1205,20 +1388,34 @@ class DashboardScreen(Screen):
                             await graph_body.remove_children()
                             await graph_body.mount(
                                 Vertical(
-                                    Label("No graph entities discovered yet", classes="entity_empty_notice"),
-                                    Label("Execute tools in Power Mode to populate graph", classes="entity_empty_hint"),
+                                    Label(
+                                        "No graph entities discovered yet",
+                                        classes="entity_empty_notice",
+                                    ),
+                                    Label(
+                                        "Execute tools in Power Mode to populate graph",
+                                        classes="entity_empty_hint",
+                                    ),
                                     classes="entity_empty_box",
                                 )
                             )
                     else:
                         await graph_body.remove_children()
                         list_rows = []
-                        for schema, count in sorted(entity_stats.items(), key=lambda x: get_schema_sort_key(x[0])):
+                        for schema, count in sorted(
+                            entity_stats.items(), key=lambda x: get_schema_sort_key(x[0])
+                        ):
                             symbol, color, display_name = format_schema_label(schema)
                             list_rows.append(
                                 Horizontal(
-                                    Label(f"[{color}]{symbol}[/]  {display_name}", classes="entity_stat_label"),
-                                    Label(" ···········································································", classes="entity_stat_dots"),
+                                    Label(
+                                        f"[{color}]{symbol}[/]  {display_name}",
+                                        classes="entity_stat_label",
+                                    ),
+                                    Label(
+                                        " ···········································································",
+                                        classes="entity_stat_dots",
+                                    ),
                                     Static(f"[{color}]{count}[/]", classes="entity_stat_badge"),
                                     classes="entity_stat_row",
                                 )
@@ -1234,15 +1431,36 @@ class DashboardScreen(Screen):
                     await actions_card.remove_children()
                     if is_active:
                         await actions_card.mount(
-                            Label("Press [Enter] to launch workspace · [Ctrl+A] Archive Session", classes="session_quick_hint", markup=False),
-                            Button("❯  ENTER POWER MODE", classes="enter_session_btn", variant="primary"),
+                            Label(
+                                "Press [Enter] to launch workspace · [Ctrl+A] Archive Session",
+                                classes="session_quick_hint",
+                                markup=False,
+                            ),
+                            Button(
+                                "❯  ENTER POWER MODE",
+                                classes="enter_session_btn",
+                                variant="primary",
+                            ),
                         )
                     else:
                         await actions_card.mount(
-                            Label("Press [Enter] for Audit Log · [Ctrl+A] Reopen Engagement", classes="session_quick_hint", markup=False),
+                            Label(
+                                "Press [Enter] for Audit Log · [Ctrl+A] Reopen Engagement",
+                                classes="session_quick_hint",
+                                markup=False,
+                            ),
                             Horizontal(
-                                Button("›  VIEW AUDIT LOG", id="view_audit_btn", classes="enter_session_btn", variant="default"),
-                                Button("↺  REOPEN ENGAGEMENT", id="reopen_session_btn", variant="success"),
+                                Button(
+                                    "›  VIEW AUDIT LOG",
+                                    id="view_audit_btn",
+                                    classes="enter_session_btn",
+                                    variant="default",
+                                ),
+                                Button(
+                                    "↺  REOPEN ENGAGEMENT",
+                                    id="reopen_session_btn",
+                                    variant="success",
+                                ),
                                 classes="archived_actions_row",
                             ),
                         )
@@ -1259,12 +1477,20 @@ class DashboardScreen(Screen):
 
         header_card = Vertical(
             Horizontal(
-                Label(session.get("name", "Untitled Session"), classes="session_title_text", id="session_title_text"),
+                Label(
+                    session.get("name", "Untitled Session"),
+                    classes="session_title_text",
+                    id="session_title_text",
+                ),
                 Static(status_text, classes="session_status_pill", id="session_status_pill"),
                 classes="session_title_row",
             ),
             Horizontal(
-                Label(f"Created: {created_str}{closed_str}", classes="session_meta_text", id="session_meta_text"),
+                Label(
+                    f"Created: {created_str}{closed_str}",
+                    classes="session_meta_text",
+                    id="session_meta_text",
+                ),
                 Label(f"ID: {short_id}", classes="session_meta_id", id="session_meta_id"),
                 classes="session_meta_row",
             ),
@@ -1277,17 +1503,29 @@ class DashboardScreen(Screen):
         metrics_grid = Horizontal(
             Vertical(
                 Label("ACTIVE JOBS", classes="session_stat_box_label"),
-                Label(str(active_jobs_count), classes=f"session_stat_box_val {active_cls}", id="session_stat_active_val"),
+                Label(
+                    str(active_jobs_count),
+                    classes=f"session_stat_box_val {active_cls}",
+                    id="session_stat_active_val",
+                ),
                 classes="session_stat_box",
             ),
             Vertical(
                 Label("CLOSED TABS", classes="session_stat_box_label"),
-                Label(str(closed_jobs_count), classes="session_stat_box_val", id="session_stat_closed_val"),
+                Label(
+                    str(closed_jobs_count),
+                    classes="session_stat_box_val",
+                    id="session_stat_closed_val",
+                ),
                 classes="session_stat_box",
             ),
             Vertical(
                 Label("ENTITIES", classes="session_stat_box_label"),
-                Label(str(total_entities), classes="session_stat_box_val discoveries-val", id="session_stat_entities_val"),
+                Label(
+                    str(total_entities),
+                    classes="session_stat_box_val discoveries-val",
+                    id="session_stat_entities_val",
+                ),
                 classes="session_stat_box",
             ),
             classes="session_metrics_grid",
@@ -1299,29 +1537,42 @@ class DashboardScreen(Screen):
             graph_body = Vertical(
                 Vertical(
                     Label("No graph entities discovered yet", classes="entity_empty_notice"),
-                    Label("Execute tools in Power Mode to populate graph", classes="entity_empty_hint"),
+                    Label(
+                        "Execute tools in Power Mode to populate graph", classes="entity_empty_hint"
+                    ),
                     classes="entity_empty_box",
                 ),
                 id="session_graph_card_body",
             )
         else:
             list_rows = []
-            for schema, count in sorted(entity_stats.items(), key=lambda x: get_schema_sort_key(x[0])):
+            for schema, count in sorted(
+                entity_stats.items(), key=lambda x: get_schema_sort_key(x[0])
+            ):
                 symbol, color, display_name = format_schema_label(schema)
                 list_rows.append(
                     Horizontal(
                         Label(f"[{color}]{symbol}[/]  {display_name}", classes="entity_stat_label"),
-                        Label(" ···········································································", classes="entity_stat_dots"),
+                        Label(
+                            " ···········································································",
+                            classes="entity_stat_dots",
+                        ),
                         Static(f"[{color}]{count}[/]", classes="entity_stat_badge"),
                         classes="entity_stat_row",
                     )
                 )
-            graph_body = Vertical(Vertical(*list_rows, classes="entity_stats_list"), id="session_graph_card_body")
+            graph_body = Vertical(
+                Vertical(*list_rows, classes="entity_stats_list"), id="session_graph_card_body"
+            )
 
         graph_card = Vertical(
             Horizontal(
                 Label("◆ GRAPH ENTITIES", classes="session_graph_header_title"),
-                Label(f"{total_entities} Total", classes="session_graph_header_badge", id="session_graph_total_badge"),
+                Label(
+                    f"{total_entities} Total",
+                    classes="session_graph_header_badge",
+                    id="session_graph_total_badge",
+                ),
                 classes="session_graph_header_row",
             ),
             graph_body,
@@ -1332,16 +1583,29 @@ class DashboardScreen(Screen):
         # 4. Action Card
         if is_active:
             actions_card = Vertical(
-                Label("Press [Enter] to launch workspace · [Ctrl+A] Archive Session", classes="session_quick_hint", markup=False),
+                Label(
+                    "Press [Enter] to launch workspace · [Ctrl+A] Archive Session",
+                    classes="session_quick_hint",
+                    markup=False,
+                ),
                 Button("❯  ENTER POWER MODE", classes="enter_session_btn", variant="primary"),
                 classes="session_actions_card",
                 id="session_actions_card",
             )
         else:
             actions_card = Vertical(
-                Label("Press [Enter] for Audit Log · [Ctrl+A] Reopen Engagement", classes="session_quick_hint", markup=False),
+                Label(
+                    "Press [Enter] for Audit Log · [Ctrl+A] Reopen Engagement",
+                    classes="session_quick_hint",
+                    markup=False,
+                ),
                 Horizontal(
-                    Button("›  VIEW AUDIT LOG", id="view_audit_btn", classes="enter_session_btn", variant="default"),
+                    Button(
+                        "›  VIEW AUDIT LOG",
+                        id="view_audit_btn",
+                        classes="enter_session_btn",
+                        variant="default",
+                    ),
                     Button("↺  REOPEN ENGAGEMENT", id="reopen_session_btn", variant="success"),
                     classes="archived_actions_row",
                 ),
@@ -1349,7 +1613,6 @@ class DashboardScreen(Screen):
                 id="session_actions_card",
             )
         await container.mount(actions_card)
-
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "confirm_move_btn":
@@ -1362,7 +1625,9 @@ class DashboardScreen(Screen):
     async def action_toggle_history_mode(self) -> None:
         """Toggle session view between ACTIVE and HISTORY (archived)."""
         self.session_filter = "HISTORY" if self.session_filter == "ACTIVE" else "ACTIVE"
-        filter_name = "Archived / History" if self.session_filter == "HISTORY" else "Active Sessions"
+        filter_name = (
+            "Archived / History" if self.session_filter == "HISTORY" else "Active Sessions"
+        )
         self.notify(f"Switched session view to: {filter_name}")
         if self.selected_ws_id:
             await self.show_workspace_details(self.selected_ws_id)
@@ -1415,7 +1680,9 @@ class DashboardScreen(Screen):
             except ValueError as e:
                 self.notify(str(e), severity="error")
 
-        self.app.push_screen(RenameDialog("New Workspace Name", default_name), handle_create_workspace)
+        self.app.push_screen(
+            RenameDialog("New Workspace Name", default_name), handle_create_workspace
+        )
 
     async def action_new_session(self) -> None:
         if not self.selected_ws_id:

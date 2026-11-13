@@ -1,6 +1,5 @@
 """Unit tests for Textual compatibility and resilience hardening."""
 
-
 import pytest
 from textual.app import App, ComposeResult
 from textual.events import MouseDown
@@ -129,6 +128,7 @@ async def test_static_unselectable_and_markdown_selection_isolation():
 
         # 4. Verify ListItems and other widgets cannot be selected
         from textual.widgets import ListItem
+
         assert ListItem().allow_select is False
 
         # 5. Verify Screen.allow_select is True so mouse selection event dispatch works

@@ -33,6 +33,7 @@ class PowerConfig(BaseModel):
 
 class Manifest(BaseModel):
     """Structure of tools/<name>/manifest.toml."""
+
     meta: ToolMeta
     modes: Dict[str, bool]
     input: Dict[str, List[str]]

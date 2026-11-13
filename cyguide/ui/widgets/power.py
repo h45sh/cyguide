@@ -28,7 +28,6 @@ def _format_elapsed(seconds: float) -> str:
     return f"{hrs:02d}h:{m:02d}m:{s:02d}s"
 
 
-
 class EntityBrowser(Tree):
     """Hierarchical browser for findings in the current session."""
 
@@ -54,9 +53,14 @@ class EntityBrowser(Tree):
         self._last_graph_data = graph_data
         # Capture current expanded states if any
         expanded_keys = set()
+
         def collect_expanded(tree_node):
             if getattr(tree_node, "is_expanded", False):
-                key = tree_node.data.get("id") if (tree_node.data and "id" in tree_node.data) else str(tree_node.label).split(" (")[0]
+                key = (
+                    tree_node.data.get("id")
+                    if (tree_node.data and "id" in tree_node.data)
+                    else str(tree_node.label).split(" (")[0]
+                )
                 expanded_keys.add(key)
             for child in getattr(tree_node, "children", []):
                 collect_expanded(child)
@@ -157,11 +161,19 @@ class EntityBrowser(Tree):
                 dom = pik.get("domain", "")
                 rtype = pik.get("type", "DNS")
                 val = pik.get("value", "")
-                base = f"{dom} [{rtype} ❯ {val}]" if (val and val not in ("ANY", "unknown")) else f"{dom} [{rtype}]"
+                base = (
+                    f"{dom} [{rtype} ❯ {val}]"
+                    if (val and val not in ("ANY", "unknown"))
+                    else f"{dom} [{rtype}]"
+                )
                 return f"{base} ({custom_alias})" if custom_alias else base
             elif st == "tls.certificate":
                 cn = custom_alias or data.get("common_name")
-                return f"TLS: {cn}" if cn else f"TLS: {pik.get('fingerprint_sha256', node['id'][:8])[:16]}"
+                return (
+                    f"TLS: {cn}"
+                    if cn
+                    else f"TLS: {pik.get('fingerprint_sha256', node['id'][:8])[:16]}"
+                )
             elif st.startswith("web."):
                 base = pik.get("url") or pik.get("path") or f"{node['id'][:8]}"
                 return f"{base} ({custom_alias})" if custom_alias else base
@@ -183,7 +195,9 @@ class EntityBrowser(Tree):
 
             if child_ids:
                 is_exp = should_expand(node_id, True)
-                new_tree_node = parent_tree_node.add(label, data={"id": node_id, "type": node["schema_type"]}, expand=is_exp)
+                new_tree_node = parent_tree_node.add(
+                    label, data={"id": node_id, "type": node["schema_type"]}, expand=is_exp
+                )
                 for cid in child_ids:
                     add_node_to_tree(new_tree_node, cid)
             else:
@@ -224,7 +238,10 @@ class EntityBrowser(Tree):
 
             nodes = [n for n in nodes if n["id"] in matching_ids]
             node_map = {n["id"]: n for n in nodes}
-            children_map = {n["id"]: [c for c in children_map.get(n["id"], []) if c in matching_ids] for n in nodes}
+            children_map = {
+                n["id"]: [c for c in children_map.get(n["id"], []) if c in matching_ids]
+                for n in nodes
+            }
             has_parent = {c for clist in children_map.values() for c in clist}
 
         if not nodes:
@@ -235,11 +252,17 @@ class EntityBrowser(Tree):
             return
 
         # Group root nodes by logical categories
-        hosts = [n for n in nodes if n["id"] not in has_parent and n["schema_type"] == "network.host"]
-        others = [n for n in nodes if n["id"] not in has_parent and n["schema_type"] != "network.host"]
+        hosts = [
+            n for n in nodes if n["id"] not in has_parent and n["schema_type"] == "network.host"
+        ]
+        others = [
+            n for n in nodes if n["id"] not in has_parent and n["schema_type"] != "network.host"
+        ]
 
         if hosts:
-            hosts_root = self.root.add(f"Targets ({len(hosts)})", expand=should_expand("Targets", True))
+            hosts_root = self.root.add(
+                f"Targets ({len(hosts)})", expand=should_expand("Targets", True)
+            )
             for h in hosts:
                 add_node_to_tree(hosts_root, h["id"])
 
@@ -249,36 +272,57 @@ class EntityBrowser(Tree):
         netblocks = [n for n in others if n["schema_type"] == "network.netblock"]
         creds = [n for n in others if n["schema_type"].startswith("credential.")]
         vulns = [n for n in others if n["schema_type"].startswith("vulnerability.")]
-        categorized_ids = {n["id"] for n in (services + web + domains_dns + netblocks + creds + vulns)}
+        categorized_ids = {
+            n["id"] for n in (services + web + domains_dns + netblocks + creds + vulns)
+        }
         misc = [n for n in others if n["id"] not in categorized_ids]
 
         if services:
-            svc_root = self.root.add(f"Other Services ({len(services)})", expand=should_expand("Other Services", True))
-            for s in services: add_node_to_tree(svc_root, s["id"])
+            svc_root = self.root.add(
+                f"Other Services ({len(services)})", expand=should_expand("Other Services", True)
+            )
+            for s in services:
+                add_node_to_tree(svc_root, s["id"])
 
         if domains_dns:
-            dns_root = self.root.add(f"Domains & DNS ({len(domains_dns)})", expand=should_expand("Domains & DNS", True))
-            for d in domains_dns: add_node_to_tree(dns_root, d["id"])
+            dns_root = self.root.add(
+                f"Domains & DNS ({len(domains_dns)})", expand=should_expand("Domains & DNS", True)
+            )
+            for d in domains_dns:
+                add_node_to_tree(dns_root, d["id"])
 
         if netblocks:
-            net_root = self.root.add(f"Netblocks ({len(netblocks)})", expand=should_expand("Netblocks", True))
-            for nb in netblocks: add_node_to_tree(net_root, nb["id"])
+            net_root = self.root.add(
+                f"Netblocks ({len(netblocks)})", expand=should_expand("Netblocks", True)
+            )
+            for nb in netblocks:
+                add_node_to_tree(net_root, nb["id"])
 
         if web:
             web_root = self.root.add(f"Web ({len(web)})", expand=should_expand("Web", True))
-            for w in web: add_node_to_tree(web_root, w["id"])
+            for w in web:
+                add_node_to_tree(web_root, w["id"])
 
         if creds:
-            cred_root = self.root.add(f"Credentials ({len(creds)})", expand=should_expand("Credentials", True))
-            for c in creds: add_node_to_tree(cred_root, c["id"])
+            cred_root = self.root.add(
+                f"Credentials ({len(creds)})", expand=should_expand("Credentials", True)
+            )
+            for c in creds:
+                add_node_to_tree(cred_root, c["id"])
 
         if vulns:
-            vuln_root = self.root.add(f"Vulnerabilities ({len(vulns)})", expand=should_expand("Vulnerabilities", True))
-            for v in vulns: add_node_to_tree(vuln_root, v["id"])
+            vuln_root = self.root.add(
+                f"Vulnerabilities ({len(vulns)})", expand=should_expand("Vulnerabilities", True)
+            )
+            for v in vulns:
+                add_node_to_tree(vuln_root, v["id"])
 
         if misc:
-            misc_root = self.root.add(f"Other Entities ({len(misc)})", expand=should_expand("Other Entities", True))
-            for m in misc: add_node_to_tree(misc_root, m["id"])
+            misc_root = self.root.add(
+                f"Other Entities ({len(misc)})", expand=should_expand("Other Entities", True)
+            )
+            for m in misc:
+                add_node_to_tree(misc_root, m["id"])
 
 
 class JobQueue(Vertical):
@@ -286,6 +330,7 @@ class JobQueue(Vertical):
 
     class JobSelected(events.Event):
         """Emitted when a job is clicked in the list."""
+
         def __init__(self, job_id: str, session_id: str):
             super().__init__()
             self.job_id = job_id
@@ -308,11 +353,15 @@ class JobQueue(Vertical):
                 current_first = job_list.children[0] if job_list.children else None
                 if getattr(current_first, "id", None) != "empty_jobs":
                     await job_list.clear()
-                    item = ListItem(Static("[dim #94a3b8]  No active jobs[/]"), disabled=True, id="empty_jobs")
+                    item = ListItem(
+                        Static("[dim #94a3b8]  No active jobs[/]"), disabled=True, id="empty_jobs"
+                    )
                     job_list.append(item)
                 return
 
-            sorted_jobs = sorted(jobs, key=lambda j: (j.status == JobStatusEnum.RUNNING, j.started_at), reverse=True)
+            sorted_jobs = sorted(
+                jobs, key=lambda j: (j.status == JobStatusEnum.RUNNING, j.started_at), reverse=True
+            )
             now = datetime.now(UTC)
 
             seen_ids = set()
@@ -335,7 +384,7 @@ class JobQueue(Vertical):
                     status_icon = "[#f85149]×[/]"
                     status_text = " [red]FAILED[/]"
                     elapsed = ((job.completed_at or now) - job.started_at).total_seconds()
-                else: # QUEUED
+                else:  # QUEUED
                     status_icon = "[#eab308]◌[/]"
                     status_text = " [yellow]QUEUED[/]"
                     elapsed = (now - job.started_at).total_seconds()
@@ -369,7 +418,6 @@ class JobQueue(Vertical):
 
             if old_idx is not None and old_idx < len(job_list.children):
                 job_list.index = old_idx
-
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle job selection in the queue."""
@@ -407,7 +455,16 @@ class CommandPalette(Vertical):
 
     class Submitted(Input.Submitted):
         """Event emitted when a command is submitted."""
-        def __init__(self, command: str, tool_name: str, expanded_params: List[str], input: Input, is_manual_shell: bool = False, new_tab: bool = False):
+
+        def __init__(
+            self,
+            command: str,
+            tool_name: str,
+            expanded_params: List[str],
+            input: Input,
+            is_manual_shell: bool = False,
+            new_tab: bool = False,
+        ):
             super().__init__(input, command)
             self.tool_name = tool_name
             self.expanded_params = expanded_params
@@ -416,30 +473,37 @@ class CommandPalette(Vertical):
 
     class ShowShortcutsRequest(events.Event):
         """Request to show the shortcuts help dialog."""
+
         pass
 
     class CloseTabRequest(events.Event):
         """Request to close the active tab."""
+
         pass
 
     class KillJobRequest(events.Event):
         """Request to kill the job in the active tab."""
+
         pass
 
     class ExportRequest(events.Event):
         """Request to export the session."""
+
         pass
 
     class NextSessionRequest(events.Event):
         """Request to switch to the next session."""
+
         pass
 
     class PrevSessionRequest(events.Event):
         """Request to switch to the previous session."""
+
         pass
 
     class CopyTabRequest(events.Event):
         """Request to copy active tab log to clipboard."""
+
         pass
 
     def __init__(self, **kwargs):
@@ -454,10 +518,13 @@ class CommandPalette(Vertical):
 
     def _get_git_branch(self) -> str:
         try:
-            return subprocess.check_output(
-                ["git", "branch", "--show-current"],
-                stderr=subprocess.DEVNULL
-            ).decode().strip()
+            return (
+                subprocess.check_output(
+                    ["git", "branch", "--show-current"], stderr=subprocess.DEVNULL
+                )
+                .decode()
+                .strip()
+            )
         except Exception:
             return ""
 
@@ -472,6 +539,7 @@ class CommandPalette(Vertical):
     def _update_lhost_badge(self) -> None:
         try:
             from cyguide.engine.network import get_lhost_info
+
             ip, iface = get_lhost_info()
             badge = self.query_one("#lhost_badge", Label)
             is_vpn = iface.startswith(("tun", "wg", "tap", "ppp", "utun"))
@@ -497,10 +565,16 @@ class CommandPalette(Vertical):
                 yield Label("~", id="pwd_line")
             yield Label("│", id="palette_header_sep")
             yield Label("F1 Help · Ctrl+T New Tab · Esc Dashboard", id="shortcuts_hint")
-        yield Input(value="> ", placeholder="Enter command (e.g. nmap -sV target or !ls)...", id="command_input")
+        yield Input(
+            value="> ",
+            placeholder="Enter command (e.g. nmap -sV target or !ls)...",
+            id="command_input",
+        )
         yield Label("", id="context_line", classes="hidden")
 
-    def update_context(self, resolved_vars: Dict[str, Any], is_registered_tool: bool = True, cwd: str = ""):
+    def update_context(
+        self, resolved_vars: Dict[str, Any], is_registered_tool: bool = True, cwd: str = ""
+    ):
         """Update the prompt metrics showing path and git branch."""
         self.resolved_vars = resolved_vars
         self.cwd = cwd
@@ -652,14 +726,14 @@ class CommandPalette(Vertical):
 
             if len(matches) == 1:
                 # Complete the word
-                completion = matches[0][len(last_word):]
+                completion = matches[0][len(last_word) :]
                 cmd_input.value = before_cursor + completion + val[pos:]
                 cmd_input.cursor_position = pos + len(completion)
             elif len(matches) > 1:
                 # Find common prefix
                 common = os.path.commonprefix(matches)
                 if len(common) > len(last_word):
-                    completion = common[len(last_word):]
+                    completion = common[len(last_word) :]
                     cmd_input.value = before_cursor + completion + val[pos:]
                     cmd_input.cursor_position = pos + len(completion)
         except Exception:
@@ -714,16 +788,17 @@ class CommandPalette(Vertical):
         is_manual_shell = raw_cmd.startswith("!") or self.shell_locked
 
         # Strip all leading prefix symbols (> or !) and whitespace
-        clean_cmd = re.sub(r'^[>!\s]+', '', raw_cmd).strip()
+        clean_cmd = re.sub(r"^[>!\s]+", "", raw_cmd).strip()
 
         if not clean_cmd:
             event.input.value = "! " if is_manual_shell and not self.shell_locked else "> "
             return
 
         parts = clean_cmd.split()
-        if not parts: return
+        if not parts:
+            return
         tool_name = parts[0]
-        params_str = clean_cmd[len(tool_name):].strip()
+        params_str = clean_cmd[len(tool_name) :].strip()
 
         # Clear input and restore the active prefix (sticky mode)
         event.input.value = "! " if is_manual_shell and not self.shell_locked else "> "
@@ -731,5 +806,14 @@ class CommandPalette(Vertical):
             event.input.value = "! "
 
         # The screen will handle the rejection if tool_name is not registered and ! wasn't used
-        self.post_message(self.Submitted(clean_cmd, tool_name, [params_str], event.input, is_manual_shell, new_tab=self._force_new_tab))
+        self.post_message(
+            self.Submitted(
+                clean_cmd,
+                tool_name,
+                [params_str],
+                event.input,
+                is_manual_shell,
+                new_tab=self._force_new_tab,
+            )
+        )
         self._force_new_tab = False

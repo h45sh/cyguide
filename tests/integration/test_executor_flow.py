@@ -60,7 +60,10 @@ PORT     STATE SERVICE
 
     services = await store.query("network.service", session_id=sess_id)
     assert len(services) == 2
-    ports = [json.loads(s["data_json"]).get("port") or json.loads(s["pik_json"]).get("port") for s in services]
+    ports = [
+        json.loads(s["data_json"]).get("port") or json.loads(s["pik_json"]).get("port")
+        for s in services
+    ]
     assert 80 in ports
     assert 443 in ports
 
@@ -69,7 +72,9 @@ PORT     STATE SERVICE
     all_nodes = await store.get_all_nodes(sess_id)
     proposed_nodes = [n for n in all_nodes if n.get("status") == "proposed"]
     assert len(proposed_nodes) >= 1
-    assert any(json.loads(p["data_json"]).get("tool_suggestion") == "gobuster" for p in proposed_nodes)
+    assert any(
+        json.loads(p["data_json"]).get("tool_suggestion") == "gobuster" for p in proposed_nodes
+    )
 
     # --- STEP 4: Directory Brute-Forcing (Gobuster) ---
     gobuster_adapter = GobusterAdapter()

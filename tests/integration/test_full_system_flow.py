@@ -49,31 +49,28 @@ async def test_full_executor_nmap_flow(tmp_path):
     mock_nmap = bin_dir / "nmap"
     mock_nmap.write_text(MOCK_NMAP_CONTENT)
     mock_nmap.chmod(mock_nmap.stat().st_mode | stat.S_IEXEC)
-    
+
     env = os.environ.copy()
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
-    
+
     db_path = tmp_path / "test.db"
     store = GraphStore(str(db_path))
     await store.initialize()
-    
+
     ws_id, session_id = await store.get_or_create_learning_sandbox()
     executor = Executor(store)
     adapter = NmapAdapter()
     target = NetworkHost.create(ip="127.0.0.1")
-    
+
     received_lines = []
+
     async def on_output(line: str):
         received_lines.append(line)
 
     with patch.dict(os.environ, env):
         findings = []
         async for finding in executor.run_tool(
-            adapter, 
-            target, 
-            params={}, 
-            session_id=session_id,
-            on_output=on_output
+            adapter, target, params={}, session_id=session_id, on_output=on_output
         ):
             findings.append(finding)
             await store.upsert_finding(session_id, finding)
@@ -87,7 +84,7 @@ async def test_full_executor_nmap_flow(tmp_path):
     # Verify DB persistence
     db_findings = await store.query("network.service", session_id=session_id)
     assert len(db_findings) == 2
-    
+
     await store.close()
 
 
@@ -129,7 +126,7 @@ async def test_executor_stderr_streaming(tmp_path):
             params={},
             session_id=session_id,
             on_output=on_stdout,
-            on_error_output=on_stderr
+            on_error_output=on_stderr,
         ):
             findings.append(f)
 
@@ -165,12 +162,14 @@ async def test_executor_stop_task_cancellation(tmp_path):
     async def run_in_bg():
         findings = []
         with patch.dict(os.environ, env):
-            async for f in executor.run_tool(adapter, target, {}, task_id=task_id, session_id=session_id):
+            async for f in executor.run_tool(
+                adapter, target, {}, task_id=task_id, session_id=session_id
+            ):
                 findings.append(f)
         return findings
 
     bg_task = asyncio.create_task(run_in_bg())
-    await asyncio.sleep(0.1) # Let process start
+    await asyncio.sleep(0.1)  # Let process start
 
     # Stop task
     assert task_id in executor._active_processes

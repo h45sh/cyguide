@@ -95,7 +95,7 @@ async def test_facade_close_reopen_and_guard():
         session_id=UUID(sess_id),
         tool_name="nmap",
         params={"raw_flags": "127.0.0.1"},
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
 
     with pytest.raises(PermissionError, match="Cannot execute actions in an archived session"):

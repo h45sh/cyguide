@@ -43,7 +43,9 @@ PROVIDER_PRESETS: Dict[str, Dict[str, str]] = {
 }
 
 
-def normalize_and_validate_db_path(raw_path: str, data_dir: Optional[str] = None) -> Tuple[str, Optional[str]]:
+def normalize_and_validate_db_path(
+    raw_path: str, data_dir: Optional[str] = None
+) -> Tuple[str, Optional[str]]:
     """Normalize SQLite DB path and check directory / permission edge cases.
 
     Returns:
@@ -74,7 +76,9 @@ def normalize_and_validate_db_path(raw_path: str, data_dir: Optional[str] = None
     return resolved, None
 
 
-def normalize_and_validate_tools_dir(raw_path: str, create_if_missing: bool = False) -> Tuple[Optional[str], Optional[str]]:
+def normalize_and_validate_tools_dir(
+    raw_path: str, create_if_missing: bool = False
+) -> Tuple[Optional[str], Optional[str]]:
     """Normalize and validate custom tools directory path.
 
     Returns:
@@ -97,7 +101,9 @@ def normalize_and_validate_tools_dir(raw_path: str, create_if_missing: bool = Fa
     return raw, None
 
 
-def normalize_and_validate_export_dir(raw_path: str, create_if_missing: bool = False) -> Tuple[Optional[str], Optional[str]]:
+def normalize_and_validate_export_dir(
+    raw_path: str, create_if_missing: bool = False
+) -> Tuple[Optional[str], Optional[str]]:
     """Normalize and validate session exports directory path.
 
     Returns:
@@ -120,7 +126,9 @@ def normalize_and_validate_export_dir(raw_path: str, create_if_missing: bool = F
     return expanded, None
 
 
-def normalize_and_validate_report_dir(raw_path: str, create_if_missing: bool = False) -> Tuple[Optional[str], Optional[str]]:
+def normalize_and_validate_report_dir(
+    raw_path: str, create_if_missing: bool = False
+) -> Tuple[Optional[str], Optional[str]]:
     """Normalize and validate markdown reports directory path.
 
     Returns:
@@ -163,7 +171,11 @@ async def check_ollama_status(base_url: str, model: str) -> Tuple[bool, str]:
                 installed_full = [m.get("name", "").lower() for m in data.get("models", [])]
                 target = (model or "gemma").strip().lower()
                 target_base = target.split(":")[0]
-                if target in installed_full or target_base in models or any(target_base in m for m in models):
+                if (
+                    target in installed_full
+                    or target_base in models
+                    or any(target_base in m for m in models)
+                ):
                     return True, f"● Ollama Online · Model '{model}' ready"
                 else:
                     available = ", ".join(models[:4]) if models else "none"
@@ -186,7 +198,10 @@ class ConfigProvider(Provider):
         use_ollama = getattr(app, "use_ollama", False)
         ollama_status = "[bold green]● ON[/bold green]" if use_ollama else "[dim]⊘ OFF[/dim]"
         settings = getattr(app, "settings", {}) or {}
-        has_key = bool(settings.get("api_key") or os.environ.get("CYGUIDE_API_KEY") or os.environ.get("GROQ_API_KEY"))
+        has_key = bool(
+            any(k.get("api_key") for k in getattr(app, "cloud_keys", []))
+            or os.environ.get("CYGUIDE_API_KEY")
+        )
         api_status = "[bold green]● Configured[/bold green]" if has_key else "[dim]— Not set[/dim]"
 
         return [
@@ -224,17 +239,36 @@ class ConfigProvider(Provider):
         api_model = settings.get("api_model") or os.environ.get("CYGUIDE_API_MODEL", "gpt-4o")
         db_path = getattr(app, "db_path", None) or get_default_db_path()
         tools_dir = getattr(app, "tools_dir", None) or "bundled tools/"
-        exports_dir = getattr(app, "exports_dir", None) or (app.get_exports_dir() if hasattr(app, "get_exports_dir") else get_default_exports_dir())
-        reports_dir = getattr(app, "reports_dir", None) or (app.get_reports_dir() if hasattr(app, "get_reports_dir") else get_default_reports_dir())
+        exports_dir = getattr(app, "exports_dir", None) or (
+            app.get_exports_dir() if hasattr(app, "get_exports_dir") else get_default_exports_dir()
+        )
+        reports_dir = getattr(app, "reports_dir", None) or (
+            app.get_reports_dir() if hasattr(app, "get_reports_dir") else get_default_reports_dir()
+        )
 
         return [
             *self.category_commands,
-            (f"Ollama Model: {ollama_model}", lambda: app.action_show_config(focus_target="ollama_model")),
-            (f"Cloud API Model: {api_model}", lambda: app.action_show_config(focus_target="api_model")),
+            (
+                f"Ollama Model: {ollama_model}",
+                lambda: app.action_show_config(focus_target="ollama_model"),
+            ),
+            (
+                f"Cloud API Model: {api_model}",
+                lambda: app.action_show_config(focus_target="api_model"),
+            ),
             (f"Database Path: {db_path}", lambda: app.action_show_config(focus_target="db_path")),
-            (f"Session Exports Directory: {exports_dir}", lambda: app.action_show_config(focus_target="exports_dir")),
-            (f"Markdown Reports Directory: {reports_dir}", lambda: app.action_show_config(focus_target="reports_dir")),
-            (f"Tools Directory: {tools_dir}", lambda: app.action_show_config(focus_target="tools_dir")),
+            (
+                f"Session Exports Directory: {exports_dir}",
+                lambda: app.action_show_config(focus_target="exports_dir"),
+            ),
+            (
+                f"Markdown Reports Directory: {reports_dir}",
+                lambda: app.action_show_config(focus_target="reports_dir"),
+            ),
+            (
+                f"Tools Directory: {tools_dir}",
+                lambda: app.action_show_config(focus_target="tools_dir"),
+            ),
         ]
 
     async def discover(self) -> Hits:
@@ -298,19 +332,32 @@ class CloudAPIConfigProvider(Provider):
         app = self.app
         settings = getattr(app, "settings", {}) or {}
         api_type = settings.get("api_type") or os.environ.get("CYGUIDE_API_TYPE", "openai")
-        raw_key = settings.get("api_key") or os.environ.get("CYGUIDE_API_KEY") or os.environ.get("GROQ_API_KEY") or ""
-        masked_key = f"{raw_key[:4]}...{raw_key[-4:]}" if len(raw_key) > 8 else ("Set" if raw_key else "Not set")
+        raw_key = (
+            settings.get("api_key")
+            or os.environ.get("CYGUIDE_API_KEY")
+            or os.environ.get("GROQ_API_KEY")
+            or ""
+        )
+        masked_key = (
+            f"{raw_key[:4]}...{raw_key[-4:]}"
+            if len(raw_key) > 8
+            else ("Set" if raw_key else "Not set")
+        )
         api_model = settings.get("api_model") or os.environ.get("CYGUIDE_API_MODEL", "gpt-4o")
-        api_base = settings.get("api_base") or os.environ.get("CYGUIDE_API_BASE", "https://api.openai.com/v1")
+        api_base = settings.get("api_base") or os.environ.get(
+            "CYGUIDE_API_BASE", "https://api.openai.com/v1"
+        )
 
         cmds: List[Tuple[str, Callable[[], None]]] = []
 
         use_cloud = getattr(app, "use_cloud_api", True)
         cloud_status = "[bold green]● ON[/bold green]" if use_cloud else "[dim]⊘ OFF[/dim]"
-        cmds.append((
-            f"Toggle Cloud AI Access  {cloud_status}",
-            lambda: app.action_toggle_cloud_api(),
-        ))
+        cmds.append(
+            (
+                f"Toggle Cloud AI Access  {cloud_status}",
+                lambda: app.action_toggle_cloud_api(),
+            )
+        )
 
         # If multiple keys are configured, provide quick key switching options
         cloud_keys = getattr(app, "cloud_keys", [])
@@ -320,33 +367,41 @@ class CloudAPIConfigProvider(Provider):
                 k_id = k.get("id")
                 k_name = k.get("name") or k.get("provider") or k_id
                 k_model = k.get("model", "")
-                is_active = (k_id == active_id)
-                status_badge = "[bold green]● Active[/bold green]" if is_active else "[dim]▪ Switch[/dim]"
-                label = f"Switch Active Key: {k_name} ({k_model})  {status_badge}" if k_model else f"Switch Active Key: {k_name}  {status_badge}"
+                is_active = k_id == active_id
+                status_badge = (
+                    "[bold green]● Active[/bold green]" if is_active else "[dim]▪ Switch[/dim]"
+                )
+                label = (
+                    f"Switch Active Key: {k_name} ({k_model})  {status_badge}"
+                    if k_model
+                    else f"Switch Active Key: {k_name}  {status_badge}"
+                )
                 cmds.append((label, lambda kid=k_id: app.action_switch_active_key(kid)))
 
-        cmds.extend([
-            (
-                f"API Key  [dim]{masked_key}[/dim]",
-                lambda: app.action_show_config(focus_target="api_key"),
-            ),
-            (
-                f"Provider Type  [cyan]{api_type}[/cyan]",
-                lambda: app.action_show_config(focus_target="api_type"),
-            ),
-            (
-                f"Cloud Model  [cyan]{api_model}[/cyan]",
-                lambda: app.action_show_config(focus_target="api_model"),
-            ),
-            (
-                f"API Base URL  [dim]{api_base}[/dim]",
-                lambda: app.action_show_config(focus_target="api_base"),
-            ),
-            (
-                "Open Configuration Panel  ⚙",
-                lambda: app.action_show_config(focus_target="api"),
-            ),
-        ])
+        cmds.extend(
+            [
+                (
+                    f"API Key  [dim]{masked_key}[/dim]",
+                    lambda: app.action_show_config(focus_target="api_key"),
+                ),
+                (
+                    f"Provider Type  [cyan]{api_type}[/cyan]",
+                    lambda: app.action_show_config(focus_target="api_type"),
+                ),
+                (
+                    f"Cloud Model  [cyan]{api_model}[/cyan]",
+                    lambda: app.action_show_config(focus_target="api_model"),
+                ),
+                (
+                    f"API Base URL  [dim]{api_base}[/dim]",
+                    lambda: app.action_show_config(focus_target="api_base"),
+                ),
+                (
+                    "Open Configuration Panel  ⚙",
+                    lambda: app.action_show_config(focus_target="api"),
+                ),
+            ]
+        )
         return cmds
 
     async def discover(self) -> Hits:
@@ -367,8 +422,12 @@ class DatabaseConfigProvider(Provider):
     def commands(self) -> List[Tuple[str, Callable[[], None]]]:
         app = self.app
         db_path = getattr(app, "db_path", None) or get_default_db_path()
-        exports_dir = getattr(app, "exports_dir", None) or (app.get_exports_dir() if hasattr(app, "get_exports_dir") else get_default_exports_dir())
-        reports_dir = getattr(app, "reports_dir", None) or (app.get_reports_dir() if hasattr(app, "get_reports_dir") else get_default_reports_dir())
+        exports_dir = getattr(app, "exports_dir", None) or (
+            app.get_exports_dir() if hasattr(app, "get_exports_dir") else get_default_exports_dir()
+        )
+        reports_dir = getattr(app, "reports_dir", None) or (
+            app.get_reports_dir() if hasattr(app, "get_reports_dir") else get_default_reports_dir()
+        )
 
         return [
             (
@@ -500,9 +559,9 @@ class ConfigModal(ModalScreen[None]):
         kname = k.get("name") or k.get("provider") or kid
         kprov = k.get("provider") or "custom"
         kmodel = k.get("model") or "default model"
-        raw_key = (k.get("api_key") or "").strip().strip('"\'')
-        is_active = (kid == self.active_key_id)
-        is_editing = (kid == self.editing_profile_id)
+        raw_key = (k.get("api_key") or "").strip().strip("\"'")
+        is_active = kid == self.active_key_id
+        is_editing = kid == self.editing_profile_id
         enabled = k.get("enabled", True)
 
         if not raw_key or is_placeholder_key(raw_key):
@@ -512,8 +571,16 @@ class ConfigModal(ModalScreen[None]):
         else:
             status_text = "[dim]▪ Standby[/dim]"
 
-        fallback_text = "[bold #38bdf8]Fallback: YES[/bold #38bdf8]" if enabled else "[dim #64748b]Fallback: NO[/dim #64748b]"
-        masked = f"{raw_key[:4]}...{raw_key[-4:]}" if len(raw_key) > 8 else ("[dim](no key)[/dim]" if not raw_key else "Configured")
+        fallback_text = (
+            "[bold #38bdf8]Fallback: YES[/bold #38bdf8]"
+            if enabled
+            else "[dim #64748b]Fallback: NO[/dim #64748b]"
+        )
+        masked = (
+            f"{raw_key[:4]}...{raw_key[-4:]}"
+            if len(raw_key) > 8
+            else ("[dim](no key)[/dim]" if not raw_key else "Configured")
+        )
 
         card_classes = ["cfg_key_card"]
         if is_editing:
@@ -534,9 +601,22 @@ class ConfigModal(ModalScreen[None]):
                 classes="cfg_key_card_row_meta",
             ),
             Horizontal(
-                Button("✎ Edit", id=f"cfg_edit_key_{kid}", classes="cfg_key_action_btn cfg_key_edit_btn"),
-                Button("★ Set Active", id=f"cfg_activate_key_{kid}", classes="cfg_key_action_btn cfg_key_activate_btn", disabled=is_active),
-                Button("✕ Delete", id=f"cfg_delete_key_{kid}", classes="cfg_key_action_btn cfg_key_delete_btn"),
+                Button(
+                    "✎ Edit",
+                    id=f"cfg_edit_key_{kid}",
+                    classes="cfg_key_action_btn cfg_key_edit_btn",
+                ),
+                Button(
+                    "★ Set Active",
+                    id=f"cfg_activate_key_{kid}",
+                    classes="cfg_key_action_btn cfg_key_activate_btn",
+                    disabled=is_active,
+                ),
+                Button(
+                    "✕ Delete",
+                    id=f"cfg_delete_key_{kid}",
+                    classes="cfg_key_action_btn cfg_key_delete_btn",
+                ),
                 classes="cfg_key_card_row_actions",
             ),
             classes=" ".join(card_classes),
@@ -563,8 +643,8 @@ class ConfigModal(ModalScreen[None]):
             kid = k.get("id", "")
             kname = k.get("name") or k.get("provider") or kid
             kmodel = k.get("model", "")
-            raw_key = k.get("api_key", "").strip().strip('"\'')
-            is_active = (kid == self.active_key_id)
+            raw_key = k.get("api_key", "").strip().strip("\"'")
+            is_active = kid == self.active_key_id
             if not raw_key or is_placeholder_key(raw_key):
                 tag = "▲ [Missing Key]"
             elif is_active:
@@ -594,28 +674,17 @@ class ConfigModal(ModalScreen[None]):
 
         self.active_key_id = getattr(app, "active_key_id", None)
 
-        # One-time migration only if 'cloud_keys' was NEVER configured in settings
-        if "cloud_keys" not in settings and not self.cloud_keys:
-            legacy_key = settings.get("api_key") or os.environ.get("CYGUIDE_API_KEY") or os.environ.get("GROQ_API_KEY") or ""
-            if legacy_key and not is_placeholder_key(legacy_key):
-                self.cloud_keys = [{
-                    "id": "key_1",
-                    "name": "Primary Key",
-                    "provider": settings.get("api_type") or os.environ.get("CYGUIDE_API_TYPE", ""),
-                    "api_key": legacy_key,
-                    "model": settings.get("api_model") or os.environ.get("CYGUIDE_API_MODEL", ""),
-                    "base_url": settings.get("api_base") or os.environ.get("CYGUIDE_API_BASE", ""),
-                    "enabled": True,
-                }]
-                self.active_key_id = "key_1"
-
         if self.cloud_keys:
-            if not self.active_key_id or not any(k.get("id") == self.active_key_id for k in self.cloud_keys):
+            if not self.active_key_id or not any(
+                k.get("id") == self.active_key_id for k in self.cloud_keys
+            ):
                 self.active_key_id = self.cloud_keys[0].get("id")
         else:
             self.active_key_id = None
 
-        self.editing_profile_id = self.active_key_id or (self.cloud_keys[0]["id"] if self.cloud_keys else None)
+        self.editing_profile_id = self.active_key_id or (
+            self.cloud_keys[0]["id"] if self.cloud_keys else None
+        )
         self._current_loaded_profile_id: Optional[str] = self.editing_profile_id
         cur_prof = self._get_editing_profile_dict()
         # By default keep fields empty if not configured!
@@ -626,13 +695,19 @@ class ConfigModal(ModalScreen[None]):
         key_name = cur_prof.get("name", "") if cur_prof else ""
         key_enabled = cur_prof.get("enabled", True) if cur_prof else True
 
-        db_path = getattr(app, "db_path", None) or get_default_db_path(getattr(app, "data_dir", None))
+        db_path = getattr(app, "db_path", None) or get_default_db_path(
+            getattr(app, "data_dir", None)
+        )
         default_db_placeholder = get_default_db_path(getattr(app, "data_dir", None))
         tools_dir = getattr(app, "tools_dir", "") or ""
         exports_dir = getattr(app, "exports_dir", "") or ""
-        default_exports_placeholder = getattr(app, "get_exports_dir", lambda: get_default_exports_dir(getattr(app, "data_dir", None)))()
+        default_exports_placeholder = getattr(
+            app, "get_exports_dir", lambda: get_default_exports_dir(getattr(app, "data_dir", None))
+        )()
         reports_dir = getattr(app, "reports_dir", "") or ""
-        default_reports_placeholder = getattr(app, "get_reports_dir", lambda: get_default_reports_dir(getattr(app, "data_dir", None)))()
+        default_reports_placeholder = getattr(
+            app, "get_reports_dir", lambda: get_default_reports_dir(getattr(app, "data_dir", None))
+        )()
 
         with Vertical(id="config_card"):
             with Horizontal(id="config_header_row"):
@@ -644,36 +719,62 @@ class ConfigModal(ModalScreen[None]):
 
             with TabbedContent(id="config_tabs"):
                 with TabPane("Local LLM (Ollama)", id="tab_ollama"):
-                    yield Label(self._get_ollama_quick_status(ollama_base_url, ollama_model), id="cfg_ollama_status_msg", classes="config_tab_banner")
+                    yield Label(
+                        self._get_ollama_quick_status(ollama_base_url, ollama_model),
+                        id="cfg_ollama_status_msg",
+                        classes="config_tab_banner",
+                    )
 
                     with Horizontal(classes="config_switch_row"):
                         yield Label("Enable Local Ollama:", classes="config_switch_label")
                         yield Switch(value=use_ollama, id="cfg_use_ollama")
-                        badge_text = "[bold green]● ON[/bold green]" if use_ollama else "[dim]⊘ OFF[/dim]"
+                        badge_text = (
+                            "[bold green]● ON[/bold green]" if use_ollama else "[dim]⊘ OFF[/dim]"
+                        )
                         yield Label(badge_text, id="cfg_ollama_switch_badge")
 
                     yield Label("Model Name [--model]:", classes="config_field_label")
-                    yield Input(value=ollama_model, placeholder="e.g. gemma, llama3, mistral", id="cfg_ollama_model")
+                    yield Input(
+                        value=ollama_model,
+                        placeholder="e.g. gemma, llama3, mistral",
+                        id="cfg_ollama_model",
+                    )
 
                     yield Label("Base URL:", classes="config_field_label")
-                    yield Input(value=ollama_base_url, placeholder="http://localhost:11434", id="cfg_ollama_base_url")
+                    yield Input(
+                        value=ollama_base_url,
+                        placeholder="http://localhost:11434",
+                        id="cfg_ollama_base_url",
+                    )
 
                 with TabPane("Cloud AI", id="tab_cloud"):
-                    yield Label(self._get_cloud_quick_status(api_key, api_type, api_model), id="cfg_cloud_status_msg", classes="config_tab_banner")
+                    yield Label(
+                        self._get_cloud_quick_status(api_key, api_type, api_model),
+                        id="cfg_cloud_status_msg",
+                        classes="config_tab_banner",
+                    )
 
                     use_cloud_api = getattr(app, "use_cloud_api", True)
                     with Horizontal(classes="config_switch_row"):
                         yield Label("Enable Cloud AI Access:", classes="config_switch_label")
                         yield Switch(value=use_cloud_api, id="cfg_use_cloud_api")
-                        cloud_badge_text = "[bold green]● ON[/bold green]" if use_cloud_api else "[dim]⊘ OFF[/dim]"
+                        cloud_badge_text = (
+                            "[bold green]● ON[/bold green]" if use_cloud_api else "[dim]⊘ OFF[/dim]"
+                        )
                         yield Label(cloud_badge_text, id="cfg_cloud_switch_badge")
 
                     # View 1: Keys List View (Visible by default)
                     with Vertical(id="cfg_cloud_list_view"):
                         # Key Profiles Toolbar Header (Title + Add Key)
                         with Horizontal(classes="cfg_section_header", id="cfg_key_bar"):
-                            yield Label(f"Configured Keys ({len(self.cloud_keys)}):", classes="cfg_section_title", id="cfg_keys_title_lbl")
-                            yield Button("+ Add Key", id="cfg_key_add_btn", classes="key_action_btn")
+                            yield Label(
+                                f"Configured Keys ({len(self.cloud_keys)}):",
+                                classes="cfg_section_title",
+                                id="cfg_keys_title_lbl",
+                            )
+                            yield Button(
+                                "+ Add Key", id="cfg_key_add_btn", classes="key_action_btn"
+                            )
 
                         # List of API key profile cards
                         with Vertical(id="cfg_keys_list"):
@@ -685,46 +786,103 @@ class ConfigModal(ModalScreen[None]):
                         yield Label("✎ Edit Key Profile", id="cfg_editor_title")
 
                         yield Label("Profile Label / Name:", classes="config_field_label")
-                        yield Input(value=key_name, placeholder="e.g. Primary OpenAI, Groq Backup, Claude Work", id="cfg_key_name")
+                        yield Input(
+                            value=key_name,
+                            placeholder="e.g. Primary OpenAI, Groq Backup, Claude Work",
+                            id="cfg_key_name",
+                        )
 
                         yield Label("Provider [CYGUIDE_API_TYPE]:", classes="config_field_label")
-                        yield Input(value=api_type, placeholder="openai, groq, anthropic, openrouter (or leave blank)", id="cfg_api_type")
+                        yield Input(
+                            value=api_type,
+                            placeholder="openai, groq, anthropic, openrouter (or leave blank)",
+                            id="cfg_api_type",
+                        )
 
                         yield Label("API Key [CYGUIDE_API_KEY]:", classes="config_field_label")
-                        yield Input(value=api_key, password=True, placeholder="API key (leave blank to clear / use local LLM)", id="cfg_api_key")
+                        yield Input(
+                            value=api_key,
+                            password=True,
+                            placeholder="API key (leave blank to clear / use local LLM)",
+                            id="cfg_api_key",
+                        )
 
                         yield Label("Model [CYGUIDE_API_MODEL]:", classes="config_field_label")
-                        yield Input(value=api_model, placeholder="e.g. gpt-4o, llama-3.3-70b-versatile, claude-3-5-sonnet", id="cfg_api_model")
+                        yield Input(
+                            value=api_model,
+                            placeholder="e.g. gpt-4o, llama-3.3-70b-versatile, claude-3-5-sonnet",
+                            id="cfg_api_model",
+                        )
 
                         yield Label("Base URL [CYGUIDE_API_BASE]:", classes="config_field_label")
-                        yield Input(value=api_base, placeholder="e.g. https://api.openai.com/v1", id="cfg_api_base")
+                        yield Input(
+                            value=api_base,
+                            placeholder="e.g. https://api.openai.com/v1",
+                            id="cfg_api_base",
+                        )
 
                         with Horizontal(classes="config_switch_row", id="cfg_editor_switch_row"):
                             yield Label("Include in Fallback Chain:", classes="config_switch_label")
                             yield Switch(value=key_enabled, id="cfg_key_enabled")
-                            badge_txt = "[bold green]● YES[/bold green]" if key_enabled else "[dim]⊘ NO[/dim]"
+                            badge_txt = (
+                                "[bold green]● YES[/bold green]"
+                                if key_enabled
+                                else "[dim]⊘ NO[/dim]"
+                            )
                             yield Label(badge_txt, id="cfg_key_enabled_badge")
 
                         with Horizontal(id="cfg_editor_footer_row"):
-                            yield Button("✓ Save & Back", id="cfg_editor_save_btn", classes="key_action_btn cfg_editor_save_btn")
-                            yield Button("← Back", id="cfg_editor_cancel_btn", classes="key_action_btn cfg_editor_cancel_btn")
-                            yield Button("✕ Delete", id="cfg_key_del_btn", classes="key_action_btn cfg_key_delete_btn")
+                            yield Button(
+                                "✓ Save & Back",
+                                id="cfg_editor_save_btn",
+                                classes="key_action_btn cfg_editor_save_btn",
+                            )
+                            yield Button(
+                                "← Back",
+                                id="cfg_editor_cancel_btn",
+                                classes="key_action_btn cfg_editor_cancel_btn",
+                            )
+                            yield Button(
+                                "✕ Delete",
+                                id="cfg_key_del_btn",
+                                classes="key_action_btn cfg_key_delete_btn",
+                            )
 
                 with TabPane("Database", id="tab_db"):
-                    yield Label(self._get_db_quick_status(db_path), id="cfg_db_status_msg", classes="config_tab_banner")
+                    yield Label(
+                        self._get_db_quick_status(db_path),
+                        id="cfg_db_status_msg",
+                        classes="config_tab_banner",
+                    )
                     yield Label("SQLite Database Path [--db]:", classes="config_field_label")
                     yield Input(value=db_path, placeholder=default_db_placeholder, id="cfg_db_path")
 
                     yield Label("Session Exports Directory Path:", classes="config_field_label")
-                    yield Input(value=exports_dir, placeholder=default_exports_placeholder, id="cfg_exports_dir")
+                    yield Input(
+                        value=exports_dir,
+                        placeholder=default_exports_placeholder,
+                        id="cfg_exports_dir",
+                    )
 
                     yield Label("Markdown Reports Directory Path:", classes="config_field_label")
-                    yield Input(value=reports_dir, placeholder=default_reports_placeholder, id="cfg_reports_dir")
+                    yield Input(
+                        value=reports_dir,
+                        placeholder=default_reports_placeholder,
+                        id="cfg_reports_dir",
+                    )
 
                 with TabPane("Tools", id="tab_tools"):
-                    yield Label(self._get_tools_quick_status(tools_dir), id="cfg_tools_status_msg", classes="config_tab_banner")
+                    yield Label(
+                        self._get_tools_quick_status(tools_dir),
+                        id="cfg_tools_status_msg",
+                        classes="config_tab_banner",
+                    )
                     yield Label("Custom Tools Directory [--tools]:", classes="config_field_label")
-                    yield Input(value=tools_dir, placeholder="bundled tools/ (leave blank for default)", id="cfg_tools_dir")
+                    yield Input(
+                        value=tools_dir,
+                        placeholder="bundled tools/ (leave blank for default)",
+                        id="cfg_tools_dir",
+                    )
 
             with Horizontal(classes="dialog_buttons", id="config_btn_row"):
                 yield Button("Save & Apply", variant="primary", id="cfg_save_btn")
@@ -756,7 +914,9 @@ class ConfigModal(ModalScreen[None]):
         if keys is None:
             keys = getattr(app, "cloud_keys", [])
 
-        valid_keys = [k for k in keys if k.get("api_key") and not is_placeholder_key(k.get("api_key"))]
+        valid_keys = [
+            k for k in keys if k.get("api_key") and not is_placeholder_key(k.get("api_key"))
+        ]
         if valid_keys:
             return "● Active Engine: Cloud AI"
 
@@ -770,7 +930,14 @@ class ConfigModal(ModalScreen[None]):
         if not key or is_placeholder_key(key):
             prof_name = ""
             if getattr(self, "editing_profile_id", None):
-                target = next((k for k in getattr(self, "cloud_keys", []) if k.get("id") == self.editing_profile_id), None)
+                target = next(
+                    (
+                        k
+                        for k in getattr(self, "cloud_keys", [])
+                        if k.get("id") == self.editing_profile_id
+                    ),
+                    None,
+                )
                 if target:
                     prof_name = target.get("name") or target.get("id")
             if prof_name:
@@ -778,9 +945,15 @@ class ConfigModal(ModalScreen[None]):
                 return f"▲ Profile '{short_name}' has no API key · [Credential Missing]"
             return "◆ No Cloud API Key set · Fields empty by default (Local Ollama / Fallback available)"
         masked = f"{key[:4]}...{key[-4:]}" if len(key) > 8 else "Configured"
-        valid_keys = [k for k in getattr(self, "cloud_keys", []) if k.get("api_key") and not is_placeholder_key(k.get("api_key"))]
+        valid_keys = [
+            k
+            for k in getattr(self, "cloud_keys", [])
+            if k.get("api_key") and not is_placeholder_key(k.get("api_key"))
+        ]
         num_keys = len(valid_keys)
-        extra = f" (+{num_keys - 1} fallback{'s' if num_keys - 1 > 1 else ''})" if num_keys > 1 else ""
+        extra = (
+            f" (+{num_keys - 1} fallback{'s' if num_keys - 1 > 1 else ''})" if num_keys > 1 else ""
+        )
         short_prov = provider[:18] + "..." if len(provider) > 20 else provider
         short_mod = model[:24] + "..." if len(model) > 26 else model
         prov_str = f" · {short_prov}" if short_prov else ""
@@ -819,7 +992,9 @@ class ConfigModal(ModalScreen[None]):
                 "ollama_model": ("tab_ollama", "#cfg_ollama_model"),
                 "model": (
                     "tab_ollama" if getattr(self.app, "use_ollama", False) else "tab_cloud",
-                    "#cfg_ollama_model" if getattr(self.app, "use_ollama", False) else "#cfg_api_model",
+                    "#cfg_ollama_model"
+                    if getattr(self.app, "use_ollama", False)
+                    else "#cfg_api_model",
                 ),
                 "ollama_base_url": ("tab_ollama", "#cfg_ollama_base_url"),
                 "cloud": ("tab_cloud", "#cfg_use_cloud_api"),
@@ -844,7 +1019,13 @@ class ConfigModal(ModalScreen[None]):
                 try:
                     tabs = self.query_one("#config_tabs", TabbedContent)
                     tabs.active = tab_id
-                    if input_id in ("#cfg_api_key", "#cfg_api_type", "#cfg_api_model", "#cfg_api_base", "#cfg_key_name"):
+                    if input_id in (
+                        "#cfg_api_key",
+                        "#cfg_api_type",
+                        "#cfg_api_model",
+                        "#cfg_api_base",
+                        "#cfg_key_name",
+                    ):
                         self.switch_cloud_view_sync("editor")
                     self.query_one(input_id).focus()
                     return
@@ -949,7 +1130,9 @@ class ConfigModal(ModalScreen[None]):
             elif target_tab == "tab_cloud":
                 banner.update("Testing Cloud AI credentials and endpoint...")
                 banner.add_class("banner_info")
-                active_prof = next((k for k in self.cloud_keys if k.get("id") == self.active_key_id), None)
+                active_prof = next(
+                    (k for k in self.cloud_keys if k.get("id") == self.active_key_id), None
+                )
                 is_editor_hidden = False
                 try:
                     is_editor_hidden = self.query_one("#cfg_key_editor").has_class("hidden")
@@ -996,7 +1179,9 @@ class ConfigModal(ModalScreen[None]):
                 banner.update("Testing Database, exports, and reports paths...")
                 banner.add_class("banner_info")
                 raw_db = self.query_one("#cfg_db_path", Input).value
-                norm_db, db_err = normalize_and_validate_db_path(raw_db, getattr(self.app, "data_dir", None))
+                norm_db, db_err = normalize_and_validate_db_path(
+                    raw_db, getattr(self.app, "data_dir", None)
+                )
                 raw_exports = self.query_one("#cfg_exports_dir", Input).value
                 norm_exports, exp_err = normalize_and_validate_export_dir(raw_exports)
                 raw_reports = self.query_one("#cfg_reports_dir", Input).value
@@ -1084,6 +1269,7 @@ class ConfigModal(ModalScreen[None]):
                 with open(expanded, "wb"):
                     pass
             import sqlite3
+
             conn = sqlite3.connect(expanded)
             conn.execute("PRAGMA quick_check;")
             conn.close()
@@ -1094,7 +1280,11 @@ class ConfigModal(ModalScreen[None]):
 
     def _test_tools_directory(self, path: str) -> Tuple[bool, str]:
         if not path or not path.strip():
-            count = len(getattr(self.app.registry, "tools", {})) if hasattr(self.app, "registry") and self.app.registry else 0
+            count = (
+                len(getattr(self.app.registry, "tools", {}))
+                if hasattr(self.app, "registry") and self.app.registry
+                else 0
+            )
             return True, f"Using bundled CyGuide tools ({count} tools available)."
         expanded = os.path.abspath(os.path.expanduser(path.strip()))
         if not os.path.exists(expanded):
@@ -1102,18 +1292,39 @@ class ConfigModal(ModalScreen[None]):
         if not os.path.isdir(expanded):
             return False, f"Tools path is a file, not a directory: {expanded}"
         try:
-            files = [f for f in os.listdir(expanded) if f.endswith((".py", ".sh", ".json")) or os.path.isdir(os.path.join(expanded, f))]
-            return True, f"Custom tools directory verified ({len(files)} files/folders in {os.path.basename(expanded)})."
+            files = [
+                f
+                for f in os.listdir(expanded)
+                if f.endswith((".py", ".sh", ".json")) or os.path.isdir(os.path.join(expanded, f))
+            ]
+            return (
+                True,
+                f"Custom tools directory verified ({len(files)} files/folders in {os.path.basename(expanded)}).",
+            )
         except Exception as e:
             return False, f"Cannot read tools directory: {e}"
 
-    async def _test_cloud_api(self, api_key: str, api_type: str, api_model: str, api_base: str) -> Tuple[bool, str]:
+    async def _test_cloud_api(
+        self, api_key: str, api_type: str, api_model: str, api_base: str
+    ) -> Tuple[bool, str]:
         import time
 
         import httpx
+
         clean_key = api_key.strip().strip("'\"")
         api_type_clean = (api_type or "openai").lower().strip()
-        base_url = (api_base or ("https://api.anthropic.com/v1" if api_type_clean == "anthropic" else "https://api.openai.com/v1")).strip().rstrip("/")
+        base_url = (
+            (
+                api_base
+                or (
+                    "https://api.anthropic.com/v1"
+                    if api_type_clean == "anthropic"
+                    else "https://api.openai.com/v1"
+                )
+            )
+            .strip()
+            .rstrip("/")
+        )
         probe_url = f"{base_url}/models" if not base_url.endswith("/models") else base_url
         headers = {
             "User-Agent": "CyGuide/1.0",
@@ -1130,9 +1341,15 @@ class ConfigModal(ModalScreen[None]):
                 resp = await client.get(probe_url, headers=headers)
                 elapsed_ms = int((time.time() - start_t) * 1000)
                 if resp.status_code == 200:
-                    return True, f"Cloud API authenticated ({elapsed_ms}ms) · {api_type} / {api_model}"
+                    return (
+                        True,
+                        f"Cloud API authenticated ({elapsed_ms}ms) · {api_type} / {api_model}",
+                    )
                 elif resp.status_code in (401, 403):
-                    return False, f"Authentication failed (HTTP {resp.status_code}: Invalid API key for {api_type})"
+                    return (
+                        False,
+                        f"Authentication failed (HTTP {resp.status_code}: Invalid API key for {api_type})",
+                    )
                 elif resp.status_code == 429:
                     return False, f"Rate limit reached (HTTP 429: Quota exceeded for {api_type})"
                 elif resp.status_code == 404:
@@ -1166,10 +1383,18 @@ class ConfigModal(ModalScreen[None]):
         self._is_loading_inputs = True
         try:
             self.query_one("#cfg_key_name", Input).value = target.get("name", "") if target else ""
-            self.query_one("#cfg_api_type", Input).value = target.get("provider", "") if target else ""
-            self.query_one("#cfg_api_key", Input).value = target.get("api_key", "") if target else ""
-            self.query_one("#cfg_api_model", Input).value = target.get("model", "") if target else ""
-            self.query_one("#cfg_api_base", Input).value = target.get("base_url", "") if target else ""
+            self.query_one("#cfg_api_type", Input).value = (
+                target.get("provider", "") if target else ""
+            )
+            self.query_one("#cfg_api_key", Input).value = (
+                target.get("api_key", "") if target else ""
+            )
+            self.query_one("#cfg_api_model", Input).value = (
+                target.get("model", "") if target else ""
+            )
+            self.query_one("#cfg_api_base", Input).value = (
+                target.get("base_url", "") if target else ""
+            )
             enabled = target.get("enabled", True) if target else True
             self.query_one("#cfg_key_enabled", Switch).value = enabled
             badge = self.query_one("#cfg_key_enabled_badge", Label)
@@ -1263,7 +1488,11 @@ class ConfigModal(ModalScreen[None]):
 
         target = next((k for k in self.cloud_keys if k.get("id") == kid), None)
         target_name = (target.get("name") or target.get("id") or "") if target else ""
-        short_name = f": {target_name[:20]}..." if len(target_name) > 22 else (f": {target_name}" if target_name else "")
+        short_name = (
+            f": {target_name[:20]}..."
+            if len(target_name) > 22
+            else (f": {target_name}" if target_name else "")
+        )
         title_text = f"✎ Edit Key Profile{short_name}"
         try:
             self.query_one("#cfg_editor_title", Label).update(title_text)
@@ -1273,7 +1502,11 @@ class ConfigModal(ModalScreen[None]):
         if target:
             try:
                 self.query_one("#cfg_cloud_status_msg", Label).update(
-                    self._get_cloud_quick_status(target.get("api_key", ""), target.get("provider", ""), target.get("model", ""))
+                    self._get_cloud_quick_status(
+                        target.get("api_key", ""),
+                        target.get("provider", ""),
+                        target.get("model", ""),
+                    )
                 )
             except Exception:
                 pass
@@ -1293,8 +1526,8 @@ class ConfigModal(ModalScreen[None]):
 
         for k in self.cloud_keys:
             cid = k.get("id")
-            raw_key = (k.get("api_key") or "").strip().strip('"\'')
-            is_active = (cid == kid)
+            raw_key = (k.get("api_key") or "").strip().strip("\"'")
+            is_active = cid == kid
             try:
                 card = self.query_one(f"#cfg_card_{cid}", Vertical)
                 if is_active:
@@ -1335,7 +1568,9 @@ class ConfigModal(ModalScreen[None]):
         if self.active_key_id == kid:
             self.active_key_id = self.cloud_keys[0]["id"] if self.cloud_keys else None
         if self.editing_profile_id == kid:
-            self.editing_profile_id = self.active_key_id or (self.cloud_keys[0]["id"] if self.cloud_keys else None)
+            self.editing_profile_id = self.active_key_id or (
+                self.cloud_keys[0]["id"] if self.cloud_keys else None
+            )
 
         await self._rebuild_keys_list()
         if self.editing_profile_id:
@@ -1344,13 +1579,21 @@ class ConfigModal(ModalScreen[None]):
             self._load_profile_to_inputs(None)
 
         target = next((k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None)
-        title_text = f"✎ Edit Key Profile: {target.get('name') or target.get('id')}" if target else "✎ Key Profile Settings"
+        title_text = (
+            f"✎ Edit Key Profile: {target.get('name') or target.get('id')}"
+            if target
+            else "✎ Key Profile Settings"
+        )
         try:
             self.query_one("#cfg_editor_title", Label).update(title_text)
             self.query_one("#config_status_label", Label).update(self._get_active_status_text())
             if target:
                 self.query_one("#cfg_cloud_status_msg", Label).update(
-                    self._get_cloud_quick_status(target.get("api_key", ""), target.get("provider", ""), target.get("model", ""))
+                    self._get_cloud_quick_status(
+                        target.get("api_key", ""),
+                        target.get("provider", ""),
+                        target.get("model", ""),
+                    )
                 )
             else:
                 self.query_one("#cfg_cloud_status_msg", Label).update(
@@ -1364,6 +1607,7 @@ class ConfigModal(ModalScreen[None]):
 
     async def _add_new_key_profile(self) -> None:
         import time
+
         if self.editing_profile_id:
             self._sync_inputs_to_profile(self.editing_profile_id)
 
@@ -1398,7 +1642,10 @@ class ConfigModal(ModalScreen[None]):
 
         await self._switch_cloud_view("editor")
         self.is_dirty = True
-        self.app.notify(f"Created profile '{new_name}'. Enter credentials and click '✓ Save & Back'.", title="New Key Profile")
+        self.app.notify(
+            f"Created profile '{new_name}'. Enter credentials and click '✓ Save & Back'.",
+            title="New Key Profile",
+        )
 
     def on_switch_changed(self, event: Switch.Changed) -> None:
         if getattr(self, "_is_loading_inputs", False):
@@ -1423,11 +1670,17 @@ class ConfigModal(ModalScreen[None]):
                 badge = self.query_one("#cfg_key_enabled_badge", Label)
                 badge.update("[bold green]● YES[/bold green]" if event.value else "[dim]⊘ NO[/dim]")
                 if self.editing_profile_id:
-                    prof = next((k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None)
+                    prof = next(
+                        (k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None
+                    )
                     if prof:
                         prof["enabled"] = event.value
                         fb_lbl = self.query_one(f"#cfg_fallback_{self.editing_profile_id}", Label)
-                        fb_lbl.update("[bold #38bdf8]Fallback: YES[/bold #38bdf8]" if event.value else "[dim #64748b]Fallback: NO[/dim #64748b]")
+                        fb_lbl.update(
+                            "[bold #38bdf8]Fallback: YES[/bold #38bdf8]"
+                            if event.value
+                            else "[dim #64748b]Fallback: NO[/dim #64748b]"
+                        )
             except Exception:
                 pass
 
@@ -1435,7 +1688,13 @@ class ConfigModal(ModalScreen[None]):
         if getattr(self, "_is_loading_inputs", False):
             return
         self.is_dirty = True
-        cloud_inputs = {"cfg_key_name", "cfg_api_type", "cfg_api_key", "cfg_api_model", "cfg_api_base"}
+        cloud_inputs = {
+            "cfg_key_name",
+            "cfg_api_type",
+            "cfg_api_key",
+            "cfg_api_model",
+            "cfg_api_base",
+        }
 
         if event.input.id in cloud_inputs:
             # If no profile exists yet, only auto-create initial profile if user entered non-empty text
@@ -1443,27 +1702,35 @@ class ConfigModal(ModalScreen[None]):
                 if not event.value.strip():
                     return
                 new_id = "key_1"
-                self.cloud_keys = [{
-                    "id": new_id,
-                    "name": "Primary Key",
-                    "provider": "",
-                    "api_key": "",
-                    "model": "",
-                    "base_url": "",
-                    "enabled": True,
-                }]
+                self.cloud_keys = [
+                    {
+                        "id": new_id,
+                        "name": "Primary Key",
+                        "provider": "",
+                        "api_key": "",
+                        "model": "",
+                        "base_url": "",
+                        "enabled": True,
+                    }
+                ]
                 self.editing_profile_id = new_id
                 self.active_key_id = new_id
                 self.run_worker(self._rebuild_keys_list())
 
-            prof = next((k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None)
+            prof = next(
+                (k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None
+            )
             if prof:
                 cid = prof["id"]
                 if event.input.id == "cfg_key_name":
                     prof["name"] = event.value.strip()
                     try:
-                        self.query_one(f"#cfg_title_{cid}", Label).update(prof["name"] or "Untitled Profile")
-                        self.query_one("#cfg_editor_title", Label).update(f"✎ Edit Key Profile: {prof['name'] or 'Untitled'}")
+                        self.query_one(f"#cfg_title_{cid}", Label).update(
+                            prof["name"] or "Untitled Profile"
+                        )
+                        self.query_one("#cfg_editor_title", Label).update(
+                            f"✎ Edit Key Profile: {prof['name'] or 'Untitled'}"
+                        )
                     except Exception:
                         pass
                 elif event.input.id == "cfg_api_type":
@@ -1490,9 +1757,13 @@ class ConfigModal(ModalScreen[None]):
                     except Exception:
                         pass
                 elif event.input.id == "cfg_api_key":
-                    prof["api_key"] = event.value.strip().strip('"\'')
+                    prof["api_key"] = event.value.strip().strip("\"'")
                     raw = prof["api_key"]
-                    masked = f"{raw[:4]}...{raw[-4:]}" if len(raw) > 8 else ("(no key)" if not raw else "Configured")
+                    masked = (
+                        f"{raw[:4]}...{raw[-4:]}"
+                        if len(raw) > 8
+                        else ("(no key)" if not raw else "Configured")
+                    )
                     try:
                         self.query_one(f"#cfg_masked_{cid}", Label).update(masked)
                         pill = self.query_one(f"#cfg_pill_{cid}", Label)
@@ -1505,7 +1776,7 @@ class ConfigModal(ModalScreen[None]):
                     except Exception:
                         pass
                 elif event.input.id == "cfg_api_model":
-                    prof["model"] = event.value.strip().strip('"\'')
+                    prof["model"] = event.value.strip().strip("\"'")
                     try:
                         self.query_one(f"#cfg_meta_{cid}", Label).update(
                             f"{prof.get('provider') or 'custom'} · {prof.get('model') or 'default model'}"
@@ -1513,14 +1784,18 @@ class ConfigModal(ModalScreen[None]):
                     except Exception:
                         pass
                 elif event.input.id == "cfg_api_base":
-                    prof["base_url"] = event.value.strip().strip('"\'')
+                    prof["base_url"] = event.value.strip().strip("\"'")
 
                 try:
                     status_lbl = self.query_one("#cfg_cloud_status_msg", Label)
                     status_lbl.update(
-                        self._get_cloud_quick_status(prof.get("api_key", ""), prof.get("provider", ""), prof.get("model", ""))
+                        self._get_cloud_quick_status(
+                            prof.get("api_key", ""), prof.get("provider", ""), prof.get("model", "")
+                        )
                     )
-                    self.query_one("#config_status_label", Label).update(self._get_active_status_text())
+                    self.query_one("#config_status_label", Label).update(
+                        self._get_active_status_text()
+                    )
                 except Exception:
                     pass
 
@@ -1565,20 +1840,34 @@ class ConfigModal(ModalScreen[None]):
         elif btn_id in ("cfg_editor_save_btn", "cfg_editor_back_btn", "cfg_editor_done_btn"):
             if self.editing_profile_id:
                 self._sync_inputs_to_profile(self.editing_profile_id)
-                prof = next((k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None)
+                prof = next(
+                    (k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None
+                )
                 prof_name = prof.get("name") or prof.get("id") if prof else "Key Profile"
-                self.app.notify(f"Updated profile '{prof_name}'. Click 'Save & Apply' to persist.", title="Profile Updated")
+                self.app.notify(
+                    f"Updated profile '{prof_name}'. Click 'Save & Apply' to persist.",
+                    title="Profile Updated",
+                )
             self._new_profile_id = None
             self._profile_before_edit = None
             await self._switch_cloud_view("list", save=True)
         elif btn_id in ("cfg_editor_cancel_btn", "cfg_editor_just_back_btn"):
-            if getattr(self, "_new_profile_id", None) and self._new_profile_id == self.editing_profile_id:
-                self.cloud_keys = [k for k in self.cloud_keys if k.get("id") != self._new_profile_id]
+            if (
+                getattr(self, "_new_profile_id", None)
+                and self._new_profile_id == self.editing_profile_id
+            ):
+                self.cloud_keys = [
+                    k for k in self.cloud_keys if k.get("id") != self._new_profile_id
+                ]
                 if self.active_key_id == self._new_profile_id:
                     self.active_key_id = self.cloud_keys[0]["id"] if self.cloud_keys else None
-                self.editing_profile_id = self.active_key_id or (self.cloud_keys[0]["id"] if self.cloud_keys else None)
+                self.editing_profile_id = self.active_key_id or (
+                    self.cloud_keys[0]["id"] if self.cloud_keys else None
+                )
             elif getattr(self, "_profile_before_edit", None) and self.editing_profile_id:
-                target = next((k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None)
+                target = next(
+                    (k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None
+                )
                 if target:
                     target.clear()
                     target.update(self._profile_before_edit)
@@ -1593,14 +1882,14 @@ class ConfigModal(ModalScreen[None]):
             self._profile_before_edit = None
             await self._switch_cloud_view("list", save=False)
         elif btn_id.startswith("cfg_edit_key_"):
-            kid = btn_id[len("cfg_edit_key_"):]
+            kid = btn_id[len("cfg_edit_key_") :]
             self._select_key_for_editing(kid)
             await self._switch_cloud_view("editor")
         elif btn_id.startswith("cfg_activate_key_"):
-            kid = btn_id[len("cfg_activate_key_"):]
+            kid = btn_id[len("cfg_activate_key_") :]
             self._set_active_key_profile(kid)
         elif btn_id.startswith("cfg_delete_key_"):
-            kid = btn_id[len("cfg_delete_key_"):]
+            kid = btn_id[len("cfg_delete_key_") :]
             await self._delete_key_profile(kid)
 
     @work(exclusive=True, group="config_save")
@@ -1617,7 +1906,9 @@ class ConfigModal(ModalScreen[None]):
         try:
             # 1. Validate DB path
             raw_db = self.query_one("#cfg_db_path", Input).value.strip()
-            norm_db, db_err = normalize_and_validate_db_path(raw_db, getattr(self.app, "data_dir", None))
+            norm_db, db_err = normalize_and_validate_db_path(
+                raw_db, getattr(self.app, "data_dir", None)
+            )
             if db_err:
                 banner.update(f"▲ Cannot save: {db_err}")
                 banner.remove_class("banner_info", "banner_ok", "banner_warn")
@@ -1627,7 +1918,9 @@ class ConfigModal(ModalScreen[None]):
 
             # 2. Validate Tools directory
             raw_tools = self.query_one("#cfg_tools_dir", Input).value.strip()
-            norm_tools, tools_err = normalize_and_validate_tools_dir(raw_tools, create_if_missing=True)
+            norm_tools, tools_err = normalize_and_validate_tools_dir(
+                raw_tools, create_if_missing=True
+            )
             if tools_err:
                 banner.update(f"▲ Cannot save: {tools_err}")
                 banner.remove_class("banner_info", "banner_ok", "banner_warn")
@@ -1637,7 +1930,9 @@ class ConfigModal(ModalScreen[None]):
 
             # Validate Exports directory
             raw_exports = self.query_one("#cfg_exports_dir", Input).value.strip()
-            norm_exports, exports_err = normalize_and_validate_export_dir(raw_exports, create_if_missing=True)
+            norm_exports, exports_err = normalize_and_validate_export_dir(
+                raw_exports, create_if_missing=True
+            )
             if exports_err:
                 banner.update(f"▲ Cannot save: {exports_err}")
                 banner.remove_class("banner_info", "banner_ok", "banner_warn")
@@ -1647,7 +1942,9 @@ class ConfigModal(ModalScreen[None]):
 
             # Validate Reports directory
             raw_reports = self.query_one("#cfg_reports_dir", Input).value.strip()
-            norm_reports, reports_err = normalize_and_validate_report_dir(raw_reports, create_if_missing=True)
+            norm_reports, reports_err = normalize_and_validate_report_dir(
+                raw_reports, create_if_missing=True
+            )
             if reports_err:
                 banner.update(f"▲ Cannot save: {reports_err}")
                 banner.remove_class("banner_info", "banner_ok", "banner_warn")
@@ -1659,7 +1956,10 @@ class ConfigModal(ModalScreen[None]):
             use_ollama = self.query_one("#cfg_use_ollama", Switch).value
             use_cloud_api = self.query_one("#cfg_use_cloud_api", Switch).value
             ollama_model = self.query_one("#cfg_ollama_model", Input).value.strip() or "gemma"
-            raw_ollama_url = self.query_one("#cfg_ollama_base_url", Input).value.strip() or "http://localhost:11434"
+            raw_ollama_url = (
+                self.query_one("#cfg_ollama_base_url", Input).value.strip()
+                or "http://localhost:11434"
+            )
             ollama_base_url = normalize_ollama_url(raw_ollama_url)
 
             # 4. Sync editing profile
@@ -1669,7 +1969,7 @@ class ConfigModal(ModalScreen[None]):
             # Security validation: Ensure each API key is unique across non-empty profiles
             seen_keys: Dict[str, str] = {}
             for prof in self.cloud_keys:
-                raw_k = prof.get("api_key", "").strip().strip('"\'')
+                raw_k = prof.get("api_key", "").strip().strip("\"'")
                 if not raw_k or is_placeholder_key(raw_k):
                     continue
                 if raw_k in seen_keys:
@@ -1685,12 +1985,16 @@ class ConfigModal(ModalScreen[None]):
 
             # Check active key ID
             if self.cloud_keys:
-                if not self.active_key_id or not any(k.get("id") == self.active_key_id for k in self.cloud_keys):
+                if not self.active_key_id or not any(
+                    k.get("id") == self.active_key_id for k in self.cloud_keys
+                ):
                     self.active_key_id = self.cloud_keys[0]["id"]
             else:
                 self.active_key_id = None
 
-            active_prof = next((k for k in self.cloud_keys if k.get("id") == self.active_key_id), None)
+            active_prof = next(
+                (k for k in self.cloud_keys if k.get("id") == self.active_key_id), None
+            )
             api_key = active_prof.get("api_key", "") if active_prof else ""
             api_type = active_prof.get("provider", "") if active_prof else ""
             api_model = active_prof.get("model", "") if active_prof else ""
@@ -1787,7 +2091,7 @@ class ConfigModal(ModalScreen[None]):
             if hasattr(app, "reload_registry"):
                 await asyncio.to_thread(app.reload_registry)
                 if hasattr(app.registry, "load_errors") and app.registry.load_errors:
-                    tool_issues = f" ({len(app.registry.load_errors)} tool loading error{'s' if len(app.registry.load_errors)>1 else ''})"
+                    tool_issues = f" ({len(app.registry.load_errors)} tool loading error{'s' if len(app.registry.load_errors) > 1 else ''})"
 
             # 10. Update UI state in-place (DO NOT DISMISS!)
             self.is_dirty = False
@@ -1799,14 +2103,18 @@ class ConfigModal(ModalScreen[None]):
                 self.query_one("#config_status_label", Label).update(self._get_active_status_text())
                 if active_prof:
                     self.query_one("#cfg_cloud_status_msg", Label).update(
-                        self._get_cloud_quick_status(active_prof.get("api_key", ""), active_prof.get("provider", ""), active_prof.get("model", ""))
+                        self._get_cloud_quick_status(
+                            active_prof.get("api_key", ""),
+                            active_prof.get("provider", ""),
+                            active_prof.get("model", ""),
+                        )
                     )
             except Exception:
                 pass
 
             # Inform user if credentials missing or valid
             if use_cloud_api and (not api_key or is_placeholder_key(api_key)):
-                prof_title = active_prof.get('name') if active_prof else 'None'
+                prof_title = active_prof.get("name") if active_prof else "None"
                 warn_msg = f"✓ Settings saved. ⚠️ Profile '{prof_title}' is missing an API key (Local Ollama will be used)."
                 banner.update(warn_msg)
                 banner.remove_class("banner_info", "banner_error", "banner_ok")
@@ -1817,7 +2125,9 @@ class ConfigModal(ModalScreen[None]):
                 banner.add_class("banner_ok")
 
             notice = f"Configuration saved and applied!{tool_issues}"
-            app.notify(notice, title="Config Saved", severity="warning" if tool_issues else "information")
+            app.notify(
+                notice, title="Config Saved", severity="warning" if tool_issues else "information"
+            )
         except Exception as e:
             banner.update(f"▲ Error saving settings: {e}")
             banner.remove_class("banner_info", "banner_ok", "banner_warn")
@@ -1840,7 +2150,9 @@ class ConfigModal(ModalScreen[None]):
                 self.query_one("#cfg_use_ollama", Switch).value = False
                 self.query_one("#cfg_use_cloud_api", Switch).value = True
                 try:
-                    self.query_one("#cfg_cloud_switch_badge", Label).update("[bold green]● ON[/bold green]")
+                    self.query_one("#cfg_cloud_switch_badge", Label).update(
+                        "[bold green]● ON[/bold green]"
+                    )
                 except Exception:
                     pass
                 self.query_one("#cfg_ollama_model", Input).value = "gemma"
@@ -1853,7 +2165,9 @@ class ConfigModal(ModalScreen[None]):
                 # DO NOT wipe self.cloud_keys! Keep user API keys safe.
                 # Reset endpoints / models of current profile to provider defaults if applicable
                 if self.editing_profile_id:
-                    prof = next((k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None)
+                    prof = next(
+                        (k for k in self.cloud_keys if k.get("id") == self.editing_profile_id), None
+                    )
                     if prof:
                         prov = prof.get("provider", "").lower()
                         if prov in PROVIDER_PRESETS:
@@ -1870,9 +2184,14 @@ class ConfigModal(ModalScreen[None]):
 
             self.is_dirty = True
             banner = self.query_one("#config_feedback_banner", Label)
-            banner.update("● Standard defaults loaded (saved API keys preserved). Click 'Save & Apply' to commit.")
+            banner.update(
+                "● Standard defaults loaded (saved API keys preserved). Click 'Save & Apply' to commit."
+            )
             banner.remove_class("banner_error", "banner_ok", "banner_info")
             banner.add_class("banner_warn")
-            self.app.notify("Standard defaults loaded (API keys preserved). Click 'Save & Apply' to commit.", title="Defaults Loaded")
+            self.app.notify(
+                "Standard defaults loaded (API keys preserved). Click 'Save & Apply' to commit.",
+                title="Defaults Loaded",
+            )
         except Exception as e:
             self.app.notify(f"Error resetting fields: {e}", severity="warning")

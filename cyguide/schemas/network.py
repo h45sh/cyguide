@@ -2,7 +2,6 @@
 
 from typing import ClassVar, Optional
 
-from cyguide.common.canonicalize import canonicalize_host, canonicalize_port
 from cyguide.schemas.base import BaseFinding, Relation
 
 
@@ -14,10 +13,9 @@ class NetworkHost(BaseFinding):
 
     @classmethod
     def create(cls, ip: str, hostname: Optional[str] = None, os: Optional[str] = None, **kwargs):
-        normalized_ip = canonicalize_host(ip)
         return cls(
-            pik={"ip": normalized_ip},
-            data={"ip": normalized_ip, "hostname": hostname, "os": os, **kwargs},
+            pik={"ip": ip},
+            data={"ip": ip, "hostname": hostname, "os": os, **kwargs},
         )
 
 
@@ -36,15 +34,12 @@ class NetworkService(BaseFinding):
         service_name: Optional[str] = None,
         **kwargs,
     ):
-        normalized_ip = canonicalize_host(host_ip)
-        normalized_port = canonicalize_port(port)
-
-        pik = {"host_ip": normalized_ip, "port": normalized_port, "protocol": protocol.lower()}
+        pik = {"host_ip": host_ip, "port": port, "protocol": protocol}
 
         return cls(
             pik=pik,
             parent=Relation(
-                target_type="network.host", target_pik={"ip": normalized_ip}, via="has_service"
+                target_type="network.host", target_pik={"ip": host_ip}, via="has_service"
             ),
             data={**pik, "service_name": service_name, **kwargs},
         )

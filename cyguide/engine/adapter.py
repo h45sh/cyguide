@@ -8,7 +8,7 @@ from cyguide.schemas.base import BaseFinding
 
 class ToolAdapter(ABC):
     """
-    Contract for tool contributors. 
+    Contract for tool contributors.
     Every tool in tools/ must implement this in adapter.py.
     """
 
@@ -21,7 +21,7 @@ class ToolAdapter(ABC):
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         """
         Build the command line arguments for the tool.
-        
+
         Args:
             target: The finding being scanned (e.g. a network.host)
             params: User-provided flags or options from the TUI
@@ -29,10 +29,12 @@ class ToolAdapter(ABC):
         pass
 
     @abstractmethod
-    async def parse_output(self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None) -> AsyncIterator[BaseFinding]:
+    async def parse_output(
+        self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
+    ) -> AsyncIterator[BaseFinding]:
         """
         Parse tool output and yield standardized findings.
-        
+
         Args:
             raw_stdout: The raw output string from the tool
             target: The original target finding (for context/parenting)

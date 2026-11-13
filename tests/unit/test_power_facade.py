@@ -38,6 +38,7 @@ async def test_facade_get_context_resolution():
 @pytest.mark.asyncio
 async def test_facade_submit_shell_action():
     from uuid import UUID
+
     store = GraphStore(":memory:")
     await store.initialize()
     executor = MagicMock()
@@ -54,7 +55,7 @@ async def test_facade_submit_shell_action():
         tool_name="ls",
         params={"raw_flags": "-la"},
         triggered_by=ActionSource.USER,
-        is_explicit_shell=True
+        is_explicit_shell=True,
     )
 
     job_id = await facade.submit_action(action)
@@ -62,6 +63,7 @@ async def test_facade_submit_shell_action():
     assert job_id in facade._active_jobs
     assert facade._active_jobs[job_id].tool_name == "ls"
     await store.close()
+
 
 @pytest.mark.asyncio
 async def test_facade_submit_action_validation():
@@ -87,7 +89,7 @@ async def test_facade_submit_action_validation():
         session_id=sess_id,
         tool_name="nmap",
         target_entity_id=node_id,
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
 
     # This should pass validation and start a background task
@@ -96,6 +98,7 @@ async def test_facade_submit_action_validation():
     assert job_id in facade._active_jobs
 
     await store.close()
+
 
 @pytest.mark.asyncio
 async def test_facade_uniqueness():
@@ -130,16 +133,19 @@ async def test_facade_uniqueness():
     # 3. Move session uniqueness
     # Create Session A in Workspace B
     await facade.create_session(ws2_id, "Session A")
-    with pytest.raises(ValueError, match="A session with this name already exists in the target workspace"):
-        await facade.move_session(sess1_id, ws2_id) # Should fail as ws2 already has "Session A"
+    with pytest.raises(
+        ValueError, match="A session with this name already exists in the target workspace"
+    ):
+        await facade.move_session(sess1_id, ws2_id)  # Should fail as ws2 already has "Session A"
 
     await store.close()
+
 
 @pytest.mark.asyncio
 async def test_facade_deletion_cleanup():
     store = GraphStore(":memory:")
     await store.initialize()
-    executor = AsyncMock() # Use AsyncMock to mock stop_task
+    executor = AsyncMock()  # Use AsyncMock to mock stop_task
     registry = MagicMock()
     facade = PowerWorkspaceFacade(store, executor, registry)
 
@@ -158,7 +164,7 @@ async def test_facade_deletion_cleanup():
         session_id=UUID(sess_id),
         tool_name="nmap",
         status=JobStatusEnum.RUNNING,
-        started_at=datetime.datetime.now(datetime.UTC)
+        started_at=datetime.datetime.now(datetime.UTC),
     )
     facade._active_jobs[job_uuid] = job
     facade.closed_job_ids.add(str(job_uuid))
@@ -191,10 +197,7 @@ async def test_facade_job_output_buffering_and_subscription():
 
     job_uuid = uuid4()
     job = JobStatus(
-        job_id=job_uuid,
-        session_id=UUID(sess_id),
-        tool_name="whois",
-        status=JobStatusEnum.RUNNING
+        job_id=job_uuid, session_id=UUID(sess_id), tool_name="whois", status=JobStatusEnum.RUNNING
     )
     facade._active_jobs[job_uuid] = job
     facade._job_buffers[job_uuid] = ["chunk1 ", "chunk2 "]
@@ -205,6 +208,7 @@ async def test_facade_job_output_buffering_and_subscription():
 
     # 2. Test live subscription
     received = []
+
     async def sub(chunk: str):
         received.append(chunk)
 
@@ -235,22 +239,13 @@ async def test_facade_workspace_and_session_running_counts():
     sess2_id = await facade.create_session(ws_id, "Sess2")
 
     job1 = JobStatus(
-        job_id=uuid4(),
-        session_id=UUID(sess1_id),
-        tool_name="nmap",
-        status=JobStatusEnum.RUNNING
+        job_id=uuid4(), session_id=UUID(sess1_id), tool_name="nmap", status=JobStatusEnum.RUNNING
     )
     job2 = JobStatus(
-        job_id=uuid4(),
-        session_id=UUID(sess2_id),
-        tool_name="whois",
-        status=JobStatusEnum.RUNNING
+        job_id=uuid4(), session_id=UUID(sess2_id), tool_name="whois", status=JobStatusEnum.RUNNING
     )
     job3 = JobStatus(
-        job_id=uuid4(),
-        session_id=UUID(sess1_id),
-        tool_name="ping",
-        status=JobStatusEnum.DONE
+        job_id=uuid4(), session_id=UUID(sess1_id), tool_name="ping", status=JobStatusEnum.DONE
     )
     facade._active_jobs[job1.job_id] = job1
     facade._active_jobs[job2.job_id] = job2
@@ -268,6 +263,7 @@ async def test_facade_workspace_and_session_running_counts():
 
     # Status change listener
     notified = []
+
     def on_change(j):
         notified.append(j.status)
 
@@ -286,6 +282,7 @@ async def test_facade_workspace_and_session_running_counts():
 @pytest.mark.asyncio
 async def test_facade_shutdown_graceful_drain():
     import asyncio
+
     store = GraphStore(":memory:")
     await store.initialize()
     executor = MagicMock()
@@ -294,6 +291,7 @@ async def test_facade_shutdown_graceful_drain():
 
     # Simulate running task
     stop_event = asyncio.Event()
+
     async def dummy_task():
         try:
             await stop_event.wait()
