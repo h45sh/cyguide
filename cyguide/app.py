@@ -113,7 +113,9 @@ class CyGuideCommandPalette(CommandPalette):
     def _refresh_command_list(
         self, command_list: CommandList, commands: list, clear_current: bool
     ) -> None:
-        super()._refresh_command_list(command_list, commands, clear_current)  # codeguard: ignore[PRIVATE_STATE_LEAK,PRIVATE_STATE_LEAK_REGEX]
+        super()._refresh_command_list(
+            command_list, commands, clear_current
+        )  # codeguard: ignore[PRIVATE_STATE_LEAK,PRIVATE_STATE_LEAK_REGEX]
         last = getattr(self.app, "last_palette_highlight", None)
         if last is not None and command_list.option_count > 0:
             if isinstance(last, int) and 0 <= last < command_list.option_count:
@@ -362,7 +364,12 @@ class CyGuideApp(App):
                     "cloud_keys": self.cloud_keys,
                 }
             )
-            self.reload_explainer()
+            if hasattr(self, "explainer_backend") and hasattr(
+                self.explainer_backend, "set_active_key"
+            ):
+                self.explainer_backend.set_active_key(self.active_key_id)
+            else:
+                self.reload_explainer()
             self.notify(f"Switched active AI key to: {target_name}", title="AI Key Switcher")
 
     def _get_settings_path(self) -> Optional[str]:
@@ -501,6 +508,7 @@ class CyGuideApp(App):
                 new_health = reg.check_health()
             else:
                 from cyguide.engine.diagnostics import check_tool_health
+
                 new_health = check_tool_health(reg)
         except Exception:
             return getattr(self, "_cached_tool_health", {}) or {}
@@ -591,7 +599,6 @@ class CyGuideApp(App):
             except Exception:
                 pass
 
-
     def reload_explainer(self) -> None:
         """Setup or reload explanation backend based on current settings and environment."""
         from dotenv import load_dotenv
@@ -605,7 +612,7 @@ class CyGuideApp(App):
             self.explainer = self.explainer_backend
             return
 
-        from cyguide.engine.explainer import CloudKeyProfile, MultiKeyCloudBackend
+        from cyguide.engine.explainer import CloudKeyProfile, ExplanationTutor
 
         profiles: List[CloudKeyProfile] = []
         if hasattr(self, "cloud_keys") and self.cloud_keys:
@@ -653,7 +660,7 @@ class CyGuideApp(App):
                 )
 
         ollama_fallback = OllamaBackend(model=self.ollama_model, base_url=ollama_base_url)
-        self.explainer_backend = MultiKeyCloudBackend(
+        self.explainer_backend = ExplanationTutor(
             profiles=profiles,
             active_key_id=getattr(self, "active_key_id", None),
             fallback_to_ollama=True,
@@ -940,7 +947,6 @@ class CyGuideApp(App):
             except Exception:
                 pass
         self.exit()
-
 
 
 if __name__ == "__main__":
