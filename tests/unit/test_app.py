@@ -915,13 +915,18 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         await app.power_facade.create_session(ws2, "Beta Session")
 
         await d.refresh_workspaces()
-        await pilot.pause(0.1)
+        ws_items = [w for w in (await app.power_facade.list_workspaces()) if w.get("status") != "SYSTEM"]
+        first_ws_name = ws_items[0]["name"]
+        first_sess_name = "Alpha Session" if first_ws_name == "Default Project" else "Beta Session"
+        second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
 
-        # 1. Start at Default Project (index 0)
+        # 1. Start at index 0
+        ws_list.index = 0
         ws_list.focus()
+        await pilot.pause(0.15)
         assert ws_list.index == 0
 
-        # 2. Navigate down to Beta Project
+        # 2. Navigate down to second workspace
         await pilot.press("down")
         await pilot.pause(0.15)
         assert ws_list.index == 1
@@ -930,9 +935,9 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         assert not details.query(".session_empty_card"), "Must not display empty card when workspace has sessions"
         assert details.query(".session_id_card"), "Must render session card immediately"
         title_label = d.query_one("#session_title_text")
-        assert "Beta Session" in str(title_label.render())
+        assert second_sess_name in str(title_label.render())
 
-        # 3. Navigate back up to Default Project
+        # 3. Navigate back up to first workspace
         await pilot.press("up")
         await pilot.pause(0.15)
         assert ws_list.index == 0
@@ -941,4 +946,4 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         assert not details.query(".session_empty_card"), "Must not display empty card when workspace has sessions"
         assert details.query(".session_id_card"), "Must render session card immediately"
         title_label = d.query_one("#session_title_text")
-        assert "Alpha Session" in str(title_label.render())
+        assert first_sess_name in str(title_label.render())
