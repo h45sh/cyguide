@@ -4,7 +4,6 @@ import json
 
 import pytest
 
-from cyguide.engine.explainer import ExplainerBackend
 from cyguide.engine.gateway import ActionGateway, ActionValidationError
 from cyguide.engine.manifest import Manifest
 from cyguide.engine.registry import ToolRegistry
@@ -12,30 +11,6 @@ from cyguide.engine.store import GraphStore
 from cyguide.schemas.power import ActionRequest, ActionSource
 from cyguide.ui.screens.learning import LearningModeScreen
 from cyguide.ui.widgets.power import EntityBrowser
-
-
-class MockExplainerBackend(ExplainerBackend):
-    async def explain(self, prompt: str):
-        yield "Response to: "
-        yield prompt
-
-
-@pytest.mark.asyncio
-async def test_explainer_ask_and_explain_backward_compat():
-    backend = MockExplainerBackend()
-    
-    # Test ExplainerBackend.ask() alias
-    chunks = []
-    async for chunk in backend.ask("test query"):
-        chunks.append(chunk)
-    assert "".join(chunks) == "Response to: test query"
-
-    # Test ExplainerBackend.explain() directly
-    chunks_expl = []
-    async for chunk in backend.explain("backend test 2"):
-        chunks_expl.append(chunk)
-    assert "".join(chunks_expl) == "Response to: backend test 2"
-
 
 
 def test_strip_scanner_noise():
@@ -68,6 +43,7 @@ async def test_extract_structured_findings():
 
     # Upsert sample finding
     from cyguide.schemas.network import NetworkService
+
     svc = NetworkService.create(host_ip="127.0.0.1", port=80, protocol="tcp", service_name="http")
     await store.upsert_finding(session_id, svc)
 
@@ -117,14 +93,14 @@ async def test_entity_browser_search_filter():
             {
                 "id": "dns_1",
                 "schema_type": "dns.record",
-                "pik_json": json.dumps({"domain": "internal.corp", "type": "A", "value": "10.0.0.5"}),
+                "pik_json": json.dumps(
+                    {"domain": "internal.corp", "type": "A", "value": "10.0.0.5"}
+                ),
                 "data_json": json.dumps({}),
                 "status": "confirmed",
             },
         ],
-        "edges": [
-            {"source_id": "host_1", "target_id": "svc_1", "rel": "hosts"}
-        ]
+        "edges": [{"source_id": "host_1", "target_id": "svc_1", "rel": "hosts"}],
     }
 
     # 1. Unfiltered refresh - verify automatic naming (localhost, DNS domain, alias)
@@ -167,6 +143,7 @@ async def test_store_and_facade_set_entity_alias():
     _, session_id = await store.get_or_create_learning_sandbox()
 
     from cyguide.schemas.network import NetworkHost
+
     host = NetworkHost.create(ip="192.168.1.50")
     await store.upsert_finding(session_id, host)
 
@@ -178,6 +155,7 @@ async def test_store_and_facade_set_entity_alias():
     from unittest.mock import MagicMock
 
     from cyguide.engine.power_facade import PowerWorkspaceFacade
+
     facade = PowerWorkspaceFacade(store, MagicMock(), MagicMock())
     await facade.set_entity_alias(session_id, node_id, "DMZ-Web-Gateway")
 
@@ -197,7 +175,13 @@ async def test_learning_action_ssrf_rejection():
 
     registry = ToolRegistry()
     manifest_data = {
-        "meta": {"name": "nmap", "description": "Nmap scanner", "version": "1.0", "categories": ["Scanning"], "binary": "nmap"},
+        "meta": {
+            "name": "nmap",
+            "description": "Nmap scanner",
+            "version": "1.0",
+            "categories": ["Scanning"],
+            "binary": "nmap",
+        },
         "modes": {"learning": True, "power": True},
         "input": {"accepts": ["network.host"]},
         "output": {"produces": ["network.service"]},
@@ -205,9 +189,10 @@ async def test_learning_action_ssrf_rejection():
     registry.tools["nmap"] = {"manifest": Manifest(**manifest_data), "adapter": None}
 
     gateway = ActionGateway(registry, store)
-    
+
     # Attempting to scan cloud metadata link-local endpoint
     import uuid
+
     malicious_action = ActionRequest(
         session_id=uuid.UUID(session_id),
         tool_name="nmap",
@@ -234,10 +219,10 @@ async def test_chat_prompt_allows_greetings():
     tool_tag = screen.active_tool or "tool"
     if screen.log_buffer:
         cleaned_context = screen._strip_scanner_noise("".join(screen.log_buffer[-50:]))
-        safe_context = cleaned_context.replace("</untrusted_scan_output>", "<\\/untrusted_scan_output>")
-        context_block = (
-            f'<untrusted_scan_output tool="{tool_tag}">\n{safe_context}\n</untrusted_scan_output>\n\n'
+        safe_context = cleaned_context.replace(
+            "</untrusted_scan_output>", "<\\/untrusted_scan_output>"
         )
+        context_block = f'<untrusted_scan_output tool="{tool_tag}">\n{safe_context}\n</untrusted_scan_output>\n\n'
 
     system_prompt = (
         f"You are CyGuide AI Tutor, an interactive cybersecurity instructor assisting a student in a learning lab.\n"
@@ -553,7 +538,9 @@ async def test_learning_ask_ai_and_run_buttons():
         prev_buffer = screen.explanation_buffer
         await screen.query_ai_tutor("What is nmap?").wait()
         await pilot.pause()
-        assert screen.explanation_buffer == prev_buffer, "Must not wipe or alter explanation buffer when AI is disabled"
+        assert screen.explanation_buffer == prev_buffer, (
+            "Must not wipe or alter explanation buffer when AI is disabled"
+        )
         status_lbl = screen.query_one("#explanation_status_label")
         assert "OFF" in str(status_lbl.render())
 
@@ -572,7 +559,9 @@ async def test_learning_ask_ai_and_run_buttons():
 
         await screen.run_scan().wait()
         await pilot.pause(0.2)
-        assert screen.explanation_buffer == "### Important Previous Explanation", "Previous explanation must NOT be wiped!"
+        assert screen.explanation_buffer == "### Important Previous Explanation", (
+            "Previous explanation must NOT be wiped!"
+        )
         status_lbl = screen.query_one("#explanation_status_label")
         assert "OFF" in str(status_lbl.render())
 
@@ -587,4 +576,3 @@ async def test_learning_ask_ai_and_run_buttons():
             "Previous explanation must NOT be wiped when AI is ON!"
         )
         assert f"Run #{screen.run_count}" in screen.explanation_buffer
-

@@ -55,18 +55,6 @@ class ExplainerBackend(abc.ABC):
         """Generate a streamed explanation for a given prompt."""
         pass
 
-    async def ask(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
-        """Stream explanation from the backend (backward-compatible alias)."""
-        import inspect
-
-        sig = inspect.signature(self.explain)
-        if "system" in sig.parameters:
-            async for chunk in self.explain(prompt, system=system):
-                yield chunk
-        else:
-            async for chunk in self.explain(prompt):
-                yield chunk
-
 
 def format_dual_ai_error(cloud_err: str, ollama_err: str) -> str:
     """Format a clear diagnostic block when both Cloud AI and Local Ollama fail."""
@@ -405,44 +393,10 @@ class CloudKeyProfile:
         )
 
 
-class CloudAPIBackend(ExplainerBackend):
-    """Backend that uses cloud APIs (OpenAI, Anthropic, OpenRouter, Grok, Groq, etc)."""
-
-    def __init__(self, api_type: str, api_base: str, api_key: str, model: str):
-        self.api_type = (api_type or "openai").lower().strip()
-        self.api_base = (api_base or "https://api.openai.com/v1").rstrip("/").strip()
-        self.api_key = (api_key or "").strip().strip("\"'")
-        self.model = (model or "gpt-4o").strip().strip("\"'")
-
-    async def explain(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
-        """Stream from Cloud API."""
-        adapter: ProviderAdapter
-        if self.api_type == "anthropic":
-            adapter = AnthropicProviderAdapter(
-                api_base=self.api_base,
-                api_key=self.api_key,
-                model=self.model,
-            )
-        else:
-            adapter = OpenAIProviderAdapter(
-                api_base=self.api_base,
-                api_key=self.api_key,
-                model=self.model,
-            )
-
-        try:
-            async for chunk in adapter.stream(prompt, system=system):
-                yield chunk
-        except ProviderResponseError as e:
-            yield f"Error: API returned status {e.status_code}: {e.body}"
-        except Exception as e:
-            yield f"[Error: cloud API request failed ({e}). No explanation backend is available.]\n"
-
-
 # --- Deep Module: ExplanationTutor ---
 
 
-class ExplanationTutor(CloudAPIBackend):
+class ExplanationTutor(ExplainerBackend):
     """Deep module coordinating multi-provider AI learning guidance, automatic fallback,
 
     resilient rate-limit cooldowns, and typed event streams.
@@ -469,14 +423,11 @@ class ExplanationTutor(CloudAPIBackend):
         # Internal custom adapters for testing injection
         self._custom_adapters: Dict[str, ProviderAdapter] = {}
 
-        # Initialize base properties from active profile for backward compatibility
         active = self.get_active_profile()
-        super().__init__(
-            api_type=active.provider if active else "openai",
-            api_base=active.base_url if active else "https://api.openai.com/v1",
-            api_key=active.api_key if active else "",
-            model=active.model if active else "gpt-4o",
-        )
+        self.api_type = active.provider if active else "openai"
+        self.api_base = active.base_url if active else "https://api.openai.com/v1"
+        self.api_key = active.api_key if active else ""
+        self.model = active.model if active else "gpt-4o"
 
     def get_active_profile(self) -> Optional[CloudKeyProfile]:
         """Return the currently selected active profile."""
@@ -819,8 +770,3 @@ class ExplanationTutor(CloudAPIBackend):
                     yield event.error
                 else:
                     yield f"[Error: {event.error}]\n"
-
-
-# --- Class Alias for Full Backward Compatibility ---
-
-MultiKeyCloudBackend = ExplanationTutor

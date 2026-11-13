@@ -358,7 +358,7 @@ class CyGuideApp(App):
                 found = True
                 break
         if found:
-            self._save_settings(
+            self.save_settings(
                 {
                     "active_key_id": self.active_key_id,
                     "cloud_keys": self.cloud_keys,
@@ -456,13 +456,9 @@ class CyGuideApp(App):
         except Exception:
             pass
 
-    def _save_settings(self, updates: Dict[str, Any]) -> None:
-        """Backward-compatible alias for save_settings."""
-        self.save_settings(updates)
-
     def watch_theme(self, new_theme: str) -> None:
-        if hasattr(self, "_save_settings"):
-            self._save_settings({"theme": new_theme})
+        if hasattr(self, "save_settings"):
+            self.save_settings({"theme": new_theme})
 
     def detect_user_shell(self) -> str:
         """Find the user's default shell."""
@@ -691,7 +687,7 @@ class CyGuideApp(App):
     def action_toggle_animations(self) -> None:
         """Toggle UI animations on or off via the command palette."""
         self.animations_enabled = not self.animations_enabled
-        self._save_settings({"animations_enabled": self.animations_enabled})
+        self.save_settings({"animations_enabled": self.animations_enabled})
         if self.animations_enabled:
             self.remove_class("no-animations")
             self.notify("Animations Enabled")
@@ -767,7 +763,7 @@ class CyGuideApp(App):
             if hasattr(self, "power_facade") and self.power_facade:
                 self.power_facade.store = self.store
 
-            self._save_settings({"db_path": new_db_path})
+            self.save_settings({"db_path": new_db_path})
         except Exception as e:
             if old_store:
                 self.store = old_store
@@ -805,7 +801,7 @@ class CyGuideApp(App):
     def action_toggle_ollama(self) -> None:
         """Toggle local Ollama LLM mode on or off."""
         self.use_ollama = not self.use_ollama
-        self._save_settings({"use_ollama": self.use_ollama})
+        self.save_settings({"use_ollama": self.use_ollama})
         self.reload_explainer()
         status = "Enabled" if self.use_ollama else "Disabled (Cloud API / Fallback)"
         self.notify(f"Ollama Mode {status}", title="Ollama Config")
@@ -813,7 +809,7 @@ class CyGuideApp(App):
     def action_toggle_cloud_api(self) -> None:
         """Toggle cloud AI access on or off."""
         self.use_cloud_api = not getattr(self, "use_cloud_api", True)
-        self._save_settings({"use_cloud_api": self.use_cloud_api})
+        self.save_settings({"use_cloud_api": self.use_cloud_api})
         self.reload_explainer()
         status = "Enabled" if self.use_cloud_api else "Disabled (Local Ollama Only)"
         self.notify(f"Cloud AI Access {status}", title="Cloud AI Config")
@@ -835,7 +831,7 @@ class CyGuideApp(App):
             else []
         )
         existing_active = self.active_key_id
-        self._save_settings(
+        self.save_settings(
             {
                 "use_ollama": False,
                 "use_cloud_api": True,

@@ -1,7 +1,7 @@
 """Recommendation Engine for suggesting tools based on discovered findings."""
 
 import logging
-from typing import Any, List, Optional
+from typing import List
 
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.base import BaseFinding
@@ -11,27 +11,18 @@ from cyguide.schemas.web import WebEndpoint, WebVulnerability
 logger = logging.getLogger(__name__)
 
 
-def _normalize_finding(finding_or_session: Any, *args) -> Optional[BaseFinding]:
-    """Support both modern evaluate(finding) and legacy evaluate(session_id, finding, store)."""
-    if isinstance(finding_or_session, BaseFinding):
-        return finding_or_session
-    for a in args:
-        if isinstance(a, BaseFinding):
-            return a
-    return None
-
-
 class RecommendationRule:
     """Base class for declarative recommendation rules."""
-    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
+
+    def evaluate(self, finding: BaseFinding) -> List[BaseFinding]:
         """Evaluate a confirmed finding and return proposed findings."""
         raise NotImplementedError
 
 
 class WebServiceRecommendationRule(RecommendationRule):
     """If a port 80/443/8080 service is found, recommend running gobuster."""
-    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
-        finding = _normalize_finding(finding_or_session, *args)
+
+    def evaluate(self, finding: BaseFinding) -> List[BaseFinding]:
         if not finding or finding.schema_type != "network.service":
             return []
 
@@ -54,7 +45,7 @@ class WebServiceRecommendationRule(RecommendationRule):
             proposed_endpoint = WebEndpoint.create(
                 url=url,
                 host_ip=host_ip,
-                port=port
+                port=port,
             )
             proposed_endpoint.status = "proposed"
             # Attach metadata for command resolution in TUI
@@ -68,8 +59,8 @@ class WebServiceRecommendationRule(RecommendationRule):
 
 class WebVulnerabilityRecommendationRule(RecommendationRule):
     """If a confirmed web endpoint is found, suggest scanning it for vulnerabilities with nikto."""
-    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
-        finding = _normalize_finding(finding_or_session, *args)
+
+    def evaluate(self, finding: BaseFinding) -> List[BaseFinding]:
         if not finding or finding.schema_type != "web.endpoint":
             return []
 
@@ -81,20 +72,22 @@ class WebVulnerabilityRecommendationRule(RecommendationRule):
         proposed_vuln = WebVulnerability.create(
             url=url,
             vuln_type="security_audit",
-            parameter=""
+            parameter="",
         )
         proposed_vuln.status = "proposed"
         proposed_vuln.data["tool_suggestion"] = "nikto"
         proposed_vuln.data["recommended_command"] = f"nikto -h {url}"
-        proposed_vuln.data["description"] = f"Scan web endpoint {url} for vulnerabilities using nikto"
+        proposed_vuln.data["description"] = (
+            f"Scan web endpoint {url} for vulnerabilities using nikto"
+        )
 
         return [proposed_vuln]
 
 
 class SubdomainRecommendationRule(RecommendationRule):
     """If a host has a hostname/domain, suggest subfinder subdomain discovery."""
-    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
-        finding = _normalize_finding(finding_or_session, *args)
+
+    def evaluate(self, finding: BaseFinding) -> List[BaseFinding]:
         if not finding or finding.schema_type != "network.host":
             return []
 
@@ -106,6 +99,7 @@ class SubdomainRecommendationRule(RecommendationRule):
         is_ip = True
         try:
             import socket
+
             socket.inet_aton(hostname)
         except (socket.error, OSError):
             is_ip = False
@@ -119,7 +113,7 @@ class SubdomainRecommendationRule(RecommendationRule):
             domain=domain,
             record_type="A",
             value="ENUM_SUGGESTION",
-            resolved_ip=finding.pik.get("ip")
+            resolved_ip=finding.pik.get("ip"),
         )
         proposed_record.status = "proposed"
         proposed_record.data["tool_suggestion"] = "subfinder"
@@ -130,8 +124,8 @@ class SubdomainRecommendationRule(RecommendationRule):
 
 class WhoisRecommendationRule(RecommendationRule):
     """If a host has a public IP/hostname, suggest whois registration lookup."""
-    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
-        finding = _normalize_finding(finding_or_session, *args)
+
+    def evaluate(self, finding: BaseFinding) -> List[BaseFinding]:
         if not finding or finding.schema_type != "network.host":
             return []
 
@@ -157,7 +151,7 @@ class WhoisRecommendationRule(RecommendationRule):
         proposed_info = DomainInfo.create(
             domain=ip,
             registrar="WHOIS_LOOKUP",
-            organization="WHOIS_LOOKUP"
+            organization="WHOIS_LOOKUP",
         )
         proposed_info.status = "proposed"
         proposed_info.data["tool_suggestion"] = "whois"
@@ -192,7 +186,9 @@ class RecommendationEngine:
                     node_id = self.store.generate_node_id(proposed.schema_type, proposed.pik)
                     existing = await self.store.get_node(session_id, node_id)
                     if not existing:
-                        logger.info(f"Proposing finding {proposed.schema_type} for session {session_id}")
+                        logger.info(
+                            f"Proposing finding {proposed.schema_type} for session {session_id}"
+                        )
                         await self.store.upsert_finding(session_id, proposed)
             except Exception as e:
                 logger.error(f"Error in recommendation rule {rule.__class__.__name__}: {e}")

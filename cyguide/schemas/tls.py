@@ -2,12 +2,13 @@
 
 from typing import ClassVar
 
+from cyguide.common.canonicalize import canonicalize_host, canonicalize_port
 from cyguide.schemas.base import BaseFinding, Relation
-from cyguide.schemas.canonicalize import canonicalize_host, canonicalize_port
 
 
 class TLSCertificate(BaseFinding):
     """A TLS certificate associated with a service. Child of network.service. Produced by sslscan, nmap-scripts."""
+
     schema_type: str = "tls.certificate"
     pik_fields: ClassVar[list[str]] = ["fingerprint"]
 
@@ -21,7 +22,12 @@ class TLSCertificate(BaseFinding):
             parent=Relation(
                 target_type="network.service",
                 target_pik={"host_ip": normalized_ip, "port": normalized_port, "protocol": "tcp"},
-                via="uses_certificate"
+                via="uses_certificate",
             ),
-            data={"fingerprint": fingerprint, "host_ip": normalized_ip, "port": normalized_port, **kwargs}
+            data={
+                "fingerprint": fingerprint,
+                "host_ip": normalized_ip,
+                "port": normalized_port,
+                **kwargs,
+            },
         )

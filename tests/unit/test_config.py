@@ -8,7 +8,7 @@ import pytest
 from textual.widgets import Input, Label, Switch
 
 from cyguide.app import CyGuideApp, CyGuideCommandPalette
-from cyguide.engine.explainer import CloudAPIBackend, OllamaBackend
+from cyguide.engine.explainer import ExplanationTutor, OllamaBackend
 from cyguide.ui.screens.config_modal import (
     CloudAPIConfigProvider,
     ConfigModal,
@@ -61,6 +61,7 @@ def test_system_commands_single_config_entry(tmp_path):
 async def test_command_palette_exact_order(tmp_path):
     """Verify Command Palette displays the streamlined 7-item conventional menu order without Toggle Sidebar."""
     from textual.command import CommandList
+
     db_file = str(tmp_path / "test_palette_order.db")
     app = CyGuideApp(db_path=db_file)
     async with app.run_test() as pilot:
@@ -95,7 +96,6 @@ async def test_legacy_help_panel_replaced_by_shortcuts_dialog(tmp_path):
         app.action_show_help_panel()
         await pilot.pause()
         assert type(app.screen).__name__ == "ShortcutsDialog"
-
 
 
 @pytest.mark.asyncio
@@ -150,7 +150,9 @@ async def test_config_provider_deep_search(tmp_path):
 async def test_nested_sub_palette_providers(tmp_path):
     """Verify individual nested sub-palette providers expose their respective parameters."""
     db_file = str(tmp_path / "test.db")
-    app = CyGuideApp(db_path=db_file, use_ollama=True, ollama_model="llama3", tools_dir="extra_tools")
+    app = CyGuideApp(
+        db_path=db_file, use_ollama=True, ollama_model="llama3", tools_dir="extra_tools"
+    )
     mock_screen = MagicMock()
     mock_screen.app = app
 
@@ -191,6 +193,7 @@ async def test_nested_palette_navigation(tmp_path):
     app = CyGuideApp(db_path=db_file)
 
     parent_called = False
+
     def mock_parent_action():
         nonlocal parent_called
         parent_called = True
@@ -255,7 +258,6 @@ async def test_config_modal_save_and_apply(tmp_path):
             assert data["tools_dir"] == custom_tools
 
 
-
 @pytest.mark.asyncio
 async def test_config_modal_cloud_backend_switch(tmp_path):
     """Verify that disabling Ollama with an API key switches backend to CloudAPIBackend."""
@@ -276,7 +278,7 @@ async def test_config_modal_cloud_backend_switch(tmp_path):
         await pilot.pause()
 
         assert app.use_ollama is False
-        assert isinstance(app.explainer_backend, CloudAPIBackend)
+        assert isinstance(app.explainer_backend, ExplanationTutor)
         assert app.explainer_backend.model == "gpt-4o"
 
 
@@ -330,12 +332,16 @@ def test_app_init_loads_saved_settings(tmp_path, monkeypatch):
     db_file = str(tmp_path / "test_saved.db")
     base_dir = tmp_path
     settings_file = base_dir / "settings.json"
-    settings_file.write_text(json.dumps({
-        "use_ollama": True,
-        "ollama_model": "deepseek-coder",
-        "tools_dir": "extra_tools/",
-        "api_key": "saved_key_123",
-    }))
+    settings_file.write_text(
+        json.dumps(
+            {
+                "use_ollama": True,
+                "ollama_model": "deepseek-coder",
+                "tools_dir": "extra_tools/",
+                "api_key": "saved_key_123",
+            }
+        )
+    )
 
     app = CyGuideApp(db_path=db_file)
     assert app.use_ollama is True
@@ -406,7 +412,10 @@ def test_ollama_url_normalization():
 
     assert normalize_ollama_url("localhost:11434") == "http://localhost:11434"
     assert normalize_ollama_url("http://127.0.0.1:11434/") == "http://127.0.0.1:11434"
-    assert normalize_ollama_url("https://myollama.remote.io:11434///") == "https://myollama.remote.io:11434"
+    assert (
+        normalize_ollama_url("https://myollama.remote.io:11434///")
+        == "https://myollama.remote.io:11434"
+    )
     assert normalize_ollama_url("") == "http://localhost:11434"
 
 
@@ -451,7 +460,11 @@ async def test_config_modal_diagnostics_button(tmp_path):
         banner = modal.query_one("#config_feedback_banner")
         # Banner should have updated with results
         banner_text = str(banner.render())
-        assert "tested" in banner_text.lower() or "issues" in banner_text.lower() or "ready" in banner_text.lower()
+        assert (
+            "tested" in banner_text.lower()
+            or "issues" in banner_text.lower()
+            or "ready" in banner_text.lower()
+        )
 
 
 @pytest.mark.asyncio
@@ -583,6 +596,7 @@ async def test_config_modal_consistent_height_and_tab_specific_diagnostics(tmp_p
 async def test_config_modal_test_cloud_api_non_blocking_worker(monkeypatch):
     """Verify that clicking Test Cloud API triggers background worker without freezing UI."""
     from textual.widgets import TabbedContent
+
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
         modal = ConfigModal()
@@ -616,6 +630,7 @@ async def test_config_modal_test_cloud_api_non_blocking_worker(monkeypatch):
 async def test_power_palette_async_git_branch():
     """Verify CommandPalette initializes git branch asynchronously without blocking construction."""
     from cyguide.ui.widgets.power import CommandPalette
+
     palette = CommandPalette()
     assert palette.branch == ""
 
@@ -658,6 +673,7 @@ async def test_config_provider_search_export_and_report(tmp_path):
 async def test_config_modal_export_and_report_save(tmp_path):
     """Verify configuring custom exports and reports directories persists and updates app paths."""
     from textual.widgets import TabbedContent
+
     db_file = str(tmp_path / "test.db")
     app = CyGuideApp(db_path=db_file)
     custom_exports = str(tmp_path / "custom_exports")
@@ -687,4 +703,3 @@ async def test_config_modal_export_and_report_save(tmp_path):
             data = json.load(f)
         assert data.get("exports_dir") == custom_exports
         assert data.get("reports_dir") == custom_reports
-

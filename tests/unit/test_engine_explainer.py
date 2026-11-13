@@ -11,6 +11,7 @@ class DummyBackend(ExplainerBackend):
         for i, word in enumerate(words):
             yield word + (" " if i < len(words) - 1 else "")
 
+
 @pytest.mark.asyncio
 async def test_explainer_ask():
     backend = DummyBackend()
@@ -25,10 +26,10 @@ async def test_explainer_ask():
 
 @pytest.mark.asyncio
 async def test_dual_ai_error_when_no_cloud_keys_and_ollama_offline():
-    from cyguide.engine.explainer import MultiKeyCloudBackend, OllamaBackend
+    from cyguide.engine.explainer import ExplanationTutor, OllamaBackend
 
     ollama = OllamaBackend(model="gemma", base_url="http://127.0.0.1:54321")
-    backend = MultiKeyCloudBackend(
+    backend = ExplanationTutor(
         profiles=[],
         fallback_to_ollama=True,
         ollama_backend=ollama,
@@ -52,11 +53,11 @@ async def test_dual_ai_error_when_no_cloud_keys_and_ollama_offline():
 async def test_dual_ai_error_when_cloud_auth_fails_and_ollama_offline():
     from unittest.mock import patch
 
-    from cyguide.engine.explainer import CloudKeyProfile, MultiKeyCloudBackend, OllamaBackend
+    from cyguide.engine.explainer import CloudKeyProfile, ExplanationTutor, OllamaBackend
 
     k1 = CloudKeyProfile(id="k1", name="Groq Primary", provider="groq", api_key="bad-key")
     ollama = OllamaBackend(model="gemma", base_url="http://127.0.0.1:54321")
-    backend = MultiKeyCloudBackend(
+    backend = ExplanationTutor(
         profiles=[k1],
         active_key_id="k1",
         fallback_to_ollama=True,
@@ -67,9 +68,12 @@ async def test_dual_ai_error_when_cloud_auth_fails_and_ollama_offline():
         async def __aenter__(self):
             class ErrResp:
                 status_code = 401
+
                 async def aread(self):
                     return b"Invalid API Key"
+
             return ErrResp()
+
         async def __aexit__(self, *args):
             pass
 
@@ -84,4 +88,4 @@ async def test_dual_ai_error_when_cloud_auth_fails_and_ollama_offline():
         assert "Authentication failed (401)" in result
         assert "Groq Primary" in result
         assert "Local Ollama Error" in result
-        assert ("Ollama connection failed" in result or "Ollama returned status" in result)
+        assert "Ollama connection failed" in result or "Ollama returned status" in result

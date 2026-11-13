@@ -123,9 +123,6 @@ class ResizeHandle(Widget):
             except Exception:
                 final_width = int(target.region.width) if target.region.width > 0 else self.min_size
 
-            if self.setting_key:
-                if hasattr(self.app, "save_settings"):
-                    self.app.save_settings({self.setting_key: final_width})
-                elif hasattr(self.app, "_save_settings"):
-                    self.app._save_settings({self.setting_key: final_width})  # codeguard: ignore[PRIVATE_STATE_LEAK,PRIVATE_STATE_LEAK_REGEX]
+            if self.setting_key and hasattr(self.app, "save_settings"):
+                self.app.save_settings({self.setting_key: final_width})
         event.stop()

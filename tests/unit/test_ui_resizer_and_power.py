@@ -23,9 +23,6 @@ class ResizerTestApp(App):
     def save_settings(self, updates):
         self.settings.update(updates)
 
-    def _save_settings(self, updates):
-        self.save_settings(updates)
-
     def compose(self) -> ComposeResult:
         with Horizontal(id="container"):
             with Vertical(id="left_pane"):
@@ -164,6 +161,7 @@ async def test_job_queue_renders_without_headers():
 
 def test_style_css_input_scrollbar_removal():
     import os
+
     css_path = os.path.join(os.path.dirname(__file__), "../../cyguide/ui/style.css")
     with open(css_path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -243,7 +241,7 @@ async def test_power_mode_running_job_tab_restoration():
         tool_name="ncat",
         params={"raw_flags": "-lvnp 4444"},
         triggered_by=ActionSource.USER,
-        is_explicit_shell=True
+        is_explicit_shell=True,
     )
 
     class PowerApp(App):
@@ -354,4 +352,3 @@ async def test_job_queue_handles_duplicate_job_ids_in_input():
 
         job_list = jq.query_one("#power_job_list")
         assert len(job_list.children) == 1
-
