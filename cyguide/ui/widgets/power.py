@@ -291,73 +291,84 @@ class JobQueue(Vertical):
             self.job_id = job_id
             self.session_id = session_id
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._update_lock = asyncio.Lock()
+
     def compose(self) -> ComposeResult:
         yield ListView(id="power_job_list")
 
     async def update_jobs(self, jobs: List[JobStatus]):
         """Refresh the list of active jobs with live runtime and tab association."""
-        job_list = self.query_one("#power_job_list", ListView)
-        old_idx = job_list.index
+        async with self._update_lock:
+            job_list = self.query_one("#power_job_list", ListView)
+            old_idx = job_list.index
 
-        if not jobs:
-            current_first = job_list.children[0] if job_list.children else None
-            if getattr(current_first, "id", None) != "empty_jobs":
+            if not jobs:
+                current_first = job_list.children[0] if job_list.children else None
+                if getattr(current_first, "id", None) != "empty_jobs":
+                    await job_list.clear()
+                    item = ListItem(Static("[dim #94a3b8]  No active jobs[/]"), disabled=True, id="empty_jobs")
+                    job_list.append(item)
+                return
+
+            sorted_jobs = sorted(jobs, key=lambda j: (j.status == JobStatusEnum.RUNNING, j.started_at), reverse=True)
+            now = datetime.now(UTC)
+
+            seen_ids = set()
+            new_items = []
+            for job in sorted_jobs:
+                jid_str = str(job.job_id)
+                if jid_str in seen_ids:
+                    continue
+                seen_ids.add(jid_str)
+
+                if job.status == JobStatusEnum.RUNNING:
+                    status_icon = "[bold #34d399]◌[/]"
+                    status_text = " [bold #34d399]RUNNING[/]"
+                    elapsed = (now - job.started_at).total_seconds()
+                elif job.status == JobStatusEnum.DONE:
+                    status_icon = "[#64748b]●[/]"
+                    status_text = " [dim #64748b]DONE[/]"
+                    elapsed = ((job.completed_at or now) - job.started_at).total_seconds()
+                elif job.status == JobStatusEnum.FAILED:
+                    status_icon = "[#f85149]×[/]"
+                    status_text = " [red]FAILED[/]"
+                    elapsed = ((job.completed_at or now) - job.started_at).total_seconds()
+                else: # QUEUED
+                    status_icon = "[#eab308]◌[/]"
+                    status_text = " [yellow]QUEUED[/]"
+                    elapsed = (now - job.started_at).total_seconds()
+
+                dur_str = f" [dim #94a3b8]{_format_elapsed(elapsed)}[/]"
+                tab_str = f" [dim #38bdf8]\\[{job.tab_id}][/]" if job.tab_id else ""
+                cmd = job.command_snippet or job.tool_name
+                if len(cmd) > 20:
+                    cmd = cmd[:19] + "…"
+
+                label = f"  {status_icon}{tab_str} {cmd} [#64748b]{job.job_id.hex[:4]}[/]{dur_str}{status_text}"
+                new_items.append((jid_str, str(job.session_id), label))
+
+            # Check if items can be updated in place without clearing
+            current_ids = [getattr(c, "job_id", None) for c in job_list.children]
+            expected_ids = [item[0] for item in new_items]
+
+            if current_ids == expected_ids:
+                for i, (_, _, label) in enumerate(new_items):
+                    try:
+                        job_list.children[i].query_one(Static).update(label)
+                    except Exception:
+                        pass
+            else:
                 await job_list.clear()
-                item = ListItem(Static("[dim #94a3b8]  No active jobs[/]"), disabled=True, id="empty_jobs")
-                job_list.append(item)
-            return
+                for j_id, s_id, label in new_items:
+                    item = ListItem(Static(label))
+                    item.job_id = j_id
+                    item.session_id = s_id
+                    job_list.append(item)
 
-        sorted_jobs = sorted(jobs, key=lambda j: (j.status == JobStatusEnum.RUNNING, j.started_at), reverse=True)
-        now = datetime.now(UTC)
-
-        new_items = []
-        for job in sorted_jobs:
-            if job.status == JobStatusEnum.RUNNING:
-                status_icon = "[bold #34d399]◌[/]"
-                status_text = " [bold #34d399]RUNNING[/]"
-                elapsed = (now - job.started_at).total_seconds()
-            elif job.status == JobStatusEnum.DONE:
-                status_icon = "[#64748b]●[/]"
-                status_text = " [dim #64748b]DONE[/]"
-                elapsed = ((job.completed_at or now) - job.started_at).total_seconds()
-            elif job.status == JobStatusEnum.FAILED:
-                status_icon = "[#f85149]×[/]"
-                status_text = " [red]FAILED[/]"
-                elapsed = ((job.completed_at or now) - job.started_at).total_seconds()
-            else: # QUEUED
-                status_icon = "[#eab308]◌[/]"
-                status_text = " [yellow]QUEUED[/]"
-                elapsed = (now - job.started_at).total_seconds()
-
-            dur_str = f" [dim #94a3b8]{_format_elapsed(elapsed)}[/]"
-            tab_str = f" [dim #38bdf8]\\[{job.tab_id}][/]" if job.tab_id else ""
-            cmd = job.command_snippet or job.tool_name
-            if len(cmd) > 20:
-                cmd = cmd[:19] + "…"
-
-            label = f"  {status_icon}{tab_str} {cmd} [#64748b]{job.job_id.hex[:4]}[/]{dur_str}{status_text}"
-            new_items.append((str(job.job_id), str(job.session_id), label))
-
-        # Check if items can be updated in place without clearing
-        current_ids = [getattr(c, "job_id", None) for c in job_list.children]
-        expected_ids = [item[0] for item in new_items]
-
-        if current_ids == expected_ids:
-            for i, (_, _, label) in enumerate(new_items):
-                try:
-                    job_list.children[i].query_one(Static).update(label)
-                except Exception:
-                    pass
-        else:
-            await job_list.clear()
-            for j_id, s_id, label in new_items:
-                item = ListItem(Static(label), id=f"job_{j_id}")
-                item.job_id = j_id
-                item.session_id = s_id
-                job_list.append(item)
-
-        if old_idx is not None and old_idx < len(job_list.children):
-            job_list.index = old_idx
+            if old_idx is not None and old_idx < len(job_list.children):
+                job_list.index = old_idx
 
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:

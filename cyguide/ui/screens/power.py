@@ -237,7 +237,7 @@ class PowerModeScreen(Screen):
             except Exception:
                 pass
 
-        self.run_worker(self.refresh_ui())
+        self.run_worker(self.refresh_ui(), exclusive=True, group="refresh_ui")
 
     async def on_screen_resume(self) -> None:
         """Triggered when the screen is resumed (switched back to)."""
@@ -899,7 +899,7 @@ class PowerModeScreen(Screen):
             if cmd_input.value.startswith("!"):
                 cmd_input.value = "> " + cmd_input.value[1:].lstrip()
         cmd_input.focus()
-        self.run_worker(self.refresh_ui())
+        self.run_worker(self.refresh_ui(), exclusive=True, group="refresh_ui")
 
     async def action_next_tab(self) -> None:
         """Switch to the next workbench tab."""

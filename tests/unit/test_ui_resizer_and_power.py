@@ -1,5 +1,6 @@
 """Tests for ResizeHandle and Power mode UI enhancements."""
 
+import asyncio
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -283,3 +284,74 @@ async def test_power_mode_running_job_tab_restoration():
         assert "◌" not in str(tab_widget.label)
 
     await store.close()
+
+
+@pytest.mark.asyncio
+async def test_job_queue_concurrent_updates_no_duplicate_ids():
+    class JobQueueApp(App):
+        def compose(self) -> ComposeResult:
+            yield JobQueue(id="test_job_queue")
+
+    app = JobQueueApp()
+    async with app.run_test() as pilot:
+        jq = app.query_one("#test_job_queue", JobQueue)
+        s_id = uuid4()
+        j1 = uuid4()
+        j2 = uuid4()
+        job1 = JobStatus(
+            job_id=j1,
+            session_id=s_id,
+            tool_name="nmap",
+            status=JobStatusEnum.RUNNING,
+            started_at=datetime.now(timezone.utc),
+        )
+        job2 = JobStatus(
+            job_id=j2,
+            session_id=s_id,
+            tool_name="whois",
+            status=JobStatusEnum.DONE,
+            started_at=datetime.now(timezone.utc),
+        )
+
+        # Initial populate
+        await jq.update_jobs([job1])
+        await pilot.pause()
+
+        # Fire concurrent update_jobs calls with differing order to simulate rapid state transitions
+        await asyncio.gather(
+            jq.update_jobs([job1, job2]),
+            jq.update_jobs([job2, job1]),
+            jq.update_jobs([job1]),
+        )
+        await pilot.pause()
+
+        job_list = jq.query_one("#power_job_list")
+        assert len(job_list.children) >= 1
+
+
+@pytest.mark.asyncio
+async def test_job_queue_handles_duplicate_job_ids_in_input():
+    class JobQueueApp(App):
+        def compose(self) -> ComposeResult:
+            yield JobQueue(id="test_job_queue")
+
+    app = JobQueueApp()
+    async with app.run_test() as pilot:
+        jq = app.query_one("#test_job_queue", JobQueue)
+        s_id = uuid4()
+        j1 = uuid4()
+        job1 = JobStatus(
+            job_id=j1,
+            session_id=s_id,
+            tool_name="nmap",
+            status=JobStatusEnum.RUNNING,
+            started_at=datetime.now(timezone.utc),
+        )
+
+        # Duplicate job in single input list must not raise DuplicateIds
+        await jq.update_jobs([job1, job1])
+        await pilot.pause()
+
+        job_list = jq.query_one("#power_job_list")
+        assert len(job_list.children) == 1
+
