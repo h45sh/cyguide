@@ -1650,10 +1650,6 @@ class DashboardScreen(Screen):
         if self.selected_ws_id:
             await self.show_workspace_details(self.selected_ws_id)
 
-    async def load_workspace_sessions(self, ws_id: str) -> None:
-        """Convenience alias for show_workspace_details."""
-        await self.show_workspace_details(ws_id)
-
     def action_show_shortcuts(self) -> None:
         self.app.push_screen(ShortcutsDialog())
 

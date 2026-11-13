@@ -213,3 +213,34 @@ def test_declarative_canonicalization():
     assert finding.parent.target_pik["port"] == 443
     assert finding.data["url"] == "http://example.com/FOO"
     assert finding.data["raw"] == "value"
+
+
+def test_action_request_creation():
+    from uuid import uuid4
+
+    from cyguide.schemas.power import ActionRequest, ActionSource
+
+    session_id = uuid4()
+    action = ActionRequest(
+        session_id=session_id,
+        tool_name="nmap",
+        target_entity_id="host:127.0.0.1",
+        params={"flags": "-sV"},
+        triggered_by=ActionSource.USER,
+    )
+    assert action.tool_name == "nmap"
+    assert action.session_id == session_id
+    assert action.triggered_by == ActionSource.USER
+
+
+def test_workspace_context_defaults():
+    from uuid import uuid4
+
+    from cyguide.schemas.power import WorkspaceContext
+
+    session_id = uuid4()
+    ctx = WorkspaceContext(session_id=session_id, session_name="Test Session")
+    assert ctx.session_name == "Test Session"
+    assert ctx.resolved_vars == {}
+    assert ctx.active_jobs == []
+

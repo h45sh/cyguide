@@ -9,7 +9,6 @@ from cyguide.engine.adapter import ToolAdapter
 from cyguide.engine.context_builder import WorkspaceContextBuilder
 from cyguide.engine.execution_session import (
     CommandRunner,
-    ExecutionEvent,
     ExecutionSession,
     SubprocessCommandRunner,
     TerminalSuspendContext,
@@ -128,8 +127,6 @@ class PowerWorkspaceFacade:
     def _running_tasks(self) -> Dict[UUID, asyncio.Task]:
         return self.execution._running_tasks
 
-    def _get_cwd(self, session_id: str) -> str:
-        return self.execution.get_cwd(session_id)
 
     def get_running_task(self, job_id: UUID) -> Optional[asyncio.Task]:
         """Retrieve background execution task for a job by UUID."""
@@ -231,12 +228,6 @@ class PowerWorkspaceFacade:
         """Register a callback for finding upserts."""
         self.store.on_upsert(callback)
 
-    async def get_report_data(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch structured session audit and findings data bundle for reporting."""
-        from cyguide.engine.reporter import fetch_report_data
-
-        return await fetch_report_data(self.store, session_id)
-
     async def generate_markdown_report(self, session_id: str) -> str:
         """Generate markdown report string for a session."""
         from cyguide.engine.reporter import generate_markdown_report
@@ -275,10 +266,6 @@ class PowerWorkspaceFacade:
             on_chunk=handle_chunk,
             on_complete=on_complete,
         )
-
-    def subscribe_events(self, action_id: UUID) -> AsyncIterator[ExecutionEvent]:
-        """Subscribe to live typed execution events from ExecutionSession."""
-        return self.execution.subscribe(action_id)
 
     async def shutdown(self) -> None:
         """Cancel and drain all running action tasks before store closes."""

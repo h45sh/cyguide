@@ -19,10 +19,6 @@ class WorkspaceRepository:
         self.store = store
         self.execution = execution
 
-    def set_execution_session(self, execution: ExecutionSession) -> None:
-        """Bind or update the ExecutionSession used for cleaning up running tasks on deletion."""
-        self.execution = execution
-
     # --- Workspace Operations ---
 
     async def create_workspace(self, name: str) -> str:

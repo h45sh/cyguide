@@ -58,7 +58,7 @@ graph TB
 | **`ActionRequest` & Typed Actions** | **Implemented** | [`cyguide/schemas/power.py`](../../cyguide/schemas/power.py) |
 | **`ActionGateway` & Source Gating** | **Implemented** | [`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py) |
 | **Universal Variable Substitution** | **Implemented** | [`PowerWorkspaceFacade.get_context()`](../../cyguide/engine/power_facade.py#L353-L403) |
-| **Reactive Suggestion Engine** | **Implemented** | [`cyguide/engine/recommendation.py`](../../cyguide/engine/recommendation.py) |
+| **Target Intelligence (`TargetAdvisor`)** | *Planned (Phase 4)* | On-demand neuro-symbolic target advisor |
 | **Append-Only Event Sourcing** | **Implemented** | [`GraphStore.append_event()`](../../cyguide/engine/store.py#L509-L517) |
 | **Portable Session Export/Import** | **Implemented** | [`GraphStore.export_session()`](../../cyguide/engine/store.py#L529-L584) |
 | **AI Explainer Engine (Ollama/Cloud)** | **Implemented** | [`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py) |

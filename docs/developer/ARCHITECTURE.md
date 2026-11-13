@@ -57,7 +57,6 @@ graph TB
         Context["WorkspaceContextBuilder<br><i>(Context Snapshot & Variable Resolution)</i>"]
         Workspaces["WorkspaceRepository<br><i>(Lifecycle, Forensics & Persistence)</i>"]
         Gateway["ActionGateway<br><i>(Policy, CIDR Scope, Source Validation)</i>"]
-        RecEngine["RecommendationEngine<br><i>(Declarative Suggestion Rules)</i>"]
         Tutor["ExplanationTutor<br><i>(Multi-Key Cooldowns, Streaming Events, Local Ollama)</i>"]
         Diag["DiagnosticEngine<br><i>(System, DB, Toolchain & AI Probing)</i>"]
         Report["SessionReportService<br><i>(Forensic Reports, Tables, Mermaid, Export)</i>"]
@@ -100,8 +99,6 @@ graph TB
 
     Gateway --> Registry
     Gateway --> Store
-    RecEngine --> Store
-    Store -.->|on_upsert event| RecEngine
     Store -.->|on_upsert event| PowerScreen
 
     ExecSession --> PluginLayer
@@ -327,36 +324,13 @@ class ToolAdapter(ABC):
 
 ---
 
-## 7. Reactive Suggestion & Recommendation Engine
+## 7. Target Intelligence Architecture (Planned `TargetAdvisor`)
 
-CyGuide bridges the gap between passive exploration and guided mentorship through a store-watching reactive suggestion model.
+The legacy heuristic 4-rule recommendation engine was decommissioned to eliminate noisy background SQLite writes during high-volume tool execution. In Phase 4 (Track 4 of the project roadmap), target suggestions are superseded by the **On-Demand Neuro-Symbolic Target Advisor (`TargetAdvisor`)**:
 
-```mermaid
-flowchart TD
-    UpsertEvent["Finding Saved in GraphStore<br>(e.g. network.service on port 80/tcp)"]
-    --> Bus["on_upsert Event Callback"]
-
-    Bus --> Rule1["WebServiceRecommendationRule<br><i>Suggests gobuster dir</i>"]
-    Bus --> Rule2["WebVulnerabilityRecommendationRule<br><i>Suggests nikto</i>"]
-    Bus --> Rule3["SubdomainRecommendationRule<br><i>Suggests subfinder</i>"]
-    Bus --> Rule4["WhoisRecommendationRule<br><i>Suggests whois</i>"]
-
-    Rule1 --> Eval{"Matches Criteria?"}
-    Eval -- Yes --> Gen["Create Proposed Finding<br>(status='proposed', tool_suggestion='gobuster')"]
-    Eval -- No --> Discard["Ignore"]
-
-    Gen --> DupCheck{"Node already exists in DB?"}
-    DupCheck -- No --> Save["GraphStore.upsert_finding(session_id, proposed)"]
-    DupCheck -- Yes --> Discard
-
-    Save --> UI["Textual TUI Suggestions Sidebar<br>Displays [Approve] / [Dismiss] buttons"]
-```
-
-### Recommendation Rules Breakdown:
-* **`WebServiceRecommendationRule`**: Listens for `network.service` on ports `80`, `443`, `8080`, or matching `http`. Proposes a `web.endpoint` finding with recommended tool `gobuster`.
-* **`WebVulnerabilityRecommendationRule`**: Listens for confirmed `web.endpoint` nodes. Proposes a `web.vulnerability` finding with recommended tool `nikto`.
-* **`SubdomainRecommendationRule`**: Listens for `network.host` with domain-like hostnames. Proposes a `dns.record` finding recommending `subfinder`.
-* **`WhoisRecommendationRule`**: Listens for public IP addresses on `network.host` (excluding private RFC 1918 / loopback ranges). Proposes a `domain.info` finding recommending `whois`.
+* **Operator-Triggered (Not Background)**: Triggered explicitly on a selected entity in the Entity Tree (via Command Palette or hotkey) or by an autonomous agent during its ReAct decision loop, rather than silently firing on every background node upsert.
+* **Context-Aware Reasoning**: Assembles structured entity briefs (open ports, banners, OS, existing findings) through `WorkspaceContextBuilder` and passes them to `ExplanationTutor` for contextual next-step recommendations.
+* **Policy-Gated**: All suggested actions pass through `ActionGateway` for deterministic CIDR boundary enforcement, SSRF prevention, and parameter validation before operator authorization.
 
 ---
 

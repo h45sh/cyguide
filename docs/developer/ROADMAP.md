@@ -14,12 +14,12 @@ This document is the **single authoritative source of truth** for all completed,
 | **Power Mode Operator Workbench** | **Completed** | 30 | 30 | 0 | 100% |
 | **v1.8.0: Showcase, Textual Resilience & Automated Release** | **Completed** | 4 | 4 | 0 | 100% |
 | **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **In Progress** | 23 | 14 | 9 | 61% |
-| **v1.10.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 10 | 0 | 10 | 0% |
-| **v1.10.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 6 | 0 | 6 | 0% |
-| **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 8 | 0 | 8 | 0% |
-| **Phase 4: Autonomous Agent Runtime & Co-Pilot HUD** | **Planned (Future)** | 10 | 0 | 10 | 0% |
+| **v1.10.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 13 | 1 | 12 | 8% |
+| **v1.10.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 11 | 0 | 11 | 0% |
+| **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 12 | 0 | 12 | 0% |
+| **Phase 4: Tactical Research Co-Pilot & Offensive Engine** | **Planned (Future)** | 15 | 1 | 14 | 7% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **128** | **79** | **49** | **62%** |
+| **Total Project Tasks** | **In Progress** | **145** | **81** | **64** | **56%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -39,13 +39,13 @@ This document is the **single authoritative source of truth** for all completed,
               │
 [ v1.9.0 / Phase 3.5: Engine ] ─── Stream Throttling, Disk Spooling, Tab/Queue Sync, Tree Usability
               │
-[ v1.10.0: Terminal & Security ] ─ Interactive PTY Shell, Decoupled IPC, AES Vault, CIDR Scope
+[ v1.10.0: Terminal & Security ] ─ Interactive PTY (pyte), AES Vault (cryptography), Syntax (pygments), Graph (networkx)
               │
-[ v1.10.5: Ecosystem Expansion ] ─ cyg create-adapter, Nuclei, FFUF, SQLMap, Mock Scanner Testbed
+[ v1.10.5: Ecosystem Expansion ] ─ Adapter Generator, Nuclei, FFUF, SQLMap, SearchSploit, NetExec, rich-pixels, dnspython
               │
-[ v2.0.0: Flagship Launch ] ────── Standalone Binaries, Show HN, Reddit, Awesome-Lists, Kali/BlackArch
+[ v2.0.0: Flagship Launch ] ────── Standalone Binaries, Jinja2/WeasyPrint Reports, Dulwich Git Diffs, DuckDB, Playwright
               │
-[ Phase 4: Autonomous Agent ] ──── ReAct Loop, ActionGateway CIDR Policies, Agentic HUD
+[ Phase 4: Tactical Co-Pilot ] ─── sqlite-vec (Offline RAG), Scapy Packet Engine, Impacket AD Suite, Metasploit PTY
               │
 [ Phase 5: Multi-Agent Swarm ] ─── Specialized Subagents (Recon, Web, Reporter, Critic)
 ```
@@ -205,13 +205,22 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 > [!NOTE]
 > Detailed technical specifications, data models, and sequence flows are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:36-160`](V2_PLATFORM_SPECIFICATION.md#L36-L160).
 
-- [ ] **Dual-Path Interactive PTY Architecture**:
+- [ ] **Dual-Path Interactive PTY Architecture (`pyte` + `ptyprocess`)**:
   - *Priority*: **P1** | *Complexity*: High | *Track*: Terminal
-  - Implement OS pseudo-terminal pair (`master_fd`/`slave_fd`) via `os.openpty()` in `Executor` for interactive commands, replacing `stdin=DEVNULL`.
-  - Enables handling interactive prompts (`sudo`, `ssh`, `[y/N]` confirmations, and live bash shells) inside workbench tabs.
+  - Implement OS pseudo-terminal pair (`master_fd`/`slave_fd`) via `os.openpty()` / `ptyprocess` in `Executor` for interactive commands, replacing `stdin=DEVNULL`.
+  - Use `pyte` in-memory VT102/xterm screen emulator to maintain ANSI escape codes, cursor positions, and color buffers for interactive prompts (`sudo`, `ssh`, `[y/N]` confirmations, and live bash shells) inside workbench tabs.
 - [ ] **Terminal Window Resize Signals (`SIGWINCH`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Terminal
   - Forward terminal geometry adjustments to the active PTY via `fcntl.ioctl` with `termios.TIOCSWINSZ` on UI pane resize.
+- [ ] **In-TUI Syntax Highlighting for Loot & Exploits (`pygments`)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: UI / Detail Dock
+  - Integrate `pygments` lexers to provide rich syntax highlighting for captured credentials, extracted `.env`/config files, and exploit code snippets within the TUI detail and scratchpad views.
+- [ ] **Attack Path & Blast-Radius Engine (`networkx`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Graph Analytics
+  - Build an in-memory directed graph wrapper (`networkx.DiGraph`) over SQLite nodes and edges to compute shortest attack paths (`nx.shortest_path`) from entrypoints to critical assets, and calculate compromise blast radiuses (`nx.descendants`).
+- [ ] **Native TLS/SSL Certificate Inspector (`cryptography`)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Zero-Binary Probes
+  - Pure-Python TLS certificate inspection for HTTPS services extracting Subject Alternative Names (SANs), issuer information, and validity periods without external CLI dependencies.
 - [ ] **Decoupled Asynchronous IPC & Daemon Architecture**:
   - *Priority*: **P1** | *Complexity*: High | *Track*: Architecture
   - Decouple background command execution from the Textual UI loop via an internal event bus and optional Unix domain socket (`~/.cyguide/run/cyguide.sock`).
@@ -219,9 +228,9 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **Unify Split Workspace & Session Management (Deepening Candidate 4)**:
   - *Priority*: **P2** | *Complexity*: Medium | *Track*: Architecture / IPC
   - Consolidate parallel entity operations currently split across `GraphStore` and `PowerWorkspaceFacade` in dashboard views into a single deep Workspace/Session repository seam, designed to serve both the local TUI and the Unix domain socket IPC daemon.
-- [ ] **Encrypted Session Archives (`cyg export --encrypt`)**:
+- [ ] **Encrypted Session Archives (`cyg export --encrypt` via `cryptography`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Security
-  - Add AES-256-GCM authenticated encryption for exported session databases with Argon2id passphrase key derivation.
+  - Add AES-256-GCM authenticated encryption for exported session databases with Argon2id passphrase key derivation using Python's `cryptography` package.
 - [ ] **Zero-Leakage In-Memory Credential Scrubbing**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: Security
   - Scrub transient credentials, secret tokens, and API keys from memory upon task completion.
@@ -251,18 +260,33 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **Nuclei Tool Adapter (`tools/nuclei/`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Tool Plugins
   - Fast, template-based vulnerability scanning using community YAML signatures. Emits `vulnerability.found` and `web.vulnerability`.
+- [ ] **SearchSploit Tool Adapter (`tools/searchsploit/`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Tool Plugins
+  - Command-line Exploit-DB integration querying local exploit archives for discovered `network.service` software versions via `--json`, directly suggesting exploit PoCs and CVE references.
 - [ ] **FFUF Tool Adapter (`tools/ffuf/`)**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: Tool Plugins
   - High-performance Go web fuzzer alternative to `gobuster`, leveraging v1.9.0 log batching. Emits `web.endpoint`.
 - [ ] **SQLMap Tool Adapter (`tools/sqlmap/`)**:
   - *Priority*: **P2** | *Complexity*: High | *Track*: Tool Plugins
   - Automated SQL injection detection and database takeover. Emits `vulnerability.found` (SQLi) and `credential.found`.
+- [ ] **NetExec (`nxc`) Network Spraying Adapter (`tools/netexec/`)**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Tool Plugins
+  - High-performance multi-protocol credential spraying and Active Directory enumeration across SMB, SSH, WinRM, and LDAP, emitting `credential.found` and `host.internal` models.
+- [ ] **Visual Web Recon Adapter (`tools/gowitness/` or `aquatone`)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Tool Plugins
+  - Automated headless web screenshot capture for all discovered HTTP/HTTPS endpoints, writing PNG captures to session asset directories.
+- [ ] **In-Terminal Image & Screenshot Renderer (`rich-pixels` + `Pillow`)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: UI / Modals
+  - Display captured web screenshots and service favicons directly inside Textual terminal modals using half-block characters and 24-bit ANSI colors.
+- [ ] **Pure-Python DNS Recon Probe (`dnspython`)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Zero-Binary Probes
+  - Built-in, zero-external-binary passive DNS resolver, reverse-lookup, and zone-transfer (AXFR) engine emitting `dns.record` findings directly into the entity graph.
 - [ ] **External User Plugin Loading**:
   - *Priority*: **P3** | *Complexity*: Medium | *Track*: Extensibility
   - Support dynamic runtime discovery of custom user-defined adapters from `~/.config/cyguide/tools/` and `$CYGUIDE_PLUGIN_PATH`.
 - [ ] **Hermetic Mock Scanner Testbed (`tests/fixtures/mock_tools/`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Testing / Reliability
-  - Pre-recorded CLI output dumps and mock runner fixtures across `nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `nuclei`, and `ffuf` to run full end-to-end adapter tests in CI without requiring external network connectivity or root security binaries.
+  - Pre-recorded CLI output dumps and mock runner fixtures across `nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `nuclei`, `searchsploit`, and `ffuf` to run full end-to-end adapter tests in CI without requiring external network connectivity or root security binaries.
 
 ---
 
@@ -274,6 +298,18 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **Standalone Linux Binary Distribution (`cyguide-linux-x86_64`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Distribution
   - Configure GitHub Actions workflow building portable single-file binary releases via PyInstaller/Shiv with zero Python dependency requirements.
+- [ ] **Executive & Technical Pentest Reporting (`jinja2` + `weasyprint` / `typst-py`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Reporting
+  - Template-driven HTML and PDF report generator producing formal client-ready pentest deliverables with CVSS scorecards, attack path charts, and finding evidence tables.
+- [ ] **Pure-Python Git Engagement Versioning (`dulwich`)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Versioning / Diffing
+  - Automatic silent Git versioning of target graphs under `~/.cyguide/workspaces/<ws_id>/.git`, enabling time-travel delta comparisons (`cyg diff`) across sessions.
+- [ ] **Analytical Log & Wordlist Search Engine (`duckdb`)**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Scale / Analytics
+  - In-process analytical database engine enabling sub-millisecond queries across 500k+ wordlists, fuzzing logs, and large-scale subnet sweeps.
+- [ ] **Headless DOM & Screenshot Extractor (`playwright`)**:
+  - *Priority*: **P3** | *Complexity*: Medium | *Track*: Deep Web Recon
+  - Optional deep web reconnaissance worker extracting form fields, auth tokens, client-side frameworks, and page captures.
 - [ ] **Target Delta / Diff View**:
   - *Priority*: **P2** | *Complexity*: Medium | *Track*: Operator Features
   - Visually highlight newly opened ports, services, or endpoints discovered across assessment sessions in diff colors.
@@ -298,9 +334,9 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 
 ---
 
-### Phase 4: Autonomous Agent Runtime & Co-Pilot Cockpit (Post-v2.0.0)
+### Phase 4: Tactical Security Research Co-Pilot & Offensive Engine (Post-v2.0.0)
 
-Evolves CyGuide from a manual terminal operator into an **AI Mission-Control Cockpit** engineered for hypothesis-driven, supervised autonomous cyber operations:
+Evolves CyGuide into an **Augmented Security Research Cockpit** engineered for hypothesis-driven investigation, offline intelligence, and tactical offensive workflows:
 
 #### Track 1: Autonomous ReAct Decision Loop & Orchestrator
 - [ ] **Autonomous ReAct Investigation Loop (`AgentOrchestrator`)**:
@@ -355,6 +391,20 @@ Evolves CyGuide from a manual terminal operator into an **AI Mission-Control Coc
 - [ ] **Cross-Session Approval Context Swapping**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: UI / Workbench
   - Automatically switch active TUI session when approving a suggested action originating from another session to maintain variable resolution integrity.
+
+#### Track 5: Offline Knowledge & Advanced Offensive Probes
+- [ ] **Embedded Offline Security Knowledge Base & RAG (`sqlite-vec`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Offline Knowledge
+  - Integrate `sqlite-vec` vector embeddings directly in SQLite to store offline MITRE ATT&CK techniques, Exploit-DB titles, and HackTricks checklists for instant local semantic search on discovered services without internet access.
+- [ ] **Native Packet Crafting & Stealth Network Engine (`scapy`)**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Offensive Engine
+  - Pure-Python stealth TCP SYN scanning, custom port-knocking sequences, and local ARP network sniffing with zero external binary dependencies.
+- [ ] **Enterprise Active Directory Protocol Suite (`impacket`)**:
+  - *Priority*: **P2** | *Complexity*: High | *Track*: Enterprise Offensive
+  - Python-native Active Directory assessment engine providing Kerberoasting, AS-REP roasting, and SMB/RPC interaction commands within the CyGuide workbench.
+- [ ] **Metasploit Interactive Session Integration (`msfconsole` via PTY)**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Exploit Console
+  - Dedicated PTY tab integration for managing active Metasploit shells, meterpreter sessions, and payload handlers directly from the CyGuide workbench.
 
 ---
 

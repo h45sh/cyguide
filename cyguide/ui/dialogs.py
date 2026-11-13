@@ -68,57 +68,6 @@ SHORTCUTS_MD = """
 """
 
 
-class ConfirmDialog(ModalScreen[bool]):
-    """A generic confirmation dialog (Yes/No or Action/Cancel)."""
-
-    def __init__(
-        self,
-        prompt: str,
-        confirm_label: str = "Confirm",
-        cancel_label: str = "Cancel",
-        is_destructive: bool = False,
-    ):
-        super().__init__()
-        self.prompt = prompt
-        self.confirm_label = confirm_label
-        self.cancel_label = cancel_label
-        self.is_destructive = is_destructive
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="confirm_dialog"):
-            yield Label(self.prompt, id="confirm_prompt")
-            with Horizontal(classes="dialog_buttons"):
-                variant = "error" if self.is_destructive else "primary"
-                yield Button(self.confirm_label, variant=variant, id="confirm")
-                yield Button(self.cancel_label, variant="default", id="cancel")
-
-    def on_mount(self) -> None:
-        def focus_default():
-            try:
-                target_id = "#cancel" if self.is_destructive else "#confirm"
-                self.query_one(target_id, Button).focus()
-            except Exception:
-                pass
-
-        self.call_after_refresh(focus_default)
-
-    def on_key(self, event: events.Key) -> None:
-        if event.key in ("left", "right", "up", "down"):
-            event.stop()
-            if self.query_one("#confirm", Button).has_focus:
-                self.query_one("#cancel", Button).focus()
-            else:
-                self.query_one("#confirm", Button).focus()
-        elif event.key == "escape":
-            event.stop()
-            self.dismiss(False)
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "confirm":
-            self.dismiss(True)
-        else:
-            self.dismiss(False)
-
 
 class RenameDialog(ModalScreen[str]):
     """A modal dialog to rename a workspace, session, or entity."""

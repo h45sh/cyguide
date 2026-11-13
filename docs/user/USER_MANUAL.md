@@ -73,11 +73,6 @@ Targets
   * `$SERVICE`: Service protocol name (e.g. `http`, `ssh`).
 * **Global Entity Graph (`Ctrl+G`)**: Toggles between session-isolated entities and a unified, deduplicated entity graph spanning all sessions in the workspace.
 
-### Contextual Suggestions & Recommendation Engine
-The bottom-left pane displays reactive tool recommendations based on discovered findings:
-* **Approve Suggestion (`Enter` or Click)**: Pre-populates the prompt with the recommended tool and resolved variables, allowing you to edit flags before execution.
-* **Dismiss Suggestion (`d`, `x`, or `Delete`)**: Dismisses the recommendation and removes it from the database.
-
 ### Operator Scratchpad (`Ctrl+N`)
 Pressing `Ctrl+N` toggles a docked Markdown notes editor. Notes are auto-saved to `~/.cyguide/scratchpad.md` (with private `0o600` permissions), giving you an immediate place for credential notes and investigation thoughts.
 
@@ -294,7 +289,5 @@ cyg --tools /path/to/custom_tools
 | **Prompt** | `> !` or `! !` | Quick toggle between Tool (`>`) and Shell (`!`) mode |
 | **Prompt** | `Tab` | CWD filename auto-completion (in Shell-Locked mode) |
 | **Prompt** | `Up` / `Down` | Navigate command execution history |
-| **Suggestions** | `Enter` | Approve recommendation (pre-populates command prompt) |
-| **Suggestions** | `d`, `x`, or `Delete` | Dismiss recommendation from queue and database |
 | **Entity Tree** | Click / Highlight | Select entity node to bind `$TARGET`, `$PORT`, `$SERVICE` |
 | **Job Queue** | Click / Select | Switch to job's terminal tab (auto-swaps active session) |

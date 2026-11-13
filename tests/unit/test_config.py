@@ -447,7 +447,6 @@ async def test_switch_database_runtime(tmp_path):
 
         assert app.db_path == db2
         assert app.store.db_path == db2
-        assert app.recommendation_engine.store == app.store
         assert app.executor.store == app.store
         assert app.power_facade.store == app.store
 

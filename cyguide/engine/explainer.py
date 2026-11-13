@@ -220,47 +220,6 @@ class AnthropicProviderAdapter:
                         continue
 
 
-class OllamaProviderAdapter:
-    """Adapter for local Ollama generate API."""
-
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "gemma"):
-        self.base_url = (base_url or "http://localhost:11434").rstrip("/")
-        self.model = (model or "gemma").strip()
-
-    async def stream(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
-        url = f"{self.base_url}/api/generate"
-        payload: Dict[str, Any] = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": True,
-        }
-        if system:
-            payload["system"] = system
-
-        timeout_config = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
-        async with httpx.AsyncClient(timeout=timeout_config) as client:
-            async with client.stream("POST", url, json=payload) as response:
-                if response.status_code != 200:
-                    err_body = (await response.aread()).decode("utf-8", errors="replace")
-                    raise ProviderResponseError(
-                        status_code=response.status_code,
-                        message=f"Ollama returned status {response.status_code}: {err_body}",
-                        body=err_body,
-                    )
-
-                async for line in response.aiter_lines():
-                    if not line:
-                        continue
-                    try:
-                        data = json.loads(line)
-                        chunk = data.get("response", "")
-                        if chunk:
-                            yield chunk
-                        if data.get("done"):
-                            break
-                    except json.JSONDecodeError:
-                        continue
-
 
 class MockProviderAdapter:
     """Hermetic mock adapter for unit testing without network or OS dependencies."""

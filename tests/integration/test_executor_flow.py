@@ -2,7 +2,6 @@ import json
 
 import pytest
 
-from cyguide.engine.recommendation import RecommendationEngine
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.dns import DomainInfo
 from cyguide.schemas.network import NetworkHost, NetworkService
@@ -17,15 +16,11 @@ from tools.subfinder.adapter import SubfinderAdapter
 async def test_multi_tool_investigation_pipeline(tmp_path):
     """
     End-to-end multi-step investigation pipeline test:
-    Domain (Subfinder) -> Host/Ports (Nmap) -> Recommendation (Gobuster) -> Endpoints (Gobuster) -> Vulns (Nikto) -> Graph Validation
+    Domain (Subfinder) -> Host/Ports (Nmap) -> Endpoints (Gobuster) -> Vulns (Nikto) -> Graph Validation
     """
     db_path = tmp_path / "pipeline.db"
     store = GraphStore(str(db_path))
     await store.initialize()
-
-    # 1. Setup Recommendation Engine listener
-    recommendation_engine = RecommendationEngine(store)
-    store.on_upsert(recommendation_engine.handle_upsert)
 
     ws_id, sess_id = await store.get_or_create_learning_sandbox()
 
@@ -67,16 +62,7 @@ PORT     STATE SERVICE
     assert 80 in ports
     assert 443 in ports
 
-    # --- STEP 3: Automated Recommendation Check ---
-    # The RecommendationEngine should have reacted to port 80 and created a proposed gobuster node
-    all_nodes = await store.get_all_nodes(sess_id)
-    proposed_nodes = [n for n in all_nodes if n.get("status") == "proposed"]
-    assert len(proposed_nodes) >= 1
-    assert any(
-        json.loads(p["data_json"]).get("tool_suggestion") == "gobuster" for p in proposed_nodes
-    )
-
-    # --- STEP 4: Directory Brute-Forcing (Gobuster) ---
+    # --- STEP 3: Directory Brute-Forcing (Gobuster) ---
     gobuster_adapter = GobusterAdapter()
     gobuster_output = """
 /admin               (Status: 200) [Size: 1024]
@@ -93,7 +79,7 @@ PORT     STATE SERVICE
     urls = [json.loads(e["pik_json"])["url"] for e in confirmed_endpoints]
     assert "http://10.0.0.5/admin" in urls or "http://10.0.0.5:80/admin" in urls
 
-    # --- STEP 5: Web Vulnerability Scanning (Nikto) ---
+    # --- STEP 4: Web Vulnerability Scanning (Nikto) ---
     nikto_adapter = NiktoAdapter()
     nikto_output = """
 + /admin/: Directory indexing found.
@@ -106,7 +92,7 @@ PORT     STATE SERVICE
     web_vulns = await store.query("web.vulnerability", session_id=sess_id)
     assert len(web_vulns) >= 1
 
-    # --- STEP 6: Complete Graph Validation ---
+    # --- STEP 5: Complete Graph Validation ---
     stats = await store.get_stats(sess_id)
     assert stats["domain.info"] == 1
     assert stats["dns.record"] >= 2

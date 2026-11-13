@@ -558,9 +558,6 @@ class CyGuideApp(App):
             self.learning_session_id,
         ) = await self.store.get_or_create_learning_sandbox()
 
-        from cyguide.engine.recommendation import RecommendationEngine
-
-        self.recommendation_engine = RecommendationEngine(self.store)
         self.executor = Executor(self.store)
 
         # Setup Explainer
@@ -706,9 +703,6 @@ class CyGuideApp(App):
             self.store = new_store
             self.learning_ws_id = new_ws_id
             self.learning_session_id = new_session_id
-
-            if hasattr(self, "recommendation_engine") and self.recommendation_engine:
-                self.recommendation_engine.store = self.store
 
             if hasattr(self, "executor") and self.executor:
                 self.executor.store = self.store
