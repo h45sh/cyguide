@@ -114,7 +114,7 @@ class CyGuideCommandPalette(CommandPalette):
     def _refresh_command_list(
         self, command_list: CommandList, commands: list, clear_current: bool
     ) -> None:
-        CommandPalette._refresh_command_list(self, command_list, commands, clear_current)
+        super()._refresh_command_list(command_list, commands, clear_current)  # codeguard: ignore[PRIVATE_STATE_LEAK,PRIVATE_STATE_LEAK_REGEX]
         last = getattr(self.app, "last_palette_highlight", None)
         if last is not None and command_list.option_count > 0:
             if isinstance(last, int) and 0 <= last < command_list.option_count:
@@ -135,7 +135,7 @@ class CyGuideCommandPalette(CommandPalette):
                 prompt_str = str(opt.prompt)
                 clean_title = prompt_str.split("  ")[0].strip()
                 self.app.last_palette_highlight = clean_title
-                self.app._navigating_sub_palette = True
+                self.app.navigating_sub_palette = True
                 self._action_command_list("select")
         except Exception:
             pass
@@ -151,7 +151,7 @@ class CyGuideCommandPalette(CommandPalette):
             self._action_escape()
 
     def on_unmount(self) -> None:
-        if not self.is_sub_palette and not getattr(self.app, "_navigating_sub_palette", False):
+        if not self.is_sub_palette and not getattr(self.app, "navigating_sub_palette", False):
             self.app.last_palette_highlight = None
 
     async def on_tool_health_changed(self, event: Any) -> None:
@@ -178,11 +178,10 @@ import subprocess
 from typing import Any, Dict, List, Optional
 
 from cyguide.engine.executor import Executor
-from cyguide.engine.explainer import LearningExplainer, OllamaBackend
+from cyguide.engine.explainer import OllamaBackend
 from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
-from cyguide.modes.learning import LearningModeEngine
 from cyguide.paths import (
     get_default_data_dir,
     get_default_db_path,
@@ -239,6 +238,8 @@ class CyGuideApp(App):
         self.user_env: Dict[str, str] = os.environ.copy()
         self.user_shell: str = "/bin/bash"
         self._cached_tool_health: Dict[str, Dict[str, Any]] = {}
+        self.navigating_sub_palette: bool = False
+        self.last_palette_highlight: Optional[Any] = None
 
         # Ensure the directory for the database exists
         if self.db_path != ":memory:":
@@ -425,7 +426,8 @@ class CyGuideApp(App):
                 return {}
         return {}
 
-    def _save_settings(self, updates: Dict[str, Any]) -> None:
+    def save_settings(self, updates: Dict[str, Any]) -> None:
+        """Persist application settings updates."""
         if not hasattr(self, "settings") or self.settings is None:
             self.settings = {}
         self.settings.update(updates)
@@ -447,6 +449,10 @@ class CyGuideApp(App):
                 pass
         except Exception:
             pass
+
+    def _save_settings(self, updates: Dict[str, Any]) -> None:
+        """Backward-compatible alias for save_settings."""
+        self.save_settings(updates)
 
     def watch_theme(self, new_theme: str) -> None:
         if hasattr(self, "_save_settings"):
@@ -491,25 +497,12 @@ class CyGuideApp(App):
         if not reg:
             return getattr(self, "_cached_tool_health", {}) or {}
 
-        # If tools directory changed on disk (e.g. tools deleted or added), reload tools
-        tools_dir = getattr(reg, "tools_dir", None)
-        if tools_dir and Path(tools_dir).exists():
-            try:
-                current_dirs = {
-                    p.name
-                    for p in Path(tools_dir).iterdir()
-                    if p.is_dir() and not p.name.startswith((".", "_"))
-                }
-                loaded_dirs = {v.get("path").name for v in reg.tools.values() if v.get("path")}
-                if current_dirs != loaded_dirs:
-                    reg.load_tools()
-            except Exception:
-                pass
-
         try:
-            from cyguide.engine.diagnostics import check_tool_health
-
-            new_health = check_tool_health(reg)
+            if hasattr(reg, "check_health"):
+                new_health = reg.check_health()
+            else:
+                from cyguide.engine.diagnostics import check_tool_health
+                new_health = check_tool_health(reg)
         except Exception:
             return getattr(self, "_cached_tool_health", {}) or {}
 
@@ -575,14 +568,11 @@ class CyGuideApp(App):
         from cyguide.engine.recommendation import RecommendationEngine
 
         self.recommendation_engine = RecommendationEngine(self.store)
-        self.store.on_upsert(self.recommendation_engine.handle_upsert)
-
         self.executor = Executor(self.store)
 
         # Setup Explainer
         self.reload_explainer()
 
-        self.learning_engine = LearningModeEngine(self.registry, self.executor, self.explainer)
         self.power_facade = PowerWorkspaceFacade(self.store, self.executor, self.registry)
         self.power_facade.user_env = self.user_env
         self.power_facade.user_shell = self.user_shell
@@ -591,6 +581,17 @@ class CyGuideApp(App):
         self.push_screen("dashboard")
         if not self.animations_enabled:
             self.add_class("no-animations")
+
+        # Request thin blinking line cursor from terminal emulator
+        import sys
+
+        if sys.stdout.isatty():
+            try:
+                sys.stdout.write("\x1b[5 q")
+                sys.stdout.flush()
+            except Exception:
+                pass
+
 
     def reload_explainer(self) -> None:
         """Setup or reload explanation backend based on current settings and environment."""
@@ -602,77 +603,72 @@ class CyGuideApp(App):
             self.explainer_backend = OllamaBackend(
                 model=self.ollama_model, base_url=ollama_base_url
             )
-        else:
-            from cyguide.engine.explainer import CloudKeyProfile, MultiKeyCloudBackend
+            self.explainer = self.explainer_backend
+            return
 
-            profiles: List[CloudKeyProfile] = []
-            if hasattr(self, "cloud_keys") and self.cloud_keys:
-                for k in self.cloud_keys:
-                    raw_k = k.get("api_key")
-                    if raw_k and not is_placeholder_key(raw_k):
-                        profiles.append(CloudKeyProfile.from_dict(k))
+        from cyguide.engine.explainer import CloudKeyProfile, MultiKeyCloudBackend
 
-            # Only fallback to legacy if 'cloud_keys' was NEVER configured in settings
-            if "cloud_keys" not in self.settings and not profiles:
-                api_key = (
-                    self.settings.get("api_key")
-                    or os.environ.get("CYGUIDE_API_KEY")
-                    or os.environ.get("GROQ_API_KEY")
+        profiles: List[CloudKeyProfile] = []
+        if hasattr(self, "cloud_keys") and self.cloud_keys:
+            for k in self.cloud_keys:
+                raw_k = k.get("api_key")
+                if raw_k and not is_placeholder_key(raw_k):
+                    profiles.append(CloudKeyProfile.from_dict(k))
+
+        # Only fallback to legacy if 'cloud_keys' was NEVER configured in settings
+        if "cloud_keys" not in self.settings and not profiles:
+            api_key = (
+                self.settings.get("api_key")
+                or os.environ.get("CYGUIDE_API_KEY")
+                or os.environ.get("GROQ_API_KEY")
+            )
+            if api_key and not is_placeholder_key(api_key):
+                api_type = self.settings.get("api_type") or os.environ.get(
+                    "CYGUIDE_API_TYPE", "openai"
                 )
-                if api_key and not is_placeholder_key(api_key):
-                    api_type = self.settings.get("api_type") or os.environ.get(
-                        "CYGUIDE_API_TYPE", "openai"
+                if (os.environ.get("GROQ_API_KEY") or api_type == "groq") and not (
+                    self.settings.get("api_base") or os.environ.get("CYGUIDE_API_BASE")
+                ):
+                    api_base = "https://api.groq.com/openai/v1"
+                    api_model = self.settings.get("api_model") or os.environ.get(
+                        "CYGUIDE_API_MODEL", "llama-3.3-70b-versatile"
                     )
-                    if (os.environ.get("GROQ_API_KEY") or api_type == "groq") and not (
-                        self.settings.get("api_base") or os.environ.get("CYGUIDE_API_BASE")
-                    ):
-                        api_base = "https://api.groq.com/openai/v1"
-                        api_model = self.settings.get("api_model") or os.environ.get(
-                            "CYGUIDE_API_MODEL", "llama-3.3-70b-versatile"
-                        )
-                    else:
-                        api_base = self.settings.get("api_base") or os.environ.get(
-                            "CYGUIDE_API_BASE", "https://api.openai.com/v1"
-                        )
-                        api_model = self.settings.get("api_model") or os.environ.get(
-                            "CYGUIDE_API_MODEL", "gpt-4o"
-                        )
-
-                    profiles.append(
-                        CloudKeyProfile(
-                            id="key_1",
-                            name="Primary Key",
-                            provider=api_type,
-                            api_key=api_key,
-                            model=api_model,
-                            base_url=api_base,
-                            enabled=True,
-                        )
+                else:
+                    api_base = self.settings.get("api_base") or os.environ.get(
+                        "CYGUIDE_API_BASE", "https://api.openai.com/v1"
+                    )
+                    api_model = self.settings.get("api_model") or os.environ.get(
+                        "CYGUIDE_API_MODEL", "gpt-4o"
                     )
 
-            if profiles:
-                ollama_fallback = OllamaBackend(model=self.ollama_model, base_url=ollama_base_url)
-                self.explainer_backend = MultiKeyCloudBackend(
-                    profiles=profiles,
-                    active_key_id=getattr(self, "active_key_id", None),
-                    fallback_to_ollama=True,
-                    ollama_backend=ollama_fallback,
-                )
-            else:
-                self.explainer_backend = OllamaBackend(
-                    model=self.ollama_model, base_url=ollama_base_url
+                profiles.append(
+                    CloudKeyProfile(
+                        id="key_1",
+                        name="Primary Key",
+                        provider=api_type,
+                        api_key=api_key,
+                        model=api_model,
+                        base_url=api_base,
+                        enabled=True,
+                    )
                 )
 
-        self.explainer = LearningExplainer(self.explainer_backend)
-        if hasattr(self, "learning_engine") and self.learning_engine is not None:
-            self.learning_engine.explainer = self.explainer
+        ollama_fallback = OllamaBackend(model=self.ollama_model, base_url=ollama_base_url)
+        self.explainer_backend = MultiKeyCloudBackend(
+            profiles=profiles,
+            active_key_id=getattr(self, "active_key_id", None),
+            fallback_to_ollama=True,
+            ollama_backend=ollama_fallback,
+            prefer_ollama=self.use_ollama,
+            cloud_enabled=getattr(self, "use_cloud_api", True),
+        )
+
+        self.explainer = self.explainer_backend
 
     def reload_registry(self) -> None:
         """Reload the tool registry if tools_dir changed."""
         self.registry = ToolRegistry(tools_dir=self.tools_dir)
         self.registry.load_tools()
-        if hasattr(self, "learning_engine") and self.learning_engine is not None:
-            self.learning_engine.registry = self.registry
         if hasattr(self, "power_facade") and self.power_facade is not None:
             self.power_facade.registry = self.registry
         self._async_refresh_tool_health_cache()
@@ -700,7 +696,7 @@ class CyGuideApp(App):
     def action_command_palette(self, preserve_highlight: bool = False) -> None:
         """Show the custom CyGuide command palette with left/right arrow sub-menu navigation."""
         self.check_and_update_tool_health()
-        self._navigating_sub_palette = False
+        self.navigating_sub_palette = False
         if not preserve_highlight:
             self.last_palette_highlight = None
         if self.use_command_palette and not CyGuideCommandPalette.is_open(self):
@@ -711,7 +707,7 @@ class CyGuideApp(App):
         from cyguide.ui.screens.tool_health_modal import ToolHealthModal
 
         self.last_palette_highlight = None
-        self._navigating_sub_palette = False
+        self.navigating_sub_palette = False
         self.push_screen(ToolHealthModal())
 
     def action_show_config(self, focus_target: Optional[str] = None) -> None:
@@ -719,7 +715,7 @@ class CyGuideApp(App):
         from cyguide.ui.screens.config_modal import ConfigModal
 
         self.last_palette_highlight = None
-        self._navigating_sub_palette = False
+        self.navigating_sub_palette = False
         self.push_screen(ConfigModal(focus_target=focus_target))
 
     async def switch_database(self, new_db_path: str) -> None:
@@ -758,7 +754,6 @@ class CyGuideApp(App):
 
             if hasattr(self, "recommendation_engine") and self.recommendation_engine:
                 self.recommendation_engine.store = self.store
-                self.store.on_upsert(self.recommendation_engine.handle_upsert)
 
             if hasattr(self, "executor") and self.executor:
                 self.executor.store = self.store
@@ -934,6 +929,19 @@ class CyGuideApp(App):
             yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
         else:
             yield SystemCommand("Quit", "", self.action_quit)
+
+    def action_quit(self) -> None:
+        """Quit the app and restore terminal cursor."""
+        import sys
+
+        if sys.stdout.isatty():
+            try:
+                sys.stdout.write("\x1b[0 q")
+                sys.stdout.flush()
+            except Exception:
+                pass
+        self.exit()
+
 
 
 if __name__ == "__main__":

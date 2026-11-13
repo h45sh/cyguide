@@ -162,7 +162,7 @@ def test_sanitize_subprocess_env_extended():
         "HUGGINGFACE_TOKEN": "hf_abc",
         "HF_TOKEN": "hf_xyz",
         "VAULT_TOKEN": "s.vaulttoken",
-        "SSH_PRIVATE_KEY": "-----BEGIN OPENSSH PRIVATE KEY-----",
+        "SSH_PRIVATE_KEY": "-----BEGIN OPENSSH PRIVATE KEY-----",  # codeguard: ignore[SECRET_PRIVATE_KEY]
     }
     cleaned = sanitize_subprocess_env(raw_env)
     assert cleaned["PATH"] == "/usr/bin:/bin"

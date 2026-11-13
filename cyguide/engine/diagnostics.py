@@ -6,11 +6,13 @@ import shutil
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import httpx
 
-from cyguide.engine.registry import ToolRegistry
+if TYPE_CHECKING:
+    from cyguide.engine.registry import ToolRegistry
+
 from cyguide.engine.store import GraphStore
 from cyguide.paths import get_default_db_path
 
@@ -127,14 +129,7 @@ async def run_diagnostics(
         store = GraphStore(db_path)
         await store.initialize()
 
-        async with store._get_conn() as db:
-            cursor = await db.execute("PRAGMA integrity_check")
-            row = await cursor.fetchone()
-            integrity_status = row[0] if row else "unknown"
-
-            cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tables = [r[0] for r in await cursor.fetchall()]
-
+        integrity_status, tables = await store.check_integrity()
         await store.close()
 
         if integrity_status == "ok":
@@ -163,6 +158,7 @@ async def run_diagnostics(
         report.healthy = False
 
     # 3. Security Tool Dependencies
+    from cyguide.engine.registry import ToolRegistry
     registry = ToolRegistry(tools_dir=tools_dir)
     registry.load_tools()
     tool_names = registry.list_tools()
@@ -329,7 +325,7 @@ def format_terminal_report(report: DiagnosticReport) -> str:
     return "\n".join(lines)
 
 
-def check_tool_health(registry: ToolRegistry) -> Dict[str, Dict[str, Any]]:
+def check_tool_health(registry: "ToolRegistry") -> Dict[str, Dict[str, Any]]:
     """Check health and installation status of all tools in the registry.
 
     Returns a dict mapping tool name to:

@@ -1076,10 +1076,16 @@ class ConfigModal(ModalScreen[None]):
             except Exception as e:
                 return False, f"Cannot create database directory {parent}: {e}"
         try:
+            # Test writability cleanly without untracked schema mutation
+            if os.path.exists(expanded):
+                with open(expanded, "a+b"):
+                    pass
+            else:
+                with open(expanded, "wb"):
+                    pass
             import sqlite3
             conn = sqlite3.connect(expanded)
-            conn.execute("CREATE TABLE IF NOT EXISTS _cyguide_probe (id INT);")
-            conn.execute("DROP TABLE _cyguide_probe;")
+            conn.execute("PRAGMA quick_check;")
             conn.close()
             size_kb = os.path.getsize(expanded) / 1024
             return True, f"Database path valid & writable ({size_kb:.1f} KB at {expanded})"
@@ -1769,8 +1775,8 @@ class ConfigModal(ModalScreen[None]):
                 "exports_dir": norm_exports,
                 "reports_dir": norm_reports,
             }
-            if hasattr(app, "_save_settings"):
-                await asyncio.to_thread(app._save_settings, updates)
+            if hasattr(app, "save_settings"):
+                await asyncio.to_thread(app.save_settings, updates)
 
             # 8. Reload Explainer
             if hasattr(app, "reload_explainer"):

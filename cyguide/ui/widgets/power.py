@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess
+from datetime import UTC, datetime
 from typing import Any, Dict, List
 
 from textual import events, work
@@ -16,16 +17,60 @@ from textual.widgets import Input, Label, ListItem, ListView, Static, Tree
 from cyguide.schemas.power import JobStatus, JobStatusEnum
 
 
+def _format_elapsed(seconds: float) -> str:
+    secs = max(0, int(seconds))
+    if secs < 60:
+        return f"{secs:02d}s"
+    mins, s = divmod(secs, 60)
+    if mins < 60:
+        return f"{mins:02d}m:{s:02d}s"
+    hrs, m = divmod(mins, 60)
+    return f"{hrs:02d}h:{m:02d}m:{s:02d}s"
+
+
+
 class EntityBrowser(Tree):
     """Hierarchical browser for findings in the current session."""
+
+    ALLOW_SELECT = False
 
     def __init__(self, **kwargs):
         super().__init__("ENTITY BROWSER", **kwargs)
         self.root.expand()
+        self.filter_query: str = ""
+        self._last_graph_data: Dict[str, Any] = {}
+
+    @property
+    def last_graph_data(self) -> Dict[str, Any]:
+        """Cached entity graph data from the last refresh."""
+        return self._last_graph_data
+
+    def set_filter(self, query: str) -> None:
+        """Update search filter and preserve query."""
+        self.filter_query = (query or "").strip().lower()
 
     async def refresh_entities(self, graph_data: Dict[str, Any]):
-        """Update the tree based on fresh nodes and edges from the store."""
+        """Update the tree based on fresh nodes and edges from the store, preserving branch states."""
+        self._last_graph_data = graph_data
+        # Capture current expanded states if any
+        expanded_keys = set()
+        def collect_expanded(tree_node):
+            if getattr(tree_node, "is_expanded", False):
+                key = tree_node.data.get("id") if (tree_node.data and "id" in tree_node.data) else str(tree_node.label).split(" (")[0]
+                expanded_keys.add(key)
+            for child in getattr(tree_node, "children", []):
+                collect_expanded(child)
+
+        collect_expanded(self.root)
+
         self.clear()
+
+        def should_expand(key: str, default: bool = True) -> bool:
+            if self.filter_query:
+                return True
+            if not expanded_keys:
+                return default
+            return key in expanded_keys
 
         nodes = graph_data.get("nodes", [])
         edges = graph_data.get("edges", [])
@@ -45,28 +90,66 @@ class EntityBrowser(Tree):
                 children_map[src].append(dst)
                 has_parent.add(dst)
 
+        # Build IP-to-Name / Hostname / Alias mapping across all nodes and DNS records
+        ip_to_name: Dict[str, str] = {}
+        for n in nodes:
+            st = n.get("schema_type", "")
+            try:
+                npik = json.loads(n.get("pik_json", "{}"))
+                ndata = json.loads(n.get("data_json", "{}"))
+            except Exception:
+                continue
+
+            if st == "network.host":
+                ip_val = npik.get("ip") or npik.get("host_ip")
+                if ip_val:
+                    if ndata.get("alias"):
+                        ip_to_name[ip_val] = ndata["alias"]
+                    elif ndata.get("hostname"):
+                        ip_to_name[ip_val] = ndata["hostname"]
+                    elif ip_val in ("127.0.0.1", "::1"):
+                        ip_to_name.setdefault(ip_val, "localhost")
+
+            elif st == "dns.record":
+                dom = npik.get("domain")
+                val = npik.get("value")
+                if dom and val and val not in ("ANY", "unknown") and "." in val:
+                    ip_to_name.setdefault(val, dom)
+
+            elif st == "domain.info":
+                dom = npik.get("domain")
+                ip = ndata.get("ip") or ndata.get("resolved_ip")
+                if dom and ip:
+                    ip_to_name.setdefault(ip, dom)
+
         def get_label(node: Dict[str, Any]) -> str:
             st = node["schema_type"]
             pik = json.loads(node.get("pik_json", "{}"))
             data = json.loads(node.get("data_json", "{}"))
+            custom_alias = data.get("alias")
 
             if st == "network.host":
-                return pik.get("ip") or pik.get("host_ip") or node["id"][:8]
+                ip = pik.get("ip") or pik.get("host_ip") or node["id"][:8]
+                hostname = custom_alias or data.get("hostname") or ip_to_name.get(ip)
+                if ip in ("127.0.0.1", "::1") and not hostname:
+                    hostname = "localhost"
+                if hostname:
+                    return f"{ip} ({hostname})"
+                return ip
             elif st == "network.service":
                 port = pik.get("port")
                 protocol = pik.get("protocol", "tcp")
-                if port:
-                    return f"{port}/{protocol}"
-                return node["id"][:8]
+                base = f"{port}/{protocol}" if port else node["id"][:8]
+                return f"{base} ({custom_alias})" if custom_alias else base
             elif st == "network.netblock":
                 cidr = pik.get("cidr") or "Netblock"
-                org = data.get("organization")
+                org = custom_alias or data.get("organization")
                 if org and len(org) > 16:
                     org = org[:14] + "…"
                 return f"{cidr} ({org})" if org else cidr
             elif st == "domain.info":
                 dom = pik.get("domain", "Domain")
-                reg = data.get("registrar") or data.get("organization")
+                reg = custom_alias or data.get("registrar") or data.get("organization")
                 if reg and len(reg) > 16:
                     reg = reg[:14] + "…"
                 return f"{dom} ({reg})" if reg else dom
@@ -74,21 +157,24 @@ class EntityBrowser(Tree):
                 dom = pik.get("domain", "")
                 rtype = pik.get("type", "DNS")
                 val = pik.get("value", "")
-                if val and val not in ("ANY", "unknown"):
-                    return f"{dom} [{rtype} ❯ {val}]"
-                return f"{dom} [{rtype}]"
+                base = f"{dom} [{rtype} ❯ {val}]" if (val and val not in ("ANY", "unknown")) else f"{dom} [{rtype}]"
+                return f"{base} ({custom_alias})" if custom_alias else base
             elif st == "tls.certificate":
-                cn = data.get("common_name")
+                cn = custom_alias or data.get("common_name")
                 return f"TLS: {cn}" if cn else f"TLS: {pik.get('fingerprint_sha256', node['id'][:8])[:16]}"
             elif st.startswith("web."):
-                return pik.get("url") or pik.get("path") or f"{node['id'][:8]}"
+                base = pik.get("url") or pik.get("path") or f"{node['id'][:8]}"
+                return f"{base} ({custom_alias})" if custom_alias else base
             elif st.startswith("credential."):
                 username = pik.get("username", "?")
-                return f"{username}:****"
+                base = f"{username}:****"
+                return f"{base} ({custom_alias})" if custom_alias else base
             elif st.startswith("vulnerability."):
-                return pik.get("vuln_id") or pik.get("cve_id") or pik.get("title") or node["id"][:8]
+                base = pik.get("vuln_id") or pik.get("cve_id") or pik.get("title") or node["id"][:8]
+                return f"{base} ({custom_alias})" if custom_alias else base
             else:
-                return node["id"][:8]
+                base = node["id"][:8]
+                return f"{base} ({custom_alias})" if custom_alias else base
 
         def add_node_to_tree(parent_tree_node, node_id: str):
             node = node_map[node_id]
@@ -96,14 +182,56 @@ class EntityBrowser(Tree):
             child_ids = children_map.get(node_id, [])
 
             if child_ids:
-                new_tree_node = parent_tree_node.add(label, data={"id": node_id, "type": node["schema_type"]}, expand=True)
+                is_exp = should_expand(node_id, True)
+                new_tree_node = parent_tree_node.add(label, data={"id": node_id, "type": node["schema_type"]}, expand=is_exp)
                 for cid in child_ids:
                     add_node_to_tree(new_tree_node, cid)
             else:
                 parent_tree_node.add_leaf(label, data={"id": node_id, "type": node["schema_type"]})
 
+        if self.filter_query:
+            q = self.filter_query
+            matching_ids = set()
+            for n in nodes:
+                st = n.get("schema_type", "").lower()
+                lbl = get_label(n).lower()
+                pik = n.get("pik_json", "").lower()
+                data = n.get("data_json", "").lower()
+                extra_match = False
+                if st == "network.host":
+                    try:
+                        nip = json.loads(n.get("pik_json", "{}")).get("ip", "")
+                        if nip in ip_to_name and q in ip_to_name[nip].lower():
+                            extra_match = True
+                    except Exception:
+                        pass
+
+                if q in lbl or q in st or q in pik or q in data or extra_match:
+                    matching_ids.add(n["id"])
+
+            # Propagate upwards to keep ancestor nodes visible
+            parent_map = {}
+            for edge in edges:
+                parent_map[edge["target_id"]] = edge["source_id"]
+
+            to_check = list(matching_ids)
+            for nid in to_check:
+                curr = nid
+                while curr in parent_map:
+                    parent = parent_map[curr]
+                    matching_ids.add(parent)
+                    curr = parent
+
+            nodes = [n for n in nodes if n["id"] in matching_ids]
+            node_map = {n["id"]: n for n in nodes}
+            children_map = {n["id"]: [c for c in children_map.get(n["id"], []) if c in matching_ids] for n in nodes}
+            has_parent = {c for clist in children_map.values() for c in clist}
+
         if not nodes:
-            self.root.add_leaf("[dim #94a3b8]No entities discovered yet[/]")
+            if self.filter_query:
+                self.root.add_leaf(f"[dim #94a3b8]No matches for '{self.filter_query}'[/]")
+            else:
+                self.root.add_leaf("[dim #94a3b8]No entities discovered yet[/]")
             return
 
         # Group root nodes by logical categories
@@ -111,7 +239,7 @@ class EntityBrowser(Tree):
         others = [n for n in nodes if n["id"] not in has_parent and n["schema_type"] != "network.host"]
 
         if hosts:
-            hosts_root = self.root.add("Targets", expand=True)
+            hosts_root = self.root.add(f"Targets ({len(hosts)})", expand=should_expand("Targets", True))
             for h in hosts:
                 add_node_to_tree(hosts_root, h["id"])
 
@@ -125,31 +253,31 @@ class EntityBrowser(Tree):
         misc = [n for n in others if n["id"] not in categorized_ids]
 
         if services:
-            svc_root = self.root.add("Other Services", expand=True)
+            svc_root = self.root.add(f"Other Services ({len(services)})", expand=should_expand("Other Services", True))
             for s in services: add_node_to_tree(svc_root, s["id"])
 
         if domains_dns:
-            dns_root = self.root.add("Domains & DNS", expand=True)
+            dns_root = self.root.add(f"Domains & DNS ({len(domains_dns)})", expand=should_expand("Domains & DNS", True))
             for d in domains_dns: add_node_to_tree(dns_root, d["id"])
 
         if netblocks:
-            net_root = self.root.add("Netblocks", expand=True)
+            net_root = self.root.add(f"Netblocks ({len(netblocks)})", expand=should_expand("Netblocks", True))
             for nb in netblocks: add_node_to_tree(net_root, nb["id"])
 
         if web:
-            web_root = self.root.add("Web", expand=True)
+            web_root = self.root.add(f"Web ({len(web)})", expand=should_expand("Web", True))
             for w in web: add_node_to_tree(web_root, w["id"])
 
         if creds:
-            cred_root = self.root.add("Credentials", expand=True)
+            cred_root = self.root.add(f"Credentials ({len(creds)})", expand=should_expand("Credentials", True))
             for c in creds: add_node_to_tree(cred_root, c["id"])
 
         if vulns:
-            vuln_root = self.root.add("Vulnerabilities", expand=True)
+            vuln_root = self.root.add(f"Vulnerabilities ({len(vulns)})", expand=should_expand("Vulnerabilities", True))
             for v in vulns: add_node_to_tree(vuln_root, v["id"])
 
         if misc:
-            misc_root = self.root.add("Other Entities", expand=True)
+            misc_root = self.root.add(f"Other Entities ({len(misc)})", expand=should_expand("Other Entities", True))
             for m in misc: add_node_to_tree(misc_root, m["id"])
 
 
@@ -167,36 +295,66 @@ class JobQueue(Vertical):
         yield ListView(id="power_job_list")
 
     async def update_jobs(self, jobs: List[JobStatus]):
-        """Refresh the list of active jobs."""
+        """Refresh the list of active jobs with live runtime and tab association."""
         job_list = self.query_one("#power_job_list", ListView)
         old_idx = job_list.index
 
-        await job_list.clear()
-
         if not jobs:
-            job_list.append(ListItem(Static("[dim #94a3b8]  No active jobs[/]"), disabled=True))
+            current_first = job_list.children[0] if job_list.children else None
+            if getattr(current_first, "id", None) != "empty_jobs":
+                await job_list.clear()
+                item = ListItem(Static("[dim #94a3b8]  No active jobs[/]"), disabled=True, id="empty_jobs")
+                job_list.append(item)
             return
 
         sorted_jobs = sorted(jobs, key=lambda j: (j.status == JobStatusEnum.RUNNING, j.started_at), reverse=True)
+        now = datetime.now(UTC)
+
+        new_items = []
         for job in sorted_jobs:
             if job.status == JobStatusEnum.RUNNING:
                 status_icon = "[bold #34d399]◌[/]"
                 status_text = " [bold #34d399]RUNNING[/]"
+                elapsed = (now - job.started_at).total_seconds()
             elif job.status == JobStatusEnum.DONE:
                 status_icon = "[#64748b]●[/]"
-                status_text = ""
+                status_text = " [dim #64748b]DONE[/]"
+                elapsed = ((job.completed_at or now) - job.started_at).total_seconds()
             elif job.status == JobStatusEnum.FAILED:
                 status_icon = "[#f85149]×[/]"
                 status_text = " [red]FAILED[/]"
+                elapsed = ((job.completed_at or now) - job.started_at).total_seconds()
             else: # QUEUED
                 status_icon = "[#eab308]◌[/]"
                 status_text = " [yellow]QUEUED[/]"
+                elapsed = (now - job.started_at).total_seconds()
 
-            label = f"  {status_icon} {job.tool_name} [#64748b]{job.job_id.hex[:4]}[/]{status_text}"
-            item = ListItem(Static(label))
-            item.job_id = str(job.job_id)
-            item.session_id = str(job.session_id)
-            job_list.append(item)
+            dur_str = f" [dim #94a3b8]{_format_elapsed(elapsed)}[/]"
+            tab_str = f" [dim #38bdf8]\\[{job.tab_id}][/]" if job.tab_id else ""
+            cmd = job.command_snippet or job.tool_name
+            if len(cmd) > 20:
+                cmd = cmd[:19] + "…"
+
+            label = f"  {status_icon}{tab_str} {cmd} [#64748b]{job.job_id.hex[:4]}[/]{dur_str}{status_text}"
+            new_items.append((str(job.job_id), str(job.session_id), label))
+
+        # Check if items can be updated in place without clearing
+        current_ids = [getattr(c, "job_id", None) for c in job_list.children]
+        expected_ids = [item[0] for item in new_items]
+
+        if current_ids == expected_ids:
+            for i, (_, _, label) in enumerate(new_items):
+                try:
+                    job_list.children[i].query_one(Static).update(label)
+                except Exception:
+                    pass
+        else:
+            await job_list.clear()
+            for j_id, s_id, label in new_items:
+                item = ListItem(Static(label), id=f"job_{j_id}")
+                item.job_id = j_id
+                item.session_id = s_id
+                job_list.append(item)
 
         if old_idx is not None and old_idx < len(job_list.children):
             job_list.index = old_idx

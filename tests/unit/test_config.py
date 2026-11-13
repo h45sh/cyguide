@@ -599,7 +599,6 @@ async def test_config_modal_test_cloud_api_non_blocking_worker(monkeypatch):
         async def mock_test_cloud(*args, **kwargs):
             nonlocal test_called
             test_called = True
-            await asyncio.sleep(0.02)
             return True, "Cloud API authenticated (20ms) · openai / gpt-4o"
 
         monkeypatch.setattr(modal, "_test_cloud_api", mock_test_cloud)

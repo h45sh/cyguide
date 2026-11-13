@@ -56,7 +56,7 @@ graph TB
         Facade["PowerWorkspaceFacade<br><i>(Universal Variable Resolution, Job Management)</i>"]
         Gateway["ActionGateway<br><i>(Policy, CIDR Scope, Source Validation)</i>"]
         RecEngine["RecommendationEngine<br><i>(Declarative Suggestion Rules)</i>"]
-        Explainer["LearningExplainer & Backends<br><i>(Ollama, OpenAI, Anthropic, OpenRouter)</i>"]
+        Explainer["ExplainerBackend & AI Backends<br><i>(Ollama, OpenAI, Anthropic, OpenRouter)</i>"]
         Diag["Diagnostics Engine<br><i>(Environment & Binary Verification)</i>"]
     end
 
@@ -353,14 +353,12 @@ Learning Mode provides real-time, context-aware cybersecurity mentorship powered
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                             LearningExplainer                            │
-├──────────────────────────────────────────────────────────────────────────┤
-│                          ExplainerBackend (ABC)                          │
+│                          ExplainerBackend (Base)                         │
 ├─────────────────────────────────────┬────────────────────────────────────┤
-│ OllamaBackend                       │ CloudAPIBackend                    │
+│ OllamaBackend                       │ MultiKeyCloudBackend               │
 │ • Local inference (zero API keys)   │ • OpenAI (gpt-4o, etc.)            │
 │ • Endpoints: http://localhost:11434 │ • Anthropic (Claude 3.5 Sonnet)    │
-│ • Default model: gemma / llama3     │ • OpenRouter, Grok, Groq           │
+│ • Default model: gemma / llama3     │ • OpenRouter, Grok, DeepSeek       │
 │ • Streaming HTTP chunk consumer     │ • SSE (Server-Sent Events) parser  │
 └─────────────────────────────────────┴────────────────────────────────────┘
 ```
@@ -443,9 +441,10 @@ To maintain codebase stability for university evaluation and production deployme
 │   Governance: Architectural components. Changes require unit tests.    │
 ├────────────────────────────────────────────────────────────────────────┤
 │                        TIER 3: FREE TO CHANGE                          │
-│   • cyguide/ui/ (Screens/Widgets) • cyguide/modes/                     │
+│   • cyguide/ui/ (Screens/Widgets) • cyguide/schemas/                   │
 │   • docs/ and scripts/            • tests/                             │
 │   Governance: Layouts, styles, utility helpers, and documentation.     │
+
 └────────────────────────────────────────────────────────────────────────┘
 ```
 

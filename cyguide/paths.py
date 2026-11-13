@@ -65,3 +65,20 @@ def get_default_reports_dir(data_dir: Optional[str] = None) -> str:
     except OSError:
         pass
     return reports_dir
+
+
+def get_default_logs_dir(data_dir: Optional[str] = None) -> str:
+    """Return the default action execution logs directory."""
+    base = data_dir if data_dir is not None else get_default_data_dir()
+    logs_dir = os.path.join(base, "logs")
+    try:
+        os.makedirs(logs_dir, mode=0o700, exist_ok=True)
+    except OSError:
+        pass
+    return logs_dir
+
+
+def get_action_log_path(action_id: str, data_dir: Optional[str] = None) -> str:
+    """Return the absolute path for an action execution log file."""
+    logs_dir = get_default_logs_dir(data_dir)
+    return os.path.join(logs_dir, f"{action_id}.log")

@@ -47,6 +47,10 @@ class JobStatus(BaseModel):
     status: JobStatusEnum
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: Optional[datetime] = None
+    log_file: Optional[str] = None
+    command_snippet: Optional[str] = None
+    tab_id: Optional[str] = None
+
 
 
 class WorkspaceContext(BaseModel):

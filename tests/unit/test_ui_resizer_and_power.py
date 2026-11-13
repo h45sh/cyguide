@@ -19,8 +19,11 @@ class ResizerTestApp(App):
         super().__init__(**kwargs)
         self.settings = {}
 
-    def _save_settings(self, updates):
+    def save_settings(self, updates):
         self.settings.update(updates)
+
+    def _save_settings(self, updates):
+        self.save_settings(updates)
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="container"):

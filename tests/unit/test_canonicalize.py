@@ -1,4 +1,5 @@
 from cyguide.engine.canonicalize import canonicalize_host, canonicalize_port, canonicalize_url
+from cyguide.schemas.canonicalize import canonicalize_host as schema_canonicalize_host
 
 
 def test_canonicalize_host():

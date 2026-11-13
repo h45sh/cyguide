@@ -11,16 +11,28 @@ from cyguide.schemas.web import WebEndpoint, WebVulnerability
 logger = logging.getLogger(__name__)
 
 
+def _normalize_finding(finding_or_session: Any, *args) -> Optional[BaseFinding]:
+    """Support both modern evaluate(finding) and legacy evaluate(session_id, finding, store)."""
+    if isinstance(finding_or_session, BaseFinding):
+        return finding_or_session
+    for a in args:
+        if isinstance(a, BaseFinding):
+            return a
+    return None
+
+
 class RecommendationRule:
     """Base class for declarative recommendation rules."""
-    def evaluate(self, session_id: str, finding: BaseFinding, store: GraphStore) -> List[BaseFinding]:
+    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
+        """Evaluate a confirmed finding and return proposed findings."""
         raise NotImplementedError
 
 
 class WebServiceRecommendationRule(RecommendationRule):
     """If a port 80/443/8080 service is found, recommend running gobuster."""
-    def evaluate(self, session_id: str, finding: BaseFinding, store: GraphStore) -> List[BaseFinding]:
-        if finding.schema_type != "network.service":
+    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
+        finding = _normalize_finding(finding_or_session, *args)
+        if not finding or finding.schema_type != "network.service":
             return []
 
         port = finding.pik.get("port")
@@ -56,8 +68,9 @@ class WebServiceRecommendationRule(RecommendationRule):
 
 class WebVulnerabilityRecommendationRule(RecommendationRule):
     """If a confirmed web endpoint is found, suggest scanning it for vulnerabilities with nikto."""
-    def evaluate(self, session_id: str, finding: BaseFinding, store: GraphStore) -> List[BaseFinding]:
-        if finding.schema_type != "web.endpoint":
+    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
+        finding = _normalize_finding(finding_or_session, *args)
+        if not finding or finding.schema_type != "web.endpoint":
             return []
 
         url = finding.pik.get("url")
@@ -80,8 +93,9 @@ class WebVulnerabilityRecommendationRule(RecommendationRule):
 
 class SubdomainRecommendationRule(RecommendationRule):
     """If a host has a hostname/domain, suggest subfinder subdomain discovery."""
-    def evaluate(self, session_id: str, finding: BaseFinding, store: GraphStore) -> List[BaseFinding]:
-        if finding.schema_type != "network.host":
+    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
+        finding = _normalize_finding(finding_or_session, *args)
+        if not finding or finding.schema_type != "network.host":
             return []
 
         hostname = finding.data.get("hostname")
@@ -116,8 +130,9 @@ class SubdomainRecommendationRule(RecommendationRule):
 
 class WhoisRecommendationRule(RecommendationRule):
     """If a host has a public IP/hostname, suggest whois registration lookup."""
-    def evaluate(self, session_id: str, finding: BaseFinding, store: GraphStore) -> List[BaseFinding]:
-        if finding.schema_type != "network.host":
+    def evaluate(self, finding_or_session: Any, *args, **kwargs) -> List[BaseFinding]:
+        finding = _normalize_finding(finding_or_session, *args)
+        if not finding or finding.schema_type != "network.host":
             return []
 
         ip = finding.pik.get("ip")
@@ -171,10 +186,10 @@ class RecommendationEngine:
 
         for rule in self.rules:
             try:
-                proposed_findings = rule.evaluate(session_id, finding, self.store)
+                proposed_findings = rule.evaluate(finding)
                 for proposed in proposed_findings:
                     # Check if the node already exists in database (either confirmed or proposed)
-                    node_id = self.store._generate_node_id(proposed.schema_type, proposed.pik)
+                    node_id = self.store.generate_node_id(proposed.schema_type, proposed.pik)
                     existing = await self.store.get_node(session_id, node_id)
                     if not existing:
                         logger.info(f"Proposing finding {proposed.schema_type} for session {session_id}")

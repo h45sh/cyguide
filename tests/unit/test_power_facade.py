@@ -293,9 +293,10 @@ async def test_facade_shutdown_graceful_drain():
     facade = PowerWorkspaceFacade(store, executor, registry)
 
     # Simulate running task
+    stop_event = asyncio.Event()
     async def dummy_task():
         try:
-            await asyncio.sleep(10)
+            await stop_event.wait()
         except asyncio.CancelledError:
             pass
 

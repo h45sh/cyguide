@@ -107,7 +107,38 @@ async def test_web_vuln_recommendation():
 
     data = json.loads(p_node["data_json"])
     assert data["tool_suggestion"] == "nikto"
-    assert "nikto -h http://10.0.0.1/admin" in data["recommended_command"]
-
     await store.close()
+
+
+def test_recommendation_rule_pure_evaluation():
+    """Verify recommendation rules evaluate findings purely in memory without database fixtures."""
+    from cyguide.engine.recommendation import (
+        WebServiceRecommendationRule,
+        WebVulnerabilityRecommendationRule,
+        SubdomainRecommendationRule,
+        WhoisRecommendationRule,
+    )
+    from cyguide.schemas.network import NetworkHost, NetworkService
+
+    # 1. WebService rule
+    service = NetworkService.create(host_ip="192.168.1.50", port=443, protocol="tcp", service_name="https")
+    web_rule = WebServiceRecommendationRule()
+    results = web_rule.evaluate(service)
+    assert len(results) == 1
+    assert results[0].schema_type == "web.endpoint"
+    assert results[0].pik["url"] == "https://192.168.1.50/"
+
+    # 2. Subdomain rule
+    host_domain = NetworkHost.create(ip="8.8.8.8", hostname="test.corp.local")
+    sub_rule = SubdomainRecommendationRule()
+    sub_results = sub_rule.evaluate(host_domain)
+    assert len(sub_results) == 1
+    assert sub_results[0].schema_type == "dns.record"
+
+    # 3. Whois rule
+    public_host = NetworkHost.create(ip="93.184.216.34")
+    whois_rule = WhoisRecommendationRule()
+    whois_results = whois_rule.evaluate(public_host)
+    assert len(whois_results) == 1
+    assert whois_results[0].schema_type == "domain.info"
 

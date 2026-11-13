@@ -36,7 +36,7 @@ def sanitize_subprocess_env(env: Optional[Dict[str, str]] = None) -> Dict[str, s
 class Executor:
     """Executes tools and manages their lifecycle and output persistence."""
 
-    def __init__(self, store: GraphStore):
+    def __init__(self, store: Optional[GraphStore] = None):
         self.store = store
         self._active_processes: Dict[str, asyncio.subprocess.Process] = {}
 
@@ -76,7 +76,8 @@ class Executor:
 
         on_output: Optional[Callable[[str], Coroutine]] = None,
         on_error_output: Optional[Callable[[str], Coroutine]] = None,
-        timeout_seconds: Optional[int] = None
+        timeout_seconds: Optional[int] = None,
+        log_file_path: Optional[str] = None
     ) -> AsyncIterator[BaseFinding]:
         """
         Execute a tool adapter against a target finding and yield findings.
@@ -134,6 +135,13 @@ class Executor:
                         break
 
                     raw_text = chunk.decode(errors="replace")
+                    if log_file_path:
+                        try:
+                            with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
+                                f.write(raw_text)
+                        except Exception:
+                            pass
+
                     if callback:
                         await callback(raw_text)
                     elif on_output:
@@ -171,18 +179,6 @@ class Executor:
                 try:
                     # Wait for finding or a small timeout to check process state
                     finding = await asyncio.wait_for(finding_queue.get(), timeout=0.1)
-
-                    if session_id and not getattr(self.store, "_closed", False):
-                        try:
-                            await self.store.upsert_finding(session_id, finding)
-                        except Exception as upsert_e:
-                            if getattr(self.store, "_closed", False):
-                                break
-                            logger.error(f"Failed to upsert finding: {upsert_e}")
-                            if on_output:
-                                await on_output(f"\n[INTERNAL ERROR] Failed to save entity: {upsert_e}\n")
-                            raise # Re-raise to ensure job fails but we see the cause
-
                     yield finding
                 except asyncio.TimeoutError:
                     # Just checking if process finished
@@ -202,16 +198,6 @@ class Executor:
             # Final check of the queue for any remaining findings
             while not finding_queue.empty():
                 finding = finding_queue.get_nowait()
-                if session_id and not getattr(self.store, "_closed", False):
-                    try:
-                        await self.store.upsert_finding(session_id, finding)
-                    except Exception as upsert_e:
-                        if getattr(self.store, "_closed", False):
-                            break
-                        logger.error(f"Failed to upsert finding: {upsert_e}")
-                        if on_output:
-                            await on_output(f"\n[INTERNAL ERROR] Failed to save entity: {upsert_e}\n")
-                        raise
                 yield finding
 
         except asyncio.CancelledError:

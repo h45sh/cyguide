@@ -7,7 +7,7 @@ from typing import Any, ClassVar, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from cyguide.engine.canonicalize import canonicalize
+from cyguide.schemas.canonicalize import canonicalize
 
 
 class Relation(BaseModel):

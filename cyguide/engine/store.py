@@ -41,6 +41,10 @@ class GraphStore:
             self._conn = await aiosqlite.connect(self.db_path)
             await self._conn.execute("PRAGMA foreign_keys = ON")
             await self._conn.execute("PRAGMA trusted_schema = OFF")
+            await self._conn.execute("PRAGMA busy_timeout = 5000")
+            if self.db_path != ":memory:":
+                await self._conn.execute("PRAGMA journal_mode = WAL")
+                await self._conn.execute("PRAGMA synchronous = NORMAL")
             if self.db_path != ":memory:" and os.path.exists(self.db_path):
                 try:
                     os.chmod(self.db_path, 0o600)
@@ -129,6 +133,17 @@ class GraphStore:
             await db.execute("CREATE INDEX IF NOT EXISTS idx_workspaces_status ON workspaces(status)")
 
             await db.commit()
+
+    async def check_integrity(self) -> tuple[str, list[str]]:
+        """Run an SQLite integrity check and return status and table list."""
+        async with self._get_conn() as db:
+            cursor = await db.execute("PRAGMA integrity_check")
+            row = await cursor.fetchone()
+            integrity_status = row[0] if row else "unknown"
+
+            cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [r[0] for r in await cursor.fetchall()]
+            return integrity_status, tables
 
     async def close(self):
         """Close the persistent connection if it exists."""
@@ -317,78 +332,95 @@ class GraphStore:
 
     # --- Graph Data Persistence (Session Aware) ---
 
-    def _generate_node_id(self, schema_type: str, pik: Dict[str, Any]) -> str:
+    def generate_node_id(self, schema_type: str, pik: Dict[str, Any]) -> str:
+        """Deterministically compute entity node ID from schema type and primary identity keys."""
         import hashlib
         pik_str = json.dumps(pik, sort_keys=True)
         return hashlib.sha256(f"{schema_type}:{pik_str}".encode()).hexdigest()
 
-    async def upsert_finding(self, session_id: str, finding: BaseFinding):
-        node_id = self._generate_node_id(finding.schema_type, finding.pik)
+    def _generate_node_id(self, schema_type: str, pik: Dict[str, Any]) -> str:
+        return self.generate_node_id(schema_type, pik)
 
+    async def upsert_findings_batch(self, session_id: str, findings: List[BaseFinding]) -> List[str]:
+        """Atomically upsert a batch of findings in a single SQLite transaction."""
+        if not findings:
+            return []
+
+        node_ids: List[str] = []
         async with self._get_conn() as db:
-            # 1. Log the event
-            await db.execute(
-                """INSERT INTO event_log (session_id, schema_type, finding_json, human_readable, action_payload, result_payload)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (session_id, finding.schema_type, finding.model_dump_json(), f"Discovered {finding.schema_type}", "{}", "{}")
-            )
+            for finding in findings:
+                node_id = self._generate_node_id(finding.schema_type, finding.pik)
+                node_ids.append(node_id)
 
-            # 2. Upsert the node
-            cursor = await db.execute(
-                "SELECT data_json FROM nodes WHERE session_id = ? AND id = ?",
-                (session_id, node_id)
-            )
-            row = await cursor.fetchone()
-
-            if row:
-                existing_data = json.loads(row[0])
-                existing_data.update(finding.data)
+                # 1. Log the event
                 await db.execute(
-                    "UPDATE nodes SET data_json = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND id = ?",
-                    (json.dumps(existing_data), finding.status, session_id, node_id)
-                )
-            else:
-                await db.execute(
-                    "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status) VALUES (?, ?, ?, ?, ?, ?)",
-                    (session_id, node_id, finding.schema_type, json.dumps(finding.pik), json.dumps(finding.data), finding.status)
+                    """INSERT INTO event_log (session_id, schema_type, finding_json, human_readable, action_payload, result_payload)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (session_id, finding.schema_type, finding.model_dump_json(), f"Discovered {finding.schema_type}", "{}", "{}")
                 )
 
-            # 3. Handle Parent Relation (Auto-wiring)
-            if finding.parent:
-                p = finding.parent
-                parent_id = self._generate_node_id(p.target_type, p.target_pik)
-                await db.execute(
-                    "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
-                    (session_id, parent_id, p.target_type, json.dumps(p.target_pik), "{}")
+                # 2. Upsert the node
+                cursor = await db.execute(
+                    "SELECT data_json FROM nodes WHERE session_id = ? AND id = ?",
+                    (session_id, node_id)
                 )
-                await db.execute(
-                    "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
-                    (session_id, parent_id, node_id, p.via)
-                )
+                row = await cursor.fetchone()
 
-            # 4. Handle Associations
-            for assoc in finding.associations:
-                assoc_id = self._generate_node_id(assoc.target_type, assoc.target_pik)
-                await db.execute(
-                    "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
-                    (session_id, assoc_id, assoc.target_type, json.dumps(assoc.target_pik), "{}")
-                )
-                await db.execute(
-                    "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
-                    (session_id, node_id, assoc_id, assoc.via)
-                )
+                if row:
+                    existing_data = json.loads(row[0])
+                    existing_data.update(finding.data)
+                    await db.execute(
+                        "UPDATE nodes SET data_json = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND id = ?",
+                        (json.dumps(existing_data), finding.status, session_id, node_id)
+                    )
+                else:
+                    await db.execute(
+                        "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status) VALUES (?, ?, ?, ?, ?, ?)",
+                        (session_id, node_id, finding.schema_type, json.dumps(finding.pik), json.dumps(finding.data), finding.status)
+                    )
+
+                # 3. Handle Parent Relation (Auto-wiring)
+                if finding.parent:
+                    p = finding.parent
+                    parent_id = self._generate_node_id(p.target_type, p.target_pik)
+                    await db.execute(
+                        "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
+                        (session_id, parent_id, p.target_type, json.dumps(p.target_pik), "{}")
+                    )
+                    await db.execute(
+                        "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
+                        (session_id, parent_id, node_id, p.via)
+                    )
+
+                # 4. Handle Associations
+                for assoc in finding.associations:
+                    assoc_id = self._generate_node_id(assoc.target_type, assoc.target_pik)
+                    await db.execute(
+                        "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
+                        (session_id, assoc_id, assoc.target_type, json.dumps(assoc.target_pik), "{}")
+                    )
+                    await db.execute(
+                        "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
+                        (session_id, node_id, assoc_id, assoc.via)
+                    )
 
             await db.commit()
 
         # Trigger reactive callbacks
-        for cb in self._on_upsert_callbacks:
-            try:
-                await cb(session_id, finding)
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).error(f"Error in reactive callback {cb.__name__}: {e}")
+        import logging
+        for finding in findings:
+            for cb in self._on_upsert_callbacks:
+                try:
+                    await cb(session_id, finding)
+                except Exception as e:
+                    logging.getLogger(__name__).error(f"Error in reactive callback {getattr(cb, '__name__', 'callback')}: {e}")
 
-        return node_id
+        return node_ids
+
+    async def upsert_finding(self, session_id: str, finding: BaseFinding) -> str:
+        """Upsert a single finding (delegates to upsert_findings_batch)."""
+        node_ids = await self.upsert_findings_batch(session_id, [finding])
+        return node_ids[0] if node_ids else ""
 
     async def query(self, schema_type: str, session_id: Optional[str] = None) -> List[Dict]:
         """Fetch all nodes of a specific schema type."""
@@ -498,12 +530,39 @@ class GraphStore:
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-    async def get_stats(self, session_id: Optional[str] = None) -> Dict[str, int]:
+    async def update_node_data(self, session_id: str, node_id: str, updates: Dict[str, Any]) -> None:
+        """Update fields inside a node's data_json (such as custom alias, name, or notes)."""
+        async with self._get_conn() as db:
+            cursor = await db.execute(
+                "SELECT data_json FROM nodes WHERE session_id = ? AND id = ?",
+                (session_id, node_id)
+            )
+            row = await cursor.fetchone()
+            if not row:
+                return
+            current_data = json.loads(row[0] or "{}")
+            current_data.update(updates)
+            await db.execute(
+                "UPDATE nodes SET data_json = ? WHERE session_id = ? AND id = ?",
+                (json.dumps(current_data), session_id, node_id)
+            )
+            await db.commit()
+
+    async def get_stats(self, session_id: Optional[str] = None, workspace_id: Optional[str] = None) -> Dict[str, int]:
         async with self._get_conn() as db:
             if session_id:
                 cursor = await db.execute(
                     "SELECT schema_type, COUNT(*) FROM nodes WHERE session_id = ? GROUP BY schema_type",
                     (session_id,)
+                )
+            elif workspace_id:
+                cursor = await db.execute(
+                    """SELECT n.schema_type, COUNT(*)
+                       FROM nodes n
+                       JOIN sessions s ON n.session_id = s.id
+                       WHERE s.workspace_id = ?
+                       GROUP BY n.schema_type""",
+                    (workspace_id,)
                 )
             else:
                 cursor = await db.execute("SELECT schema_type, COUNT(*) FROM nodes GROUP BY schema_type")

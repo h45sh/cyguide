@@ -1,10 +1,12 @@
+"""Unit tests verifying tool execution pipeline behavior for guided Learning Mode."""
+
 import pytest
+
 
 from cyguide.engine.executor import Executor
 from cyguide.engine.manifest import Manifest
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
-from cyguide.modes.learning import LearningModeEngine
 from cyguide.schemas.network import NetworkHost
 from tests.fixtures.mock_tools import MockSimpleAdapter
 
@@ -41,16 +43,13 @@ async def test_learning_mode_execution(mock_registry):
     await store.initialize()
     ws_id, session_id = await store.get_or_create_learning_sandbox()
     executor = Executor(store)
-    # Mocking LearningExplainer
-    from cyguide.engine.explainer import LearningExplainer
-    explainer = LearningExplainer(None) # None api_key
     
-    engine = LearningModeEngine(mock_registry, executor, explainer)
-    
+    tool_data = mock_registry.get_tool("mock_tool")
+    adapter = tool_data["adapter"]
     target = NetworkHost.create(ip="2.2.2.2")
     
     findings = []
-    async for f in engine.execute("mock_tool", target, {}, session_id=session_id):
+    async for f in executor.run_tool(adapter, target, {}, session_id=session_id):
         findings.append(f)
         
     assert len(findings) == 1

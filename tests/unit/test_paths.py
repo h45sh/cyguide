@@ -4,9 +4,11 @@ import os
 
 from cyguide.app import CyGuideApp
 from cyguide.paths import (
+    get_action_log_path,
     get_default_data_dir,
     get_default_db_path,
     get_default_exports_dir,
+    get_default_logs_dir,
     get_default_reports_dir,
     get_default_scratchpad_path,
     get_default_settings_path,
@@ -51,6 +53,14 @@ def test_subpaths_resolution(tmp_path):
     reports_dir = get_default_reports_dir(data_dir)
     assert reports_dir == os.path.join(data_dir, "reports")
     assert os.path.isdir(reports_dir)
+
+    logs_dir = get_default_logs_dir(data_dir)
+    assert logs_dir == os.path.join(data_dir, "logs")
+    assert os.path.isdir(logs_dir)
+
+    log_path = get_action_log_path("act-1234", data_dir)
+    assert log_path == os.path.join(logs_dir, "act-1234.log")
+
 
 
 def test_app_uses_uniform_paths(tmp_path):

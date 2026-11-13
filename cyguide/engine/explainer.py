@@ -11,11 +11,45 @@ class ExplainerBackend(abc.ABC):
     """Abstract base class for explanation engines (Template, Ollama, etc)."""
 
     @abc.abstractmethod
-    async def explain(self, prompt: str) -> AsyncIterator[str]:
+    async def explain(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
         """Generate a streamed explanation for a given prompt."""
         pass
 
+    async def ask(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
+        """Stream explanation from the backend (backward-compatible alias)."""
+        import inspect
+        sig = inspect.signature(self.explain)
+        if "system" in sig.parameters:
+            async for chunk in self.explain(prompt, system=system):
+                yield chunk
+        else:
+            async for chunk in self.explain(prompt):
+                yield chunk
 
+
+
+
+
+def format_dual_ai_error(cloud_err: str, ollama_err: str) -> str:
+    """Format a clear diagnostic block when both Cloud AI and Local Ollama fail."""
+    c_clean = str(cloud_err or "").strip().strip("[]").removeprefix("Error: ").strip()
+    o_clean = str(ollama_err or "").strip().strip("[]").removeprefix("Error: ").strip()
+    if not c_clean:
+        c_clean = "No cloud API keys are configured or enabled. Configure an API key in Settings (Ctrl+P -> Cloud API) or export CYGUIDE_API_KEY."
+    if not o_clean:
+        o_clean = "Ollama connection failed. Please ensure Ollama is running (`ollama serve`)."
+
+    return (
+        f"\n> [!] **AI Tutor Unavailable**\n"
+        f">\n"
+        f"> **Cloud AI Error:**\n"
+        f"> • {c_clean}\n"
+        f">\n"
+        f"> **Local Ollama Error:**\n"
+        f"> • {o_clean}\n"
+        f">\n"
+        f"> *To enable AI tutoring, either run `ollama serve` locally or configure a Cloud API key in Settings (Ctrl+P -> Cloud API).*\n"
+    )
 
 
 class OllamaBackend(ExplainerBackend):
@@ -24,23 +58,30 @@ class OllamaBackend(ExplainerBackend):
     def __init__(self, model: str = "gemma", base_url: str = "http://localhost:11434"):
         self.model = (model or "gemma").strip()
         self.base_url = (base_url or "http://localhost:11434").rstrip("/")
+        self.last_error: Optional[str] = None
 
-    async def explain(self, prompt: str) -> AsyncIterator[str]:
+    async def explain(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
         """Stream from local Ollama API."""
+        self.last_error = None
         url = f"{self.base_url}/api/generate"
         payload = {
             "model": self.model,
             "prompt": prompt,
             "stream": True
         }
+        if system:
+            payload["system"] = system
+
 
         try:
             timeout_config = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
             async with httpx.AsyncClient(timeout=timeout_config) as client:
                 async with client.stream("POST", url, json=payload) as response:
                     if response.status_code != 200:
-                        err_body = await response.aread()
-                        yield f"Error: Ollama returned status {response.status_code}: {err_body.decode('utf-8', errors='replace')}"
+                        err_body = (await response.aread()).decode('utf-8', errors='replace')
+                        err_msg = f"Ollama returned status {response.status_code}: {err_body} (Ensure model '{self.model}' is installed via `ollama pull {self.model}`)"
+                        self.last_error = err_msg
+                        yield f"Error: Ollama returned status {response.status_code}: {err_body}"
                         return
 
                     async for line in response.aiter_lines():
@@ -56,6 +97,7 @@ class OllamaBackend(ExplainerBackend):
                         except json.JSONDecodeError:
                             continue
         except Exception as e:
+            self.last_error = f"Ollama connection failed ({e}). Please ensure Ollama is running (`ollama serve`) at {self.base_url}."
             yield f"[Error: Ollama connection failed ({e}). Please ensure Ollama is running (`ollama serve`).]\n"
 
 
@@ -146,7 +188,7 @@ class CloudAPIBackend(ExplainerBackend):
         self.api_key = (api_key or "").strip().strip('"\'')
         self.model = (model or "gpt-4o").strip().strip('"\'')
 
-    async def explain(self, prompt: str) -> AsyncIterator[str]:
+    async def explain(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
         """Stream from Cloud API."""
         headers = {}
         payload = {
@@ -159,7 +201,9 @@ class CloudAPIBackend(ExplainerBackend):
             headers["x-api-key"] = self.api_key
             headers["anthropic-version"] = "2023-06-01"
             headers["content-type"] = "application/json"
-            payload["max_tokens"] = 1024
+            payload["max_tokens"] = 2048
+            if system:
+                payload["system"] = system
             payload["messages"] = [{"role": "user", "content": prompt}]
         else:
             # Default to openai format (used by OpenAI, Groq, OpenRouter, Grok, etc)
@@ -169,7 +213,12 @@ class CloudAPIBackend(ExplainerBackend):
             # Support openrouter specific headers optionally
             headers["HTTP-Referer"] = "https://github.com/h45sh/cyguide"
             headers["X-Title"] = "CyGuide"
-            payload["messages"] = [{"role": "user", "content": prompt}]
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+            payload["messages"] = messages
+
 
         try:
             timeout_config = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
@@ -217,11 +266,15 @@ class MultiKeyCloudBackend(CloudAPIBackend):
         active_key_id: Optional[str] = None,
         fallback_to_ollama: bool = False,
         ollama_backend: Optional[OllamaBackend] = None,
+        prefer_ollama: bool = False,
+        cloud_enabled: bool = True,
     ):
         self.profiles: List[CloudKeyProfile] = list(profiles or [])
         self.active_key_id: Optional[str] = active_key_id or (self.profiles[0].id if self.profiles else None)
         self.fallback_to_ollama: bool = fallback_to_ollama
         self.ollama_backend: Optional[OllamaBackend] = ollama_backend
+        self.prefer_ollama: bool = prefer_ollama
+        self.cloud_enabled: bool = cloud_enabled
 
         # Initialize base CloudAPIBackend properties from active profile
         active = self.get_active_profile()
@@ -255,6 +308,8 @@ class MultiKeyCloudBackend(CloudAPIBackend):
 
     def get_priority_chain(self) -> List[CloudKeyProfile]:
         """Return ordered list of enabled profiles to attempt: active key first, then secondary keys."""
+        if not self.cloud_enabled:
+            return []
         enabled = [p for p in self.profiles if p.enabled and p.api_key and not is_placeholder_key(p.api_key)]
         if not enabled:
             return []
@@ -267,15 +322,88 @@ class MultiKeyCloudBackend(CloudAPIBackend):
                 chain.append(p)
         return chain
 
-    async def explain(self, prompt: str) -> AsyncIterator[str]:
+    def _call_ollama_explain(self, prompt: str, system: Optional[str] = None):
+        """Invoke OllamaBackend with inspection of supported arguments."""
+        if not self.ollama_backend:
+            async def _empty():
+                if False:
+                    yield ""
+            return _empty()
+        import inspect
+        sig = inspect.signature(self.ollama_backend.explain)
+        if "system" in sig.parameters:
+            return self.ollama_backend.explain(prompt, system=system)
+        return self.ollama_backend.explain(prompt)
+
+    async def explain(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
         """Stream from cloud API with automatic fallback across configured keys and optional Ollama fallback."""
-        chain = self.get_priority_chain()
-        if not chain:
-            if self.fallback_to_ollama and self.ollama_backend:
-                async for chunk in self.ollama_backend.explain(prompt):
-                    yield chunk
+        ollama_pre_err: Optional[str] = None
+        if self.prefer_ollama:
+            first = True
+            ollama_failed = False
+            if self.ollama_backend:
+                try:
+                    async for chunk in self._call_ollama_explain(prompt, system=system):
+                        if first:
+                            if chunk.startswith("[Error: Ollama connection failed") or chunk.startswith("Error: Ollama returned status"):
+                                ollama_failed = True
+                                ollama_pre_err = getattr(self.ollama_backend, "last_error", None) or chunk.strip()
+                                break
+                            first = False
+                        yield chunk
+                except Exception as e:
+                    ollama_failed = True
+                    ollama_pre_err = f"Ollama connection failed ({e}). Ensure Ollama is running (`ollama serve`)."
+            else:
+                ollama_failed = True
+                ollama_pre_err = "Local Ollama is not configured."
+
+            if not ollama_failed:
                 return
-            yield "[Error: No cloud API keys are configured or enabled. Please add an API key in Config.]\n"
+
+            # Ollama failed, check cloud
+            if not self.cloud_enabled:
+                yield format_dual_ai_error("Cloud AI access is disabled in settings.", ollama_pre_err or "Ollama connection failed.")
+                return
+
+            chain = self.get_priority_chain()
+            if not chain:
+                yield format_dual_ai_error(
+                    "No cloud API keys are configured or enabled. Please add an API key in Settings (Ctrl+P) or export CYGUIDE_API_KEY.",
+                    ollama_pre_err or "Ollama connection failed.",
+                )
+                return
+        else:
+            chain = self.get_priority_chain()
+
+        if not chain:
+            cloud_err = (
+                "No cloud API keys are configured or enabled. Please add an API key in Settings (Ctrl+P) or export CYGUIDE_API_KEY."
+                if self.cloud_enabled
+                else "Cloud AI access is disabled in settings."
+            )
+            if self.fallback_to_ollama and self.ollama_backend:
+                first = True
+                ollama_failed = False
+                ollama_err = ""
+                try:
+                    async for chunk in self._call_ollama_explain(prompt, system=system):
+                        if first:
+                            if chunk.startswith("[Error: Ollama connection failed") or chunk.startswith("Error: Ollama returned status"):
+                                ollama_failed = True
+                                ollama_err = getattr(self.ollama_backend, "last_error", None) or chunk.strip()
+                                break
+                            first = False
+                            yield f"[Notice: Cloud AI key not configured. Falling back to Local Ollama ({self.ollama_backend.model})...]\n\n"
+                        yield chunk
+                except Exception as e:
+                    ollama_failed = True
+                    ollama_err = f"Ollama connection failed ({e}). Ensure Ollama is running (`ollama serve`)."
+
+                if ollama_failed:
+                    yield format_dual_ai_error(cloud_err, ollama_err)
+                return
+            yield f"[Error: {cloud_err}]\n"
             return
 
         last_errors = []
@@ -324,7 +452,9 @@ class MultiKeyCloudBackend(CloudAPIBackend):
                 headers["x-api-key"] = api_key
                 headers["anthropic-version"] = "2023-06-01"
                 headers["content-type"] = "application/json"
-                payload["max_tokens"] = 1024
+                payload["max_tokens"] = 2048
+                if system:
+                    payload["system"] = system
                 payload["messages"] = [{"role": "user", "content": prompt}]
             else:
                 req_url = f"{base_url}/chat/completions"
@@ -332,7 +462,12 @@ class MultiKeyCloudBackend(CloudAPIBackend):
                 headers["content-type"] = "application/json"
                 headers["HTTP-Referer"] = "https://github.com/h45sh/cyguide"
                 headers["X-Title"] = "CyGuide"
-                payload["messages"] = [{"role": "user", "content": prompt}]
+                messages = []
+                if system:
+                    messages.append({"role": "system", "content": system})
+                messages.append({"role": "user", "content": prompt})
+                payload["messages"] = messages
+
 
             has_yielded = False
             try:
@@ -418,23 +553,32 @@ class MultiKeyCloudBackend(CloudAPIBackend):
                     continue
 
         # If all cloud keys failed
-        if self.fallback_to_ollama and self.ollama_backend:
-            yield f"[Notice: All cloud keys failed. Falling back to Local Ollama ({self.ollama_backend.model})...]\n\n"
-            async for chunk in self.ollama_backend.explain(prompt):
-                yield chunk
+        summary = " | ".join(last_errors) if last_errors else "All cloud API keys failed"
+        if ollama_pre_err:
+            # We already attempted Ollama first and it failed, and now Cloud keys also failed
+            yield format_dual_ai_error(summary, ollama_pre_err)
             return
 
-        summary = " | ".join(last_errors) if last_errors else "All cloud API keys failed"
+        if self.fallback_to_ollama and self.ollama_backend:
+            first = True
+            ollama_failed = False
+            ollama_err = ""
+            try:
+                async for chunk in self._call_ollama_explain(prompt, system=system):
+                    if first:
+                        if chunk.startswith("[Error: Ollama connection failed") or chunk.startswith("Error: Ollama returned status"):
+                            ollama_failed = True
+                            ollama_err = getattr(self.ollama_backend, "last_error", None) or chunk.strip()
+                            break
+                        first = False
+                        yield f"[Notice: All cloud keys failed. Falling back to Local Ollama ({self.ollama_backend.model})...]\n\n"
+                    yield chunk
+            except Exception as e:
+                ollama_failed = True
+                ollama_err = f"Ollama connection failed ({e}). Ensure Ollama is running (`ollama serve`)."
+
+            if ollama_failed:
+                yield format_dual_ai_error(summary, ollama_err)
+            return
+
         yield f"[Error: Cloud API request failed ({summary}). No explanation backend is available.]\n"
-
-
-class LearningExplainer:
-    """Orchestrates explanations via the configured backend."""
-
-    def __init__(self, backend: ExplainerBackend):
-        self.backend = backend
-
-    async def ask(self, prompt: str) -> AsyncIterator[str]:
-        """Stream explanation from the backend."""
-        async for chunk in self.backend.explain(prompt):
-            yield chunk

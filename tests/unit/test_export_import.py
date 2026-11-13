@@ -4,10 +4,11 @@ from uuid import uuid4
 
 import pytest
 
-from cyguide.engine.reporter import generate_markdown_report
+from cyguide.engine.reporter import fetch_report_data, generate_markdown_report, render_markdown_report
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.power import ActionRequest, ActionSource
+
 
 
 @pytest.mark.asyncio
@@ -49,6 +50,31 @@ async def test_report_generation(tmp_path):
     assert "Nmap scan completed successfully." in report
     
     await store.close()
+
+
+def test_pure_render_markdown_report():
+    data = {
+        "session": {"name": "Pure Session", "status": "active", "created_at": "2026-11-13 00:00:00"},
+        "workspace_name": "In-Memory Lab",
+        "stats": {"total": 1, "network.host": 1},
+        "nodes": [
+            {
+                "id": "node-12345678",
+                "schema_type": "network.host",
+                "status": "confirmed",
+                "pik_json": '{"ip": "10.0.0.5"}',
+                "data_json": '{"hostname": "target.local"}',
+            }
+        ],
+        "edges": [],
+        "events": [],
+    }
+    report = render_markdown_report(data)
+    assert "CyGuide Investigation Report: Pure Session" in report
+    assert "In-Memory Lab" in report
+    assert "10.0.0.5" in report
+    assert "target.local" in report
+
 
 @pytest.mark.asyncio
 async def test_export_import_session(tmp_path):

@@ -1,8 +1,9 @@
 import html
 import json
+import os
 import re
 from datetime import UTC, datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from cyguide.engine.store import GraphStore
 
@@ -77,30 +78,38 @@ def build_markdown_table_for_type(schema_type: str, nodes: List[Dict[str, Any]])
 
     return lines
 
-async def generate_markdown_report(store: GraphStore, session_id: str) -> str:
-    """Generate a structured Markdown report summarizing findings and logs for a session."""
-    session = await store.get_session(session_id)
-    if not session:
-        return "# Session Not Found\n"
+def render_markdown_report(data: Dict[str, Any]) -> str:
+    """Pure in-memory Markdown report generator from a structured session data bundle.
 
-    workspace = await store.get_workspace(session["workspace_id"])
-    workspace_name = workspace["name"] if workspace else "Unknown Workspace"
+    Expected keys in data:
+      - session: Dict[str, Any]
+      - workspace_name: str
+      - stats: Dict[str, Any]
+      - nodes: List[Dict[str, Any]]
+      - edges: List[Dict[str, Any]]
+      - events: List[Dict[str, Any]]
+    """
+    session = data.get("session") or {}
+    workspace_name = data.get("workspace_name") or "Unknown Workspace"
+    stats = data.get("stats") or {}
+    nodes = data.get("nodes") or []
+    edges = data.get("edges") or []
+    events = data.get("events") or []
 
-    stats = await store.get_stats(session_id)
-    nodes = await store.get_all_nodes(session_id)
-    edges = await store.get_all_edges(session_id)
-    events = await store.get_event_log(session_id)
+    session_name = session.get("name", "Unknown Session")
+    session_status = session.get("status", "unknown")
+    session_created = session.get("created_at", "unknown")
 
     report = []
 
     # 1. Title & Metadata
-    report.append(f"# CyGuide Investigation Report: {session['name']}")
+    report.append(f"# CyGuide Investigation Report: {session_name}")
     report.append("")
     report.append("## Session Overview")
-    report.append(f"- **Session Name**: {session['name']}")
+    report.append(f"- **Session Name**: {session_name}")
     report.append(f"- **Workspace**: {workspace_name}")
-    report.append(f"- **Status**: {session['status']}")
-    report.append(f"- **Created At**: {session['created_at']}")
+    report.append(f"- **Status**: {session_status}")
+    report.append(f"- **Created At**: {session_created}")
     report.append(f"- **Report Generated At**: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
     report.append("")
 
@@ -139,7 +148,10 @@ async def generate_markdown_report(store: GraphStore, session_id: str) -> str:
         id_labels = {}
         for n in nodes:
             st = n["schema_type"]
-            pik = json.loads(n["pik_json"])
+            try:
+                pik = json.loads(n.get("pik_json") or "{}")
+            except Exception:
+                pik = {}
             if st == "network.host":
                 lbl = pik.get("ip") or pik.get("host_ip") or n["id"][:8]
             elif st == "network.service":
@@ -218,3 +230,54 @@ async def generate_markdown_report(store: GraphStore, session_id: str) -> str:
             report.append("")
 
     return "\n".join(report)
+
+
+async def fetch_report_data(store: GraphStore, session_id: str) -> Optional[Dict[str, Any]]:
+    """Fetch structured session audit, graph, and entity metrics for reporting."""
+    session = await store.get_session(session_id)
+    if not session:
+        return None
+
+    workspace = await store.get_workspace(session["workspace_id"])
+    workspace_name = workspace["name"] if workspace else "Unknown Workspace"
+
+    stats = await store.get_stats(session_id)
+    nodes = await store.get_all_nodes(session_id)
+    edges = await store.get_all_edges(session_id)
+    events = await store.get_event_log(session_id)
+
+    return {
+        "session": session,
+        "workspace_name": workspace_name,
+        "stats": stats,
+        "nodes": nodes,
+        "edges": edges,
+        "events": events,
+    }
+
+
+async def generate_markdown_report(store: GraphStore, session_id: str) -> str:
+    """Generate a structured Markdown report summarizing findings and logs for a session."""
+    data = await fetch_report_data(store, session_id)
+    if not data:
+        return "# Session Not Found\n"
+    return render_markdown_report(data)
+
+
+
+async def export_markdown_report(store: GraphStore, session_id: str, output_path: str) -> None:
+    """Generate and write a structured Markdown report to a destination file with atomic 0o600 permissions."""
+    content = await generate_markdown_report(store, session_id)
+    out_dir = os.path.dirname(os.path.abspath(output_path))
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    fd = os.open(output_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with open(fd, "w", encoding="utf-8", closefd=False) as f:
+            f.write(content)
+    finally:
+        os.close(fd)
+    try:
+        os.chmod(output_path, 0o600)
+    except OSError:
+        pass

@@ -1,3 +1,4 @@
+# codeguard: ignore-file[DEBUG_PYTHON_PRINT, TEST_FLAKY_SLEEP]
 import asyncio
 import os
 import stat
@@ -75,6 +76,7 @@ async def test_full_executor_nmap_flow(tmp_path):
             on_output=on_output
         ):
             findings.append(finding)
+            await store.upsert_finding(session_id, finding)
 
     assert len(findings) == 2
     assert findings[0].schema_type == "network.service"

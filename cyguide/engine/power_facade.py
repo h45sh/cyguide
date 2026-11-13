@@ -13,6 +13,7 @@ from cyguide.engine.gateway import ActionGateway
 from cyguide.engine.network import get_lhost_info
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
+from cyguide.paths import get_action_log_path
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.power import ActionRequest, JobStatus, JobStatusEnum, WorkspaceContext
 
@@ -72,6 +73,10 @@ class PowerWorkspaceFacade:
     def _get_cwd(self, session_id: str) -> str:
         return self._session_cwd.get(session_id, os.getcwd())
 
+    def get_running_task(self, job_id: UUID) -> Optional[asyncio.Task]:
+        """Retrieve background execution task for a job by UUID."""
+        return self._running_tasks.get(job_id)
+
     async def create_workspace(self, name: str) -> str:
         """Create a new workspace, ensuring its name is unique (case-insensitive)."""
         existing = await self.store.list_workspaces()
@@ -104,6 +109,10 @@ class PowerWorkspaceFacade:
         if any(s["name"].strip().lower() == new_name.strip().lower() and s["id"] != session_id for s in existing):
             raise ValueError("Session with this name already exists in this workspace.")
         await self.store.rename_session(session_id, new_name)
+
+    async def set_entity_alias(self, session_id: str, node_id: str, alias: str) -> None:
+        """Set a user-defined friendly name or alias for an entity node."""
+        await self.store.update_node_data(session_id, node_id, {"alias": alias.strip()})
 
     async def move_session(self, session_id: str, target_workspace_id: str) -> None:
         """Move a session to another workspace, ensuring no name collision."""
@@ -181,6 +190,65 @@ class PowerWorkspaceFacade:
         """Reopen a closed workspace."""
         await self.store.reopen_workspace(workspace_id)
 
+    async def list_workspaces(self, status_filter: Optional[str] = None) -> List[Dict]:
+        """List all workspaces, optionally filtered by status ('ACTIVE' or 'CLOSED')."""
+        return await self.store.list_workspaces(status_filter=status_filter)
+
+    async def get_workspace(self, workspace_id: str) -> Optional[Dict]:
+        """Fetch workspace metadata by ID."""
+        return await self.store.get_workspace(workspace_id)
+
+    async def list_sessions(self, workspace_id: str, status_filter: Optional[str] = None) -> List[Dict]:
+        """List sessions within a workspace, optionally filtered by status."""
+        return await self.store.list_sessions(workspace_id, status_filter=status_filter)
+
+    async def get_session(self, session_id: str) -> Optional[Dict]:
+        """Fetch session metadata by ID."""
+        return await self.store.get_session(session_id)
+
+    async def get_node(self, session_id: str, node_id: str) -> Optional[Dict]:
+        """Fetch a specific node by ID."""
+        return await self.store.get_node(session_id, node_id)
+
+    async def get_all_nodes(self, session_id: str) -> List[Dict]:
+        """Fetch all nodes for a session."""
+        return await self.store.get_all_nodes(session_id)
+
+    async def get_all_edges(self, session_id: str) -> List[Dict]:
+        """Fetch all edges for a session."""
+        return await self.store.get_all_edges(session_id)
+
+    async def get_stats(self, session_id: Optional[str] = None, workspace_id: Optional[str] = None) -> Dict[str, int]:
+        """Get aggregate node and vulnerability counts."""
+        return await self.store.get_stats(session_id=session_id, workspace_id=workspace_id)
+
+    async def get_recent_activity(self, workspace_id: str, limit: int = 5) -> List[Dict]:
+        """Get recent activity audit events for a workspace."""
+        return await self.store.get_recent_activity(workspace_id, limit=limit)
+
+    async def get_closed_events_count(self, session_id: str) -> int:
+        """Count closed tool execution events for a session."""
+        return await self.store.get_closed_events_count(session_id)
+
+    def on_finding_upsert(self, callback: Any) -> None:
+        """Register a callback for finding upserts."""
+        self.store.on_upsert(callback)
+
+    def on_upsert(self, callback: Any) -> None:
+        """Alias for on_finding_upsert."""
+        self.store.on_upsert(callback)
+
+    async def get_report_data(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch structured session audit and findings data bundle for reporting."""
+        from cyguide.engine.reporter import fetch_report_data
+        return await fetch_report_data(self.store, session_id)
+
+    async def generate_markdown_report(self, session_id: str) -> str:
+        """Generate markdown report string for a session."""
+        from cyguide.engine.reporter import generate_markdown_report
+        return await generate_markdown_report(self.store, session_id)
+
+
     async def submit_action(
         self,
         action: ActionRequest,
@@ -243,11 +311,17 @@ class PowerWorkspaceFacade:
         await self.gateway.validate_action(action)
 
         # 5. Setup job tracking
+        log_file_path = get_action_log_path(str(action.action_id))
+        cmd_raw = action.params.get("raw_flags", "") if action.params else ""
+        cmd_snippet = f"{action.tool_name} {cmd_raw}".strip() if cmd_raw else action.tool_name
+
         job = JobStatus(
             job_id=action.action_id,
             session_id=action.session_id,
             tool_name=action.tool_name,
-            status=JobStatusEnum.RUNNING
+            status=JobStatusEnum.RUNNING,
+            log_file=log_file_path,
+            command_snippet=cmd_snippet
         )
         self._active_jobs[job.job_id] = job
         self._job_actions[job.job_id] = action
@@ -324,12 +398,37 @@ class PowerWorkspaceFacade:
     ):
         job = self._active_jobs[action.action_id]
         cwd = self._get_cwd(str(action.session_id))
+        log_file_path = job.log_file or get_action_log_path(str(action.action_id))
 
         if action.action_id not in self._job_buffers:
             self._job_buffers[action.action_id] = []
 
+        # Initialize disk log file with execution header
+        try:
+            log_dir = os.path.dirname(log_file_path)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+            with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
+                f.write(f"=== Execution Start: {datetime.now(UTC).isoformat()} ===\n")
+                f.write(f"Tool: {action.tool_name}\n")
+                f.write(f"Session: {action.session_id}\n")
+                f.write(f"Action ID: {action.action_id}\n")
+                f.write("=" * 50 + "\n\n")
+        except Exception:
+            pass
+
         async def intercept_output(text: str):
-            self._job_buffers[action.action_id].append(text)
+            buf = self._job_buffers[action.action_id]
+            buf.append(text)
+            if len(buf) > 5000:
+                self._job_buffers[action.action_id] = buf[-2500:]
+
+            try:
+                with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
+                    f.write(text)
+            except Exception:
+                pass
+
             subs = list(self._job_subscribers.get(action.action_id, set()))
             for sub in subs:
                 try:
@@ -338,7 +437,17 @@ class PowerWorkspaceFacade:
                     pass
 
         async def intercept_error(text: str):
-            self._job_buffers[action.action_id].append(text)
+            buf = self._job_buffers[action.action_id]
+            buf.append(text)
+            if len(buf) > 5000:
+                self._job_buffers[action.action_id] = buf[-2500:]
+
+            try:
+                with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
+                    f.write(text)
+            except Exception:
+                pass
+
             subs = list(self._job_subscribers.get(action.action_id, set()))
             for sub in subs:
                 try:
@@ -349,11 +458,27 @@ class PowerWorkspaceFacade:
         err_msg = None
         try:
             findings_count = 0
-            async for _finding in self.executor.run_tool(
+            finding_buffer: List[BaseFinding] = []
+            last_flush = asyncio.get_event_loop().time()
+
+            async def flush_findings():
+                nonlocal last_flush
+                if not finding_buffer:
+                    return
+                to_flush = list(finding_buffer)
+                finding_buffer.clear()
+                last_flush = asyncio.get_event_loop().time()
+                if not getattr(self.store, "_closed", False):
+                    try:
+                        await self.store.upsert_findings_batch(str(action.session_id), to_flush)
+                    except Exception:
+                        pass
+
+            async for finding in self.executor.run_tool(
                 adapter=adapter,
                 target=target,
                 params=action.params,
-                session_id=str(action.session_id),
+                session_id=None,
                 task_id=str(action.action_id),
                 cwd=cwd,
                 env=env,
@@ -364,6 +489,12 @@ class PowerWorkspaceFacade:
                 timeout_seconds=getattr(action, "timeout_seconds", None)
             ):
                 findings_count += 1
+                finding_buffer.append(finding)
+                now = asyncio.get_event_loop().time()
+                if len(finding_buffer) >= 50 or (now - last_flush) >= 0.25:
+                    await flush_findings()
+
+            await flush_findings()
 
             # Only set to DONE if it hasn't been set to FAILED (e.g., by manual termination)
             if job.status == JobStatusEnum.RUNNING:
@@ -377,14 +508,31 @@ class PowerWorkspaceFacade:
         finally:
             job.completed_at = datetime.now(UTC)
 
+            # Record final status in disk log
+            try:
+                with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
+                    status_str = "SUCCESS" if job.status == JobStatusEnum.DONE else f"FAILED ({err_msg})"
+                    f.write(f"\n\n=== Execution End: {datetime.now(UTC).isoformat()} [{status_str}] ===\n")
+            except Exception:
+                pass
+
             # Persist output to event log so tabs can be restored across sessions (guard against closed store)
             if not getattr(self.store, "_closed", False):
                 try:
                     buf_output = "".join(self._job_buffers.get(action.action_id, []))
+                    if len(buf_output) > 200_000:
+                        db_output = (
+                            buf_output[:100_000]
+                            + f"\n\n... [Log truncated for database storage. Full log at {log_file_path}] ...\n\n"
+                            + buf_output[-100_000:]
+                        )
+                    else:
+                        db_output = buf_output
+
                     await self.store.append_event(
                         str(action.session_id),
                         action,
-                        {"output": buf_output, "error": err_msg},
+                        {"output": db_output, "log_file": log_file_path, "error": err_msg},
                         f"Ran {action.tool_name}" + (f" (failed: {err_msg})" if err_msg else "")
                     )
                     if str(action.action_id) in self.closed_job_ids:
@@ -513,8 +661,18 @@ class PowerWorkspaceFacade:
 
     def get_job_buffer(self, job_id: UUID) -> str:
         """Get accumulated stdout/stderr output for an active/running job."""
-        chunks = self._job_buffers.get(job_id, [])
-        return "".join(chunks)
+        chunks = self._job_buffers.get(job_id)
+        if chunks:
+            return "".join(chunks)
+        # Fallback to reading disk log if in-memory buffer was cleared or closed
+        log_path = get_action_log_path(str(job_id))
+        if os.path.exists(log_path):
+            try:
+                with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+                    return f.read()
+            except Exception:
+                pass
+        return ""
 
     def on_job_status_change(self, callback: Callable[[JobStatus], Any]) -> None:
         """Register a callback for job state changes (started, running, completed, killed)."""
@@ -558,6 +716,27 @@ class PowerWorkspaceFacade:
         """Get all active/tracked jobs for a session (running, queued, or recently completed)."""
         return [j for j in self._active_jobs.values() if str(j.session_id) == str(session_id)]
 
+    def get_job(self, job_id: UUID) -> Optional[JobStatus]:
+        """Fetch JobStatus by UUID from active job registry."""
+        return self._active_jobs.get(job_id)
+
+    def register_job(self, job: JobStatus) -> None:
+        """Register or update a JobStatus in the active job registry."""
+        self._active_jobs[job.job_id] = job
+        self._notify_job_change(job)
+
+    def is_job_closed(self, job_id: str) -> bool:
+        """Check if a job has been marked closed by the operator."""
+        return str(job_id) in self.closed_job_ids
+
+    async def validate_action(self, action: ActionRequest) -> bool:
+        """Validate an action request against registry and store policies."""
+        return await self.gateway.validate_action(action)
+
+    async def stop_job(self, job_id: str) -> None:
+        """Terminate a running job task via executor."""
+        await self.executor.stop_task(str(job_id))
+
     def get_job_action(self, job_id: UUID) -> Optional[ActionRequest]:
         """Get the original ActionRequest for a job."""
         return self._job_actions.get(job_id)
@@ -565,6 +744,11 @@ class PowerWorkspaceFacade:
     async def export_session(self, session_id: str, dest_db_path: str) -> None:
         """Export a session's database rows to a portable database."""
         await self.store.export_session(session_id, dest_db_path)
+
+    async def export_markdown_report(self, session_id: str, dest_path: str) -> None:
+        """Export a session's finding summary and logs to a hardened Markdown report file."""
+        from cyguide.engine.reporter import export_markdown_report
+        await export_markdown_report(self.store, session_id, dest_path)
 
     async def import_session(self, src_db_path: str, target_workspace_id: Optional[str] = None) -> str:
         """Import a session from an exported database."""

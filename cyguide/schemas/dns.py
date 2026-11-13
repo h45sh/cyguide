@@ -2,7 +2,7 @@
 
 from typing import ClassVar, List, Optional
 
-from cyguide.engine.canonicalize import canonicalize_host
+from cyguide.schemas.canonicalize import canonicalize_host
 from cyguide.schemas.base import BaseFinding, Relation
 
 
