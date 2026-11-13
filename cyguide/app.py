@@ -579,6 +579,7 @@ class CyGuideApp(App):
         self.power_facade = PowerWorkspaceFacade(self.store, self.executor, self.registry)
         self.power_facade.user_env = self.user_env
         self.power_facade.user_shell = self.user_shell
+        self.workspace_repo = self.power_facade.workspaces
 
         # 2. Setup UI
         self.push_screen("dashboard")

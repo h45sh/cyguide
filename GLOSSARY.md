@@ -32,3 +32,7 @@ _Avoid_: Primary key, UUID, entity tag
 The AI guidance and educational analysis subsystem providing contextual learning, vulnerability explication, and remediation advice.
 _Avoid_: LLM client, AI assistant, chatbot, prompt runner
 
+**WorkspaceRepository**:
+The deep module managing persistent lifecycle operations, entity indexing, forensic archiving, and portability for Workspaces and Sessions.
+_Avoid_: Workspace manager, session service, database helper, CRUD layer
+
