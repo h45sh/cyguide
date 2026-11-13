@@ -68,7 +68,6 @@ SHORTCUTS_MD = """
 """
 
 
-
 class RenameDialog(ModalScreen[str]):
     """A modal dialog to rename a workspace, session, or entity."""
 

@@ -484,10 +484,10 @@ The Power Mode operator workbench is fully implemented as an advanced operator w
 
 ---
 
-## Historical Walkthrough References
+## Architectural & Specification References
 
-For detailed implementation narratives, architectural decisions, and testing histories of completed features:
-* **[Session Export & Markdown Reporting (Aug 2026)](history/walkthrough_export_reporting.md)**
-* **[AI Suggestions & Recommendation Engine (Aug 2026)](history/walkthrough_suggestions_recommendations.md)**
-* **[Codebase Refinement & Performance Optimization (Nov 2026)](#walkthrough.md)**
-* **[Comprehensive Security Audit & Defense Hardening (Nov 2026)](#security_audit.md)**
+For detailed architecture specifications, system contracts, and execution pipelines:
+* **[System Architecture Blueprint](ARCHITECTURE.md)**
+* **[Platform Specification & Dataflow Engine](V2_PLATFORM_SPECIFICATION.md)**
+* **[Database Architecture & Relational Contracts](DATABASE.md)**
+* **[Standard Schema Registry](SCHEMA_REGISTRY.md)**

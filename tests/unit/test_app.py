@@ -198,7 +198,7 @@ async def test_rename_dialog_keyboard_navigation():
     from textual.app import App
     from textual.widgets import Label
 
-    from cyguide.ui.screens.home import RenameDialog
+    from cyguide.ui.dialogs import RenameDialog
 
     class DummyApp(App):
         def compose(self):
@@ -614,7 +614,7 @@ async def test_new_workspace_session_rename_dialog():
     """Verify creating a new workspace or session triggers RenameDialog with current time as default name."""
     import re
 
-    from cyguide.ui.screens.home import RenameDialog
+    from cyguide.ui.dialogs import RenameDialog
 
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
@@ -972,7 +972,7 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
     from cyguide.app import CyGuideApp
 
     app = CyGuideApp(db_path=":memory:")
-    async with app.run_test() as pilot:
+    async with app.run_test(size=(120, 45)) as pilot:
         d = app.screen
         ws_list = d.query_one("#workspace_list")
 
@@ -998,10 +998,14 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         ws_list.focus()
         await pilot.pause()
         assert ws_list.index == 0
+        assert ws_list.has_focus is True
 
         # 2. Navigate down to second workspace
         await pilot.press("down")
-        await pilot.pause(0.15)
+        await pilot.pause()
+        if d._ws_debounce_task:
+            await d._ws_debounce_task
+        await pilot.pause(0.1)
         assert ws_list.index == 1
 
         details = d.query_one("#session_details_content")
@@ -1014,7 +1018,10 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
 
         # 3. Navigate back up to first workspace
         await pilot.press("up")
-        await pilot.pause(0.15)
+        await pilot.pause()
+        if d._ws_debounce_task:
+            await d._ws_debounce_task
+        await pilot.pause(0.1)
         assert ws_list.index == 0
 
         details = d.query_one("#session_details_content")

@@ -220,7 +220,6 @@ class AnthropicProviderAdapter:
                         continue
 
 
-
 class MockProviderAdapter:
     """Hermetic mock adapter for unit testing without network or OS dependencies."""
 

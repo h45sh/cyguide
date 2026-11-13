@@ -1399,7 +1399,7 @@ class LearningModeScreen(Screen):
             self.reset_ui_after_run()
 
     def action_show_shortcuts(self) -> None:
-        from cyguide.ui.screens.power import ShortcutsDialog
+        from cyguide.ui.dialogs import ShortcutsDialog
 
         self.app.push_screen(ShortcutsDialog())
 

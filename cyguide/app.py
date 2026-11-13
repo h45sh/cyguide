@@ -814,7 +814,7 @@ class CyGuideApp(App):
 
     def action_show_hotkeys(self) -> None:
         """Open the F1 Shortcuts / Help dialog."""
-        from cyguide.ui.screens.power import ShortcutsDialog
+        from cyguide.ui.dialogs import ShortcutsDialog
 
         self.push_screen(ShortcutsDialog())
 

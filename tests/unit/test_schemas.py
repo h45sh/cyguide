@@ -243,4 +243,3 @@ def test_workspace_context_defaults():
     assert ctx.session_name == "Test Session"
     assert ctx.resolved_vars == {}
     assert ctx.active_jobs == []
-

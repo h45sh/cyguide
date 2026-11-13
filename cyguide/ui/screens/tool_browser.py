@@ -116,7 +116,7 @@ class ToolBrowserScreen(Screen):
             self.app.switch_screen("learning_mode")
 
     def action_show_shortcuts(self) -> None:
-        from cyguide.ui.screens.power import ShortcutsDialog
+        from cyguide.ui.dialogs import ShortcutsDialog
 
         self.app.push_screen(ShortcutsDialog())
 

@@ -127,7 +127,6 @@ class PowerWorkspaceFacade:
     def _running_tasks(self) -> Dict[UUID, asyncio.Task]:
         return self.execution._running_tasks
 
-
     def get_running_task(self, job_id: UUID) -> Optional[asyncio.Task]:
         """Retrieve background execution task for a job by UUID."""
         return self.execution.get_running_task(job_id)

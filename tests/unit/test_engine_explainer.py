@@ -89,3 +89,50 @@ async def test_dual_ai_error_when_cloud_auth_fails_and_ollama_offline():
         assert "Groq Primary" in result
         assert "Local Ollama Error" in result
         assert "Ollama connection failed" in result or "Ollama returned status" in result
+
+
+class _AsyncMockIterator:
+    def __init__(self, items):
+        self.items = items
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self.items:
+            raise StopAsyncIteration
+        return self.items.pop(0).encode()
+
+
+@pytest.mark.asyncio
+async def test_ollama_backend_logic():
+    """Test the logic of OllamaBackend by mocking the client stream."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from cyguide.engine.explainer import OllamaBackend
+
+    backend = OllamaBackend(model="test-model")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.aiter_lines.return_value = _AsyncMockIterator(
+        ['{"response": "Cy", "done": false}', '{"response": "Guide", "done": true}']
+    )
+
+    mock_client = MagicMock()
+    stream_cm = MagicMock()
+    stream_cm.__aenter__ = AsyncMock(return_value=mock_response)
+    stream_cm.__aexit__ = AsyncMock()
+    mock_client.stream.return_value = stream_cm
+
+    with patch("httpx.AsyncClient") as mock_client_cls:
+        client_cm = MagicMock()
+        client_cm.__aenter__ = AsyncMock(return_value=mock_client)
+        client_cm.__aexit__ = AsyncMock()
+        mock_client_cls.return_value = client_cm
+
+        chunks = []
+        async for chunk in backend.explain("test prompt"):
+            chunks.append(chunk)
+
+        assert "".join(chunks) == "CyGuide"
