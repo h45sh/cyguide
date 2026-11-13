@@ -13,6 +13,7 @@ CyGuide’s storage architecture is engineered to solve a core challenge in cybe
 │                             CyGuide Runtime                              │
 ├───────────────────────┬──────────────────────────────────────────────────┤
 │ Tool Adapters         │ Yield standardized BaseFinding objects           │
+│ Repository Layer      │ WorkspaceRepository & ActionTimelineRepository   │
 │ GraphStore Engine     │ Enforces PIKs, hashes IDs, auto-wires relations  │
 │ SQLite Storage Layer  │ Stores relational entities, graphs & event logs  │
 │ Portability Subsystem │ ATTACH/DETACH zero-copy session export/import    │

@@ -852,7 +852,9 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         await pilot.press("down")
         await pilot.pause()
         assert "▸" in str(ws_list.children[2].query_one(Static).render())
-        await pilot.pause(0.2)
+        if dashboard._ws_debounce_task:
+            await dashboard._ws_debounce_task
+        await pilot.pause(0.1)
         assert sess_list.index == 0
         assert sess_list.children[0].styles.background.a == 0
 
