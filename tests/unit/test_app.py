@@ -992,17 +992,17 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
 
         # 1. Start at index 0 with corresponding selected_ws_id
-        await pilot.pause()
+        await pilot.pause(0.1)
         d.selected_ws_id = ws_items[0]["id"]
         ws_list.index = 0
         ws_list.focus()
-        await pilot.pause()
+        await pilot.pause(0.1)
         assert ws_list.index == 0
         assert ws_list.has_focus is True
 
         # 2. Navigate down to second workspace
         await pilot.press("down")
-        await pilot.pause()
+        await pilot.pause(0.1)
         if d._ws_debounce_task:
             await d._ws_debounce_task
         await pilot.pause(0.1)
@@ -1018,7 +1018,7 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
 
         # 3. Navigate back up to first workspace
         await pilot.press("up")
-        await pilot.pause()
+        await pilot.pause(0.1)
         if d._ws_debounce_task:
             await d._ws_debounce_task
         await pilot.pause(0.1)
