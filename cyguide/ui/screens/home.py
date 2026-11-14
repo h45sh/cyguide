@@ -230,6 +230,7 @@ class DashboardScreen(Screen):
         self.selected_ws_id: Optional[str] = None
         self.selected_session_id: Optional[str] = None
         self._refresh_lock = asyncio.Lock()
+        self._details_lock = asyncio.Lock()
         self._ws_debounce_task: Optional[asyncio.Task] = None
         self._sess_debounce_task: Optional[asyncio.Task] = None
 
@@ -577,7 +578,7 @@ class DashboardScreen(Screen):
                     id="confirm_move_btn",
                 ),
                 classes="session_actions_card",
-                id="session_actions_card",
+                id="organize_actions_card",
             ),
         )
 
@@ -1313,6 +1314,13 @@ class DashboardScreen(Screen):
         if self.selected_session_id == sess_id and not force:
             return
 
+        async with self._details_lock:
+            await self._render_session_details(sess_id, force=force)
+
+    async def _render_session_details(self, sess_id: str, force: bool = False) -> None:
+        if self.selected_session_id == sess_id and not force:
+            return
+
         is_same_session = self.selected_session_id == sess_id
         self.selected_session_id = sess_id
         self.app.selected_session_id = sess_id
@@ -1350,7 +1358,9 @@ class DashboardScreen(Screen):
         )
         short_id = session.get("id", "")[:8]
 
-        has_skeleton = bool(container.query(".session_id_card"))
+        has_skeleton = bool(container.query("#session_title_text")) and bool(
+            container.query("#session_actions_card")
+        )
 
         # If the session card skeleton is already mounted, update in place without unmounting!
         if has_skeleton:
@@ -1496,7 +1506,6 @@ class DashboardScreen(Screen):
             ),
             classes="session_id_card",
         )
-        await container.mount(header_card)
 
         # 2. Activity & Workload Metrics (3-box summary grid)
         active_cls = "active-val" if active_jobs_count > 0 else "dim-val"
@@ -1530,7 +1539,6 @@ class DashboardScreen(Screen):
             ),
             classes="session_metrics_grid",
         )
-        await container.mount(metrics_grid)
 
         # 3. Discovered Graph Entities Card
         if not entity_stats:
@@ -1578,7 +1586,6 @@ class DashboardScreen(Screen):
             graph_body,
             classes="session_graph_card",
         )
-        await container.mount(graph_card)
 
         # 4. Action Card
         if is_active:
@@ -1612,7 +1619,7 @@ class DashboardScreen(Screen):
                 classes="session_actions_card",
                 id="session_actions_card",
             )
-        await container.mount(actions_card)
+        await container.mount(header_card, metrics_grid, graph_card, actions_card)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "confirm_move_btn":
