@@ -812,9 +812,9 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         dashboard.selected_ws_id = ws_list.children[0].id[3:]
         ws_list.index = 0
         ws_list.focus()
-        await pilot.pause()
+        await pilot.pause(0.1)
         await pilot.press("down")
-        await pilot.pause()
+        await pilot.pause(0.1)
         if dashboard._ws_debounce_task:
             await dashboard._ws_debounce_task
         await pilot.pause(0.1)
@@ -822,7 +822,7 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         assert ws_list.index is not None
         assert "▸" in str(ws_list.children[ws_list.index].query_one(Static).render())
 
-        await pilot.pause()
+        await pilot.pause(0.1)
 
         assert sess_list.index == 0
         # While in workspace list, session list should NOT have the gray highlight pill
@@ -830,7 +830,7 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
 
         # 2. Enter session list via right arrow
         await pilot.press("right")
-        await pilot.pause()
+        await pilot.pause(0.1)
         assert sess_list.has_focus is True
         assert sess_list.index == 0
         # When focused, session list SHOULD have the gray highlight pill
@@ -840,23 +840,23 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
 
         # 3. Move down to session 2
         await pilot.press("down")
-        await pilot.pause()
+        await pilot.pause(0.1)
         assert sess_list.index == 1
         assert sess_list.children[1].styles.background.hex == "#282E3A"
 
         # 4. Move back out to workspaces via left arrow
         await pilot.press("left")
-        await pilot.pause()
+        await pilot.pause(0.1)
         assert ws_list.has_focus is True
         # Session list highlight becomes transparent again
         assert sess_list.children[1].styles.background.a == 0
 
         # 5. Move down to next workspace
         await pilot.press("down")
-        await pilot.pause()
+        await pilot.pause(0.1)
         if dashboard._ws_debounce_task:
             await dashboard._ws_debounce_task
-        await pilot.pause(0.15)
+        await pilot.pause(0.1)
         assert ws_list.index is not None
         assert "▸" in str(ws_list.children[ws_list.index].query_one(Static).render())
         assert sess_list.index == 0
