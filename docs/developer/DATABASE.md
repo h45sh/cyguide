@@ -50,9 +50,14 @@ CyGuide manages database files across distinct locations depending on operationa
 * **Custom Data Directory (`cyg --data-dir <path>`)**: Configures an alternate unified data directory or via `CYGUIDE_DATA_DIR` environment variable.
 * **Custom Database Override (`cyg --db <path>`)**: Allows operators to bind CyGuide to a specific database file for engagement isolation.
 * **Transient Testing (`sqlite:///:memory:`)**: All unit and integration test suites run against isolated in-memory databases with sub-millisecond setup and teardown.
-* **Integrity Pragmas**:
+* **Connection Lifecycle & Integrity Pragmas**:
+  Connection management is encapsulated via `GraphStore.connection()`. Every active connection enforces security, concurrency, and durability pragmas:
   ```sql
   PRAGMA foreign_keys = ON;
+  PRAGMA trusted_schema = OFF;
+  PRAGMA busy_timeout = 5000;
+  PRAGMA journal_mode = WAL;
+  PRAGMA synchronous = NORMAL;
   ```
   Foreign key enforcement is strictly enabled on every connection to maintain relational integrity and trigger cascading deletes.
 

@@ -385,9 +385,9 @@ In addition to the CLI command (`cyg check`), the active TUI surfaces a live int
 * **Consequences**: Enables seamless transition to future autonomous AI agent drivers without rewriting UI or execution logic.
 
 ### ADR-03: Engine-Level Universal Variable Resolution
-* **Context**: Variable placeholders (`$TARGET`, `$PORT`) could be resolved either in the Textual TUI Command Palette or inside the engine.
-* **Decision**: Implement variable substitution in `PowerWorkspaceFacade.get_context()`.
-* **Consequences**: Guarantees identical execution semantics whether a command is triggered by human keystrokes in the TUI, via automated batch scripts, or by an AI agent.
+* **Context**: Variable placeholders (`$TARGET`, `$PORT`, `$LHOST`) could be resolved either in the Textual TUI Command Palette or inside the engine.
+* **Decision**: Implement variable resolution and interpolation in `ActionGateway` (`resolve_entity_variables` and `interpolate_variables`) and consume it across `WorkspaceContextBuilder` and `ExecutionSession`.
+* **Consequences**: Guarantees identical execution semantics and zero logic duplication whether a command is triggered by human keystrokes in the TUI, via automated batch scripts, or by an AI agent.
 
 ### ADR-04: Dual Graph/Event-Log Persistence Model
 * **Context**: We needed both rapid graph queries for UI trees and historical auditability for lab grading.
@@ -411,15 +411,16 @@ In addition to the CLI command (`cyg check`), the active TUI surfaces a live int
 
 ### ADR-08: Deep Modules & High-Leverage Architectural Seams
 * **Context**: As CyGuide grew, cross-cutting concerns (workspace lifecycle, report generation, context variable resolution, timeline logging, execution streaming, diagnostic probing) were intermingled inside UI layers and large procedural methods.
-* **Decision**: Refactor the codebase around 8 "Deep Modules" (John Ousterhout principle: small, simple interfaces hiding substantial internal complexity):
-  1. `ExecutionSession` ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)): Subprocess lifecycle, PTY execution, disk spooling, and pub/sub output streaming.
-  2. `ExplanationTutor` ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)): Multi-key cloud fallbacks, cooldown tracking, prompt boundary sanitization, and local Ollama failover.
-  3. `WorkspaceRepository` ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py)): Workspace and session CRUD, forensic read-only locking, and persistence.
-  4. Declarative `BaseFinding` Canonicalization ([`cyguide/schemas/base.py`](../../cyguide/schemas/base.py)): Automatic whitespace trimming, lowercase normalizations, and IPv6 expansion via Pydantic model configuration.
-  5. `SessionReportService` ([`cyguide/engine/reporter.py`](../../cyguide/engine/reporter.py)): Multi-format forensic reporting, Markdown tables, Mermaid attack flow graphs, and stat summaries.
-  6. `ActionTimelineRepository` ([`cyguide/engine/timeline.py`](../../cyguide/engine/timeline.py)): Append-only action event logs, tab state restoration, and timeline replay queries.
-  7. `WorkspaceContextBuilder` ([`cyguide/engine/context_builder.py`](../../cyguide/engine/context_builder.py)): Hierarchical entity context extraction and `$TARGET` / `$PORT` / `$SERVICE` variable substitution.
-  8. `DiagnosticEngine` ([`cyguide/engine/diagnostics.py`](../../cyguide/engine/diagnostics.py)): Pluggable probe registry for system, database, security toolchain, and AI connectivity.
+* **Decision**: Refactor the codebase around Deep Modules (John Ousterhout principle: small, simple interfaces hiding substantial internal complexity):
+  1. `ExecutionSession` ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)): Subprocess lifecycle, interactive terminal suspension, disk log spooling, atomic session eviction (`evict_session`), and typed pub/sub event streaming (`subscribe`).
+  2. `ExplanationTutor` ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)): Multi-key cloud fallbacks, cooldown tracking, prompt boundary sanitization, and uniform `ProviderAdapter` streaming with local Ollama failover.
+  3. `ActionGateway` ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py)): Security boundary policy enforcement, cloud metadata SSRF defense (`BLOCKED_TARGETS`), tool manifest validation, and centralized variable resolution.
+  4. `WorkspaceRepository` ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py)): Workspace and session CRUD, forensic read-only locking, and atomic job cleanup delegation.
+  5. Declarative `BaseFinding` Canonicalization ([`cyguide/schemas/base.py`](../../cyguide/schemas/base.py)): Automatic whitespace trimming, lowercase normalizations, and IPv6 expansion via Pydantic model configuration.
+  6. `SessionReportService` ([`cyguide/engine/reporter.py`](../../cyguide/engine/reporter.py)): Multi-format forensic reporting, Markdown tables, Mermaid attack flow graphs, and stat summaries.
+  7. `ActionTimelineRepository` ([`cyguide/engine/timeline.py`](../../cyguide/engine/timeline.py)): Append-only action event logs, tab state restoration, and timeline replay queries using public `store.connection()`.
+  8. `WorkspaceContextBuilder` ([`cyguide/engine/context_builder.py`](../../cyguide/engine/context_builder.py)): Point-in-time context compilation using `ActionGateway` variable resolution.
+  9. `DiagnosticEngine` ([`cyguide/engine/diagnostics.py`](../../cyguide/engine/diagnostics.py)): Pluggable probe registry for system, database, security toolchain, and AI connectivity.
 * **Consequences**: Drastic reduction in cognitive load and high locality of change. Adding new features, security tools, or AI models requires zero modifications to core orchestration pipelines.
 
 ---

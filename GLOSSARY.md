@@ -13,8 +13,12 @@ An immutable, persistent investigation timeline stored in SQLite containing grap
 _Avoid_: Engagement, project, run, tab
 
 **ExecutionSession**:
-The active, in-memory runtime managing command execution lifecycles, privileged interaction, and output streams for a session.
+The active, in-memory runtime managing command execution lifecycles, privileged interaction, session eviction, and output streams for a session.
 _Avoid_: Job manager, runner, terminal instance, worker
+
+**ActionGateway**:
+The deep module managing security boundary enforcement, cloud metadata SSRF defense, tool manifest input contract validation, and target variable interpolation.
+_Avoid_: Validator, firewall, auth check, proxy
 
 **Finding**:
 A structured, canonicalized unit of discovered security intelligence associated with an entity.

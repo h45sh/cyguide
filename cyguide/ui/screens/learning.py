@@ -614,9 +614,7 @@ class LearningModeScreen(Screen):
 
     def clear_output(self) -> None:
         self.log_buffer = []
-        self.query_one("#raw_output_terminal", TerminalStreamPane).update(
-            "Terminal output cleared."
-        )
+        self.query_one("#raw_output_terminal", TerminalStreamPane).clear()
         self.set_focus(None)
         self.notify("Raw output cleared")
 

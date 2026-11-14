@@ -24,10 +24,11 @@ class TerminalStreamPane(ScrollView, can_focus=True):
     TerminalStreamPane {
         width: 100%;
         height: 100%;
-        background: transparent;
+        background: #0f1114;
         color: #f1f5f9;
-        overflow-y: scroll;
-        overflow-x: auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0 1;
     }
     """
 
@@ -117,7 +118,7 @@ class TerminalStreamPane(ScrollView, can_focus=True):
         elif idx == len(self._lines) and self._line_buffer:
             line_str = self._line_buffer
         else:
-            return Strip.blank(self.size.width)
+            return Strip.blank(self.size.width, self.rich_style)
 
         try:
             txt = Text.from_ansi(line_str)
@@ -134,8 +135,6 @@ class TerminalStreamPane(ScrollView, can_focus=True):
                     txt.stylize(selection_style, start, end)
 
             strip = Strip(txt.render(self.app.console))
-            if scroll_x:
-                strip = strip.crop(scroll_x, scroll_x + self.size.width)
-            return strip
+            return strip.crop_extend(scroll_x, scroll_x + self.size.width, self.rich_style)
         except Exception:
-            return Strip.blank(self.size.width)
+            return Strip.blank(self.size.width, self.rich_style)
