@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0](https://github.com/h45sh/cyguide/compare/v1.8.0...v1.9.0) (2026-11-14)
+
+
+### Features
+
+* **cli:** enhance argument parser with rich boxed styling and flexible option ordering ([76a55f6](https://github.com/h45sh/cyguide/commit/76a55f6cada0f0cb122b8db1b6d373248b6aa469))
+* harden learning mode, canonicalize schemas, optimize store, and refine UI docks ([60a4860](https://github.com/h45sh/cyguide/commit/60a4860308410b37f38e1ae8901197545cc680a5))
+* **release:** v1.9.0 Engine, Dataflow & Concurrency Hardening ([ecb9293](https://github.com/h45sh/cyguide/commit/ecb9293c667923720fb889729d900597913db92b))
+
+
+### Bug Fixes
+
+* resolve ruff lint violations and typing imports for CI compliance ([b0d6005](https://github.com/h45sh/cyguide/commit/b0d60055d4d360304629ceeb143535223c83993b))
+* **tests:** avoid WaitForScreenTimeout by using pilot.pause with delay in workspace switch test ([9673d3e](https://github.com/h45sh/cyguide/commit/9673d3eccac64b25d48a59a6752a9ad37f00bda3))
+* **ui:** await session list items mount and prevent transient None index in dashboard ([1d4cc00](https://github.com/h45sh/cyguide/commit/1d4cc00fbe870ed21158242b660247ba4474f8a8))
+* **ui:** prevent DuplicateIds race condition in JobQueue ([6d0e1e2](https://github.com/h45sh/cyguide/commit/6d0e1e2cf5e065c154e03ec75b73f100d6db318d))
+* **ui:** synchronize session details mount with mutex lock and atomic batch mounting ([207a024](https://github.com/h45sh/cyguide/commit/207a0242a5a7530b62b6e452a60cf43467636566))
+
+
+### Documentation
+
+* **architecture:** update architecture specification and adr for deep modules refactoring ([61b5ff0](https://github.com/h45sh/cyguide/commit/61b5ff032dcf782355991cc3ea613c9f54f7854d))
+* record v1.8.0 release and shift future roadmap milestones ([251d8bd](https://github.com/h45sh/cyguide/commit/251d8bda8b2d8f0f013bd4f731a5e405adefc4ca))
+* **roadmap:** mark v1.9.0 (Phase 3.5) as completed (22/22 tasks, 100%) ([57905b5](https://github.com/h45sh/cyguide/commit/57905b5452d0d9a83fe070a69c7f21a07ecea798))
+* synchronize README and developer docs with deep modules and decommissioned recommendation engine ([8e3eae0](https://github.com/h45sh/cyguide/commit/8e3eae0a2d9ea4bb77732f9cfc0d6f2cccdb546d))
+
 ## [1.8.0](https://github.com/h45sh/cyguide/compare/v1.7.0...v1.8.0) (2026-11-11)
 
 
