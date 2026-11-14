@@ -802,6 +802,10 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         await app.power_facade.create_session(ws2, "Session 2.1")
         await app.power_facade.create_session(ws2, "Session 2.2")
 
+        ws3 = await app.power_facade.create_workspace("Workspace Three")
+        await app.power_facade.create_session(ws3, "Session 3.1")
+        await app.power_facade.create_session(ws3, "Session 3.2")
+
         await dashboard.refresh_workspaces()
         await pilot.pause()
 
