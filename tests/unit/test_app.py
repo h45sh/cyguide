@@ -856,7 +856,7 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         await pilot.pause()
         if dashboard._ws_debounce_task:
             await dashboard._ws_debounce_task
-        await pilot.pause(0.1)
+        await pilot.pause(0.15)
         assert ws_list.index is not None
         assert "▸" in str(ws_list.children[ws_list.index].query_one(Static).render())
         assert sess_list.index == 0

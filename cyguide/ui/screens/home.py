@@ -1047,8 +1047,12 @@ class DashboardScreen(Screen):
                         pass
             else:
                 await sess_list.remove_children()
-                for s in display_sessions:
-                    sess_list.append(ListItem(Static(get_session_display(s)), id=f"sess_{s['id']}"))
+                sess_items = [
+                    ListItem(Static(get_session_display(s)), id=f"sess_{s['id']}")
+                    for s in display_sessions
+                ]
+                if sess_items:
+                    await sess_list.mount(*sess_items)
 
             if display_sessions:
                 target_idx = (
@@ -1060,7 +1064,6 @@ class DashboardScreen(Screen):
                         else 0
                     )
                 )
-                sess_list.index = None
                 sess_list.index = target_idx
                 if sess_list.children and target_idx < len(sess_list.children):
                     for idx, ch in enumerate(sess_list.children):
