@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.1](https://github.com/h45sh/cyguide/compare/v1.9.0...v1.9.1) (2026-11-14)
+
+
+### Performance Improvements
+
+* **ui:** debounce live updates and cap tree nodes to prevent freeze on large finding streams ([f171f6f](https://github.com/h45sh/cyguide/commit/f171f6f0ec579f3adde0cc86baa1b28d9f623c1a))
+* **ui:** debounce live updates and cap tree nodes to prevent freezing on large finding streams ([2ac8d57](https://github.com/h45sh/cyguide/commit/2ac8d5713f3f7f6a1f725344b6bb08c54f5caca6))
+
 ## [1.9.0](https://github.com/h45sh/cyguide/compare/v1.8.0...v1.9.0) (2026-11-14)
 
 
