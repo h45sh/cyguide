@@ -6,6 +6,7 @@ import pytest
 from cyguide.app import CyGuideApp
 from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.store import GraphStore
+from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.power import ActionRequest, ActionSource
 
 
@@ -169,3 +170,28 @@ async def test_dashboard_toggle_history_and_archive(tmp_path):
         await pilot.pause()
         sess_reopened_key = await app.store.get_session(sess_id)
         assert sess_reopened_key["status"] == "ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_handle_new_finding_throttling(tmp_path):
+    db_path = str(tmp_path / "test_finding_throttle.db")
+    app = CyGuideApp(db_path=db_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        dash = app.screen
+        ws_id = await app.store.create_workspace("ThrottleEngagement")
+        sess_id = await app.store.create_session(ws_id, "ThrottleSession")
+        await dash.show_workspace_details(ws_id)
+        await pilot.pause()
+
+        # Fire 50 findings rapidly
+        for i in range(50):
+            finding = NetworkHost.create(ip=f"10.0.0.{i}")
+            await dash.handle_new_finding(sess_id, finding)
+
+        # Metrics debounce task was created
+        assert dash._metrics_debounce_task is not None
+        await dash._metrics_debounce_task
+        # Activity list was rate-limited, not flooded with 50 items
+        act_list = dash.query_one("#activity_list")
+        assert len(act_list.children) < 5

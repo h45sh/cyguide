@@ -188,7 +188,9 @@ class EntityBrowser(Tree):
                 base = node["id"][:8]
                 return f"{base} ({custom_alias})" if custom_alias else base
 
-        def add_node_to_tree(parent_tree_node, node_id: str):
+        MAX_DISPLAY_PER_CATEGORY = 200
+
+        def add_node_to_tree(parent_tree_node, node_id: str, depth: int = 0):
             node = node_map[node_id]
             label = get_label(node)
             child_ids = children_map.get(node_id, [])
@@ -198,10 +200,24 @@ class EntityBrowser(Tree):
                 new_tree_node = parent_tree_node.add(
                     label, data={"id": node_id, "type": node["schema_type"]}, expand=is_exp
                 )
-                for cid in child_ids:
-                    add_node_to_tree(new_tree_node, cid)
+                visible_children = child_ids[:MAX_DISPLAY_PER_CATEGORY]
+                for cid in visible_children:
+                    add_node_to_tree(new_tree_node, cid, depth + 1)
+                if len(child_ids) > MAX_DISPLAY_PER_CATEGORY:
+                    remaining = len(child_ids) - MAX_DISPLAY_PER_CATEGORY
+                    new_tree_node.add_leaf(
+                        f"[dim #94a3b8]… {remaining} more (filter with search)[/]"
+                    )
             else:
                 parent_tree_node.add_leaf(label, data={"id": node_id, "type": node["schema_type"]})
+
+        def populate_category(root_node, item_list: list):
+            visible_items = item_list[:MAX_DISPLAY_PER_CATEGORY]
+            for item in visible_items:
+                add_node_to_tree(root_node, item["id"])
+            if len(item_list) > MAX_DISPLAY_PER_CATEGORY:
+                remaining = len(item_list) - MAX_DISPLAY_PER_CATEGORY
+                root_node.add_leaf(f"[dim #94a3b8]… {remaining} more (filter with search)[/]")
 
         if self.filter_query:
             q = self.filter_query
@@ -263,8 +279,7 @@ class EntityBrowser(Tree):
             hosts_root = self.root.add(
                 f"Targets ({len(hosts)})", expand=should_expand("Targets", True)
             )
-            for h in hosts:
-                add_node_to_tree(hosts_root, h["id"])
+            populate_category(hosts_root, hosts)
 
         services = [n for n in others if n["schema_type"] == "network.service"]
         web = [n for n in others if n["schema_type"].startswith("web.")]
@@ -281,48 +296,41 @@ class EntityBrowser(Tree):
             svc_root = self.root.add(
                 f"Other Services ({len(services)})", expand=should_expand("Other Services", True)
             )
-            for s in services:
-                add_node_to_tree(svc_root, s["id"])
+            populate_category(svc_root, services)
 
         if domains_dns:
             dns_root = self.root.add(
                 f"Domains & DNS ({len(domains_dns)})", expand=should_expand("Domains & DNS", True)
             )
-            for d in domains_dns:
-                add_node_to_tree(dns_root, d["id"])
+            populate_category(dns_root, domains_dns)
 
         if netblocks:
             net_root = self.root.add(
                 f"Netblocks ({len(netblocks)})", expand=should_expand("Netblocks", True)
             )
-            for nb in netblocks:
-                add_node_to_tree(net_root, nb["id"])
+            populate_category(net_root, netblocks)
 
         if web:
             web_root = self.root.add(f"Web ({len(web)})", expand=should_expand("Web", True))
-            for w in web:
-                add_node_to_tree(web_root, w["id"])
+            populate_category(web_root, web)
 
         if creds:
             cred_root = self.root.add(
                 f"Credentials ({len(creds)})", expand=should_expand("Credentials", True)
             )
-            for c in creds:
-                add_node_to_tree(cred_root, c["id"])
+            populate_category(cred_root, creds)
 
         if vulns:
             vuln_root = self.root.add(
                 f"Vulnerabilities ({len(vulns)})", expand=should_expand("Vulnerabilities", True)
             )
-            for v in vulns:
-                add_node_to_tree(vuln_root, v["id"])
+            populate_category(vuln_root, vulns)
 
         if misc:
             misc_root = self.root.add(
                 f"Other Entities ({len(misc)})", expand=should_expand("Other Entities", True)
             )
-            for m in misc:
-                add_node_to_tree(misc_root, m["id"])
+            populate_category(misc_root, misc)
 
 
 class JobQueue(Vertical):

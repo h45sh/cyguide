@@ -1,7 +1,7 @@
 """Workspace and Session Management Dashboard with refined Delete/Organize flows."""
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, Optional, Set
 
 from textual import events
@@ -233,6 +233,8 @@ class DashboardScreen(Screen):
         self._details_lock = asyncio.Lock()
         self._ws_debounce_task: Optional[asyncio.Task] = None
         self._sess_debounce_task: Optional[asyncio.Task] = None
+        self._metrics_debounce_task: Optional[asyncio.Task] = None
+        self._last_activity_insert_time: float = 0.0
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="workspace_manager"):
@@ -300,6 +302,8 @@ class DashboardScreen(Screen):
             self._ws_debounce_task.cancel()
         if self._sess_debounce_task and not self._sess_debounce_task.done():
             self._sess_debounce_task.cancel()
+        if self._metrics_debounce_task and not self._metrics_debounce_task.done():
+            self._metrics_debounce_task.cancel()
         self.app.power_facade.remove_job_status_change(self._handle_job_status_change)
 
     def _handle_job_status_change(self, job: Any) -> None:
@@ -373,45 +377,59 @@ class DashboardScreen(Screen):
                         )
                     )
 
+    async def _debounced_update_metrics(self, delay: float = 0.25) -> None:
+        try:
+            await asyncio.sleep(delay)
+            ws_stats = await self.app.power_facade.get_stats()
+            try:
+                self.query_one("#metric_hosts", Static).update(
+                    f"Hosts: {ws_stats.get('network.host', 0)}"
+                )
+                self.query_one("#metric_services", Static).update(
+                    f"Services: {ws_stats.get('network.service', 0)}"
+                )
+            except NoMatches:
+                pass
+        except asyncio.CancelledError:
+            pass
+
     async def handle_new_finding(self, session_id: str, finding: Any) -> None:
         """Reactive callback triggered by the GraphStore on every finding."""
         if not self.selected_ws_id:
             return
 
-        # 1. Verify finding belongs to active workspace
-        session = await self.app.power_facade.get_session(session_id)
-        if not session or session["workspace_id"] != self.selected_ws_id:
-            return
+        # 1. Throttle metrics update
+        if not self._metrics_debounce_task or self._metrics_debounce_task.done():
+            self._metrics_debounce_task = asyncio.create_task(self._debounced_update_metrics())
 
-        # 2. Surgical Metrics Update
-        ws_stats = await self.app.power_facade.get_stats()
-        self.query_one("#metric_hosts", Static).update(f"Hosts: {ws_stats.get('network.host', 0)}")
-        self.query_one("#metric_services", Static).update(
-            f"Services: {ws_stats.get('network.service', 0)}"
-        )
+        # 2. Rate limit activity list prepend to at most 1 item per 0.15s
+        now = asyncio.get_event_loop().time()
+        if now - self._last_activity_insert_time >= 0.15:
+            self._last_activity_insert_time = now
+            session = await self.app.power_facade.get_session(session_id)
+            if session and session.get("workspace_id") == self.selected_ws_id:
+                try:
+                    act_list = self.query_one("#activity_list", ListView)
+                    ts = datetime.now(UTC).strftime("%H:%M")
+                    msg = format_activity(
+                        session["name"],
+                        finding.schema_type,
+                        f"Discovered {finding.schema_type}",
+                        finding_obj=finding,
+                    )
+                    new_item = ListItem(Static(f"{ts} {msg}"))
+                    await act_list.insert(0, [new_item])
+                    if len(act_list.children) > 15:
+                        await act_list.children[-1].remove()
+                except NoMatches:
+                    pass
 
-        # 3. Surgical Activity Prepend
-        act_list = self.query_one("#activity_list", ListView)
-        ts = datetime.utcnow().strftime("%H:%M")
-
-        msg = format_activity(
-            session["name"],
-            finding.schema_type,
-            f"Discovered {finding.schema_type}",
-            finding_obj=finding,
-        )
-        new_item = ListItem(Static(f"{ts} {msg}"))
-        await act_list.insert(0, [new_item])
-        if len(act_list.children) > 15:
-            await act_list.children[-1].remove()
-
-        # 4. If current session is selected, refresh its details (stats) with debouncing
+        # 3. If current session is selected, refresh its details (stats) with debouncing
         if self.selected_session_id == session_id:
-            if self._sess_debounce_task and not self._sess_debounce_task.done():
-                self._sess_debounce_task.cancel()
-            self._sess_debounce_task = asyncio.create_task(
-                self._debounced_show_session(session_id, delay=0.15)
-            )
+            if not self._sess_debounce_task or self._sess_debounce_task.done():
+                self._sess_debounce_task = asyncio.create_task(
+                    self._debounced_show_session(session_id, delay=0.25)
+                )
 
     def action_toggle_sidebar(self) -> None:
         sidebar = self.query_one("#workspace_sidebar")
