@@ -5,7 +5,7 @@
 import tomllib
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.engine.manifest import Manifest
@@ -25,6 +25,7 @@ class ToolRegistry:
                 # 2. Fall back to imported tools package location (installed package mode)
                 try:
                     import tools
+
                     self.tools_dir = Path(tools.__file__).parent
                 except Exception:
                     self.tools_dir = candidate
@@ -61,10 +62,12 @@ class ToolRegistry:
                             self.tools[manifest.meta.name] = {
                                 "manifest": manifest,
                                 "adapter": adapter_instance,
-                                "path": tool_path
+                                "path": tool_path,
                             }
                         else:
-                             self.load_errors[tool_path.name] = "No ToolAdapter subclass found in adapter.py"
+                            self.load_errors[tool_path.name] = (
+                                "No ToolAdapter subclass found in adapter.py"
+                            )
                     except Exception as e:
                         self.load_errors[tool_path.name] = str(e)
 
@@ -80,9 +83,11 @@ class ToolRegistry:
                 # Look for a subclass of ToolAdapter
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (isinstance(attr, type) and
-                        issubclass(attr, ToolAdapter) and
-                        attr is not ToolAdapter):
+                    if (
+                        isinstance(attr, type)
+                        and issubclass(attr, ToolAdapter)
+                        and attr is not ToolAdapter
+                    ):
                         return attr()
             return None
         except Exception:
@@ -104,3 +109,33 @@ class ToolRegistry:
             if schema_type in data["manifest"].input.get("accepts", []):
                 matching.append(name)
         return matching
+
+    def refresh_if_changed(self) -> bool:
+        """Scan directory and reload plugins only if tool directory structure on disk changed."""
+        if not self.tools_dir.exists():
+            if self.tools or self.load_errors:
+                self.tools = {}
+                self.load_errors = {}
+                return True
+            return False
+
+        try:
+            current_dirs = {
+                p.name
+                for p in self.tools_dir.iterdir()
+                if p.is_dir() and not p.name.startswith((".", "_"))
+            }
+            loaded_dirs = {v["path"].name for v in self.tools.values() if v.get("path")}
+            if current_dirs != loaded_dirs:
+                self.load_tools()
+                return True
+        except Exception:
+            pass
+        return False
+
+    def check_health(self) -> Dict[str, Dict[str, Any]]:
+        """Return comprehensive health and installation diagnostics for all registered tools."""
+        from cyguide.engine.diagnostics import check_tool_health
+
+        self.refresh_if_changed()
+        return check_tool_health(self)

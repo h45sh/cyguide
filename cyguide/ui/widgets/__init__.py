@@ -16,4 +16,3 @@ __all__ = [
     "ThinScrollBarRender",
     "setup_thin_scrollbars",
 ]
-

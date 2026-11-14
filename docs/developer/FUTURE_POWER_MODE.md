@@ -57,11 +57,11 @@ graph TB
 | **`WorkspaceContext` Model** | **Implemented** | [`cyguide/schemas/power.py`](../../cyguide/schemas/power.py) |
 | **`ActionRequest` & Typed Actions** | **Implemented** | [`cyguide/schemas/power.py`](../../cyguide/schemas/power.py) |
 | **`ActionGateway` & Source Gating** | **Implemented** | [`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py) |
-| **Universal Variable Substitution** | **Implemented** | [`PowerWorkspaceFacade.get_context()`](../../cyguide/engine/power_facade.py#L353-L403) |
-| **Reactive Suggestion Engine** | **Implemented** | [`cyguide/engine/recommendation.py`](../../cyguide/engine/recommendation.py) |
-| **Append-Only Event Sourcing** | **Implemented** | [`GraphStore.append_event()`](../../cyguide/engine/store.py#L509-L517) |
-| **Portable Session Export/Import** | **Implemented** | [`GraphStore.export_session()`](../../cyguide/engine/store.py#L529-L584) |
-| **AI Explainer Engine (Ollama/Cloud)** | **Implemented** | [`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py) |
+| **Universal Variable Substitution** | **Implemented** | [`WorkspaceContextBuilder.build()`](../../cyguide/engine/context_builder.py) |
+| **Target Intelligence (`TargetAdvisor`)** | *Planned (Phase 4)* | On-demand neuro-symbolic target advisor |
+| **Append-Only Event Sourcing** | **Implemented** | [`ActionTimelineRepository.append_event()`](../../cyguide/engine/timeline.py) |
+| **Portable Session Export/Import** | **Implemented** | [`WorkspaceRepository.export_session()`](../../cyguide/engine/workspace_repository.py) |
+| **AI Explainer Engine (ExplanationTutor)** | **Implemented** | [`ExplanationTutor`](../../cyguide/engine/explainer.py) |
 | **Agent Orchestrator Loop** | *Planned (Phase 4)* | Autonomous ReAct decision loop |
 | **Declarative CIDR Scope Policy** | *Planned (Phase 4)* | Automated IP/subnet boundary checker |
 | **Multi-Agent Role Coordination** | *Planned (Phase 4)* | Specialized subagents (Recon, Web, Reporter) |

@@ -1,6 +1,8 @@
 """Tests for ResizeHandle and Power mode UI enhancements."""
 
+import asyncio
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -10,6 +12,7 @@ from textual.events import MouseDown, MouseMove, MouseUp
 from textual.widgets import Static
 
 from cyguide.schemas.power import JobStatus, JobStatusEnum
+from cyguide.ui.screens.power import PowerModeScreen
 from cyguide.ui.widgets.power import JobQueue
 from cyguide.ui.widgets.resizer import ResizeHandle
 
@@ -19,7 +22,7 @@ class ResizerTestApp(App):
         super().__init__(**kwargs)
         self.settings = {}
 
-    def _save_settings(self, updates):
+    def save_settings(self, updates):
         self.settings.update(updates)
 
     def compose(self) -> ComposeResult:
@@ -160,6 +163,7 @@ async def test_job_queue_renders_without_headers():
 
 def test_style_css_input_scrollbar_removal():
     import os
+
     css_path = os.path.join(os.path.dirname(__file__), "../../cyguide/ui/style.css")
     with open(css_path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -239,7 +243,7 @@ async def test_power_mode_running_job_tab_restoration():
         tool_name="ncat",
         params={"raw_flags": "-lvnp 4444"},
         triggered_by=ActionSource.USER,
-        is_explicit_shell=True
+        is_explicit_shell=True,
     )
 
     class PowerApp(App):
@@ -280,3 +284,208 @@ async def test_power_mode_running_job_tab_restoration():
         assert "◌" not in str(tab_widget.label)
 
     await store.close()
+
+
+@pytest.mark.asyncio
+async def test_job_queue_concurrent_updates_no_duplicate_ids():
+    class JobQueueApp(App):
+        def compose(self) -> ComposeResult:
+            yield JobQueue(id="test_job_queue")
+
+    app = JobQueueApp()
+    async with app.run_test() as pilot:
+        jq = app.query_one("#test_job_queue", JobQueue)
+        s_id = uuid4()
+        j1 = uuid4()
+        j2 = uuid4()
+        job1 = JobStatus(
+            job_id=j1,
+            session_id=s_id,
+            tool_name="nmap",
+            status=JobStatusEnum.RUNNING,
+            started_at=datetime.now(timezone.utc),
+        )
+        job2 = JobStatus(
+            job_id=j2,
+            session_id=s_id,
+            tool_name="whois",
+            status=JobStatusEnum.DONE,
+            started_at=datetime.now(timezone.utc),
+        )
+
+        # Initial populate
+        await jq.update_jobs([job1])
+        await pilot.pause()
+
+        # Fire concurrent update_jobs calls with differing order to simulate rapid state transitions
+        await asyncio.gather(
+            jq.update_jobs([job1, job2]),
+            jq.update_jobs([job2, job1]),
+            jq.update_jobs([job1]),
+        )
+        await pilot.pause()
+
+        job_list = jq.query_one("#power_job_list")
+        assert len(job_list.children) >= 1
+
+
+@pytest.mark.asyncio
+async def test_job_queue_handles_duplicate_job_ids_in_input():
+    class JobQueueApp(App):
+        def compose(self) -> ComposeResult:
+            yield JobQueue(id="test_job_queue")
+
+    app = JobQueueApp()
+    async with app.run_test() as pilot:
+        jq = app.query_one("#test_job_queue", JobQueue)
+        s_id = uuid4()
+        j1 = uuid4()
+        job1 = JobStatus(
+            job_id=j1,
+            session_id=s_id,
+            tool_name="nmap",
+            status=JobStatusEnum.RUNNING,
+            started_at=datetime.now(timezone.utc),
+        )
+
+        # Duplicate job in single input list must not raise DuplicateIds
+        await jq.update_jobs([job1, job1])
+        await pilot.pause()
+
+        job_list = jq.query_one("#power_job_list")
+        assert len(job_list.children) == 1
+
+
+def test_flag_regex_detection():
+    import re
+
+    flag_pattern = re.compile(
+        r"(?:flag|FLAG|ctf|CTF|htb|HTB|thm|THM)\{[A-Za-z0-9_!@#$%^&*+=?.-]+\}"
+    )
+
+    sample_output = """
+    Target scanned successfully.
+    Found secret text: flag{s1mpl3_fl4g_v4lu3}
+    Another token: HTB{w3b_3xpl01t_succ3ss!}
+    Third token: THM{try_hack_me_2026}
+    Noise: some text {not_a_flag} flag{} invalid flag{has space}
+    """
+    matches = flag_pattern.findall(sample_output)
+    assert len(matches) == 3
+    assert "flag{s1mpl3_fl4g_v4lu3}" in matches
+    assert "HTB{w3b_3xpl01t_succ3ss!}" in matches
+    assert "THM{try_hack_me_2026}" in matches
+
+
+def test_command_palette_ctrl_y():
+    from cyguide.ui.widgets.power import CommandPalette
+
+    palette = CommandPalette()
+    mock_input = MagicMock()
+    mock_input.value = "> "
+    palette.query_one = MagicMock(return_value=mock_input)
+
+    posted_messages = []
+    palette.post_message = lambda msg: posted_messages.append(msg)
+
+    event = MagicMock()
+    event.key = "ctrl+y"
+    palette.on_key(event)
+
+    assert any(isinstance(m, CommandPalette.CopyTabRequest) for m in posted_messages)
+    assert event.stop.called
+    assert event.prevent_default.called
+
+
+def test_action_copy_active_tab():
+    from unittest.mock import PropertyMock
+
+    screen = PowerModeScreen()
+    mock_app = MagicMock()
+
+    mock_tabs = MagicMock()
+    mock_tabs.active = "term_1"
+
+    line1 = MagicMock()
+    line1.text = "nmap -sV 10.10.10.1"
+    line2 = MagicMock()
+    line2.text = "Port 80/tcp open http"
+    mock_log = MagicMock()
+    mock_log.lines = [line1, line2]
+
+    def mock_query_one(selector, *args, **kwargs):
+        if selector == "#job_tabs":
+            return mock_tabs
+        if selector == "#log_term_1":
+            return mock_log
+        raise ValueError(f"Unknown selector: {selector}")
+
+    screen.query_one = mock_query_one
+
+    with patch.object(PowerModeScreen, "app", new_callable=PropertyMock) as mock_prop:
+        mock_prop.return_value = mock_app
+        screen.action_copy_active_tab()
+
+    mock_app.copy_to_clipboard.assert_called_once_with("nmap -sV 10.10.10.1\nPort 80/tcp open http")
+
+
+@pytest.mark.asyncio
+async def test_send_desktop_notification():
+    from unittest.mock import AsyncMock
+
+    screen = PowerModeScreen()
+    with patch("shutil.which", return_value="/usr/bin/notify-send"):
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.wait = AsyncMock()
+            mock_exec.return_value = mock_proc
+
+            await screen._send_desktop_notification("Job Completed", "Finished scan")
+            mock_exec.assert_called_once()
+            args = mock_exec.call_args[0]
+            assert args[0] == "notify-send"
+            assert "Job Completed" in args
+
+
+def test_command_palette_prefix_normalization():
+    from cyguide.ui.widgets.power import CommandPalette
+
+    palette = CommandPalette()
+    mock_input = MagicMock()
+    palette.query_one = MagicMock(return_value=mock_input)
+
+    # 1. Multiple redundant prefixes like "> > whois ..." collapsed
+    event = MagicMock()
+    event.value = "> > whois 104.20.23.154"
+    event.input = mock_input
+    palette.on_input_changed(event)
+    assert mock_input.value == "> whois 104.20.23.154"
+
+    # 2. In shell locked mode, redundant collapsed to "! "
+    palette.shell_locked = True
+    event.value = "! ! ls -la"
+    palette.on_input_changed(event)
+    assert mock_input.value == "! ls -la"
+
+
+def test_command_palette_submission_strips_duplicate_prefixes():
+    from cyguide.ui.widgets.power import CommandPalette
+
+    palette = CommandPalette()
+    palette.shell_locked = True
+    mock_input = MagicMock()
+
+    posted = []
+    palette.post_message = lambda msg: posted.append(msg)
+
+    # User submitted "> > whois 104.20.23.154"
+    event = MagicMock()
+    event.value = "> > whois 104.20.23.154"
+    event.input = mock_input
+
+    palette.on_input_submitted(event)
+    assert len(posted) == 1
+    sub = posted[0]
+    assert sub.tool_name == "whois"
+    assert sub.expanded_params == ["104.20.23.154"]
+    assert sub.value == "whois 104.20.23.154"

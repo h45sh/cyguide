@@ -89,6 +89,7 @@ def test_scrollbar_renderer_registered():
 def test_css_scrollbar_rules():
     """Verify style.css includes unified thin scrollbar rules."""
     import os
+
     css_path = os.path.join(os.path.dirname(__file__), "../../cyguide/ui/style.css")
     with open(css_path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -104,6 +105,7 @@ def test_css_scrollbar_rules():
 @pytest.mark.asyncio
 async def test_richlog_thin_scrollbar_scrolling():
     """Verify RichLog renders thin scrollbars and scrolls without error."""
+
     class ScrollApp(App):
         CSS_PATH = "../../cyguide/ui/style.css"
 
@@ -159,4 +161,3 @@ async def test_entity_browser_scrollbar_preservation():
         assert eb.show_horizontal_scrollbar is True
         assert eb.vertical_scrollbar.thickness == 1
         assert eb.horizontal_scrollbar.thickness == 1
-

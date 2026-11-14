@@ -9,8 +9,10 @@ from tools.nikto.adapter import NiktoAdapter
 def adapter():
     return NiktoAdapter()
 
+
 def test_nikto_validate_install(adapter):
     assert isinstance(adapter.validate_install(), bool)
+
 
 def test_nikto_build_command(adapter):
     # 1. Target is web.endpoint
@@ -30,6 +32,7 @@ def test_nikto_build_command(adapter):
     host = NetworkHost.create(ip="127.0.0.1")
     cmd_host = adapter.build_command(host, {"raw_flags": "-h {target}"})
     assert "127.0.0.1" in cmd_host
+
 
 @pytest.mark.asyncio
 async def test_nikto_parse_output(adapter):
@@ -53,20 +56,35 @@ async def test_nikto_parse_output(adapter):
     findings = [f async for f in adapter.parse_output(sample_output, endpoint)]
 
     assert len(findings) >= 4
-    
+
     # 1. Directory indexing finding
-    dir_idx = next(f for f in findings if f.schema_type == "web.vulnerability" and "Directory indexing found" in f.data["description"] and "/admin/" in f.pik["url"])
+    dir_idx = next(
+        f
+        for f in findings
+        if f.schema_type == "web.vulnerability"
+        and "Directory indexing found" in f.data["description"]
+        and "/admin/" in f.pik["url"]
+    )
     assert dir_idx.pik["url"] == "http://192.168.1.50/admin/"
     assert dir_idx.data["vuln_type"] == "misconfiguration"
 
     # 2. Shellshock OSVDB finding
-    shellshock = next(f for f in findings if f.schema_type == "web.vulnerability" and "Shellshock" in f.data["description"])
+    shellshock = next(
+        f
+        for f in findings
+        if f.schema_type == "web.vulnerability" and "Shellshock" in f.data["description"]
+    )
     assert shellshock.pik["url"] == "http://192.168.1.50/cgi-bin/test.cgi"
     assert shellshock.data["vuln_type"] == "OSVDB-112004"
 
     # 3. Generic OSVDB finding with path
-    osvdb_icon = next(f for f in findings if f.schema_type == "web.vulnerability" and "OSVDB-3268" in f.data["vuln_type"])
+    osvdb_icon = next(
+        f
+        for f in findings
+        if f.schema_type == "web.vulnerability" and "OSVDB-3268" in f.data["vuln_type"]
+    )
     assert osvdb_icon.pik["url"] == "http://192.168.1.50/icons/"
+
 
 @pytest.mark.asyncio
 async def test_nikto_parse_host_level_findings(adapter):

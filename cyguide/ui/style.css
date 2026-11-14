@@ -22,6 +22,20 @@ Input, CommandInput, .input {
     scrollbar-size-vertical: 0;
 }
 
+/* Modern thin underline cursor for input and text areas */
+Input > .input--cursor, CommandInput > .input--cursor {
+    background: transparent !important;
+    color: #38bdf8 !important;
+    text-style: underline !important;
+}
+
+TextArea .text-area--cursor {
+    background: transparent !important;
+    color: #38bdf8 !important;
+    text-style: underline !important;
+}
+
+
 Screen {
     background: #0c0d10;
     color: #e2e8f0;
@@ -281,13 +295,27 @@ ScrollBarCorner {
     color: #38bdf8;
 }
 
+/* High-contrast terminal text selection */
+Screen > .screen--selection {
+    color: #ffffff;
+    background: #0284c7;
+}
+
 /* Discovered Graph Entities Card */
 .session_graph_card {
     height: auto;
+    max-height: 12;
     background: #181b22;
     border: round #334155;
     padding: 0 1;
     margin-bottom: 1;
+}
+
+#session_graph_card_body {
+    height: auto;
+    max-height: 8;
+    overflow-y: auto;
+    scrollbar-size-vertical: 1;
 }
 
 .session_graph_header_row {
@@ -567,12 +595,40 @@ ListView:focus > ListItem.--highlight {
     color: #e2e8f0 !important;
 }
 
-ListItem.-highlight > Static,
-ListItem.--highlight > Static,
-ListView > ListItem.-highlight > Static,
-ListView > ListItem.--highlight > Static,
-ListView:focus > ListItem.-highlight > Static,
-ListView:focus > ListItem.--highlight > Static {
+ListItem.-highlight Static,
+ListItem.-highlight Label,
+ListItem.--highlight Static,
+ListItem.--highlight Label,
+ListView > ListItem.-highlight Static,
+ListView > ListItem.-highlight Label,
+ListView > ListItem.--highlight Static,
+ListView > ListItem.--highlight Label,
+ListView:focus > ListItem.-highlight Static,
+ListView:focus > ListItem.-highlight Label,
+ListView:focus > ListItem.--highlight Static,
+ListView:focus > ListItem.--highlight Label {
+    color: #e2e8f0 !important;
+}
+
+/* Session list: do not show highlight pill when unfocused (e.g. browsing workspaces) */
+#session_list > ListItem.-highlight,
+#session_list > ListItem.--highlight {
+    background: transparent !important;
+}
+
+#session_list > ListItem.-highlight Static,
+#session_list > ListItem.--highlight Static {
+    color: #cbd5e1 !important;
+}
+
+#session_list:focus > ListItem.-highlight,
+#session_list:focus > ListItem.--highlight {
+    background: #282e3a !important;
+    color: #e2e8f0 !important;
+}
+
+#session_list:focus > ListItem.-highlight Static,
+#session_list:focus > ListItem.--highlight Static {
     color: #e2e8f0 !important;
 }
 
@@ -744,13 +800,15 @@ ConfirmationDialog {
 
 #lesson_config_pane {
     width: 32;
+    min-width: 20;
+    max-width: 70;
     height: 100%;
     border: round #334155;
     background: #14161b;
     padding: 0 1;
     margin-right: 0;
-    transition: width 200ms in_out_cubic;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 #lesson_config_pane:focus-within {
@@ -758,7 +816,10 @@ ConfirmationDialog {
 }
 
 #lesson_config_pane.collapsed {
+    display: none !important;
     width: 0;
+    min-width: 0;
+    max-width: 0;
     padding: 0;
     margin-right: 0;
     border: none;
@@ -767,7 +828,8 @@ ConfirmationDialog {
 #tool_context_zone {
     height: auto;
     border-bottom: solid #283344;
-    padding-bottom: 1;
+    padding: 0;
+    margin-top: 0;
     margin-bottom: 1;
 }
 
@@ -775,22 +837,25 @@ ConfirmationDialog {
     color: #e2e8f0;
     text-style: bold;
     padding: 0;
+    margin: 0;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    overflow-x: hidden;
 }
 
 #tool_summary_header {
-    color: #94a3b8;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding: 0;
-    height: auto;
+    display: none;
 }
 
 .pane_section_title {
     color: #94a3b8;
     text-style: bold;
-    margin-top: 1;
+    margin-top: 0;
     margin-bottom: 0;
     padding: 0;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    overflow-x: hidden;
 }
 
 #recipe_list {
@@ -806,10 +871,11 @@ ConfirmationDialog {
 
 RecipeListItem {
     height: auto;
+    min-height: 1;
     padding: 0 1;
     color: #94a3b8;
     background: transparent;
-    margin-bottom: 1;
+    margin-bottom: 0;
 }
 
 RecipeListItem:hover {
@@ -817,16 +883,19 @@ RecipeListItem:hover {
     color: #e2e8f0;
 }
 
+RecipeListItem.-highlight,
 RecipeListItem.--highlight {
     background: #1e293b !important;
     color: #38bdf8 !important;
 }
 
+RecipeListItem.-highlight .recipe_name,
 RecipeListItem.--highlight .recipe_name {
     color: #38bdf8 !important;
     text-style: bold;
 }
 
+RecipeListItem.-highlight .recipe_desc,
 RecipeListItem.--highlight .recipe_desc {
     color: #94a3b8 !important;
 }
@@ -835,11 +904,142 @@ RecipeListItem.--highlight .recipe_desc {
     color: #e2e8f0;
     text-style: bold;
     width: 100%;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    overflow-x: hidden;
 }
 
 .recipe_desc {
     color: #94a3b8;
     width: 100%;
+}
+
+#recipes_scroll {
+    height: 1fr;
+    padding: 1 2;
+    overflow-y: auto;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+}
+
+.recipes_header_intro {
+    color: #94a3b8;
+    margin-bottom: 1;
+}
+
+.recipe_card {
+    height: auto;
+    background: #14161b;
+    border: round #283344;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+.recipe_card:focus-within,
+.recipe_card:hover {
+    border: round #38bdf8;
+    background: #181c24;
+}
+
+.recipe_card_header {
+    height: 1;
+    width: 100%;
+    align: left middle;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.recipe_card_title {
+    color: #38bdf8;
+    text-style: bold;
+    width: auto;
+    margin-right: 2;
+}
+
+.recipe_card_flags_badge {
+    background: #1e293b;
+    color: #eab308;
+    text-style: bold;
+    padding: 0 1;
+    border: none;
+    height: 1;
+    width: auto;
+}
+
+.recipe_card_desc {
+    color: #cbd5e1;
+    margin-top: 0;
+    margin-bottom: 0;
+    height: auto;
+}
+
+.recipe_card_actions {
+    dock: right;
+    height: 1;
+    width: auto;
+    align: right middle;
+}
+
+Button.recipe_card_btn,
+.recipe_card Button {
+    height: 1 !important;
+    min-height: 1 !important;
+    max-height: 1 !important;
+    border: none !important;
+    text-style: bold;
+    padding: 0 1;
+}
+
+Button.recipe_ask_btn,
+.recipe_card Button.recipe_ask_btn {
+    background: #1e293b !important;
+    color: #38bdf8 !important;
+    margin-right: 1;
+}
+
+Button.recipe_ask_btn:hover,
+Button.recipe_ask_btn:focus,
+.recipe_card Button.recipe_ask_btn:hover,
+.recipe_card Button.recipe_ask_btn:focus {
+    background: #283344 !important;
+    color: #7dd3fc !important;
+    border: none !important;
+}
+
+Button.recipe_run_btn,
+Button.recipe_load_btn,
+.recipe_card Button.recipe_run_btn,
+.recipe_card Button.recipe_load_btn {
+    background: #38bdf8 !important;
+    color: #000000 !important;
+}
+
+Button.recipe_run_btn:hover,
+Button.recipe_run_btn:focus,
+Button.recipe_load_btn:hover,
+Button.recipe_load_btn:focus,
+.recipe_card Button.recipe_run_btn:hover,
+.recipe_card Button.recipe_run_btn:focus,
+.recipe_card Button.recipe_load_btn:hover,
+.recipe_card Button.recipe_load_btn:focus {
+    background: #7dd3fc !important;
+    color: #000000 !important;
+    border: none !important;
+}
+
+Button.recipe_stop_btn,
+.recipe_card Button.recipe_stop_btn {
+    background: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+Button.recipe_stop_btn:hover,
+Button.recipe_stop_btn:focus,
+.recipe_card Button.recipe_stop_btn:hover,
+.recipe_card Button.recipe_stop_btn:focus {
+    background: #dc2626 !important;
+    color: #ffffff !important;
+    border: none !important;
 }
 
 #launchpad_container {
@@ -902,7 +1102,7 @@ RecipeListItem.--highlight .recipe_desc {
 }
 
 #run_stop_container {
-    height: 3;
+    height: auto;
     margin-top: 0;
     margin-bottom: 0;
     padding: 0;
@@ -910,14 +1110,28 @@ RecipeListItem.--highlight .recipe_desc {
     align: center middle;
 }
 
-.sidebar_btn {
+#run_stop_container Button {
     width: 100%;
     height: 3;
     text-style: bold;
     margin: 0;
 }
 
+#sidebar_ask_btn {
+    margin: 0;
+    background: #181b22;
+    border: round #38bdf8;
+    color: #38bdf8;
+}
+
+#sidebar_ask_btn:hover, #sidebar_ask_btn:focus {
+    background: #283344;
+    border: round #7dd3fc;
+    color: #ffffff;
+}
+
 #run_btn {
+    margin: 0;
     background: #132d1d;
     border: round #22c55e;
     color: #4ade80;
@@ -930,6 +1144,7 @@ RecipeListItem.--highlight .recipe_desc {
 }
 
 #stop_btn {
+    width: 100% !important;
     background: #2d1417;
     border: round #ef4444;
     color: #f87171;
@@ -953,6 +1168,7 @@ RecipeListItem.--highlight .recipe_desc {
     height: 1fr;
     border: round #334155;
     background: #14161b;
+    margin: 0;
 }
 
 #learning_tabs:focus-within {
@@ -1005,9 +1221,7 @@ RecipeListItem.--highlight .recipe_desc {
     margin: 0;
 }
 
-Button.pane_action_btn,
-#clear_explanation_btn,
-#clear_output_btn {
+Button.pane_action_btn {
     height: 1;
     border: none;
     background: #1e2430;
@@ -1017,15 +1231,58 @@ Button.pane_action_btn,
     min-width: 7;
 }
 
-Button.pane_action_btn:hover,
-Button.pane_action_btn:focus,
+.pane_status_label {
+    width: 1fr;
+    height: 1;
+    color: #eab308;
+    text-style: bold;
+    padding-left: 1;
+    content-align: left middle;
+}
+
+Button.ai_toggle_btn {
+    width: 13;
+    min-width: 13;
+    max-width: 13;
+    text-style: bold;
+    border: none;
+    height: 1;
+    padding: 0 1;
+    margin-right: 1;
+}
+
+Button.ai_toggle_on,
+Button.ai_toggle_on:hover,
+Button.ai_toggle_on:focus {
+    background: #064e3b !important;
+    color: #34d399 !important;
+    border: none !important;
+}
+
+Button.ai_toggle_off,
+Button.ai_toggle_off:hover,
+Button.ai_toggle_off:focus {
+    background: #27272a !important;
+    color: #a1a1aa !important;
+    border: none !important;
+}
+
+#copy_explanation_btn:hover,
+#copy_explanation_btn:focus,
+#copy_output_btn:hover,
+#copy_output_btn:focus {
+    background: #1e3a5f !important;
+    color: #38bdf8 !important;
+    border: none !important;
+}
+
 #clear_explanation_btn:hover,
 #clear_explanation_btn:focus,
 #clear_output_btn:hover,
 #clear_output_btn:focus {
-    background: #3b1d22;
-    color: #f87171;
-    border: none;
+    background: #3b1d22 !important;
+    color: #f87171 !important;
+    border: none !important;
 }
 
 #explanation_scroll, #output_scroll {
@@ -1034,7 +1291,42 @@ Button.pane_action_btn:focus,
     border: none;
     padding: 0 2 1 2;
     margin: 0;
-    scrollbar-size: 0 0;
+    overflow-y: auto;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+}
+
+#active_cmd_card, #findings_summary_card, #explanation_card {
+    background: #141720;
+    border: solid #283344;
+    padding: 1 2;
+    margin-bottom: 1;
+    height: auto;
+}
+
+#findings_summary_card {
+    max-height: 12;
+    overflow-y: auto;
+}
+
+#active_cmd_card .card_title,
+#findings_summary_card .card_title,
+#explanation_card .card_title {
+    color: #38bdf8;
+    text-style: bold;
+    padding-bottom: 0;
+    border-bottom: solid #1e293b;
+    margin-bottom: 1;
+}
+
+#active_cmd_info {
+    color: #cbd5e1;
+    height: auto;
+}
+
+#findings_summary_text {
+    color: #cbd5e1;
+    height: auto;
 }
 
 #explanation_text {
@@ -1060,7 +1352,7 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
     background: #14161b;
     border: round #334155;
     padding: 0 1;
-    margin-top: 1;
+    margin: 0;
     align: left middle;
 }
 
@@ -1221,8 +1513,8 @@ Footer > .footer--highlight-key {
 
 #power_sidebar {
     width: 34;
-    min-width: 34;
-    max-width: 34;
+    min-width: 20;
+    max-width: 80;
     height: 100%;
     background: #14161b;
     border: round #334155;
@@ -1256,6 +1548,24 @@ Footer > .footer--highlight-key {
     margin-bottom: 0;
 }
 
+#entity_search_input {
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    border: round #334155;
+    background: #0f1114;
+    color: #cbd5e1;
+    margin: 1 1 0 1;
+    padding: 0 1;
+    scrollbar-size: 0 0;
+}
+
+#entity_search_input:focus {
+    background: #161b22;
+    color: #38bdf8;
+    border: round #38bdf8;
+}
+
 #entity_browser {
     height: 1fr;
     background: transparent;
@@ -1285,7 +1595,8 @@ Footer > .footer--highlight-key {
 }
 
 #power_sidebar.-resizing,
-#scratchpad_pane.-resizing {
+#scratchpad_pane.-resizing,
+#lesson_config_pane.-resizing {
     transition: none !important;
 }
 
@@ -1715,11 +2026,13 @@ ToolListItem:hover {
     color: #e2e8f0;
 }
 
+ToolListItem.-highlight,
 ToolListItem.--highlight {
     background: #282e3a;
     color: #e2e8f0;
 }
 
+ToolListItem.-highlight Label,
 ToolListItem.--highlight Label {
     color: #e2e8f0;
 }
@@ -1959,6 +2272,7 @@ ToolHealthModal {
     background: #191c24;
 }
 
+#tool_health_items > ListItem.-highlight,
 #tool_health_items > ListItem.--highlight {
     background: #1e293b !important;
 }

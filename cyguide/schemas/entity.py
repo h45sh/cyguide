@@ -7,6 +7,7 @@ from cyguide.schemas.base import BaseFinding
 
 class EntityAlias(BaseFinding):
     """Links two identifiers that represent the same entity (e.g. hostname to IP). Produced by resolvers."""
+
     schema_type: str = "entity.alias"
     pik_fields: ClassVar[list[str]] = ["source_id", "target_id"]
 
@@ -16,5 +17,10 @@ class EntityAlias(BaseFinding):
         # but links two existing entities.
         return cls(
             pik={"source_id": source_id, "target_id": target_id},
-            data={"source_id": source_id, "target_id": target_id, "relation_type": relation_type, **kwargs}
+            data={
+                "source_id": source_id,
+                "target_id": target_id,
+                "relation_type": relation_type,
+                **kwargs,
+            },
         )

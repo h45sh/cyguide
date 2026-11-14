@@ -9,7 +9,7 @@ from textual.widgets import Button, Input, Switch
 from cyguide.app import CyGuideApp
 from cyguide.engine.explainer import (
     CloudKeyProfile,
-    MultiKeyCloudBackend,
+    ExplanationTutor,
     OllamaBackend,
 )
 from cyguide.ui.screens.config_modal import CloudAPIConfigProvider, ConfigModal
@@ -49,7 +49,7 @@ async def test_multikey_backend_active_key_priority():
     k1 = CloudKeyProfile(id="k1", name="Key 1", provider="openai", api_key="sk-1", model="gpt-4o")
     k2 = CloudKeyProfile(id="k2", name="Key 2", provider="groq", api_key="gsk-2", model="llama-3.3")
 
-    backend = MultiKeyCloudBackend(profiles=[k1, k2], active_key_id="k2")
+    backend = ExplanationTutor(profiles=[k1, k2], active_key_id="k2")
     chain = backend.get_priority_chain()
     assert len(chain) == 2
     assert chain[0].id == "k2"
@@ -65,10 +65,14 @@ async def test_multikey_backend_active_key_priority():
 @pytest.mark.asyncio
 async def test_multikey_resilient_fallback_on_429():
     """Verify that when primary key returns 429, backend automatically falls back to secondary key."""
-    k1 = CloudKeyProfile(id="k1", name="Primary OpenAI", provider="openai", api_key="sk-bad", model="gpt-4o")
-    k2 = CloudKeyProfile(id="k2", name="Backup Groq", provider="groq", api_key="gsk-good", model="llama-3.3")
+    k1 = CloudKeyProfile(
+        id="k1", name="Primary OpenAI", provider="openai", api_key="sk-bad", model="gpt-4o"
+    )
+    k2 = CloudKeyProfile(
+        id="k2", name="Backup Groq", provider="groq", api_key="gsk-good", model="llama-3.3"
+    )
 
-    backend = MultiKeyCloudBackend(profiles=[k1, k2], active_key_id="k1")
+    backend = ExplanationTutor(profiles=[k1, k2], active_key_id="k1")
 
     call_count = 0
 
@@ -125,15 +129,20 @@ async def test_multikey_fallback_to_ollama_when_all_cloud_keys_fail():
             yield "Ollama fallback content"
 
     mock_ollama = MockOllama(model="gemma")
-    backend = MultiKeyCloudBackend(profiles=[k1], active_key_id="k1", fallback_to_ollama=True, ollama_backend=mock_ollama)
+    backend = ExplanationTutor(
+        profiles=[k1], active_key_id="k1", fallback_to_ollama=True, ollama_backend=mock_ollama
+    )
 
     class MockErrContext:
         async def __aenter__(self):
             class ErrResp:
                 status_code = 401
+
                 async def aread(self):
                     return b"Unauthorized"
+
             return ErrResp()
+
         async def __aexit__(self, *args):
             pass
 
@@ -151,13 +160,29 @@ def test_app_action_switch_active_key(tmp_path):
     """Verify action_switch_active_key switches active key and saves to settings."""
     db_file = str(tmp_path / "test.db")
     settings_file = tmp_path / "settings.json"
-    settings_file.write_text(json.dumps({
-        "cloud_keys": [
-            {"id": "k1", "name": "Key 1", "provider": "openai", "api_key": "sk-1", "model": "gpt-4o"},
-            {"id": "k2", "name": "Key 2", "provider": "groq", "api_key": "gsk-2", "model": "llama-3.3"},
-        ],
-        "active_key_id": "k1",
-    }))
+    settings_file.write_text(
+        json.dumps(
+            {
+                "cloud_keys": [
+                    {
+                        "id": "k1",
+                        "name": "Key 1",
+                        "provider": "openai",
+                        "api_key": "sk-1",
+                        "model": "gpt-4o",
+                    },
+                    {
+                        "id": "k2",
+                        "name": "Key 2",
+                        "provider": "groq",
+                        "api_key": "gsk-2",
+                        "model": "llama-3.3",
+                    },
+                ],
+                "active_key_id": "k1",
+            }
+        )
+    )
 
     app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
     assert app.active_key_id == "k1"
@@ -167,7 +192,7 @@ def test_app_action_switch_active_key(tmp_path):
     assert app.active_key_id == "k2"
     assert app.get_active_cloud_key()["name"] == "Key 2"
 
-    assert isinstance(app.explainer_backend, MultiKeyCloudBackend)
+    assert isinstance(app.explainer_backend, ExplanationTutor)
     assert app.explainer_backend.active_key_id == "k2"
     assert app.explainer_backend.model == "llama-3.3"
 
@@ -177,12 +202,24 @@ async def test_config_modal_preserves_keys_on_reset(tmp_path):
     """Verify that Reset Defaults preserves saved API keys and only resets standard parameters."""
     db_file = str(tmp_path / "test_empty.db")
     settings_file = tmp_path / "settings.json"
-    settings_file.write_text(json.dumps({
-        "cloud_keys": [
-            {"id": "k1", "name": "Preserved Key", "provider": "openai", "api_key": "sk-keep-me-123", "model": "custom-model", "base_url": "https://custom.url", "enabled": True}
-        ],
-        "active_key_id": "k1",
-    }))
+    settings_file.write_text(
+        json.dumps(
+            {
+                "cloud_keys": [
+                    {
+                        "id": "k1",
+                        "name": "Preserved Key",
+                        "provider": "openai",
+                        "api_key": "sk-keep-me-123",
+                        "model": "custom-model",
+                        "base_url": "https://custom.url",
+                        "enabled": True,
+                    }
+                ],
+                "active_key_id": "k1",
+            }
+        )
+    )
     app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
 
     async with app.run_test(size=(100, 40)) as pilot:
@@ -208,9 +245,13 @@ async def test_config_modal_add_switch_and_save_multiple_keys(tmp_path, monkeypa
     """Verify adding multiple keys, setting active, and saving in ConfigModal."""
     db_file = str(tmp_path / "test_multi.db")
     settings_file = tmp_path / "settings.json"
-    settings_file.write_text(json.dumps({
-        "cloud_keys": [],
-    }))
+    settings_file.write_text(
+        json.dumps(
+            {
+                "cloud_keys": [],
+            }
+        )
+    )
     monkeypatch.delenv("CYGUIDE_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
@@ -291,8 +332,20 @@ async def test_cloud_palette_provider_multi_key_switch(tmp_path):
     db_file = str(tmp_path / "test_palette.db")
     app = CyGuideApp(db_path=db_file)
     app.cloud_keys = [
-        {"id": "k1", "name": "Groq Llama", "provider": "groq", "api_key": "gsk_1", "model": "llama-3.3"},
-        {"id": "k2", "name": "OpenAI GPT-4o", "provider": "openai", "api_key": "sk_2", "model": "gpt-4o"},
+        {
+            "id": "k1",
+            "name": "Groq Llama",
+            "provider": "groq",
+            "api_key": "gsk_1",
+            "model": "llama-3.3",
+        },
+        {
+            "id": "k2",
+            "name": "OpenAI GPT-4o",
+            "provider": "openai",
+            "api_key": "sk_2",
+            "model": "gpt-4o",
+        },
     ]
     app.active_key_id = "k1"
 
@@ -427,12 +480,24 @@ async def test_deleted_key_remains_deleted_and_no_resurrection(tmp_path):
     """Verify that deleting all keys persists and doesn't resurrect default key on reopen."""
     db_file = str(tmp_path / "test_del.db")
     settings_file = tmp_path / "settings.json"
-    settings_file.write_text(json.dumps({
-        "cloud_keys": [
-            {"id": "k1", "name": "Key to Remove", "provider": "openai", "api_key": "sk-remove-123", "model": "gpt-4o", "base_url": "", "enabled": True}
-        ],
-        "active_key_id": "k1",
-    }))
+    settings_file.write_text(
+        json.dumps(
+            {
+                "cloud_keys": [
+                    {
+                        "id": "k1",
+                        "name": "Key to Remove",
+                        "provider": "openai",
+                        "api_key": "sk-remove-123",
+                        "model": "gpt-4o",
+                        "base_url": "",
+                        "enabled": True,
+                    }
+                ],
+                "active_key_id": "k1",
+            }
+        )
+    )
 
     app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
 
@@ -480,12 +545,24 @@ async def test_in_place_parameter_modification_does_not_add_extra_keys(tmp_path)
     """Verify that editing fields for an existing key modifies that key in-place and does not add extra profiles."""
     db_file = str(tmp_path / "test_inplace.db")
     settings_file = tmp_path / "settings.json"
-    settings_file.write_text(json.dumps({
-        "cloud_keys": [
-            {"id": "k1", "name": "Key One", "provider": "openai", "api_key": "sk-one-1234", "model": "gpt-4o", "base_url": "", "enabled": True}
-        ],
-        "active_key_id": "k1",
-    }))
+    settings_file.write_text(
+        json.dumps(
+            {
+                "cloud_keys": [
+                    {
+                        "id": "k1",
+                        "name": "Key One",
+                        "provider": "openai",
+                        "api_key": "sk-one-1234",
+                        "model": "gpt-4o",
+                        "base_url": "",
+                        "enabled": True,
+                    }
+                ],
+                "active_key_id": "k1",
+            }
+        )
+    )
     app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
 
     async with app.run_test(size=(120, 45)) as pilot:
@@ -531,9 +608,13 @@ async def test_credential_missing_indicators_for_blank_key(tmp_path):
     """Verify that a profile without an API key displays credential missing indicators and is safely saved."""
     db_file = str(tmp_path / "test_missing.db")
     settings_file = tmp_path / "settings.json"
-    settings_file.write_text(json.dumps({
-        "cloud_keys": [],
-    }))
+    settings_file.write_text(
+        json.dumps(
+            {
+                "cloud_keys": [],
+            }
+        )
+    )
     app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
 
     async with app.run_test(size=(120, 45)) as pilot:
@@ -571,13 +652,33 @@ async def test_key_list_cards_interaction_and_per_key_actions(tmp_path):
     """Verify key card list renders info, fallback badge, and inline actions work seamlessly."""
     db_file = str(tmp_path / "test_cards.db")
     settings_file = tmp_path / "settings.json"
-    settings_file.write_text(json.dumps({
-        "cloud_keys": [
-            {"id": "k1", "name": "Primary OpenAI", "provider": "openai", "api_key": "sk-openai-12345", "model": "gpt-4o", "base_url": "https://api.openai.com/v1", "enabled": True},
-            {"id": "k2", "name": "Backup Groq", "provider": "groq", "api_key": "gsk-groq-67890", "model": "llama-3.3-70b", "base_url": "https://api.groq.com/openai/v1", "enabled": False},
-        ],
-        "active_key_id": "k1",
-    }))
+    settings_file.write_text(
+        json.dumps(
+            {
+                "cloud_keys": [
+                    {
+                        "id": "k1",
+                        "name": "Primary OpenAI",
+                        "provider": "openai",
+                        "api_key": "sk-openai-12345",
+                        "model": "gpt-4o",
+                        "base_url": "https://api.openai.com/v1",
+                        "enabled": True,
+                    },
+                    {
+                        "id": "k2",
+                        "name": "Backup Groq",
+                        "provider": "groq",
+                        "api_key": "gsk-groq-67890",
+                        "model": "llama-3.3-70b",
+                        "base_url": "https://api.groq.com/openai/v1",
+                        "enabled": False,
+                    },
+                ],
+                "active_key_id": "k1",
+            }
+        )
+    )
 
     app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
 
@@ -635,7 +736,9 @@ async def test_key_list_cards_interaction_and_per_key_actions(tmp_path):
         await pilot.pause()
 
         # Test long input does not break layout: Input styles overflow_x is hidden
-        long_url = "https://very-long-custom-enterprise-gateway.company.internal/v1/services/ai/inference"
+        long_url = (
+            "https://very-long-custom-enterprise-gateway.company.internal/v1/services/ai/inference"
+        )
         url_input = modal.query_one("#cfg_api_base", Input)
         url_input.value = long_url
         await pilot.pause()
@@ -692,9 +795,13 @@ async def test_cloud_ai_view_switching_and_editor_behavior(tmp_path, monkeypatch
     """Verify clean view transitions: List default, Add Key -> Editor, Save & Back -> List, and Delete in Editor."""
     db_file = str(tmp_path / "test_views.db")
     settings_file = tmp_path / "settings.json"
-    settings_file.write_text(json.dumps({
-        "cloud_keys": [],
-    }))
+    settings_file.write_text(
+        json.dumps(
+            {
+                "cloud_keys": [],
+            }
+        )
+    )
     monkeypatch.delenv("CYGUIDE_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))

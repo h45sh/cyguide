@@ -90,9 +90,11 @@ async def test_gateway_blocks_cloud_metadata():
         session_id=uuid4(),
         tool_name="nmap",
         params={"raw_flags": "http://169.254.169.254/latest/meta-data/"},
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
-    with pytest.raises(ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"):
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
         await gateway.validate_action(action_flag)
 
     # 2. Blocked via tool_name
@@ -100,9 +102,11 @@ async def test_gateway_blocks_cloud_metadata():
         session_id=uuid4(),
         tool_name="curl 169.254.169.254",
         is_explicit_shell=True,
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
-    with pytest.raises(ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"):
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
         await gateway.validate_action(action_name)
 
     # 3. Blocked via Google metadata domain
@@ -110,22 +114,26 @@ async def test_gateway_blocks_cloud_metadata():
         session_id=uuid4(),
         tool_name="curl metadata.google.internal",
         is_explicit_shell=True,
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
-    with pytest.raises(ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"):
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
         await gateway.validate_action(action_gcp)
 
     await store.close()
 
 
 def test_reporter_html_escaping():
-    nodes = [{
-        "id": "abc123456789",
-        "schema_type": "web.endpoint",
-        "pik_json": '{"url": "<script>alert(1)</script>"}',
-        "data_json": '{"title": "<b>Dashboard</b>"}',
-        "status": "confirmed"
-    }]
+    nodes = [
+        {
+            "id": "abc123456789",
+            "schema_type": "web.endpoint",
+            "pik_json": '{"url": "<script>alert(1)</script>"}',
+            "data_json": '{"title": "<b>Dashboard</b>"}',
+            "status": "confirmed",
+        }
+    ]
     lines = build_markdown_table_for_type("web.endpoint", nodes)
     report_text = "\n".join(lines)
     assert "<script>" not in report_text
@@ -162,7 +170,7 @@ def test_sanitize_subprocess_env_extended():
         "HUGGINGFACE_TOKEN": "hf_abc",
         "HF_TOKEN": "hf_xyz",
         "VAULT_TOKEN": "s.vaulttoken",
-        "SSH_PRIVATE_KEY": "-----BEGIN OPENSSH PRIVATE KEY-----",
+        "SSH_PRIVATE_KEY": "-----BEGIN OPENSSH PRIVATE KEY-----",  # codeguard: ignore[SECRET_PRIVATE_KEY]
     }
     cleaned = sanitize_subprocess_env(raw_env)
     assert cleaned["PATH"] == "/usr/bin:/bin"
@@ -188,9 +196,11 @@ async def test_gateway_blocks_extended_metadata():
         session_id=uuid4(),
         tool_name="nmap",
         params={"raw_flags": "169.254.169.250"},
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
-    with pytest.raises(ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"):
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
         await gateway.validate_action(action_azure)
 
     # 2. AWS IPv6 metadata
@@ -198,9 +208,11 @@ async def test_gateway_blocks_extended_metadata():
         session_id=uuid4(),
         tool_name="curl",
         params={"raw_flags": "http://[fd00:ec2::254]/latest/meta-data/"},
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
-    with pytest.raises(ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"):
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
         await gateway.validate_action(action_ipv6)
 
     # 3. Decimal IP notation
@@ -208,9 +220,11 @@ async def test_gateway_blocks_extended_metadata():
         session_id=uuid4(),
         tool_name="curl",
         params={"raw_flags": "http://2852039166/"},
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
-    with pytest.raises(ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"):
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
         await gateway.validate_action(action_dec)
 
     await store.close()
@@ -220,6 +234,7 @@ async def test_gateway_blocks_extended_metadata():
 async def test_reporter_backtick_command_escaping():
     from cyguide.engine.reporter import generate_markdown_report
     from cyguide.schemas.power import ActionRequest, ActionSource
+
     store = GraphStore(":memory:")
     await store.initialize()
 
@@ -231,14 +246,9 @@ async def test_reporter_backtick_command_escaping():
         tool_name="!echo",
         params={"raw_flags": "`whoami`"},
         triggered_by=ActionSource.USER,
-        is_explicit_shell=True
+        is_explicit_shell=True,
     )
-    await store.append_event(
-        sess_id,
-        action,
-        {"output": "root\n"},
-        "Ran echo"
-    )
+    await store.append_event(sess_id, action, {"output": "root\n"}, "Ran echo")
 
     report = await generate_markdown_report(store, sess_id)
     assert "`` !echo `whoami` ``" in report
@@ -351,11 +361,13 @@ async def test_cli_report_atomic_permissions(tmp_path):
     try:
         args_list = [
             "cyg",
-            "--db", str(db_path),
+            "--db",
+            str(db_path),
             "export",
             str(sess_id),
             str(export_db),
-            "--report", str(report_file),
+            "--report",
+            str(report_file),
         ]
         await asyncio.to_thread(_run_cli, args_list)
     finally:

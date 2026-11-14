@@ -13,12 +13,12 @@ from cyguide.engine.diagnostics import (
 @pytest.mark.asyncio
 async def test_run_diagnostics_healthy():
     report = await run_diagnostics(db_path=":memory:")
-    
+
     assert isinstance(report, DiagnosticReport)
     assert report.healthy is True
     assert "python_version" in report.system_info
     assert "platform" in report.system_info
-    
+
     # Check categories
     categories = {c.category for c in report.checks}
     assert "System" in categories
@@ -29,11 +29,12 @@ async def test_run_diagnostics_healthy():
     # Check tool counts
     assert report.tool_counts["total"] >= 5
 
+
 @pytest.mark.asyncio
 async def test_diagnostic_report_serialization():
     report = await run_diagnostics(db_path=":memory:")
     report_dict = report.to_dict()
-    
+
     # Must be serializable to JSON
     json_str = json.dumps(report_dict)
     assert json_str is not None
@@ -41,11 +42,12 @@ async def test_diagnostic_report_serialization():
     assert "checks" in report_dict
     assert "tool_counts" in report_dict
 
+
 @pytest.mark.asyncio
 async def test_format_terminal_report():
     report = await run_diagnostics(db_path=":memory:")
     output = format_terminal_report(report)
-    
+
     assert "CYGUIDE SYSTEM & ENVIRONMENT DIAGNOSTICS" in output
     assert "SYSTEM" in output
     assert "DATABASE" in output
@@ -53,16 +55,18 @@ async def test_format_terminal_report():
     assert "EXPLAINER" in output
     assert "STATUS:" in output
 
+
 @pytest.mark.asyncio
 async def test_diagnostic_database_error(tmp_path):
     # Test a read-only or invalid directory
     bad_db_path = str(tmp_path / "non_existent_subdir" / "cyguide.db")
-    
+
     # Even if folder does not exist, run_diagnostics will try to create it,
     # let's test a valid SQLite path vs memory
     report = await run_diagnostics(db_path=bad_db_path)
     db_checks = [c for c in report.checks if c.category == "Database"]
     assert len(db_checks) >= 2
+
 
 def test_missing_tool_installation_hint():
     check = DiagnosticCheck(
@@ -70,7 +74,7 @@ def test_missing_tool_installation_hint():
         category="Tools",
         status="warning",
         message="Not found in PATH. Install hint: sudo apt install nmap",
-        details={"install_hint": "sudo apt install nmap"}
+        details={"install_hint": "sudo apt install nmap"},
     )
     report = DiagnosticReport(checks=[check])
     output = format_terminal_report(report)
@@ -95,11 +99,18 @@ def test_app_check_and_update_tool_health_broadcasting():
     dummy_screen = MagicMock()
     dummy_screen.post_message = lambda msg: received_messages.append(msg)
 
-    with patch.object(CyGuideApp, "screen_stack", new_callable=PropertyMock, return_value=[dummy_screen]):
+    with patch.object(
+        CyGuideApp, "screen_stack", new_callable=PropertyMock, return_value=[dummy_screen]
+    ):
         # Mock diagnostics to return 1 missing tool
         fake_health_1 = {
             "nmap": {"healthy": False, "status": "missing", "message": "Missing", "binary": None},
-            "gobuster": {"healthy": True, "status": "ok", "message": "OK", "binary": "/usr/bin/gobuster"},
+            "gobuster": {
+                "healthy": True,
+                "status": "ok",
+                "message": "OK",
+                "binary": "/usr/bin/gobuster",
+            },
         }
         with patch("cyguide.engine.diagnostics.check_tool_health", return_value=fake_health_1):
             res1 = app.check_and_update_tool_health()
@@ -118,7 +129,12 @@ def test_app_check_and_update_tool_health_broadcasting():
         # Status changes to all healthy -> should broadcast update
         fake_health_2 = {
             "nmap": {"healthy": True, "status": "ok", "message": "OK", "binary": "/usr/bin/nmap"},
-            "gobuster": {"healthy": True, "status": "ok", "message": "OK", "binary": "/usr/bin/gobuster"},
+            "gobuster": {
+                "healthy": True,
+                "status": "ok",
+                "message": "OK",
+                "binary": "/usr/bin/gobuster",
+            },
         }
         with patch("cyguide.engine.diagnostics.check_tool_health", return_value=fake_health_2):
             res3 = app.check_and_update_tool_health()
@@ -138,7 +154,12 @@ def test_command_palette_tool_health_badge_freshness():
 
     fake_issues = {
         "nmap": {"healthy": False, "status": "missing", "message": "Missing", "binary": None},
-        "gobuster": {"healthy": True, "status": "ok", "message": "OK", "binary": "/usr/bin/gobuster"},
+        "gobuster": {
+            "healthy": True,
+            "status": "ok",
+            "message": "OK",
+            "binary": "/usr/bin/gobuster",
+        },
     }
     with patch("cyguide.engine.diagnostics.check_tool_health", return_value=fake_issues):
         cmds = list(app.get_system_commands(mock_screen))
@@ -147,7 +168,12 @@ def test_command_palette_tool_health_badge_freshness():
 
     fake_healthy = {
         "nmap": {"healthy": True, "status": "ok", "message": "OK", "binary": "/usr/bin/nmap"},
-        "gobuster": {"healthy": True, "status": "ok", "message": "OK", "binary": "/usr/bin/gobuster"},
+        "gobuster": {
+            "healthy": True,
+            "status": "ok",
+            "message": "OK",
+            "binary": "/usr/bin/gobuster",
+        },
     }
     with patch("cyguide.engine.diagnostics.check_tool_health", return_value=fake_healthy):
         cmds = list(app.get_system_commands(mock_screen))
@@ -164,6 +190,7 @@ async def test_dashboard_apply_tool_health_visibility():
 
     async def fake_clear():
         pass
+
     diag_list.clear = fake_clear
     diag_list.append = MagicMock()
 
@@ -199,12 +226,14 @@ async def test_dashboard_apply_tool_health_visibility():
 async def test_tool_health_modal_realtime_apply_health():
     """Verify ToolHealthModal updates summary label and rows dynamically."""
     from cyguide.ui.screens.tool_health_modal import ToolHealthModal
+
     modal = ToolHealthModal()
     summary_label = MagicMock()
     items_list = MagicMock()
 
     async def fake_clear():
         pass
+
     items_list.clear = fake_clear
     items_list.append = MagicMock()
 
@@ -220,7 +249,12 @@ async def test_tool_health_modal_realtime_apply_health():
     # 1. With issues
     issues_health = {
         "nmap": {"healthy": False, "status": "missing", "message": "Not installed", "binary": None},
-        "gobuster": {"healthy": True, "status": "ok", "message": "OK", "binary": "/usr/bin/gobuster"},
+        "gobuster": {
+            "healthy": True,
+            "status": "ok",
+            "message": "OK",
+            "binary": "/usr/bin/gobuster",
+        },
     }
     await modal.apply_health(issues_health)
     summary_label.update.assert_called_with("▲ 1 issue(s) detected across 2 registered tools.")
@@ -229,10 +263,29 @@ async def test_tool_health_modal_realtime_apply_health():
     # 2. All healthy
     clean_health = {
         "nmap": {"healthy": True, "status": "ok", "message": "OK", "binary": "/usr/bin/nmap"},
-        "gobuster": {"healthy": True, "status": "ok", "message": "OK", "binary": "/usr/bin/gobuster"},
+        "gobuster": {
+            "healthy": True,
+            "status": "ok",
+            "message": "OK",
+            "binary": "/usr/bin/gobuster",
+        },
     }
     summary_label.reset_mock()
     items_list.reset_mock()
     await modal.apply_health(clean_health)
-    summary_label.update.assert_called_with("● All 2 registered tools are operational and available.")
+    summary_label.update.assert_called_with(
+        "● All 2 registered tools are operational and available."
+    )
     assert items_list.append.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_diagnostic_engine_direct():
+    from cyguide.engine.diagnostics import DiagnosticEngine
+
+    engine = DiagnosticEngine(db_path=":memory:")
+    report = await engine.run()
+    assert report.healthy is True
+    assert "System" in {c.category for c in report.checks}
+    text = DiagnosticEngine.format_terminal_report(report)
+    assert "STATUS: HEALTHY" in text

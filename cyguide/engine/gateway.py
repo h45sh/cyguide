@@ -8,14 +8,14 @@ from cyguide.engine.store import GraphStore
 from cyguide.schemas.power import ActionRequest, ActionSource
 
 BLOCKED_TARGETS = {
-    "169.254.",                 # IPv4 Link-Local / Cloud Metadata (AWS, Azure, GCP, DigitalOcean, Oracle)
-    "fd00:ec2::254",            # AWS IPv6 IMDSv2 metadata
-    "100.100.100.200",          # Alibaba Cloud metadata
-    "2852039166",               # Decimal notation of 169.254.169.254
-    "0xa9fea9fe",               # Hex notation of 169.254.169.254
-    "metadata.google.internal", # GCP metadata DNS
-    "metadata.internal",        # Generic internal metadata DNS
-    "instance-data",            # EC2 instance data hostname
+    "169.254.",  # IPv4 Link-Local / Cloud Metadata (AWS, Azure, GCP, DigitalOcean, Oracle)
+    "fd00:ec2::254",  # AWS IPv6 IMDSv2 metadata
+    "100.100.100.200",  # Alibaba Cloud metadata
+    "2852039166",  # Decimal notation of 169.254.169.254
+    "0xa9fea9fe",  # Hex notation of 169.254.169.254
+    "metadata.google.internal",  # GCP metadata DNS
+    "metadata.internal",  # Generic internal metadata DNS
+    "instance-data",  # EC2 instance data hostname
 }
 
 BLOCKED_NETWORKS = [
@@ -34,7 +34,7 @@ def _parse_ip_candidate(candidate: str):
     c = c.split("?", 1)[0]
     c = c.split("#", 1)[0]
     if c.startswith("[") and "]" in c:
-        c = c[1:c.index("]")]
+        c = c[1 : c.index("]")]
     elif ":" in c and c.count(":") == 1:
         c = c.split(":", 1)[0]
 
@@ -87,6 +87,7 @@ def is_blocked_destination(text: str) -> bool:
 
 class ActionValidationError(Exception):
     """Raised when an ActionRequest fails validation."""
+
     pass
 
 
@@ -110,7 +111,9 @@ class ActionGateway:
         # 1. Enforce destination safety (block cloud metadata endpoints)
         raw_flags = action.params.get("raw_flags", "")
         if is_blocked_destination(raw_flags) or is_blocked_destination(action.tool_name):
-            raise ActionValidationError("Access to cloud metadata endpoints is strictly prohibited.")
+            raise ActionValidationError(
+                "Access to cloud metadata endpoints is strictly prohibited."
+            )
 
         # 2. Resolve Tool
         tool_data = self.registry.get_tool(action.tool_name)
@@ -150,7 +153,9 @@ class ActionGateway:
         # Enforce destination safety on the target entity
         pik_str = node.get("pik_json", "")
         if is_blocked_destination(pik_str):
-            raise ActionValidationError("Target entity points to a prohibited cloud metadata endpoint.")
+            raise ActionValidationError(
+                "Target entity points to a prohibited cloud metadata endpoint."
+            )
 
         target_schema = node["schema_type"]
         accepted_inputs = manifest.input.get("accepts", [])

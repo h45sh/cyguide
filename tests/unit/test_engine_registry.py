@@ -59,3 +59,12 @@ def test_tool_registry_discovery(tmp_path):
 
     matches_none = registry.find_tools_for_input("nonexistent")
     assert matches_none == []
+
+    # Test refresh_if_changed when nothing changed
+    assert registry.refresh_if_changed() is False
+
+    # Test health check
+    health = registry.check_health()
+    assert "mock_tool" in health
+    assert health["mock_tool"]["status"] == "ok"
+    assert health["mock_tool"]["healthy"] is True

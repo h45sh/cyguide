@@ -1,10 +1,11 @@
 """The main Power Mode screen for advanced investigation."""
 
 import asyncio
+import json
 import os
 import re
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 from uuid import UUID
 
 from rich.markup import escape
@@ -14,12 +15,10 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
-from textual.screen import ModalScreen, Screen
+from textual.screen import Screen
 from textual.widgets import (
-    Button,
     Input,
     Label,
-    Markdown,
     RichLog,
     Static,
     TabbedContent,
@@ -29,96 +28,25 @@ from textual.widgets import (
 
 from cyguide.paths import get_default_exports_dir, get_default_reports_dir
 from cyguide.schemas.power import ActionRequest, ActionSource, JobStatus, JobStatusEnum
+from cyguide.ui.dialogs import RenameDialog, ShortcutsDialog
 from cyguide.ui.widgets.power import CommandPalette, EntityBrowser, JobQueue
 from cyguide.ui.widgets.resizer import ResizeHandle
 
-SHORTCUTS_MD = """
-# CyGuide Keyboard Shortcuts & Hotkeys
 
-## Global & Help
-* **`F1` / `Ctrl+/`**: Show this Keyboard Shortcuts & Hotkeys Help dialog
-* **`Ctrl+P`**: Open Command Palette (e.g. Toggle Animations)
-* **`Q` / `Ctrl+Q`**: Quit Application
+class TextualSuspendAdapter:
+    """Adapts Textual App.suspend() context manager for ExecutionSession."""
 
-## Dashboard (Engagement Management)
-* **`F1`**: Show Shortcuts / Help dialog
-* **`Ctrl+N`**: New Workspace
-* **`Ctrl+S`**: New Session
-* **`Ctrl+H`**: Toggle Session History (Active vs. Archived)
-* **`Ctrl+A` / `c`**: Archive / Reopen Engagement
-* **`F2`**: Rename highlighted Workspace or Session inline
-* **`Ctrl+D`**: Toggle Delete Mode / Confirm Deletion
-* **`Ctrl+M`**: Toggle Organize (Move) Mode / Confirm Move
-* **`Space`**: Select/check item (in Delete/Organize modes)
-* **`Ctrl+B`**: Toggle Workspace Sidebar
-* **`Ctrl+L`**: Switch to Learning Mode
-* **`Esc`**: Cancel Action / Mode
-* **`Q`**: Quit Application
+    def __init__(self, app):
+        self._app = app
 
-## Power Mode (Advanced Operator Workspace)
-* **`F1`**: Show Shortcuts / Help dialog
-* **`Ctrl+T`**: Open New Terminal Tab
-* **`Ctrl+W`**: Close Active Terminal Tab
-* **`Ctrl+Y`**: Copy Active Terminal Tab Log to Clipboard
-* **`Ctrl+K`**: Kill / Terminate Running Job (`SIGTERM`)
-* **`Ctrl+R`**: Reopen Archived Session (Restores Write Mode)
-* **`Ctrl+PageUp / PageDown`**: Switch Terminal Tabs
-* **`Shift+Enter` / `Alt+Enter` / `Ctrl+J`**: Run Command in New Tab
-* **`Ctrl+Tab / Ctrl+Shift+Tab`**: Switch Sessions
-* **`Ctrl+Right / Ctrl+Left`**: Switch Sessions (Alt)
-* **`Ctrl+B`**: Toggle Sidebar (Hide Browser & Job Queue)
-* **`Ctrl+N`**: Toggle Note Taking Scratchpad
-* **`Ctrl+G`**: Toggle Global Entity Graph (Workspace-wide view)
-* **`Ctrl+E`**: Export Session Report & Database Archive
-* **`Ctrl+L`**: Toggle Raw Shell Lock
-* **`!` prefix**: One-time Raw Shell Command
-* **`Tab`**: Auto-complete Filenames (in Shell-Locked mode)
-* **`Up / Down`**: Command History
-* **`?` or `help`**: Show this shortcuts menu
-* **`Esc`**: Return to Dashboard
+    def suspend(self):
+        return self._app.suspend()
 
-## Entity Browser
-* **`Enter` / Click**: Select Entity Node
-
-## Learning Mode
-* **`F1`**: Show Shortcuts / Help dialog
-* **`Ctrl+B`**: Toggle Lesson Sidebar
-* **`Esc`**: Return to Tool Browser / Dashboard
-* **`Q`**: Quit Application
-"""
-
-class ShortcutsDialog(ModalScreen):
-    BINDINGS = [
-        ("escape", "app.pop_screen", "Close"),
-        ("f1", "app.pop_screen", "Close"),
-        ("q", "app.pop_screen", "Close"),
-    ]
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="shortcuts_dialog"):
-            yield Markdown(SHORTCUTS_MD)
-            with Horizontal(classes="dialog_buttons"):
-                yield Button("Close", variant="primary", id="close_shortcuts")
-
-    def on_mount(self) -> None:
-        def focus_close():
-            try:
-                self.query_one("#close_shortcuts", Button).focus()
-            except Exception:
-                pass
-        self.call_after_refresh(focus_close)
-
-    def on_key(self, event: events.Key) -> None:
-        if event.key == "escape":
-            event.stop()
-            self.dismiss()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "close_shortcuts":
-            self.dismiss()
 
 class PowerModeScreen(Screen):
     """The advanced operator workspace."""
+
+    ALLOW_SELECT = False
 
     BINDINGS = [
         Binding("f1", "show_shortcuts", "Help"),
@@ -134,6 +62,42 @@ class PowerModeScreen(Screen):
         Binding("ctrl+g", "toggle_global_graph", "Toggle Global Graph"),
         Binding("ctrl+pageup", "prev_tab", "Prev Tab"),
         Binding("ctrl+pagedown", "next_tab", "Next Tab"),
+        Binding("ctrl+f", "focus_search", "Filter Targets"),
+        Binding("f2", "rename_entity", "Set Alias / Name"),
+        Binding("alt+[", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True),
+        Binding(
+            "alt+left_square_bracket", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True
+        ),
+        Binding("alt+{", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True),
+        Binding(
+            "alt+left_curly_bracket", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True
+        ),
+        Binding(
+            "alt+shift+left_square_bracket",
+            "shrink_sidebar",
+            "Shrink Sidebar",
+            show=False,
+            priority=True,
+        ),
+        Binding("alt+]", "expand_sidebar", "Expand Sidebar", show=False, priority=True),
+        Binding(
+            "alt+right_square_bracket",
+            "expand_sidebar",
+            "Expand Sidebar",
+            show=False,
+            priority=True,
+        ),
+        Binding("alt+}", "expand_sidebar", "Expand Sidebar", show=False, priority=True),
+        Binding(
+            "alt+right_curly_bracket", "expand_sidebar", "Expand Sidebar", show=False, priority=True
+        ),
+        Binding(
+            "alt+shift+right_square_bracket",
+            "expand_sidebar",
+            "Expand Sidebar",
+            show=False,
+            priority=True,
+        ),
         Binding("escape", "nav_dashboard", "Dashboard"),
         Binding("ctrl+tab", "next_session", "Next Session"),
         Binding("ctrl+shift+tab", "prev_session", "Prev Session"),
@@ -169,6 +133,7 @@ class PowerModeScreen(Screen):
             # Sidebar: Browser + Jobs - Now extends to the full height of the app
             with Vertical(id="power_sidebar"):
                 yield Label("◆ SESSION: -", id="session_label")
+                yield Input(placeholder="Filter targets (Ctrl+F)...", id="entity_search_input")
                 yield EntityBrowser(id="entity_browser")
                 yield JobQueue(id="job_queue")
 
@@ -207,11 +172,10 @@ class PowerModeScreen(Screen):
                     yield Label("◆ SCRATCHPAD", id="scratchpad_label", classes="pane_title")
                 yield TextArea(id="scratchpad_textarea", language="markdown", theme="vscode_dark")
 
-
         yield Static(
             "Terminal window too small (minimum 75x15).\nPlease resize your terminal or press [Esc] for Dashboard.",
             id="size_warning",
-            classes="hidden"
+            classes="hidden",
         )
 
     async def on_resize(self, event: events.Resize) -> None:
@@ -248,7 +212,6 @@ class PowerModeScreen(Screen):
                     pass
             return
 
-
         # Restore persistent pane widths
         if hasattr(self.app, "settings") and self.app.settings:
             saved_sb = self.app.settings.get("power_sidebar_width")
@@ -268,7 +231,10 @@ class PowerModeScreen(Screen):
             self.app.power_facade.on_job_status_change(self._handle_job_status_change)
         await self._restore_tabs()
         await self.refresh_ui()
-        self.app.store.on_upsert(self.handle_live_update)
+        if hasattr(self.app, "power_facade"):
+            self.app.power_facade.on_finding_upsert(self.handle_live_update)
+        else:
+            self.app.store.on_upsert(self.handle_live_update)
 
     def on_unmount(self) -> None:
         if hasattr(self.app, "power_facade"):
@@ -303,7 +269,7 @@ class PowerModeScreen(Screen):
             except Exception:
                 pass
 
-        self.run_worker(self.refresh_ui())
+        self.run_worker(self.refresh_ui(), exclusive=True, group="refresh_ui")
 
     async def on_screen_resume(self) -> None:
         """Triggered when the screen is resumed (switched back to)."""
@@ -312,7 +278,7 @@ class PowerModeScreen(Screen):
             self.app.switch_screen("dashboard")
             return
 
-        session_data = await self.app.store.get_session(target_id)
+        session_data = await self.app.power_facade.get_session(target_id)
         if not session_data:
             self.notify("Session no longer exists.", severity="error")
             self.app.selected_session_id = None
@@ -349,7 +315,8 @@ class PowerModeScreen(Screen):
 
     async def _restore_tabs(self) -> None:
         """Restore previous job tabs from the event log and active running jobs."""
-        if not self.active_session_id: return
+        if not self.active_session_id:
+            return
         events = await self.app.power_facade.get_session_events(self.active_session_id)
 
         import json
@@ -376,14 +343,17 @@ class PowerModeScreen(Screen):
                 continue
 
             action_id = action.get("action_id", "unknown")
-            if action_id in self.app.power_facade.closed_job_ids:
+            if self.app.power_facade.is_job_closed(action_id):
                 continue
 
             # If this job is actively running in power_facade, let running restoration handle it
             try:
                 j_uuid = UUID(action_id)
-                active_job = self.app.power_facade._active_jobs.get(j_uuid)
-                if active_job and active_job.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED):
+                active_job = self.app.power_facade.get_job(j_uuid)
+                if active_job and active_job.status in (
+                    JobStatusEnum.RUNNING,
+                    JobStatusEnum.QUEUED,
+                ):
                     continue
             except Exception:
                 pass
@@ -413,9 +383,9 @@ class PowerModeScreen(Screen):
                         tool_name=tool_name,
                         status=status,
                         started_at=datetime.now(timezone.utc),
-                        completed_at=datetime.now(timezone.utc)
+                        completed_at=datetime.now(timezone.utc),
                     )
-                    self.app.power_facade._active_jobs[job_uuid] = job
+                    self.app.power_facade.register_job(job)
                 except Exception as e:
                     pass
 
@@ -431,21 +401,29 @@ class PowerModeScreen(Screen):
             else:
                 cmd_display = tool_name
 
-            job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n"))
+            job_log.write(
+                Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n")
+            )
             job_log.write(Text.from_ansi(result.get("output", "")))
 
             if result.get("error"):
                 err = result["error"]
                 if err == "Terminated manually":
-                    job_log.write(Text.from_markup("\n[bold #f85149]SIGTERM: Job terminated by operator.[/]\n"))
+                    job_log.write(
+                        Text.from_markup(
+                            "\n[bold #f85149]SIGTERM: Job terminated by operator.[/]\n"
+                        )
+                    )
                 else:
-                    job_log.write(Text.from_markup(f"\n[bold #f85149]Error:[/] [red]{escape(str(err))}[/]\n"))
+                    job_log.write(
+                        Text.from_markup(f"\n[bold #f85149]Error:[/] [red]{escape(str(err))}[/]\n")
+                    )
 
         # Restore any active/running jobs for this session that do not yet have a tab
         running_jobs = [
-            j for j in self.app.power_facade._active_jobs.values()
-            if str(j.session_id) == str(self.active_session_id)
-            and j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
+            j
+            for j in self.app.power_facade.get_session_active_jobs(str(self.active_session_id))
+            if j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
         ]
 
         for r_job in running_jobs:
@@ -475,7 +453,9 @@ class PowerModeScreen(Screen):
             else:
                 cmd_display = tool_name
 
-            job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n"))
+            job_log.write(
+                Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n")
+            )
 
             # Populate already accumulated output buffer
             buf = self.app.power_facade.get_job_buffer(r_job.job_id)
@@ -489,6 +469,7 @@ class PowerModeScreen(Screen):
                         target_log.write(Text.from_ansi(chunk))
                     except Exception:
                         pass
+
                 return _on_chunk
 
             chunk_cb = make_chunk_subscriber(job_log)
@@ -496,14 +477,12 @@ class PowerModeScreen(Screen):
             self.app.power_facade.subscribe_job_output(r_job.job_id, chunk_cb)
 
     async def refresh_ui(self) -> None:
-        if not self.active_session_id: return
+        if not self.active_session_id:
+            return
 
-        ctx = await self.app.power_facade.get_context(
-            self.active_session_id,
-            self.selected_node_id
-        )
+        ctx = await self.app.power_facade.get_context(self.active_session_id, self.selected_node_id)
 
-        session_data = await self.app.store.get_session(self.active_session_id)
+        session_data = await self.app.power_facade.get_session(self.active_session_id)
         is_closed = session_data and session_data.get("status") == "CLOSED"
         running_cnt = self.app.power_facade.get_active_jobs_count(self.active_session_id)
 
@@ -540,35 +519,47 @@ class PowerModeScreen(Screen):
 
         if self.show_global_graph:
             if session_data:
-                graph_data = await self.app.power_facade.get_workspace_graph_snapshot(session_data["workspace_id"])
+                graph_data = await self.app.power_facade.get_workspace_graph_snapshot(
+                    session_data["workspace_id"]
+                )
             else:
                 graph_data = await self.app.power_facade.get_graph_snapshot(self.active_session_id)
         else:
             graph_data = await self.app.power_facade.get_graph_snapshot(self.active_session_id)
 
-        try:
-            await self.query_one("#entity_browser", EntityBrowser).refresh_entities(graph_data)
-        except NoMatches:
-            pass
+        current_node_sig = tuple(
+            (n.get("id"), n.get("data_json")) for n in graph_data.get("nodes", [])
+        )
+        if getattr(self, "_last_node_sig", None) != current_node_sig or getattr(
+            self, "_force_tree_refresh", False
+        ):
+            self._last_node_sig = current_node_sig
+            self._force_tree_refresh = False
+            try:
+                await self.query_one("#entity_browser", EntityBrowser).refresh_entities(graph_data)
+            except NoMatches:
+                pass
 
         try:
             # Show all active jobs for this session (running, queued, or recently completed)
             session_jobs = [
-                j for j in ctx.active_jobs
-                if str(j.session_id) == str(self.active_session_id)
+                j for j in ctx.active_jobs if str(j.session_id) == str(self.active_session_id)
             ]
             await self.query_one("#job_queue", JobQueue).update_jobs(session_jobs)
         except NoMatches:
             pass
 
-
         palette = self.query_one("#command_palette", CommandPalette)
         palette.update_context(ctx.resolved_vars, is_registered_tool=True, cwd=ctx.cwd)
         cmd_input = self.query_one("#command_input", Input)
         if is_closed:
-            cmd_input.placeholder = "[LOCKED / ARCHIVED ENGAGEMENT] Press Ctrl+R to Reopen for active scan execution"
+            cmd_input.placeholder = (
+                "[LOCKED / ARCHIVED ENGAGEMENT] Press Ctrl+R to Reopen for active scan execution"
+            )
         else:
-            cmd_input.placeholder = "Enter tool command or ! <shell command>... (e.g., nmap -sV $IP)"
+            cmd_input.placeholder = (
+                "Enter tool command or ! <shell command>... (e.g., nmap -sV $IP)"
+            )
         try:
             scratchpad = self.query_one("#scratchpad_textarea", TextArea)
             browser = self.query_one("#entity_browser")
@@ -580,9 +571,11 @@ class PowerModeScreen(Screen):
     async def handle_live_update(self, session_id: str, finding: Any) -> None:
         if session_id == self.active_session_id:
             if self.show_global_graph:
-                session_data = await self.app.store.get_session(self.active_session_id)
+                session_data = await self.app.power_facade.get_session(self.active_session_id)
                 if session_data:
-                    nodes = await self.app.power_facade.get_workspace_graph_snapshot(session_data["workspace_id"])
+                    nodes = await self.app.power_facade.get_workspace_graph_snapshot(
+                        session_data["workspace_id"]
+                    )
                 else:
                     nodes = await self.app.power_facade.get_graph_snapshot(self.active_session_id)
             else:
@@ -596,7 +589,7 @@ class PowerModeScreen(Screen):
         if event.session_id != self.active_session_id:
             self.app.selected_session_id = event.session_id
             await self.on_screen_resume()
-            session_data = await self.app.store.get_session(event.session_id)
+            session_data = await self.app.power_facade.get_session(event.session_id)
             if session_data:
                 self.notify(f"Switched to session: {session_data['name']}")
 
@@ -610,8 +603,9 @@ class PowerModeScreen(Screen):
         # If tab was closed or not yet mounted, open it dynamically
         try:
             from rich.text import Text
+
             j_uuid = UUID(event.job_id)
-            job = self.app.power_facade._active_jobs.get(j_uuid)
+            job = self.app.power_facade.get_job(j_uuid)
             action = self.app.power_facade.get_job_action(j_uuid)
             tool_name = (job.tool_name if job else None) or (action.tool_name if action else "job")
             is_running = job and job.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
@@ -637,52 +631,84 @@ class PowerModeScreen(Screen):
             else:
                 cmd_display = tool_name
 
-            log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n"))
+            log.write(
+                Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n")
+            )
 
             buf = self.app.power_facade.get_job_buffer(j_uuid)
             if buf:
                 log.write(Text.from_ansi(buf))
 
             if is_running:
+
                 async def _on_chunk(chunk: str):
                     try:
                         log.write(Text.from_ansi(chunk))
                     except Exception:
                         pass
+
                 self._active_subscriptions[j_uuid] = _on_chunk
                 self.app.power_facade.subscribe_job_output(j_uuid, _on_chunk)
         except Exception:
             pass
 
+    async def _update_context_from_selection(self) -> None:
+        """Lightweight update of context bar variables ($TARGET, $PORT, $SERVICE) without DOM rebuild."""
+        if not self.active_session_id:
+            return
+        try:
+            ctx = await self.app.power_facade.get_context(
+                self.active_session_id, self.selected_node_id
+            )
+            palette = self.query_one("#command_palette", CommandPalette)
+            palette.update_context(ctx.resolved_vars, is_registered_tool=True, cwd=ctx.cwd)
+        except NoMatches:
+            pass
 
     async def on_tree_node_highlighted(self, event: EntityBrowser.NodeHighlighted) -> None:
         if event.node.data:
             self.selected_node_id = event.node.data.get("id")
-            await self.refresh_ui()
+            await self._update_context_from_selection()
 
     async def on_tree_node_selected(self, event: EntityBrowser.NodeSelected) -> None:
         if event.node.data:
             self.selected_node_id = event.node.data.get("id")
-            await self.refresh_ui()
+            await self._update_context_from_selection()
 
     async def action_new_terminal_tab(self, title: Optional[str] = None) -> str:
         self.terminal_count += 1
         tab_id = f"term_{self.terminal_count}"
         display_title = title or f"Terminal #{self.terminal_count}"
 
-        job_log = RichLog(id=f"log_{tab_id}", highlight=False, markup=True, max_lines=10000)
+        job_log = RichLog(id=f"log_{tab_id}", highlight=False, markup=True, max_lines=5000)
         tabs = self.query_one("#job_tabs", TabbedContent)
         await tabs.add_pane(TabPane(display_title, job_log, id=tab_id))
         tabs.active = tab_id
         return tab_id
 
+    async def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "entity_search_input":
+            browser = self.query_one("#entity_browser", EntityBrowser)
+            browser.set_filter(event.value)
+            if getattr(browser, "last_graph_data", None):
+                await browser.refresh_entities(browser.last_graph_data)
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "entity_search_input":
+            try:
+                self.query_one("#entity_browser", EntityBrowser).focus()
+            except Exception:
+                pass
+
     async def on_command_palette_submitted(self, event: CommandPalette.Submitted) -> None:
         self.run_worker(self._handle_submission(event))
 
     async def _handle_submission(self, event: CommandPalette.Submitted) -> None:
-        session_data = await self.app.store.get_session(self.active_session_id)
+        session_data = await self.app.power_facade.get_session(self.active_session_id)
         if session_data and session_data.get("status") == "CLOSED":
-            self.notify("This session is archived (read-only). Press Ctrl+R to reopen.", severity="warning")
+            self.notify(
+                "This session is archived (read-only). Press Ctrl+R to reopen.", severity="warning"
+            )
             return
 
         palette = self.query_one("#command_palette", CommandPalette)
@@ -695,7 +721,7 @@ class PowerModeScreen(Screen):
             target_entity_id=self.selected_node_id,
             params={"raw_flags": " ".join(expanded_params)},
             triggered_by=ActionSource.USER,
-            is_explicit_shell=event.is_manual_shell or palette.shell_locked
+            is_explicit_shell=event.is_manual_shell or palette.shell_locked,
         )
 
         is_builtin = tool_name in ["cd", "clear", "?", "help"]
@@ -713,7 +739,7 @@ class PowerModeScreen(Screen):
             return
 
         try:
-            await self.app.power_facade.gateway.validate_action(action)
+            await self.app.power_facade.validate_action(action)
         except Exception as e:
             tabs = self.query_one("#job_tabs", TabbedContent)
             active_tab_id = tabs.active
@@ -721,33 +747,12 @@ class PowerModeScreen(Screen):
                 active_tab_id = await self.action_new_terminal_tab(title=f"Error: {tool_name}")
 
             job_log = self.query_one(f"#log_{active_tab_id}", RichLog)
-            job_log.write(Text.from_markup(f"\n[bold #f85149]Validation Error:[/] [red]{escape(str(e))}[/]\n"))
+            job_log.write(
+                Text.from_markup(f"\n[bold #f85149]Validation Error:[/] [red]{escape(str(e))}[/]\n")
+            )
             return
 
-        is_sudo = tool_name == "sudo"
-        if is_sudo and not is_builtin:
-            tabs = self.query_one("#job_tabs", TabbedContent)
-            active_tab_id = tabs.active
-            if not active_tab_id:
-                active_tab_id = await self.action_new_terminal_tab(title=f"sudo {expanded_params[0] if expanded_params else ''}")
-
-            job_log = self.query_one(f"#log_{active_tab_id}", RichLog)
-            params_str = " ".join(expanded_params)
-            job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]sudo[/] [dim #8b949e]{escape(params_str)}[/]\n"))
-            job_log.write(Text.from_markup("[italic #8b949e]Suspending for sudo password entry...[/]\n"))
-
-            from cyguide.engine.executor import sanitize_subprocess_env
-            clean_env = sanitize_subprocess_env(self.app.user_env)
-            with self.app.suspend():
-                import shlex
-                import subprocess
-                cmd_args = ["sudo"] + shlex.split(' '.join(expanded_params))
-                subprocess.run(cmd_args, shell=False, env=clean_env)
-
-            job_log.write(Text.from_markup("[italic #3fb950]Resumed from sudo.[/]\n"))
-
-            await self.refresh_ui()
-            return
+        # Note: 'sudo' execution is handled through ExecutionSession with TextualSuspendAdapter
 
         # BACKGROUND MODE: Tab reuse logic
         tabs = self.query_one("#job_tabs", TabbedContent)
@@ -766,7 +771,7 @@ class PowerModeScreen(Screen):
                 # Check if the job in the current tab is still running
                 job_id = self.tab_to_job[active_tab_id]
                 try:
-                    job = self.app.power_facade._active_jobs.get(UUID(job_id))
+                    job = self.app.power_facade.get_job(UUID(job_id))
                     if job and job.status == JobStatusEnum.RUNNING:
                         needs_new_tab = True
                 except Exception:
@@ -802,31 +807,73 @@ class PowerModeScreen(Screen):
             # in the same tab appear below the previous ones, mimicking a real shell.
 
         self.tab_to_job[active_tab_id] = str(action.action_id)
+        job_obj = self.app.power_facade.get_job(action.action_id)
+        if job_obj:
+            job_obj.tab_id = active_tab_id
         params_str = " ".join(p for p in expanded_params if p).strip()
         cmd_display = f"{tool_name} {params_str}".strip() if params_str else tool_name
-        job_log.write(Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n"))
+        job_log.write(
+            Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n")
+        )
 
-        flag_pattern = re.compile(r'(?:flag|FLAG|ctf|CTF|htb|HTB|thm|THM)\{[A-Za-z0-9_!@#$%^&*+=?.-]+\}')
+        flag_pattern = re.compile(
+            r"(?:flag|FLAG|ctf|CTF|htb|HTB|thm|THM)\{[A-Za-z0-9_!@#$%^&*+=?.-]+\}"
+        )
         detected_flags = set()
         start_time = asyncio.get_event_loop().time()
 
+        # Rolling micro-batch buffer for UI writes (25 FPS / 40ms flush)
+        ui_buffer: List[str] = []
+        last_flush_time = 0.0
+        flush_interval = 0.04  # ~25 FPS
+        flush_lock = asyncio.Lock()
+
+        async def flush_ui_buffer():
+            nonlocal last_flush_time
+            async with flush_lock:
+                if not ui_buffer:
+                    return
+                combined = "".join(ui_buffer)
+                ui_buffer.clear()
+                last_flush_time = asyncio.get_event_loop().time()
+                try:
+                    job_log.write(Text.from_ansi(combined))
+                except Exception:
+                    pass
+
         try:
+
             async def stream_output(text: str):
-                job_log.write(Text.from_ansi(text))
+                ui_buffer.append(text)
+                now = asyncio.get_event_loop().time()
+                if now - last_flush_time >= flush_interval:
+                    await flush_ui_buffer()
+
                 # CTF Flag Auto-Detection
                 for match in flag_pattern.finditer(text):
                     flag_str = match.group(0)
                     if flag_str not in detected_flags:
                         detected_flags.add(flag_str)
-                        job_log.write(Text.from_markup(f"\n[bold black on #eab308] 🚩 CTF FLAG DETECTED [/] [bold #facc15]{escape(flag_str)}[/]\n"))
-                        self.notify(f"Captured: {flag_str}", title="🚩 Flag Detected!", severity="warning")
+                        await flush_ui_buffer()
+                        job_log.write(
+                            Text.from_markup(
+                                f"\n[bold black on #eab308] ⚑ CTF FLAG DETECTED [/] [bold #facc15]{escape(flag_str)}[/]\n"
+                            )
+                        )
+                        self.notify(
+                            f"Captured: {flag_str}", title="⚑ Flag Detected!", severity="warning"
+                        )
                 await asyncio.sleep(0)
 
             async def stream_error(text: str):
-                job_log.write(Text.from_ansi(text))
+                ui_buffer.append(text)
+                now = asyncio.get_event_loop().time()
+                if now - last_flush_time >= flush_interval:
+                    await flush_ui_buffer()
                 await asyncio.sleep(0)
 
             async def on_complete():
+                await flush_ui_buffer()
                 elapsed = asyncio.get_event_loop().time() - start_time
                 if elapsed >= 15.0:
                     try:
@@ -834,10 +881,11 @@ class PowerModeScreen(Screen):
                     except Exception:
                         pass
                     dur_str = f"{elapsed:.1f}s"
-                    asyncio.create_task(self._send_desktop_notification(
-                        f"Job Finished ({dur_str})",
-                        f"'{tool_name}' completed in session"
-                    ))
+                    asyncio.create_task(
+                        self._send_desktop_notification(
+                            f"Job Finished ({dur_str})", f"'{tool_name}' completed in session"
+                        )
+                    )
                     self.notify(f"'{tool_name}' finished in {dur_str}", title="Long Job Complete")
 
                 try:
@@ -857,10 +905,12 @@ class PowerModeScreen(Screen):
                 action,
                 on_output=stream_output,
                 on_complete=on_complete,
-                on_error_output=stream_error
+                on_error_output=stream_error,
+                suspend_context=TextualSuspendAdapter(self.app),
             )
             await self.refresh_ui()
         except Exception as e:
+            await flush_ui_buffer()
             job_log.write(Text.from_markup(f"[bold #f85149]Error:[/] [red]{escape(str(e))}[/]"))
             await self.refresh_ui()
 
@@ -886,8 +936,6 @@ class PowerModeScreen(Screen):
         except Exception:
             pass
 
-
-
     def action_nav_dashboard(self) -> None:
         self.app.switch_screen("dashboard")
 
@@ -902,13 +950,14 @@ class PowerModeScreen(Screen):
             if cmd_input.value.startswith("!"):
                 cmd_input.value = "> " + cmd_input.value[1:].lstrip()
         cmd_input.focus()
-        self.run_worker(self.refresh_ui())
+        self.run_worker(self.refresh_ui(), exclusive=True, group="refresh_ui")
 
     async def action_next_tab(self) -> None:
         """Switch to the next workbench tab."""
         tabs = self.query_one("#job_tabs", TabbedContent)
         children = list(tabs.query(TabPane))
-        if not children: return
+        if not children:
+            return
         current_idx = next((i for i, c in enumerate(children) if c.id == tabs.active), 0)
         tabs.active = children[(current_idx + 1) % len(children)].id
 
@@ -916,19 +965,22 @@ class PowerModeScreen(Screen):
         """Switch to the previous workbench tab."""
         tabs = self.query_one("#job_tabs", TabbedContent)
         children = list(tabs.query(TabPane))
-        if not children: return
+        if not children:
+            return
         current_idx = next((i for i, c in enumerate(children) if c.id == tabs.active), 0)
         tabs.active = children[(current_idx - 1) % len(children)].id
 
     async def action_next_session(self) -> None:
         """Switch to the next session in the current workspace."""
-        if not self.active_session_id: return
+        if not self.active_session_id:
+            return
 
-        session_data = await self.app.store.get_session(self.active_session_id)
-        if not session_data: return
+        session_data = await self.app.power_facade.get_session(self.active_session_id)
+        if not session_data:
+            return
 
         workspace_id = session_data["workspace_id"]
-        sessions = await self.app.store.list_sessions(workspace_id)
+        sessions = await self.app.power_facade.list_sessions(workspace_id)
         if not sessions or len(sessions) <= 1:
             return
 
@@ -948,13 +1000,15 @@ class PowerModeScreen(Screen):
 
     async def action_prev_session(self) -> None:
         """Switch to the previous session in the current workspace."""
-        if not self.active_session_id: return
+        if not self.active_session_id:
+            return
 
-        session_data = await self.app.store.get_session(self.active_session_id)
-        if not session_data: return
+        session_data = await self.app.power_facade.get_session(self.active_session_id)
+        if not session_data:
+            return
 
         workspace_id = session_data["workspace_id"]
-        sessions = await self.app.store.list_sessions(workspace_id)
+        sessions = await self.app.power_facade.list_sessions(workspace_id)
         if not sessions or len(sessions) <= 1:
             return
 
@@ -973,7 +1027,7 @@ class PowerModeScreen(Screen):
             self.notify(f"Switched to session: {sessions[prev_idx]['name']}")
 
     async def action_close_terminal_tab(self) -> None:
-        """Close the currently active terminal tab, """
+        """Close the currently active terminal tab,"""
         tabs = self.query_one("#job_tabs", TabbedContent)
         active_tab_id = tabs.active
 
@@ -990,7 +1044,7 @@ class PowerModeScreen(Screen):
                     self.app.power_facade.unsubscribe_job_output(j_uuid, cb)
             except Exception:
                 pass
-            await self.app.power_facade.executor.stop_task(target_job_id)
+            await self.app.power_facade.stop_job(target_job_id)
             await self.app.power_facade.remove_job(UUID(target_job_id))
             self.tab_to_job.pop(active_tab_id)
 
@@ -1013,7 +1067,9 @@ class PowerModeScreen(Screen):
                 job_log = self.query_one(f"#log_{active_tab_id}", RichLog)
 
                 await self.app.power_facade.kill_job(UUID(target_job_id))
-                job_log.write(Text.from_markup("\n[bold #f85149]SIGTERM: Job terminated by operator.[/]\n"))
+                job_log.write(
+                    Text.from_markup("\n[bold #f85149]SIGTERM: Job terminated by operator.[/]\n")
+                )
 
                 # Refresh to update status icon in sidebar
                 await self.refresh_ui()
@@ -1025,23 +1081,33 @@ class PowerModeScreen(Screen):
         """Open the keyboard shortcuts help dialog."""
         self.app.push_screen(ShortcutsDialog())
 
-    async def on_command_palette_show_shortcuts_request(self, event: CommandPalette.ShowShortcutsRequest) -> None:
+    async def on_command_palette_show_shortcuts_request(
+        self, event: CommandPalette.ShowShortcutsRequest
+    ) -> None:
         """Handle Show Shortcuts request from the command palette (bypassing Input widget)."""
         self.action_show_shortcuts()
 
-    async def on_command_palette_close_tab_request(self, event: CommandPalette.CloseTabRequest) -> None:
+    async def on_command_palette_close_tab_request(
+        self, event: CommandPalette.CloseTabRequest
+    ) -> None:
         """Handle Close Tab request from the command palette (bypassing Input widget)."""
         await self.action_close_terminal_tab()
 
-    async def on_command_palette_kill_job_request(self, event: CommandPalette.KillJobRequest) -> None:
+    async def on_command_palette_kill_job_request(
+        self, event: CommandPalette.KillJobRequest
+    ) -> None:
         """Handle Kill Job request from the command palette (bypassing Input widget)."""
         await self.action_kill_job()
 
-    async def on_command_palette_next_session_request(self, event: CommandPalette.NextSessionRequest) -> None:
+    async def on_command_palette_next_session_request(
+        self, event: CommandPalette.NextSessionRequest
+    ) -> None:
         """Handle Next Session request from the command palette."""
         await self.action_next_session()
 
-    async def on_command_palette_prev_session_request(self, event: CommandPalette.PrevSessionRequest) -> None:
+    async def on_command_palette_prev_session_request(
+        self, event: CommandPalette.PrevSessionRequest
+    ) -> None:
         """Handle Prev Session request from the command palette."""
         await self.action_prev_session()
 
@@ -1049,7 +1115,9 @@ class PowerModeScreen(Screen):
         """Handle Export request from the command palette (bypassing Input widget)."""
         await self.action_export_session()
 
-    async def on_command_palette_copy_tab_request(self, event: CommandPalette.CopyTabRequest) -> None:
+    async def on_command_palette_copy_tab_request(
+        self, event: CommandPalette.CopyTabRequest
+    ) -> None:
         """Handle Copy Tab request from the command palette."""
         self.action_copy_active_tab()
 
@@ -1078,11 +1146,16 @@ class PowerModeScreen(Screen):
         """Send a desktop notification using notify-send if available."""
         try:
             import shutil
+
             if shutil.which("notify-send"):
                 proc = await asyncio.create_subprocess_exec(
-                    "notify-send", "-a", "CyGuide", title, message,
+                    "notify-send",
+                    "-a",
+                    "CyGuide",
+                    title,
+                    message,
                     stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.DEVNULL
+                    stderr=asyncio.subprocess.DEVNULL,
                 )
                 await proc.wait()
         except Exception:
@@ -1120,6 +1193,140 @@ class PowerModeScreen(Screen):
         except Exception:
             pass
 
+    def action_focus_search(self) -> None:
+        try:
+            inp = self.query_one("#entity_search_input", Input)
+            inp.focus()
+        except Exception:
+            pass
+
+    async def action_rename_entity(self) -> None:
+        if not self.selected_node_id or not self.active_session_id:
+            self.notify(
+                "Select an entity node in the browser first (Enter/Click) to set an alias.",
+                severity="warning",
+            )
+            return
+        node = await self.app.power_facade.get_node(self.active_session_id, self.selected_node_id)
+        if not node:
+            return
+        pik = json.loads(node.get("pik_json", "{}"))
+        data = json.loads(node.get("data_json", "{}"))
+        current_alias = data.get("alias") or data.get("hostname") or pik.get("ip") or ""
+
+        async def handle_alias(new_alias: str) -> None:
+            if new_alias:
+                await self.app.power_facade.set_entity_alias(
+                    self.active_session_id, self.selected_node_id, new_alias
+                )
+                self.notify(f"Entity alias updated to: {new_alias}")
+                self._force_tree_refresh = True
+                await self.refresh_ui()
+
+        self.app.push_screen(RenameDialog("Set Entity Alias / Name", current_alias), handle_alias)
+
+    def _is_scratchpad_focused(self) -> bool:
+        try:
+            sp_pane = self.query_one("#scratchpad_pane")
+            sp_textarea = self.query_one("#scratchpad_textarea")
+            focused = self.app.focused
+            if (sp_pane.display and not sp_pane.has_class("hidden")) and (
+                focused is sp_textarea or (focused is not None and sp_pane in focused.ancestors)
+            ):
+                return True
+        except Exception:
+            pass
+        return False
+
+    def action_shrink_sidebar(self) -> None:
+        try:
+            if self._is_scratchpad_focused():
+                # Right-docked Scratchpad: Alt+[ moves boundary left, expanding the scratchpad
+                pane = self.query_one("#scratchpad_pane")
+                curr = int(
+                    pane.styles.width.value
+                    if pane.styles.width and pane.styles.width.value
+                    else (pane.region.width or 32)
+                )
+                new_w = min(70, curr + 4)
+                pane.styles.width = new_w
+                if hasattr(self.app, "settings"):
+                    self.app.settings["scratchpad_width"] = new_w
+                if hasattr(self.app, "save_settings"):
+                    self.app.save_settings({"scratchpad_width": new_w})
+            else:
+                pane = self.query_one("#power_sidebar")
+                curr = int(
+                    pane.styles.width.value
+                    if pane.styles.width and pane.styles.width.value
+                    else (pane.region.width or 34)
+                )
+                new_w = max(20, curr - 4)
+                pane.styles.width = new_w
+                if hasattr(self.app, "settings"):
+                    self.app.settings["power_sidebar_width"] = new_w
+                if hasattr(self.app, "save_settings"):
+                    self.app.save_settings({"power_sidebar_width": new_w})
+            self.refresh(layout=True)
+        except Exception:
+            pass
+
+    def action_expand_sidebar(self) -> None:
+        try:
+            if self._is_scratchpad_focused():
+                # Right-docked Scratchpad: Alt+] moves boundary right, shrinking the scratchpad
+                pane = self.query_one("#scratchpad_pane")
+                curr = int(
+                    pane.styles.width.value
+                    if pane.styles.width and pane.styles.width.value
+                    else (pane.region.width or 32)
+                )
+                new_w = max(20, curr - 4)
+                pane.styles.width = new_w
+                if hasattr(self.app, "settings"):
+                    self.app.settings["scratchpad_width"] = new_w
+                if hasattr(self.app, "save_settings"):
+                    self.app.save_settings({"scratchpad_width": new_w})
+            else:
+                pane = self.query_one("#power_sidebar")
+                curr = int(
+                    pane.styles.width.value
+                    if pane.styles.width and pane.styles.width.value
+                    else (pane.region.width or 34)
+                )
+                new_w = min(80, curr + 4)
+                pane.styles.width = new_w
+                if hasattr(self.app, "settings"):
+                    self.app.settings["power_sidebar_width"] = new_w
+                if hasattr(self.app, "save_settings"):
+                    self.app.save_settings({"power_sidebar_width": new_w})
+            self.refresh(layout=True)
+        except Exception:
+            pass
+
+    def on_key(self, event: events.Key) -> None:
+        key = event.key
+        if key in (
+            "alt+[",
+            "alt+left_square_bracket",
+            "alt+{",
+            "alt+left_curly_bracket",
+            "alt+shift+left_square_bracket",
+        ):
+            event.stop()
+            event.prevent_default()
+            self.action_shrink_sidebar()
+        elif key in (
+            "alt+]",
+            "alt+right_square_bracket",
+            "alt+}",
+            "alt+right_curly_bracket",
+            "alt+shift+right_square_bracket",
+        ):
+            event.stop()
+            event.prevent_default()
+            self.action_expand_sidebar()
+
     async def action_toggle_global_graph(self) -> None:
         self.show_global_graph = not self.show_global_graph
         status = "Global (Workspace)" if self.show_global_graph else "Local (Session)"
@@ -1150,8 +1357,6 @@ class PowerModeScreen(Screen):
                 resizer.display = False
             self.query_one("#command_input", Input).focus()
 
-
-
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
         if event.text_area.id == "scratchpad_textarea":
             self._save_scratchpad()
@@ -1163,29 +1368,35 @@ class PowerModeScreen(Screen):
             return
 
         try:
-            exports_dir = self.app.get_exports_dir() if hasattr(self.app, "get_exports_dir") else get_default_exports_dir()
-            reports_dir = self.app.get_reports_dir() if hasattr(self.app, "get_reports_dir") else get_default_reports_dir()
+            exports_dir = (
+                self.app.get_exports_dir()
+                if hasattr(self.app, "get_exports_dir")
+                else get_default_exports_dir()
+            )
+            reports_dir = (
+                self.app.get_reports_dir()
+                if hasattr(self.app, "get_reports_dir")
+                else get_default_reports_dir()
+            )
             os.makedirs(reports_dir, exist_ok=True)
             os.makedirs(exports_dir, exist_ok=True)
 
-            session = await self.app.store.get_session(self.active_session_id)
+            session = await self.app.power_facade.get_session(self.active_session_id)
             if not session:
                 self.notify("Session not found.", severity="error")
                 return
 
             session_name = session["name"]
             import re
-            slug = re.sub(r'[^a-zA-Z0-9_-]', '_', session_name)
+
+            slug = re.sub(r"[^a-zA-Z0-9_-]", "_", session_name)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             report_path = os.path.join(reports_dir, f"report_{slug}_{timestamp}.md")
             db_path = os.path.join(exports_dir, f"archive_{slug}_{timestamp}.db")
 
             # Generate Report
-            from cyguide.engine.reporter import generate_markdown_report
-            report_content = await generate_markdown_report(self.app.store, self.active_session_id)
-            with open(report_path, "w", encoding="utf-8") as f:
-                f.write(report_content)
+            await self.app.power_facade.export_markdown_report(self.active_session_id, report_path)
 
             # Export DB
             await self.app.power_facade.export_session(self.active_session_id, db_path)
@@ -1199,7 +1410,7 @@ class PowerModeScreen(Screen):
         """Reopen an archived session back to ACTIVE status."""
         if not self.active_session_id:
             return
-        session = await self.app.store.get_session(self.active_session_id)
+        session = await self.app.power_facade.get_session(self.active_session_id)
         if not session:
             return
         if session.get("status") == "CLOSED":

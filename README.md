@@ -85,8 +85,8 @@ CyGuide is built on a **Smart Adapter / Stupid Framework** model:
                                     │ Actions / Context
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                       Deterministic Core Engine                        │
-│  • ActionGateway (SSRF & Scope Policy)  • Subprocess Async Executor    │
-│  • GraphStore (SQLite PIK Deduplication) • Reactive Recommendation Engine│
+│  • ActionGateway (SSRF & Scope Policy)  • ExecutionSession (PTY Spool) │
+│  • GraphStore (PIK Deduplication)       • ActionTimelineRepository     │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ Event Streaming
 ┌───────────────────────────────────▼────────────────────────────────────┐
@@ -95,8 +95,8 @@ CyGuide is built on a **Smart Adapter / Stupid Framework** model:
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-* **Core Engine (`cyguide/engine`)**: Asynchronous process executor, policy gateway, and SQLite graph store.
-* **Unified Schemas (`cyguide/schemas`)**: 15 standard Pydantic models defining shared security entities.
+* **Core Engine (`cyguide/engine`)**: Asynchronous process execution sessions with disk spooling, policy gateway, action timeline repository, workspace repository, and SQLite graph store.
+* **Unified Schemas (`cyguide/schemas`)**: 15 standard Pydantic models defining shared security entities with declarative canonicalization.
 * **Smart Adapters (`tools/`)**: Isolated plugins that construct commands and parse streaming output.
 * **Textual TUI (`cyguide/ui`)**: Fast, keyboard-driven terminal interface with split panes and scratchpad.
 

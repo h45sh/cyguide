@@ -107,19 +107,18 @@ def generate_registry(check_only: bool = False):
             sys.exit(1)
         existing_content = output_path.read_text(encoding="utf-8")
         if existing_content != content:
-            print(
+            sys.stderr.write(
                 f"ERROR: {output_path} is out of sync with finding schema definitions.\n"
-                f"Run 'python3 scripts/generate_schema_registry.py' to update it.",
-                file=sys.stderr,
+                f"Run 'python3 scripts/generate_schema_registry.py' to update it.\n"
             )
             sys.exit(1)
-        print(f"[SUCCESS] Schema registry documentation is in sync ({len(rows)} schemas).")
+        print(f"[SUCCESS] Schema registry documentation is in sync ({len(rows)} schemas).", file=sys.stdout)
         return
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
 
-    print(f"Successfully generated {output_path} with {len(rows)} schemas.")
+    print(f"Successfully generated {output_path} with {len(rows)} schemas.", file=sys.stdout)
 
 
 if __name__ == "__main__":

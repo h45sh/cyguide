@@ -30,17 +30,21 @@ async def test_full_session_lifecycle_and_portability(tmp_path):
     await src_store.initialize()
 
     from cyguide.engine.manifest import Manifest
+
     registry = ToolRegistry()
     mock_manifest = Manifest(
-        meta={"name": "mock_nmap", "description": "Mock Nmap", "version": "1.0", "binary": "echo", "categories": ["Scanning"]},
+        meta={
+            "name": "mock_nmap",
+            "description": "Mock Nmap",
+            "version": "1.0",
+            "binary": "echo",
+            "categories": ["Scanning"],
+        },
         modes={"power": True, "learning": True},
         input={"accepts": ["network.host"]},
-        output={"produces": ["network.service"]}
+        output={"produces": ["network.service"]},
     )
-    registry.tools["mock_nmap"] = {
-        "manifest": mock_manifest,
-        "adapter": MockNmapAdapter()
-    }
+    registry.tools["mock_nmap"] = {"manifest": mock_manifest, "adapter": MockNmapAdapter()}
 
     executor = Executor(src_store)
     facade = PowerWorkspaceFacade(src_store, executor, registry)
@@ -60,17 +64,12 @@ async def test_full_session_lifecycle_and_portability(tmp_path):
     await src_store.upsert_finding(session_id, target_host)
 
     target_service = NetworkService.create(
-        host_ip="192.168.1.100",
-        port=80,
-        protocol="tcp",
-        service_name="http"
+        host_ip="192.168.1.100", port=80, protocol="tcp", service_name="http"
     )
     await src_store.upsert_finding(session_id, target_service)
 
     target_endpoint = WebEndpoint.create(
-        url="http://192.168.1.100:80/admin",
-        method="GET",
-        status_code=200
+        url="http://192.168.1.100:80/admin", method="GET", status_code=200
     )
     await src_store.upsert_finding(session_id, target_endpoint)
 
@@ -81,14 +80,16 @@ async def test_full_session_lifecycle_and_portability(tmp_path):
         tool_name="mock_nmap",
         target_entity_id=target_node_id,
         params={"raw_flags": "-sV -p 80"},
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
 
     output_lines = []
+
     async def on_output(text: str):
         output_lines.append(text)
 
     done_event = asyncio.Event()
+
     async def on_complete():
         done_event.set()
 

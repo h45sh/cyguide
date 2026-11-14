@@ -18,16 +18,35 @@ def sanitize_subprocess_env(env: Optional[Dict[str, str]] = None) -> Dict[str, s
     """Sanitize environment variables passed to child subprocesses to prevent secret leakage."""
     base_env = env if env is not None else os.environ.copy()
     sensitive_prefixes = (
-        "CYGUIDE_", "OPENAI_", "GROQ_", "ANTHROPIC_",
-        "OPENROUTER_", "GEMINI_", "GROK_", "MISTRAL_", "COHERE_",
-        "DEEPSEEK_", "PERPLEXITY_", "PPLX_", "HUGGINGFACE_", "HF_"
+        "CYGUIDE_",
+        "OPENAI_",
+        "GROQ_",
+        "ANTHROPIC_",
+        "OPENROUTER_",
+        "GEMINI_",
+        "GROK_",
+        "MISTRAL_",
+        "COHERE_",
+        "DEEPSEEK_",
+        "PERPLEXITY_",
+        "PPLX_",
+        "HUGGINGFACE_",
+        "HF_",
     )
     sensitive_exact = {
-        "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID", "GITHUB_TOKEN", "GH_TOKEN",
-        "API_KEY", "SECRET_KEY", "PRIVATE_KEY", "VAULT_TOKEN", "SSH_PRIVATE_KEY"
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_ACCESS_KEY_ID",
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+        "API_KEY",
+        "SECRET_KEY",
+        "PRIVATE_KEY",
+        "VAULT_TOKEN",
+        "SSH_PRIVATE_KEY",
     }
     return {
-        k: v for k, v in base_env.items()
+        k: v
+        for k, v in base_env.items()
         if not any(k.upper().startswith(p) for p in sensitive_prefixes)
         and k.upper() not in sensitive_exact
     }
@@ -36,7 +55,7 @@ def sanitize_subprocess_env(env: Optional[Dict[str, str]] = None) -> Dict[str, s
 class Executor:
     """Executes tools and manages their lifecycle and output persistence."""
 
-    def __init__(self, store: GraphStore):
+    def __init__(self, store: Optional[GraphStore] = None):
         self.store = store
         self._active_processes: Dict[str, asyncio.subprocess.Process] = {}
 
@@ -51,10 +70,6 @@ class Executor:
                 logger.info(f"Terminated process for task {task_id}")
             except Exception as e:
                 logger.error(f"Error terminating process: {e}")
-
-    async def stop_tool(self, session_id: str) -> None:
-        """Backward compatible: stop tool by session_id."""
-        await self.stop_task(session_id)
 
     async def shutdown(self) -> None:
         """Forcefully terminate all active tool processes."""
@@ -73,10 +88,10 @@ class Executor:
         env: Optional[Dict[str, str]] = None,
         use_shell: bool = False,
         shell_path: Optional[str] = None,
-
         on_output: Optional[Callable[[str], Coroutine]] = None,
         on_error_output: Optional[Callable[[str], Coroutine]] = None,
-        timeout_seconds: Optional[int] = None
+        timeout_seconds: Optional[int] = None,
+        log_file_path: Optional[str] = None,
     ) -> AsyncIterator[BaseFinding]:
         """
         Execute a tool adapter against a target finding and yield findings.
@@ -101,7 +116,7 @@ class Executor:
                 stderr=asyncio.subprocess.PIPE,
                 stdin=asyncio.subprocess.DEVNULL,
                 cwd=cwd,
-                env=clean_env
+                env=clean_env,
             )
         else:
             process = await asyncio.create_subprocess_exec(
@@ -110,7 +125,7 @@ class Executor:
                 stderr=asyncio.subprocess.PIPE,
                 stdin=asyncio.subprocess.DEVNULL,
                 cwd=cwd,
-                env=clean_env
+                env=clean_env,
             )
 
         if tracking_id:
@@ -118,7 +133,7 @@ class Executor:
 
         # Internal queue to bridge stream readers and findings generator
         finding_queue = asyncio.Queue()
-        parsing_context = {"params": params} # Shared context for the duration of this tool run
+        parsing_context = {"params": params}  # Shared context for the duration of this tool run
 
         async def _drain_stream(stream, callback, is_stdout=True):
             buffer = ""
@@ -129,11 +144,20 @@ class Executor:
                     if not chunk:
                         # Process any remaining text in the buffer as a final line
                         if buffer and is_stdout:
-                            async for finding in adapter.parse_output(buffer, target, context=parsing_context):
+                            async for finding in adapter.parse_output(
+                                buffer, target, context=parsing_context
+                            ):
                                 await finding_queue.put(finding)
                         break
 
                     raw_text = chunk.decode(errors="replace")
+                    if log_file_path:
+                        try:
+                            with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
+                                f.write(raw_text)
+                        except Exception:
+                            pass
+
                     if callback:
                         await callback(raw_text)
                     elif on_output:
@@ -145,7 +169,9 @@ class Executor:
                         while "\n" in buffer:
                             line, buffer = buffer.split("\n", 1)
                             try:
-                                async for finding in adapter.parse_output(line, target, context=parsing_context):
+                                async for finding in adapter.parse_output(
+                                    line, target, context=parsing_context
+                                ):
                                     await finding_queue.put(finding)
                             except Exception as parse_e:
                                 logger.error(f"Error parsing line '{line}': {parse_e}")
@@ -154,16 +180,25 @@ class Executor:
 
         # Start drain tasks
         stdout_task = asyncio.create_task(_drain_stream(process.stdout, on_output, is_stdout=True))
-        stderr_task = asyncio.create_task(_drain_stream(process.stderr, on_error_output or on_output, is_stdout=False))
+        stderr_task = asyncio.create_task(
+            _drain_stream(process.stderr, on_error_output or on_output, is_stdout=False)
+        )
 
         try:
             # Wait for process and stream tasks to finish
             # We don't use gather directly because we want to yield as findings arrive
-            while not (stdout_task.done() and stderr_task.done() and process.returncode is not None):
+            while not (
+                stdout_task.done() and stderr_task.done() and process.returncode is not None
+            ):
                 # Check for execution timeout
-                if timeout_seconds is not None and (asyncio.get_event_loop().time() - start_time) > timeout_seconds:
+                if (
+                    timeout_seconds is not None
+                    and (asyncio.get_event_loop().time() - start_time) > timeout_seconds
+                ):
                     if on_output:
-                        await on_output(f"\n[TIMEOUT] Tool execution exceeded {timeout_seconds} seconds. Terminating process...\n")
+                        await on_output(
+                            f"\n[TIMEOUT] Tool execution exceeded {timeout_seconds} seconds. Terminating process...\n"
+                        )
                     if process.returncode is None:
                         process.terminate()
                     raise TimeoutError(f"Tool execution timed out after {timeout_seconds} seconds.")
@@ -171,18 +206,6 @@ class Executor:
                 try:
                     # Wait for finding or a small timeout to check process state
                     finding = await asyncio.wait_for(finding_queue.get(), timeout=0.1)
-
-                    if session_id and not getattr(self.store, "_closed", False):
-                        try:
-                            await self.store.upsert_finding(session_id, finding)
-                        except Exception as upsert_e:
-                            if getattr(self.store, "_closed", False):
-                                break
-                            logger.error(f"Failed to upsert finding: {upsert_e}")
-                            if on_output:
-                                await on_output(f"\n[INTERNAL ERROR] Failed to save entity: {upsert_e}\n")
-                            raise # Re-raise to ensure job fails but we see the cause
-
                     yield finding
                 except asyncio.TimeoutError:
                     # Just checking if process finished
@@ -202,16 +225,6 @@ class Executor:
             # Final check of the queue for any remaining findings
             while not finding_queue.empty():
                 finding = finding_queue.get_nowait()
-                if session_id and not getattr(self.store, "_closed", False):
-                    try:
-                        await self.store.upsert_finding(session_id, finding)
-                    except Exception as upsert_e:
-                        if getattr(self.store, "_closed", False):
-                            break
-                        logger.error(f"Failed to upsert finding: {upsert_e}")
-                        if on_output:
-                            await on_output(f"\n[INTERNAL ERROR] Failed to save entity: {upsert_e}\n")
-                        raise
                 yield finding
 
         except asyncio.CancelledError:

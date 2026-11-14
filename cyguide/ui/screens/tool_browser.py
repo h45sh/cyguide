@@ -10,6 +10,7 @@ from textual.widgets import Footer, Input, Label, ListItem, ListView
 
 class ToolListItem(ListItem):
     """A custom list item for the tool browser."""
+
     def __init__(self, tool_name: str, summary: str, recipes: List[str]):
         super().__init__()
         self.tool_name = tool_name
@@ -20,6 +21,7 @@ class ToolListItem(ListItem):
         with Horizontal(classes="tool_item_row"):
             yield Label(f"› {self.tool_name.ljust(14)}", classes="tool_name_label")
             yield Label(self.summary, classes="tool_summary_label")
+
 
 class ToolBrowserScreen(Screen):
     """Phase 1: Tool Selection Home Screen."""
@@ -61,27 +63,47 @@ class ToolBrowserScreen(Screen):
                 continue
 
             # Search filtering
-            match = filter_text.lower() in name.lower() or \
-                    filter_text.lower() in manifest.meta.one_line_summary.lower()
+            match = (
+                filter_text.lower() in name.lower()
+                or filter_text.lower() in manifest.meta.one_line_summary.lower()
+            )
 
             # Also check recipes and flags
             if not match and manifest.learning:
                 for r in manifest.learning.recipes:
                     if filter_text.lower() in r.name.lower():
-                        match = True; break
+                        match = True
+                        break
                 for f in manifest.learning.flags:
-                    if filter_text.lower() in f["flag"].lower() or filter_text.lower() in f["explanation"].lower():
-                        match = True; break
+                    if (
+                        filter_text.lower() in f["flag"].lower()
+                        or filter_text.lower() in f["explanation"].lower()
+                    ):
+                        match = True
+                        break
 
             if match:
                 cat = manifest.meta.category
-                if cat not in categories: categories[cat] = []
+                if cat not in categories:
+                    categories[cat] = []
                 categories[cat].append({"name": name, "manifest": manifest})
 
         for cat, tools in categories.items():
-            await tool_list.append(ListItem(Label(f"── {cat.upper()} ──────────────────────────────"), disabled=True, classes="category_header_item"))
+            await tool_list.append(
+                ListItem(
+                    Label(f"── {cat.upper()} ──────────────────────────────"),
+                    disabled=True,
+                    classes="category_header_item",
+                )
+            )
             for t in tools:
-                await tool_list.append(ToolListItem(t["name"], t["manifest"].meta.one_line_summary, [r.name for r in t["manifest"].learning.recipes]))
+                await tool_list.append(
+                    ToolListItem(
+                        t["name"],
+                        t["manifest"].meta.one_line_summary,
+                        [r.name for r in t["manifest"].learning.recipes],
+                    )
+                )
 
     async def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "search_input":
@@ -94,7 +116,8 @@ class ToolBrowserScreen(Screen):
             self.app.switch_screen("learning_mode")
 
     def action_show_shortcuts(self) -> None:
-        from cyguide.ui.screens.power import ShortcutsDialog
+        from cyguide.ui.dialogs import ShortcutsDialog
+
         self.app.push_screen(ShortcutsDialog())
 
     def action_nav_dashboard(self) -> None:

@@ -9,8 +9,10 @@ from tools.gobuster.adapter import GobusterAdapter
 def adapter():
     return GobusterAdapter()
 
+
 def test_gobuster_validate_install(adapter):
     assert isinstance(adapter.validate_install(), bool)
+
 
 def test_gobuster_build_command(adapter):
     # 1. Target is web.endpoint
@@ -31,6 +33,7 @@ def test_gobuster_build_command(adapter):
     https_svc = NetworkService.create(host_ip="192.168.1.100", port=443, protocol="tcp")
     cmd_https = adapter.build_command(https_svc, {"raw_flags": "dir -u {url}"})
     assert "https://192.168.1.100:443" in cmd_https
+
 
 @pytest.mark.asyncio
 async def test_gobuster_parse_output(adapter):
@@ -71,12 +74,13 @@ Finished
     assert findings[3].pik["url"] == "http://10.10.10.50:8080/static"
     assert findings[3].data["status_code"] == 301
 
+
 @pytest.mark.asyncio
 async def test_gobuster_parse_fallback_context(adapter):
     # Test when target is None, but context contains raw_flags with -u
     sample_output = "/dashboard (Status: 200) [Size: 500]"
     context = {"params": {"raw_flags": "dir -u http://target.local:8000"}}
-    
+
     findings = [f async for f in adapter.parse_output(sample_output, None, context)]
     assert len(findings) == 1
     assert findings[0].pik["url"] == "http://target.local:8000/dashboard"

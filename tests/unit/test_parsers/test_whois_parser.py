@@ -9,8 +9,10 @@ from tools.whois.adapter import WhoisAdapter
 def adapter():
     return WhoisAdapter()
 
+
 def test_whois_validate_install(adapter):
     assert isinstance(adapter.validate_install(), bool)
+
 
 def test_whois_build_command(adapter):
     # 1. Target is dns.record
@@ -29,6 +31,7 @@ def test_whois_build_command(adapter):
     empty_host.pik = {}
     with pytest.raises(ValueError, match="missing query field"):
         adapter.build_command(empty_host, {})
+
 
 @pytest.mark.asyncio
 async def test_whois_parse_domain_output(adapter):
@@ -50,6 +53,7 @@ Creation Date: 1995-08-14T04:00:00Z
     assert domain_infos[0].pik["domain"] == "example.com"
     assert domain_infos[0].data["registrar"] == "Internet Assigned Numbers Authority"
     assert domain_infos[0].data["organization"] == "Example Corporation"
+
 
 @pytest.mark.asyncio
 async def test_whois_parse_ip_output(adapter):

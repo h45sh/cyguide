@@ -29,7 +29,9 @@ class RichArgumentParser(argparse.ArgumentParser):
 
     def _print_rich_help(self, console: Console) -> None:
         """Render the structured help message to the provided Rich console."""
-        has_subcommands = any(isinstance(a, argparse._SubParsersAction) for a in self._actions)
+        has_subcommands = any(
+            isinstance(a, argparse._SubParsersAction) for a in self._actions
+        )  # codeguard: ignore[PRIVATE_STATE_LEAK,PRIVATE_STATE_LEAK_REGEX]
         usage_sub = " [cyan][COMMAND][/cyan] [dim][ARGS]...[/dim]" if has_subcommands else ""
         console.print(
             f"[bold yellow]Usage:[/bold yellow] [bold white]{self.prog}[/bold white] [dim][OPTIONS][/dim]{usage_sub}\n"
@@ -48,7 +50,9 @@ class RichArgumentParser(argparse.ArgumentParser):
             if action.help == argparse.SUPPRESS:
                 continue
 
-            if isinstance(action, argparse._SubParsersAction):
+            if isinstance(
+                action, argparse._SubParsersAction
+            ):  # codeguard: ignore[PRIVATE_STATE_LEAK,PRIVATE_STATE_LEAK_REGEX]
                 for choice_action in getattr(action, "_choices_actions", []):
                     if choice_action.help != argparse.SUPPRESS:
                         subcommands.append((choice_action.dest, choice_action.help or ""))

@@ -13,6 +13,7 @@ from cyguide.schemas.base import BaseFinding
 
 class ActionSource(str, Enum):
     """Origin of a tool action."""
+
     USER = "USER"
     SUGGESTION = "SUGGESTION"
     AGENT = "AGENT"
@@ -20,6 +21,7 @@ class ActionSource(str, Enum):
 
 class JobStatusEnum(str, Enum):
     """Current state of a tool execution job."""
+
     QUEUED = "QUEUED"
     RUNNING = "RUNNING"
     DONE = "DONE"
@@ -28,6 +30,7 @@ class JobStatusEnum(str, Enum):
 
 class ActionRequest(BaseModel):
     """A typed request to execute a tool action."""
+
     action_id: UUID = Field(default_factory=uuid4)
     session_id: UUID
     tool_name: str
@@ -41,20 +44,25 @@ class ActionRequest(BaseModel):
 
 class JobStatus(BaseModel):
     """Real-time status of a job in the queue."""
+
     job_id: UUID
     session_id: UUID
     tool_name: str
     status: JobStatusEnum
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: Optional[datetime] = None
+    log_file: Optional[str] = None
+    command_snippet: Optional[str] = None
+    tab_id: Optional[str] = None
 
 
 class WorkspaceContext(BaseModel):
     """Point-in-time snapshot of the Power Mode workspace."""
+
     session_id: UUID
     session_name: Optional[str]
     selected_entity: Optional[BaseFinding] = None
-    resolved_vars: Dict[str, Any] = Field(default_factory=dict) # e.g. {"TARGET": "10.10.10.5"}
+    resolved_vars: Dict[str, Any] = Field(default_factory=dict)  # e.g. {"TARGET": "10.10.10.5"}
     active_jobs: List[JobStatus] = Field(default_factory=list)
     entity_counts: Dict[str, int] = Field(default_factory=dict)
     cwd: str = Field(default_factory=lambda: os.path.expanduser("~"))

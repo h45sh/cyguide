@@ -170,7 +170,7 @@ def main():
     if args.subcommand == "export":
         import asyncio
 
-        from cyguide.engine.reporter import generate_markdown_report
+        from cyguide.engine.reporter import export_markdown_report
         from cyguide.engine.store import GraphStore
 
         async def run_export() -> int:
@@ -185,7 +185,10 @@ def main():
 
             # Export DB if requested or defaulted
             if output_db:
-                print(f"[*] Exporting session {args.session_id} to database {output_db}...")
+                print(
+                    f"[*] Exporting session {args.session_id} to database {output_db}...",
+                    file=sys.stdout,
+                )
                 out_dir = os.path.dirname(os.path.abspath(output_db))
                 if out_dir:
                     os.makedirs(out_dir, exist_ok=True)
@@ -196,32 +199,25 @@ def main():
                             os.chmod(output_db, 0o600)
                         except OSError:
                             pass
-                    print(f"[+] Session database exported successfully to {output_db}")
+                    print(
+                        f"[+] Session database exported successfully to {output_db}",
+                        file=sys.stdout,
+                    )
                 except Exception as e:
-                    print(f"[!] Database export failed: {e!s}")
+                    print(f"[!] Database export failed: {e!s}", file=sys.stderr)
                     exit_code = 1
 
             # Export Report if requested
             if args.report:
-                print(f"[*] Generating Markdown report to {args.report}...")
-                rep_dir = os.path.dirname(os.path.abspath(args.report))
-                if rep_dir:
-                    os.makedirs(rep_dir, exist_ok=True)
+                print(f"[*] Generating Markdown report to {args.report}...", file=sys.stdout)
                 try:
-                    report_content = await generate_markdown_report(store, args.session_id)
-                    fd = os.open(args.report, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-                    try:
-                        with open(fd, "w", encoding="utf-8", closefd=False) as f:
-                            f.write(report_content)
-                    finally:
-                        os.close(fd)
-                    try:
-                        os.chmod(args.report, 0o600)
-                    except OSError:
-                        pass
-                    print(f"[+] Markdown report exported successfully to {args.report}")
+                    await export_markdown_report(store, args.session_id, args.report)
+                    print(
+                        f"[+] Markdown report exported successfully to {args.report}",
+                        file=sys.stdout,
+                    )
                 except Exception as e:
-                    print(f"[!] Report generation failed: {e!s}")
+                    print(f"[!] Report generation failed: {e!s}", file=sys.stderr)
                     exit_code = 1
 
             await store.close()
@@ -236,21 +232,21 @@ def main():
 
         async def run_import() -> int:
             if not os.path.exists(args.input_path):
-                print(f"[!] Import failed: File not found: {args.input_path}")
+                print(f"[!] Import failed: File not found: {args.input_path}", file=sys.stderr)
                 return 1
 
             store = GraphStore(db_path)
             await store.initialize()
-            print(f"[*] Importing session from {args.input_path}...")
+            print(f"[*] Importing session from {args.input_path}...", file=sys.stdout)
             exit_code = 0
             try:
                 new_sess_id = await store.import_session(
                     args.input_path, target_workspace_id=getattr(args, "workspace_id", None)
                 )
-                print("[+] Session imported successfully!")
-                print(f"[+] New Session ID: {new_sess_id}")
+                print("[+] Session imported successfully!", file=sys.stdout)
+                print(f"[+] New Session ID: {new_sess_id}", file=sys.stdout)
             except Exception as e:
-                print(f"[!] Import failed: {e!s}")
+                print(f"[!] Import failed: {e!s}", file=sys.stderr)
                 exit_code = 1
             await store.close()
             return exit_code
@@ -266,9 +262,9 @@ def main():
         async def run_check():
             report = await run_diagnostics(db_path=db_path, tools_dir=tools_arg)
             if getattr(args, "json", False):
-                print(json.dumps(report.to_dict(), indent=2))
+                print(json.dumps(report.to_dict(), indent=2), file=sys.stdout)
             else:
-                print(format_terminal_report(report))
+                print(format_terminal_report(report), file=sys.stdout)
             return 0 if report.healthy else 1
 
         sys.exit(asyncio.run(run_check()))
@@ -288,7 +284,7 @@ def main():
     try:
         app.run()
     except KeyboardInterrupt:
-        print("\n[!] CyGuide terminated by user.")
+        print("\n[!] CyGuide terminated by user.", file=sys.stderr)
 
 
 if __name__ == "__main__":

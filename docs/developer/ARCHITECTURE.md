@@ -53,16 +53,19 @@ graph TB
     end
 
     subgraph CoordinationLayer["Coordination & Intelligence Layer"]
-        Facade["PowerWorkspaceFacade<br><i>(Universal Variable Resolution, Job Management)</i>"]
+        Facade["PowerWorkspaceFacade<br><i>(State Coordination & Event Bus)</i>"]
+        Context["WorkspaceContextBuilder<br><i>(Context Snapshot & Variable Resolution)</i>"]
+        Workspaces["WorkspaceRepository<br><i>(Lifecycle, Forensics & Persistence)</i>"]
         Gateway["ActionGateway<br><i>(Policy, CIDR Scope, Source Validation)</i>"]
-        RecEngine["RecommendationEngine<br><i>(Declarative Suggestion Rules)</i>"]
-        Explainer["LearningExplainer & Backends<br><i>(Ollama, OpenAI, Anthropic, OpenRouter)</i>"]
-        Diag["Diagnostics Engine<br><i>(Environment & Binary Verification)</i>"]
+        Tutor["ExplanationTutor<br><i>(Multi-Key Cooldowns, Streaming Events, Local Ollama)</i>"]
+        Diag["DiagnosticEngine<br><i>(System, DB, Toolchain & AI Probing)</i>"]
+        Report["SessionReportService<br><i>(Forensic Reports, Tables, Mermaid, Export)</i>"]
     end
 
     subgraph CoreEngine["Execution & Storage Engine"]
-        Executor["Async Executor<br><i>(Subprocess Spawning & Stream Draining)</i>"]
-        Store["GraphStore (SQLite)<br><i>(PIK Determinism, Graph Topology, Event Log)</i>"]
+        ExecSession["ExecutionSession<br><i>(Subprocess / PTY Lifecycle, Disk Spooling, Pub/Sub)</i>"]
+        Store["GraphStore (SQLite)<br><i>(PIK Determinism, Graph Topology)</i>"]
+        Timeline["ActionTimelineRepository<br><i>(Action Event Log, Audit Trail)</i>"]
         Registry["ToolRegistry<br><i>(Dynamic Discovery & Manifest Validation)</i>"]
     end
 
@@ -81,22 +84,26 @@ graph TB
     TUI --> LearnScreen
 
     PowerScreen --> Facade
-    LearnScreen --> Explainer
+    LearnScreen --> Tutor
     CLI --> Diag
 
     Facade --> Gateway
-    Facade --> Store
-    Facade --> Registry
+    Facade --> Context
+    Facade --> Workspaces
+    Facade --> Report
+    Facade --> ExecSession
+    Workspaces --> Store
+    Store --> Timeline
+    Context --> Store
+    Context --> ExecSession
+
     Gateway --> Registry
     Gateway --> Store
-    Facade --> Executor
-    RecEngine --> Store
-    Store -.->|on_upsert event| RecEngine
     Store -.->|on_upsert event| PowerScreen
 
-    Executor --> PluginLayer
+    ExecSession --> PluginLayer
     Registry --> PluginLayer
-    Executor --> Store
+    ExecSession --> Store
 ```
 
 ---
@@ -109,7 +116,7 @@ graph TB
 * **Workspace**: The root container for a project or engagement (e.g., "Internal Audit 2026"). Contains multiple sessions and global graph rollups.
 * **Session**: A specific thread of investigation within a workspace:
   * **Power Session**: Persistent SQLite-backed investigation featuring interactive entity trees, parallel workbench tabs, command palettes, and action histories.
-  * **Learning Session**: Ephemeral guided exploration sandbox backed by an AI Explainer (`Ollama` or `CloudAPIBackend`).
+  * **Learning Session**: Ephemeral guided exploration sandbox backed by an AI Explainer (`ExplanationTutor` with local Ollama or cloud LLM fallbacks).
 * **Entity Graph**: A directed graph representing the current target state for a session. Built using parent-child edges and semantic association links.
 * **Event Log**: An append-only, immutable audit trail of every executed tool action, raw shell command, and generated finding. Ensures full investigation reproducibility and workbench tab restoration.
 * **Entity Alias**: A finding (`entity.alias`) mapping two semantically identical but syntactically distinct identifiers (e.g., resolving a hostname to an IP address).
@@ -124,14 +131,14 @@ To enable future autonomous AI agents without compromising safety, Power Mode im
 [ 1. User Interface / Agent Layer ]
        │ Submits ActionRequest(tool="nmap", params={"raw_flags": "-sV $TARGET"}, target="node_123")
        ▼
-[ 2. PowerWorkspaceFacade ] ─── Resolves $TARGET to "192.168.1.10", sets up Job tracking
-       │ Passes modified ActionRequest
+[ 2. PowerWorkspaceFacade & ContextBuilder ] ─── Resolves $TARGET to "192.168.1.10", validates scope
+       │ Passes resolved ActionRequest
        ▼
 [ 3. ActionGateway ] ────────── Validates tool registration, target compatibility, USER vs AGENT policy
        │ Passes validated ActionRequest & Adapter
        ▼
-[ 4. Async Executor ] ───────── Spawns subprocess, drains stdout/stderr, yields BaseFinding stream
-       │ Dispatches process execution
+[ 4. ExecutionSession ] ─────── Manages subprocess / PTY lifecycle, disk spooling, and pub/sub streaming
+       │ Dispatches process execution via Async Executor
        ▼
 [ 5. Tool Adapter & Shell ] ─── Parses stdout lines, emits structured findings to GraphStore
 ```
@@ -146,9 +153,11 @@ To enable future autonomous AI agents without compromising safety, Power Mode im
 
 #### 2. `PowerWorkspaceFacade` ([`cyguide/engine/power_facade.py`](../../cyguide/engine/power_facade.py))
 * Serves as the **single programmatic API** for both the Textual TUI and future AI agents.
-* Performs **Universal Variable Substitution**: automatically resolves contextual variables (`$TARGET`, `$PORT`, `$SERVICE`, `$PROTOCOL`) based on the currently selected entity node.
-* Manages the lifecycle of background jobs (`_active_jobs`), session working directories (`_session_cwd`), and tab closure persistence (`closed_job_ids`).
-* Enforces case-insensitive workspace and session name uniqueness.
+* Coordinates specialized deep modules:
+  * **Context Resolution**: Delegates `$TARGET`, `$PORT`, `$SERVICE` variable resolution and snapshot generation to [`WorkspaceContextBuilder`](../../cyguide/engine/context_builder.py).
+  * **Workspace Lifecycle**: Delegates engagement creation, renaming, and forensic closing to [`WorkspaceRepository`](../../cyguide/engine/workspace_repository.py).
+  * **Job Management**: Delegates subprocess execution and output distribution to [`ExecutionSession`](../../cyguide/engine/execution_session.py).
+  * **Session Reporting**: Delegates forensic investigation exports and Markdown summaries to [`SessionReportService`](../../cyguide/engine/reporter.py).
 
 #### 3. `ActionGateway` ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py))
 * Evaluates action requests against security and structural policies before any process is spawned.
@@ -157,11 +166,9 @@ To enable future autonomous AI agents without compromising safety, Power Mode im
   * **Source Gating**: Restricts arbitrary shell execution (`is_explicit_shell=True`) strictly to `ActionSource.USER`, preventing autonomous AI agents from escaping into unsanctioned shell commands.
   * **Input Compatibility**: Verifies that the selected target finding matches the input types accepted in the tool's `manifest.toml` (e.g., preventing `gobuster` from targeting a raw `network.netblock`).
 
-#### 4. `Executor` ([`cyguide/engine/executor.py`](../../cyguide/engine/executor.py))
-* Asynchronously spawns the tool binary via `asyncio.create_subprocess_exec`.
-* Concurrently drains `process.stdout` and `process.stderr` using non-blocking stream readers.
-* Passes raw stdout lines into the tool adapter's `parse_output()` async generator.
-* Persists parsed findings directly to `GraphStore` and yields them downstream to the UI.
+#### 4. `ExecutionSession` ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)) & `Executor` ([`cyguide/engine/executor.py`](../../cyguide/engine/executor.py))
+* **`ExecutionSession`**: Deep module encapsulating the complete runtime lifecycle of active tool tasks and shell commands. Coordinates process spawning, temporary disk spooling, output streaming pub/sub to UI tabs, and atomic result status updates.
+* **`Executor`**: Asynchronously executes binaries via `asyncio.create_subprocess_exec` (with environment sanitization and API key scrubbing). Concurrently drains stdout/stderr, feeds lines to the tool adapter's parser, and persists findings to `GraphStore`.
 * Handles process termination (`stop_task`) and cleanup during job cancellation (`ctrl+k`).
 
 #### 5. `ToolAdapter` ([`cyguide/engine/adapter.py`](../../cyguide/engine/adapter.py))
@@ -176,38 +183,41 @@ sequenceDiagram
     autonumber
     actor User as Operator / TUI
     participant Facade as PowerWorkspaceFacade
+    participant Context as WorkspaceContextBuilder
     participant Gateway as ActionGateway
     participant Registry as ToolRegistry
-    participant Exec as Async Executor
+    participant ExecSession as ExecutionSession
     participant Adapter as ToolAdapter (e.g. Nmap)
     participant Store as GraphStore (SQLite)
     participant UI as Workbench Tab
 
     User->>Facade: submit_action(ActionRequest)
-    Note over Facade: 1. Resolve Context ($TARGET -> 10.0.0.1)
+    Facade->>Context: resolve_variables(command, target_node)
+    Context-->>Facade: Resolved Command ($TARGET -> 10.0.0.1)
+
     Facade->>Registry: get_tool(tool_name)
     Registry-->>Facade: ToolManifest + AdapterInstance
 
     Facade->>Gateway: validate_action(ActionRequest)
     Gateway->>Store: get_node(session_id, target_id)
     Store-->>Gateway: Target Entity Node Data
-    Note over Gateway: 2. Validate input schema & source policy
+    Note over Gateway: Validate input schema & source policy
     Gateway-->>Facade: Validation Passed
 
-    Facade->>Exec: run_tool(adapter, target, params, session_id)
-    Exec->>Exec: asyncio.create_subprocess_exec()
+    Facade->>ExecSession: execute(request, adapter, session_id)
+    ExecSession->>ExecSession: Spool to disk & spawn process
 
     par Real-Time Stream Draining
-        Exec->>UI: on_output(stdout_chunk) -> Stream to Tab
+        ExecSession->>UI: publish_output(chunk) -> Stream to Tab
     and Line-by-Line Finding Parsing
-        Exec->>Adapter: parse_output(line, target, context)
-        Adapter-->>Exec: yield BaseFinding (e.g. network.service)
-        Exec->>Store: upsert_finding(session_id, finding)
-        Store-->>Exec: Confirmed Node ID
-        Exec-->>Facade: yield finding
+        ExecSession->>Adapter: parse_output(line, target, context)
+        Adapter-->>ExecSession: yield BaseFinding (e.g. network.service)
+        ExecSession->>Store: upsert_finding(session_id, finding)
+        Store-->>ExecSession: Confirmed Node ID
+        ExecSession-->>Facade: on_finding_upsert(finding)
     end
 
-    Exec-->>Facade: Process Terminated (Exit Code 0)
+    ExecSession-->>Facade: Process Terminated (Exit Code 0)
     Facade->>Store: append_event(session_id, ActionRequest, Result, Summary)
     Facade->>UI: on_complete() -> Mark Tab DONE
 ```
@@ -216,16 +226,16 @@ sequenceDiagram
 
 ## 5. Universal Variable Substitution Engine
 
-To enable an identical command interface for human operators and automated agents, variable substitution is handled centrally in `PowerWorkspaceFacade.get_context()`.
+To enable an identical command interface for human operators and automated agents, variable substitution is handled centrally in [`WorkspaceContextBuilder`](../../cyguide/engine/context_builder.py) and exposed through `PowerWorkspaceFacade.get_context()`.
 
 ```mermaid
 flowchart LR
     Node["Selected Tree Node<br><b>network.service</b><br>PIK: host_ip='10.0.0.1', port=80"]
-    --> Facade["PowerWorkspaceFacade<br><b>Context Resolver</b>"]
+    --> Context["WorkspaceContextBuilder<br><b>Context Resolver</b>"]
 
-    Facade --> V1["$TARGET = '10.0.0.1'"]
-    Facade --> V2["$PORT = 80"]
-    Facade --> V3["$SERVICE = 'http'"]
+    Context --> V1["$TARGET = '10.0.0.1'"]
+    Context --> V2["$PORT = 80"]
+    Context --> V3["$SERVICE = 'http'"]
 
     CmdIn["User/Agent Command:<br><code>nikto -h $TARGET -p $PORT</code>"]
     --> Sub["Substitution Engine"]
@@ -314,67 +324,45 @@ class ToolAdapter(ABC):
 
 ---
 
-## 7. Reactive Suggestion & Recommendation Engine
+## 7. Target Intelligence Architecture (Planned `TargetAdvisor`)
 
-CyGuide bridges the gap between passive exploration and guided mentorship through a store-watching reactive suggestion model.
+The legacy heuristic 4-rule recommendation engine was decommissioned to eliminate noisy background SQLite writes during high-volume tool execution. In Phase 4 (Track 4 of the project roadmap), target suggestions are superseded by the **On-Demand Neuro-Symbolic Target Advisor (`TargetAdvisor`)**:
 
-```mermaid
-flowchart TD
-    UpsertEvent["Finding Saved in GraphStore<br>(e.g. network.service on port 80/tcp)"]
-    --> Bus["on_upsert Event Callback"]
-
-    Bus --> Rule1["WebServiceRecommendationRule<br><i>Suggests gobuster dir</i>"]
-    Bus --> Rule2["WebVulnerabilityRecommendationRule<br><i>Suggests nikto</i>"]
-    Bus --> Rule3["SubdomainRecommendationRule<br><i>Suggests subfinder</i>"]
-    Bus --> Rule4["WhoisRecommendationRule<br><i>Suggests whois</i>"]
-
-    Rule1 --> Eval{"Matches Criteria?"}
-    Eval -- Yes --> Gen["Create Proposed Finding<br>(status='proposed', tool_suggestion='gobuster')"]
-    Eval -- No --> Discard["Ignore"]
-
-    Gen --> DupCheck{"Node already exists in DB?"}
-    DupCheck -- No --> Save["GraphStore.upsert_finding(session_id, proposed)"]
-    DupCheck -- Yes --> Discard
-
-    Save --> UI["Textual TUI Suggestions Sidebar<br>Displays [Approve] / [Dismiss] buttons"]
-```
-
-### Recommendation Rules Breakdown:
-* **`WebServiceRecommendationRule`**: Listens for `network.service` on ports `80`, `443`, `8080`, or matching `http`. Proposes a `web.endpoint` finding with recommended tool `gobuster`.
-* **`WebVulnerabilityRecommendationRule`**: Listens for confirmed `web.endpoint` nodes. Proposes a `web.vulnerability` finding with recommended tool `nikto`.
-* **`SubdomainRecommendationRule`**: Listens for `network.host` with domain-like hostnames. Proposes a `dns.record` finding recommending `subfinder`.
-* **`WhoisRecommendationRule`**: Listens for public IP addresses on `network.host` (excluding private RFC 1918 / loopback ranges). Proposes a `domain.info` finding recommending `whois`.
+* **Operator-Triggered (Not Background)**: Triggered explicitly on a selected entity in the Entity Tree (via Command Palette or hotkey) or by an autonomous agent during its ReAct decision loop, rather than silently firing on every background node upsert.
+* **Context-Aware Reasoning**: Assembles structured entity briefs (open ports, banners, OS, existing findings) through `WorkspaceContextBuilder` and passes them to `ExplanationTutor` for contextual next-step recommendations.
+* **Policy-Gated**: All suggested actions pass through `ActionGateway` for deterministic CIDR boundary enforcement, SSRF prevention, and parameter validation before operator authorization.
 
 ---
 
 ## 8. AI Explainer Architecture (Learning Mode)
 
-Learning Mode provides real-time, context-aware cybersecurity mentorship powered by local or cloud Large Language Models.
+Learning Mode provides real-time, context-aware cybersecurity mentorship powered by local or cloud Large Language Models via [`ExplanationTutor`](../../cyguide/engine/explainer.py).
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                             LearningExplainer                            │
-├──────────────────────────────────────────────────────────────────────────┤
-│                          ExplainerBackend (ABC)                          │
+│                         ExplanationTutor (Deep Module)                   │
 ├─────────────────────────────────────┬────────────────────────────────────┤
-│ OllamaBackend                       │ CloudAPIBackend                    │
+│ Local Ollama Backend                │ Multi-Key Cloud Backend            │
 │ • Local inference (zero API keys)   │ • OpenAI (gpt-4o, etc.)            │
 │ • Endpoints: http://localhost:11434 │ • Anthropic (Claude 3.5 Sonnet)    │
-│ • Default model: gemma / llama3     │ • OpenRouter, Grok, Groq           │
-│ • Streaming HTTP chunk consumer     │ • SSE (Server-Sent Events) parser  │
+│ • Default model: gemma / llama3     │ • OpenRouter, Groq, DeepSeek       │
+│ • Streaming HTTP chunk consumer     │ • Streaming SSE & Token Pipeline   │
 └─────────────────────────────────────┴────────────────────────────────────┘
 ```
 
+* **Encapsulated Resilience**: `ExplanationTutor` manages the complete intelligence lifecycle: multi-provider key selection, rate-limit cooldown tracking, prompt boundary sanitization, streaming event pub/sub, and automatic fallback to local Ollama.
 * **Non-Blocking Streaming**: Explanations stream token-by-token directly into the Learning Mode Markdown reader using `httpx.AsyncClient`.
-* **Resilient Fallbacks**: If an LLM provider is unavailable or times out, CyGuide fails gracefully with clear diagnostic guidance rather than hanging the interface.
+* **Zero UI Hanging**: If an LLM provider is unavailable or times out, CyGuide fails gracefully with clear diagnostic guidance rather than hanging the interface.
 
 ---
 
 ## 9. Diagnostic & Health Engine (`cyg check`)
 
-CyGuide features a dedicated environment diagnostic suite in [`cyguide/engine/diagnostics.py`](../../cyguide/engine/diagnostics.py) to audit prerequisites before launch.
+CyGuide features a dedicated environment diagnostic suite in [`cyguide/engine/diagnostics.py`](../../cyguide/engine/diagnostics.py) powered by `DiagnosticEngine`.
 
-### Diagnostic Verification Matrix:
+### Deep Probe Architecture:
+`DiagnosticEngine` exposes a simple high-leverage interface (`run_all()`, `run_probe()`, `probe_system()`, `probe_storage()`, `probe_tools()`, `probe_ai()`) that returns structured, strongly-typed `DiagnosticReport` and `ProbeResult` models.
+
 1. **System Environment**: Python version ($\ge 3.11$), operating system, Textual TUI framework availability.
 2. **Storage Integrity**: Writable `data/` directory, SQLite table existence, database `PRAGMA integrity_check`.
 3. **Security Tool Discovery**: Validates presence of `nmap`, `gobuster`, `nikto`, `subfinder`, and `whois` in `$PATH`.
@@ -421,6 +409,19 @@ In addition to the CLI command (`cyg check`), the active TUI surfaces a live int
 * **Decision**: Use SQLite native `ATTACH DATABASE` and `INSERT INTO dest.* SELECT ... FROM src.*`.
 * **Consequences**: Transactional, atomic, zero-memory exports producing standalone `.db` files that can be shared, graded, and inspected using standard SQLite tools.
 
+### ADR-08: Deep Modules & High-Leverage Architectural Seams
+* **Context**: As CyGuide grew, cross-cutting concerns (workspace lifecycle, report generation, context variable resolution, timeline logging, execution streaming, diagnostic probing) were intermingled inside UI layers and large procedural methods.
+* **Decision**: Refactor the codebase around 8 "Deep Modules" (John Ousterhout principle: small, simple interfaces hiding substantial internal complexity):
+  1. `ExecutionSession` ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)): Subprocess lifecycle, PTY execution, disk spooling, and pub/sub output streaming.
+  2. `ExplanationTutor` ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)): Multi-key cloud fallbacks, cooldown tracking, prompt boundary sanitization, and local Ollama failover.
+  3. `WorkspaceRepository` ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py)): Workspace and session CRUD, forensic read-only locking, and persistence.
+  4. Declarative `BaseFinding` Canonicalization ([`cyguide/schemas/base.py`](../../cyguide/schemas/base.py)): Automatic whitespace trimming, lowercase normalizations, and IPv6 expansion via Pydantic model configuration.
+  5. `SessionReportService` ([`cyguide/engine/reporter.py`](../../cyguide/engine/reporter.py)): Multi-format forensic reporting, Markdown tables, Mermaid attack flow graphs, and stat summaries.
+  6. `ActionTimelineRepository` ([`cyguide/engine/timeline.py`](../../cyguide/engine/timeline.py)): Append-only action event logs, tab state restoration, and timeline replay queries.
+  7. `WorkspaceContextBuilder` ([`cyguide/engine/context_builder.py`](../../cyguide/engine/context_builder.py)): Hierarchical entity context extraction and `$TARGET` / `$PORT` / `$SERVICE` variable substitution.
+  8. `DiagnosticEngine` ([`cyguide/engine/diagnostics.py`](../../cyguide/engine/diagnostics.py)): Pluggable probe registry for system, database, security toolchain, and AI connectivity.
+* **Consequences**: Drastic reduction in cognitive load and high locality of change. Adding new features, security tools, or AI models requires zero modifications to core orchestration pipelines.
+
 ---
 
 ## 11. Codebase Governance & Tiered Protection
@@ -431,7 +432,7 @@ To maintain codebase stability for university evaluation and production deployme
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        TIER 1: FROZEN CORE                             │
 │   • cyguide/schemas/base.py       • cyguide/engine/store.py            │
-│   • cyguide/engine/canonicalize.py • cyguide/engine/registry.py        │
+│   • cyguide/common/canonicalize.py • cyguide/engine/registry.py       │
 │   • cyguide/paths.py                                                   │
 │   Governance: Core infrastructure. Changes require deep review and      │
 │   team agreement.                                                      │
@@ -443,9 +444,10 @@ To maintain codebase stability for university evaluation and production deployme
 │   Governance: Architectural components. Changes require unit tests.    │
 ├────────────────────────────────────────────────────────────────────────┤
 │                        TIER 3: FREE TO CHANGE                          │
-│   • cyguide/ui/ (Screens/Widgets) • cyguide/modes/                     │
+│   • cyguide/ui/ (Screens/Widgets) • cyguide/schemas/                   │
 │   • docs/ and scripts/            • tests/                             │
 │   Governance: Layouts, styles, utility helpers, and documentation.     │
+
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -468,11 +470,11 @@ To prevent directory pollution and support multi-user and multi-tenant environme
 
 ## 13. Resilient Multi-Provider AI Fallback Engine
 
-Learning Mode and AI explainers feature a multi-tiered fallback architecture via `MultiKeyCloudBackend` in [`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py):
+Learning Mode and AI explainers feature a multi-tiered fallback architecture managed by `ExplanationTutor` in [`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py):
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                           MultiKeyCloudBackend                           │
+│                             ExplanationTutor                             │
 ├──────────────────────────────────────────────────────────────────────────┤
 │ 1. Active Primary Key Profile (OpenAI / Claude / Groq / OpenRouter)       │
 │    │ Failed (429 Rate Limited, 503 Outage, or Network Timeout)           │

@@ -33,6 +33,7 @@ def get_mock_registry():
     registry.get_tool.side_effect = get_tool_mock
     return registry
 
+
 @pytest.mark.asyncio
 async def test_gateway_user_explicit_shell():
     store = GraphStore(":memory:")
@@ -44,7 +45,7 @@ async def test_gateway_user_explicit_shell():
         session_id=uuid4(),
         tool_name="ping 127.0.0.1",
         is_explicit_shell=True,
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
     assert await gateway.validate_action(action) is True
 
@@ -53,11 +54,12 @@ async def test_gateway_user_explicit_shell():
         session_id=uuid4(),
         tool_name="ping 127.0.0.1",
         is_explicit_shell=False,
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
     with pytest.raises(ActionValidationError, match="is not a registered tool"):
         await gateway.validate_action(action_no_prefix)
     await store.close()
+
 
 @pytest.mark.asyncio
 async def test_gateway_agent_shell_restriction():
@@ -70,11 +72,12 @@ async def test_gateway_agent_shell_restriction():
         session_id=uuid4(),
         tool_name="whoami",
         is_explicit_shell=True,
-        triggered_by=ActionSource.AGENT
+        triggered_by=ActionSource.AGENT,
     )
     with pytest.raises(ActionValidationError, match="is not a registered tool"):
         await gateway.validate_action(action)
     await store.close()
+
 
 @pytest.mark.asyncio
 async def test_gateway_registered_tool_schema_compatibility():
@@ -92,7 +95,7 @@ async def test_gateway_registered_tool_schema_compatibility():
         session_id=sess_id,
         tool_name="nmap",
         target_entity_id=host_id,
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
     assert await gateway.validate_action(action_valid) is True
 
@@ -104,11 +107,12 @@ async def test_gateway_registered_tool_schema_compatibility():
         session_id=sess_id,
         tool_name="nmap",
         target_entity_id=dns_id,
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
     with pytest.raises(ActionValidationError, match="does not accept input type 'dns.record'"):
         await gateway.validate_action(action_invalid)
     await store.close()
+
 
 @pytest.mark.asyncio
 async def test_gateway_nonexistent_target_entity():
@@ -122,11 +126,14 @@ async def test_gateway_nonexistent_target_entity():
         session_id=sess_id,
         tool_name="nmap",
         target_entity_id="nonexistent_entity_id",
-        triggered_by=ActionSource.USER
+        triggered_by=ActionSource.USER,
     )
-    with pytest.raises(ActionValidationError, match="Target entity 'nonexistent_entity_id' not found"):
+    with pytest.raises(
+        ActionValidationError, match="Target entity 'nonexistent_entity_id' not found"
+    ):
         await gateway.validate_action(action)
     await store.close()
+
 
 @pytest.mark.asyncio
 async def test_gateway_missing_target_entity_by_agent():
@@ -138,10 +145,7 @@ async def test_gateway_missing_target_entity_by_agent():
 
     # AGENT calling tool without target entity is rejected
     action = ActionRequest(
-        session_id=sess_id,
-        tool_name="nmap",
-        target_entity_id=None,
-        triggered_by=ActionSource.AGENT
+        session_id=sess_id, tool_name="nmap", target_entity_id=None, triggered_by=ActionSource.AGENT
     )
     with pytest.raises(ActionValidationError, match="requires a selected target entity"):
         await gateway.validate_action(action)

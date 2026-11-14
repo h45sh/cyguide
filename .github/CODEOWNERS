@@ -9,7 +9,7 @@
 /cyguide/schemas/base.py            @h45sh
 /cyguide/engine/store.py            @h45sh
 /cyguide/engine/registry.py         @h45sh
-/cyguide/engine/canonicalize.py     @h45sh
+/cyguide/common/canonicalize.py     @h45sh
 /cyguide/paths.py                   @h45sh
 
 # Tier 2: Security Gateways & Subprocess Execution

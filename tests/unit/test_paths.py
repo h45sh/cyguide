@@ -4,9 +4,11 @@ import os
 
 from cyguide.app import CyGuideApp
 from cyguide.paths import (
+    get_action_log_path,
     get_default_data_dir,
     get_default_db_path,
     get_default_exports_dir,
+    get_default_logs_dir,
     get_default_reports_dir,
     get_default_scratchpad_path,
     get_default_settings_path,
@@ -52,6 +54,13 @@ def test_subpaths_resolution(tmp_path):
     assert reports_dir == os.path.join(data_dir, "reports")
     assert os.path.isdir(reports_dir)
 
+    logs_dir = get_default_logs_dir(data_dir)
+    assert logs_dir == os.path.join(data_dir, "logs")
+    assert os.path.isdir(logs_dir)
+
+    log_path = get_action_log_path("act-1234", data_dir)
+    assert log_path == os.path.join(logs_dir, "act-1234.log")
+
 
 def test_app_uses_uniform_paths(tmp_path):
     """Verify CyGuideApp initializes uniform database, scratchpad, exports, and reports paths."""
@@ -77,9 +86,11 @@ def test_app_custom_db_path_scopes_subpaths(tmp_path):
     assert app.get_reports_dir() == str(custom_dir / "reports")
 
 
-def test_app_memory_db_handling():
-    """Verify :memory: database handles paths gracefully."""
-    app = CyGuideApp(db_path=":memory:")
+def test_app_memory_db_handling(tmp_path):
+    """Verify :memory: database handles paths gracefully and scopes to data_dir."""
+    app = CyGuideApp(db_path=":memory:", data_dir=str(tmp_path))
     assert app.db_path == ":memory:"
     assert app.get_scratchpad_path() == ":memory:"
     assert app._get_settings_path() is None
+    assert app.get_exports_dir() == str(tmp_path / "exports")
+    assert app.get_reports_dir() == str(tmp_path / "reports")

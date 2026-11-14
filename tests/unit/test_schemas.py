@@ -17,8 +17,11 @@ def test_network_host():
     assert host.parent is None
     assert host.status == "confirmed"
 
+
 def test_network_service():
-    service = NetworkService.create(host_ip="10.0.0.5", port=80, protocol="TCP", service_name="HTTP")
+    service = NetworkService.create(
+        host_ip="10.0.0.5", port=80, protocol="TCP", service_name="HTTP"
+    )
     assert service.schema_type == "network.service"
     assert service.pik == {"host_ip": "10.0.0.5", "port": 80, "protocol": "tcp"}
     assert service.parent is not None
@@ -26,14 +29,18 @@ def test_network_service():
     assert service.parent.target_pik == {"ip": "10.0.0.5"}
     assert service.parent.via == "has_service"
 
+
 def test_network_netblock():
     nb = NetworkNetblock.create(cidr="10.0.0.0/24", organization="Internal Corp")
     assert nb.schema_type == "network.netblock"
     assert nb.pik == {"cidr": "10.0.0.0/24"}
     assert nb.data["organization"] == "Internal Corp"
 
+
 def test_dns_record():
-    dns = DnsRecord.create(domain="EXAMPLE.COM", record_type="A", value="93.184.216.34", resolved_ip="93.184.216.34")
+    dns = DnsRecord.create(
+        domain="EXAMPLE.COM", record_type="A", value="93.184.216.34", resolved_ip="93.184.216.34"
+    )
     assert dns.schema_type == "dns.record"
     assert dns.pik["domain"] == "example.com"
     assert len(dns.associations) == 1
@@ -41,8 +48,11 @@ def test_dns_record():
     assert dns.associations[0].target_pik == {"ip": "93.184.216.34"}
     assert dns.associations[0].via == "resolves_to"
 
+
 def test_domain_info():
-    info = DomainInfo.create(domain="EXAMPLE.COM", registrar="MarkMonitor Inc.", organization="Example Corp")
+    info = DomainInfo.create(
+        domain="EXAMPLE.COM", registrar="MarkMonitor Inc.", organization="Example Corp"
+    )
     assert info.schema_type == "domain.info"
     assert info.pik["domain"] == "example.com"
     assert len(info.associations) == 1
@@ -50,9 +60,12 @@ def test_domain_info():
     assert info.associations[0].target_pik["domain"] == "example.com"
     assert info.associations[0].via == "whois_data_for"
 
+
 def test_credential_found():
     # 1. With host_ip (creates parent relation)
-    cred = CredentialFound.create(context="ssh", username="admin", password="password123", host_ip="192.168.1.1")
+    cred = CredentialFound.create(
+        context="ssh", username="admin", password="password123", host_ip="192.168.1.1"
+    )
     assert cred.schema_type == "credential.found"
     assert cred.pik == {"context": "ssh", "username": "admin"}
     assert cred.parent is not None
@@ -64,11 +77,13 @@ def test_credential_found():
     cred_no_host = CredentialFound.create(context="web", username="root", password="toor")
     assert cred_no_host.parent is None
 
+
 def test_entity_alias():
     alias = EntityAlias.create(source_id="host_1", target_id="host_2", relation_type="same_as")
     assert alias.schema_type == "entity.alias"
     assert alias.pik == {"source_id": "host_1", "target_id": "host_2"}
     assert alias.data["relation_type"] == "same_as"
+
 
 def test_process_running():
     proc = ProcessRunning.create(host_ip="10.0.0.1", pid=1337, name="nginx")
@@ -79,6 +94,7 @@ def test_process_running():
     assert proc.parent.target_pik == {"ip": "10.0.0.1"}
     assert proc.parent.via == "hosts_process"
 
+
 def test_file_system_object():
     fso = FileSystemObject.create(host_ip="10.0.0.1", path="/etc/shadow")
     assert fso.schema_type == "file.system_object"
@@ -87,6 +103,7 @@ def test_file_system_object():
     assert fso.parent.target_type == "network.host"
     assert fso.parent.target_pik == {"ip": "10.0.0.1"}
     assert fso.parent.via == "hosts_file"
+
 
 def test_software_package():
     pkg = SoftwarePackage.create(host_ip="10.0.0.1", package_name="openssh-server", version="8.2p1")
@@ -97,6 +114,7 @@ def test_software_package():
     assert pkg.parent.target_pik == {"ip": "10.0.0.1"}
     assert pkg.parent.via == "hosts_software"
 
+
 def test_tls_certificate():
     tls = TLSCertificate.create(fingerprint="SHA256:abcd1234", host_ip="192.168.1.10", port=443)
     assert tls.schema_type == "tls.certificate"
@@ -106,9 +124,12 @@ def test_tls_certificate():
     assert tls.parent.target_pik == {"host_ip": "192.168.1.10", "port": 443, "protocol": "tcp"}
     assert tls.parent.via == "uses_certificate"
 
+
 def test_vulnerability_found():
     # 1. Linked to service
-    vuln_svc = VulnerabilityFound.create(host_ip="192.168.1.1", vuln_id="CVE-2021-44228", port=8080, severity="critical")
+    vuln_svc = VulnerabilityFound.create(
+        host_ip="192.168.1.1", vuln_id="CVE-2021-44228", port=8080, severity="critical"
+    )
     assert vuln_svc.schema_type == "vulnerability.found"
     assert vuln_svc.pik == {"host_ip": "192.168.1.1", "vuln_id": "CVE-2021-44228"}
     assert vuln_svc.parent.target_type == "network.service"
@@ -120,6 +141,7 @@ def test_vulnerability_found():
     assert vuln_host.parent.target_type == "network.host"
     assert vuln_host.parent.target_pik == {"ip": "192.168.1.1"}
     assert vuln_host.parent.via == "host_has_vuln"
+
 
 def test_web_endpoint():
     # 1. Standalone
@@ -135,6 +157,7 @@ def test_web_endpoint():
     assert ep_svc.parent.target_pik == {"host_ip": "192.168.1.1", "port": 80, "protocol": "tcp"}
     assert ep_svc.parent.via == "hosts_endpoint"
 
+
 def test_web_resource():
     res = WebResource.create(url="http://example.com/app", resource_path="/static/main.js")
     assert res.schema_type == "web.resource"
@@ -144,14 +167,22 @@ def test_web_resource():
     assert res.parent.target_pik == {"url": "http://example.com/app"}
     assert res.parent.via == "hosts_resource"
 
+
 def test_web_vulnerability():
-    web_vuln = WebVulnerability.create(url="http://example.com/search", vuln_type="SQLi", parameter="q")
+    web_vuln = WebVulnerability.create(
+        url="http://example.com/search", vuln_type="SQLi", parameter="q"
+    )
     assert web_vuln.schema_type == "web.vulnerability"
-    assert web_vuln.pik == {"url": "http://example.com/search", "vuln_type": "SQLi", "parameter": "q"}
+    assert web_vuln.pik == {
+        "url": "http://example.com/search",
+        "vuln_type": "SQLi",
+        "parameter": "q",
+    }
     assert web_vuln.parent is not None
     assert web_vuln.parent.target_type == "web.endpoint"
     assert web_vuln.parent.target_pik == {"url": "http://example.com/search"}
     assert web_vuln.parent.via == "has_web_vuln"
+
 
 def test_schema_status_toggle():
     host = NetworkHost.create(ip="10.10.10.10")
@@ -159,3 +190,56 @@ def test_schema_status_toggle():
 
     host.status = "proposed"
     assert host.status == "proposed"
+
+
+def test_declarative_canonicalization():
+    from cyguide.schemas.base import BaseFinding, Relation
+
+    finding = BaseFinding(
+        schema_type="test.entity",
+        pik={"ip": " LOCALHOST ", "port": "8080", "protocol": " TCP "},
+        parent=Relation(
+            target_type="network.service",
+            target_pik={"host_ip": " 127.0.0.1 ", "port": "443"},
+            via="test_rel",
+        ),
+        data={"url": "HTTP://EXAMPLE.COM:80/FOO", "raw": "  value  "},
+    )
+
+    assert finding.pik["ip"] == "127.0.0.1"
+    assert finding.pik["port"] == 8080
+    assert finding.pik["protocol"] == "tcp"
+    assert finding.parent.target_pik["host_ip"] == "127.0.0.1"
+    assert finding.parent.target_pik["port"] == 443
+    assert finding.data["url"] == "http://example.com/FOO"
+    assert finding.data["raw"] == "value"
+
+
+def test_action_request_creation():
+    from uuid import uuid4
+
+    from cyguide.schemas.power import ActionRequest, ActionSource
+
+    session_id = uuid4()
+    action = ActionRequest(
+        session_id=session_id,
+        tool_name="nmap",
+        target_entity_id="host:127.0.0.1",
+        params={"flags": "-sV"},
+        triggered_by=ActionSource.USER,
+    )
+    assert action.tool_name == "nmap"
+    assert action.session_id == session_id
+    assert action.triggered_by == ActionSource.USER
+
+
+def test_workspace_context_defaults():
+    from uuid import uuid4
+
+    from cyguide.schemas.power import WorkspaceContext
+
+    session_id = uuid4()
+    ctx = WorkspaceContext(session_id=session_id, session_name="Test Session")
+    assert ctx.session_name == "Test Session"
+    assert ctx.resolved_vars == {}
+    assert ctx.active_jobs == []

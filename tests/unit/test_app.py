@@ -12,6 +12,7 @@ def test_app_structure():
     assert "power_mode" in app.SCREENS
     assert "tool_browser" in app.SCREENS
 
+
 @pytest.mark.asyncio
 async def test_app_component_init(tmp_path):
     """Smoke test for app component setup without running the full TUI."""
@@ -19,6 +20,7 @@ async def test_app_component_init(tmp_path):
     # We can't easily call on_mount because it's managed by Textual's loop,
     # but we can verify the class structure.
     assert hasattr(app, "SCREENS")
+
 
 def test_format_activity():
     """Verify that format_activity formats different schemas and event types correctly."""
@@ -32,28 +34,45 @@ def test_format_activity():
 
     # 2. network.host
     host_json = json.dumps({"pik": {"ip": "192.168.1.1"}, "data": {}})
-    line = format_activity("Session 22:40:20", "network.host", "Discovered network.host", finding_json=host_json)
+    line = format_activity(
+        "Session 22:40:20", "network.host", "Discovered network.host", finding_json=host_json
+    )
     assert line == "[22:40:20] Host: 192.168.1.1"
 
     # 3. network.service
     service_json = json.dumps({"pik": {"port": 80}, "data": {"service_name": "http"}})
-    line = format_activity("Session 22:40:20", "network.service", "Discovered network.service", finding_json=service_json)
+    line = format_activity(
+        "Session 22:40:20",
+        "network.service",
+        "Discovered network.service",
+        finding_json=service_json,
+    )
     assert line == "[22:40:20] Port: 80 (http)"
 
     # 4. dns.record
     dns_json = json.dumps({"pik": {"domain": "api.example.com"}})
-    line = format_activity("Session 22:40:20", "dns.record", "Discovered dns.record", finding_json=dns_json)
+    line = format_activity(
+        "Session 22:40:20", "dns.record", "Discovered dns.record", finding_json=dns_json
+    )
     assert line == "[22:40:20] Domain: api.example.com"
 
     # 5. web.endpoint
     web_json = json.dumps({"pik": {"url": "https://example.com/admin"}})
-    line = format_activity("Session 22:40:20", "web.endpoint", "Discovered web.endpoint", finding_json=web_json)
+    line = format_activity(
+        "Session 22:40:20", "web.endpoint", "Discovered web.endpoint", finding_json=web_json
+    )
     assert line == "[22:40:20] URL: example.com/admin"
 
     # 6. network.netblock
     net_json = json.dumps({"pik": {"cidr": "10.0.0.0/24"}})
-    line = format_activity("MyLongSessionName", "network.netblock", "Discovered network.netblock", finding_json=net_json)
+    line = format_activity(
+        "MyLongSessionName",
+        "network.netblock",
+        "Discovered network.netblock",
+        finding_json=net_json,
+    )
     assert line == "[MyLongSe..] Netblock: 10.0.0.0/24"
+
 
 @pytest.mark.asyncio
 async def test_learning_screen_resume_preserves_buffer():
@@ -81,9 +100,10 @@ async def test_learning_screen_resume_preserves_buffer():
     finally:
         active_app.reset(token)
 
+
 @pytest.mark.asyncio
 async def test_learning_screen_clear_buttons(tmp_path):
-    """Verify that clicking clear buttons in explanation and raw output tabs clears their respective content."""
+    """Verify that clearing explanation (via method/slash command) and raw output button clears content."""
     db_file = str(tmp_path / "test_app_clear.db")
     app = CyGuideApp(db_path=db_file)
     async with app.run_test() as pilot:
@@ -92,15 +112,14 @@ async def test_learning_screen_clear_buttons(tmp_path):
         await pilot.pause()
 
         screen = app.screen
-        assert screen.query_one("#clear_explanation_btn") is not None
         assert screen.query_one("#clear_output_btn") is not None
 
         # Populate buffers
         screen.explanation_buffer = "Some explanation text"
         screen.log_buffer = ["Log entry 1\n", "Log entry 2\n"]
 
-        # Click clear explanation button
-        await pilot.click("#clear_explanation_btn")
+        # Clear explanation via clear_explanation (matching /clear slash command)
+        screen.clear_explanation()
         await pilot.pause()
         assert screen.explanation_buffer == ""
 
@@ -111,13 +130,16 @@ async def test_learning_screen_clear_buttons(tmp_path):
         await pilot.pause()
         assert screen.log_buffer == []
 
+
 def test_css_stylesheet_syntax():
     """Verify that the Textual CSS stylesheet contains zero parsing or property errors."""
     from textual.css.stylesheet import Stylesheet
+
     ss = Stylesheet()
     ss.read("cyguide/ui/style.css")
     ss.parse()
     assert len(ss.rules) > 0
+
 
 @pytest.mark.asyncio
 async def test_app_headless_mount_and_screens(tmp_path):
@@ -129,6 +151,7 @@ async def test_app_headless_mount_and_screens(tmp_path):
             app.switch_screen(screen_name)
             await pilot.pause()
             assert app.screen is not None
+
 
 @pytest.mark.asyncio
 async def test_confirmation_dialog_keyboard_navigation():
@@ -144,7 +167,9 @@ async def test_confirmation_dialog_keyboard_navigation():
 
     app = DummyApp()
     async with app.run_test() as pilot:
-        dialog = ConfirmationDialog("Test Confirmation?", confirm_label="Delete", cancel_label="Cancel", is_destructive=True)
+        dialog = ConfirmationDialog(
+            "Test Confirmation?", confirm_label="Delete", cancel_label="Cancel", is_destructive=True
+        )
         app.push_screen(dialog)
         await pilot.pause(0.2)
 
@@ -166,13 +191,14 @@ async def test_confirmation_dialog_keyboard_navigation():
         await pilot.pause(0.1)
         assert app.screen != dialog
 
+
 @pytest.mark.asyncio
 async def test_rename_dialog_keyboard_navigation():
     """Verify that down/up/left/right navigate and Escape cancels in RenameDialog."""
     from textual.app import App
     from textual.widgets import Label
 
-    from cyguide.ui.screens.home import RenameDialog
+    from cyguide.ui.dialogs import RenameDialog
 
     class DummyApp(App):
         def compose(self):
@@ -207,10 +233,12 @@ async def test_rename_dialog_keyboard_navigation():
         await pilot.pause(0.1)
         assert app.screen != dialog
 
+
 @pytest.mark.asyncio
 async def test_system_commands_show_setting_state():
     """Verify get_system_commands displays setting status with visual indicator without long descriptions."""
     from cyguide.app import CyGuideApp
+
     app = CyGuideApp()
     async with app.run_test():
         commands = list(app.get_system_commands(app.screen))
@@ -227,6 +255,7 @@ async def test_tool_health_in_command_palette():
     """Verify tool health has one consolidated option in command palette, with tools under it."""
     from cyguide.app import CyGuideApp
     from cyguide.ui.screens.tool_health_modal import ToolHealthModal
+
     app = CyGuideApp()
     async with app.run_test() as pilot:
         commands = list(app.get_system_commands(app.screen))
@@ -251,6 +280,7 @@ async def test_tool_health_arrow_navigation():
     """Verify right arrow navigates into Tool Health list and left arrow navigates back out."""
     from cyguide.app import CyGuideApp
     from cyguide.ui.screens.tool_health_modal import ToolHealthModal
+
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
         await pilot.press("ctrl+p")
@@ -258,7 +288,9 @@ async def test_tool_health_arrow_navigation():
         assert app.screen.__class__.__name__ == "CyGuideCommandPalette"
 
         cl = app.screen.query_one("CommandList")
-        tool_health_idx = next(i for i, opt in enumerate(cl.options) if "Tool Health" in str(opt.prompt))
+        tool_health_idx = next(
+            i for i, opt in enumerate(cl.options) if "Tool Health" in str(opt.prompt)
+        )
         cl.highlighted = tool_health_idx
         await pilot.pause(0.1)
 
@@ -298,9 +330,15 @@ async def test_dashboard_tool_health_conditional_visibility(monkeypatch):
 
         # Simulate a negative tool health status (load error)
         fake_unhealthy = {
-            "faulty_tool": {"healthy": False, "status": "error", "message": "Crash during initialization"}
+            "faulty_tool": {
+                "healthy": False,
+                "status": "error",
+                "message": "Crash during initialization",
+            }
         }
-        monkeypatch.setattr(cyguide.engine.diagnostics, "check_tool_health", lambda reg: fake_unhealthy)
+        monkeypatch.setattr(
+            cyguide.engine.diagnostics, "check_tool_health", lambda reg: fake_unhealthy
+        )
         await dashboard.refresh_diagnostics()
         await pilot.pause(0.1)
 
@@ -327,7 +365,9 @@ async def test_palette_right_arrow_executes_leaf_and_preserves_memory():
         await pilot.press("ctrl+p")
         await pilot.pause(0.2)
         cl = app.screen.query_one(CommandList)
-        anim_idx = next(i for i, opt in enumerate(cl.options) if "Toggle Animations" in str(opt.prompt))
+        anim_idx = next(
+            i for i, opt in enumerate(cl.options) if "Toggle Animations" in str(opt.prompt)
+        )
         cl.highlighted = anim_idx
         await pilot.pause(0.1)
         await pilot.press("right")
@@ -389,7 +429,7 @@ async def test_dashboard_workspace_session_arrow_navigation():
         await pilot.pause(0.1)
         assert sess_list.has_focus
         await pilot.press("right")
-        await pilot.pause(0.2)
+        await pilot.pause(0.4)
         assert app.screen.__class__.__name__ == "PowerModeScreen"
 
         # 4. In PowerModeScreen, left arrow does NOT exit to dashboard
@@ -501,6 +541,7 @@ async def test_dashboard_arrow_navigation_in_delete_and_organize_modes():
 async def test_settings_persistence(tmp_path):
     """Verify animations setting persists across app restarts."""
     import json
+
     db_file = str(tmp_path / "cyguide.db")
     settings_file = tmp_path / "settings.json"
 
@@ -573,7 +614,7 @@ async def test_new_workspace_session_rename_dialog():
     """Verify creating a new workspace or session triggers RenameDialog with current time as default name."""
     import re
 
-    from cyguide.ui.screens.home import RenameDialog
+    from cyguide.ui.dialogs import RenameDialog
 
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
@@ -638,6 +679,7 @@ async def test_new_workspace_session_rename_dialog():
 async def test_learning_sidebar_layout_and_wrapping():
     """Verify Learning Mode Plan A sidebar: unclipped run button, launchpad container, and wrapping preview."""
     from cyguide.app import CyGuideApp
+
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test(size=(120, 45)) as pilot:
         await app.push_screen("learning_mode")
@@ -658,7 +700,9 @@ async def test_learning_sidebar_layout_and_wrapping():
         # 2. Verify run button is unclipped (within the pane boundary)
         pane_bottom = pane.region.y + pane.region.height
         btn_bottom = run_btn.region.y + run_btn.region.height
-        assert btn_bottom <= pane_bottom, f"Button bottom {btn_bottom} exceeds pane bottom {pane_bottom}"
+        assert btn_bottom <= pane_bottom, (
+            f"Button bottom {btn_bottom} exceeds pane bottom {pane_bottom}"
+        )
         assert run_btn.region.height == 3
 
         # 3. Test recipe selection updates preview
@@ -670,7 +714,9 @@ async def test_learning_sidebar_layout_and_wrapping():
 
         # 4. Test long command wrapping expands preview height
         initial_height = preview.size.height
-        screen.query_one("#flags_input").value = "-sV -sC -A -T4 -p 1-65535 -oN scan.txt --script=vuln,default"
+        screen.query_one(
+            "#flags_input"
+        ).value = "-sV -sC -A -T4 -p 1-65535 -oN scan.txt --script=vuln,default"
         await pilot.pause()
         assert preview.size.height >= initial_height
         assert "vuln" in str(preview.render())
@@ -705,7 +751,12 @@ async def test_session_overview_hierarchy_and_formatting(tmp_path):
 
         # 2. Add findings and verify formatted entity rows without truncation
         await app.store.upsert_finding(sess_id, NetworkHost.create(ip="192.168.1.50"))
-        await app.store.upsert_finding(sess_id, NetworkService.create(host_ip="192.168.1.50", port=80, protocol="tcp", service_name="http"))
+        await app.store.upsert_finding(
+            sess_id,
+            NetworkService.create(
+                host_ip="192.168.1.50", port=80, protocol="tcp", service_name="http"
+            ),
+        )
         await app.store.upsert_finding(sess_id, NetworkNetblock.create(cidr="192.168.1.0/24"))
 
         await dashboard.show_session_details(sess_id, force=True)
@@ -727,3 +778,256 @@ async def test_session_overview_hierarchy_and_formatting(tmp_path):
         await pilot.click(".enter_session_btn")
         await pilot.pause()
         assert type(app.screen).__name__ == "PowerModeScreen"
+
+
+@pytest.mark.asyncio
+async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_path):
+    """Verify that when workspaces and sessions are navigated or entered via Enter or Right arrow,
+
+    the 1st session is immediately and correctly highlighted without needing a Down arrow press.
+    """
+    import uuid
+
+    from textual.widgets import Static
+
+    db_path = str(tmp_path / f"test_highlight_{uuid.uuid4().hex}.db")
+    app = CyGuideApp(db_path=db_path)
+    async with app.run_test(size=(120, 45)) as pilot:
+        dashboard = app.get_screen("dashboard")
+        ws1 = await app.power_facade.create_workspace("Workspace One")
+        await app.power_facade.create_session(ws1, "Session 1.1")
+        await app.power_facade.create_session(ws1, "Session 1.2")
+
+        ws2 = await app.power_facade.create_workspace("Workspace Two")
+        await app.power_facade.create_session(ws2, "Session 2.1")
+        await app.power_facade.create_session(ws2, "Session 2.2")
+
+        await dashboard.refresh_workspaces()
+        await pilot.pause()
+
+        ws_list = dashboard.query_one("#workspace_list")
+        sess_list = dashboard.query_one("#session_list")
+
+        # 1. Start at index 0 and navigate down to index 1
+        dashboard.selected_ws_id = ws_list.children[0].id[3:]
+        ws_list.index = 0
+        ws_list.focus()
+        await pilot.pause(0.1)
+        await pilot.press("down")
+        await pilot.pause(0.1)
+        if dashboard._ws_debounce_task:
+            await dashboard._ws_debounce_task
+        await pilot.pause(0.1)
+        # Unicode pointer ▸ should move immediately to current workspace index
+        assert ws_list.index is not None
+        assert "▸" in str(ws_list.children[ws_list.index].query_one(Static).render())
+
+        await pilot.pause(0.1)
+
+        assert sess_list.index == 0
+        # While in workspace list, session list should NOT have the gray highlight pill
+        assert sess_list.children[0].styles.background.a == 0
+
+        # 2. Enter session list via right arrow
+        await pilot.press("right")
+        await pilot.pause(0.1)
+        assert sess_list.has_focus is True
+        assert sess_list.index == 0
+        # When focused, session list SHOULD have the gray highlight pill
+        assert sess_list.children[0].styles.background.hex == "#282E3A"
+        # Workspace list should remain highlighted
+        assert ws_list.children[ws_list.index].styles.background.hex == "#282E3A"
+
+        # 3. Move down to session 2
+        await pilot.press("down")
+        await pilot.pause(0.1)
+        assert sess_list.index == 1
+        assert sess_list.children[1].styles.background.hex == "#282E3A"
+
+        # 4. Move back out to workspaces via left arrow
+        await pilot.press("left")
+        await pilot.pause(0.1)
+        assert ws_list.has_focus is True
+        # Session list highlight becomes transparent again
+        assert sess_list.children[1].styles.background.a == 0
+
+        # 5. Move down to next workspace
+        await pilot.press("down")
+        await pilot.pause(0.1)
+        if dashboard._ws_debounce_task:
+            await dashboard._ws_debounce_task
+        await pilot.pause(0.1)
+        assert ws_list.index is not None
+        assert "▸" in str(ws_list.children[ws_list.index].query_one(Static).render())
+        assert sess_list.index == 0
+        assert sess_list.children[0].styles.background.a == 0
+
+        # 6. Enter workspace via Enter key on workspace_list
+        await pilot.press("enter")
+        await pilot.pause()
+        assert sess_list.has_focus is True
+        assert sess_list.index == 0
+        assert sess_list.children[0].styles.background.hex == "#282E3A"
+
+
+@pytest.mark.asyncio
+async def test_sidebar_resize_alt_brackets(tmp_path):
+    """Verify that Alt+[ and Alt+] shrink and expand sidebars in Learning and Power modes."""
+    import uuid
+
+    db_path = str(tmp_path / f"test_resize_{uuid.uuid4().hex}.db")
+    app = CyGuideApp(db_path=db_path)
+    async with app.run_test(size=(120, 45)) as pilot:
+        # 1. Learning Mode
+        app.switch_screen("learning_mode")
+        await pilot.pause()
+        learning = app.get_screen("learning_mode")
+        lpane = learning.query_one("#lesson_config_pane")
+        init_lw = int(lpane.styles.width.value)
+
+        # Shrink via alt+[ and alt+left_square_bracket
+        await pilot.press("alt+[")
+        await pilot.pause()
+        assert int(lpane.styles.width.value) == init_lw - 4
+
+        await pilot.press("alt+left_square_bracket")
+        await pilot.pause()
+        assert int(lpane.styles.width.value) == init_lw - 8
+
+        # Expand via alt+] and alt+right_square_bracket
+        await pilot.press("alt+]")
+        await pilot.pause()
+        assert int(lpane.styles.width.value) == init_lw - 4
+
+        await pilot.press("alt+right_square_bracket")
+        await pilot.pause()
+        assert int(lpane.styles.width.value) == init_lw
+
+        # 2. Power Mode
+        ws_id = await app.power_facade.create_workspace("ResizeWS")
+        sess_id = await app.power_facade.create_session(ws_id, "ResizeSess")
+        app.selected_workspace_id = ws_id
+        app.selected_session_id = sess_id
+        app.switch_screen("power_mode")
+        await pilot.pause()
+        power = app.get_screen("power_mode")
+        ppane = power.query_one("#power_sidebar")
+        init_pw = int(
+            ppane.styles.width.value
+            if ppane.styles.width and ppane.styles.width.value
+            else (ppane.region.width or 34)
+        )
+
+        # Shrink via alt+[ and alt+left_square_bracket
+        await pilot.press("alt+[")
+        await pilot.pause()
+        assert int(ppane.styles.width.value) == init_pw - 4
+
+        await pilot.press("alt+left_square_bracket")
+        await pilot.pause()
+        assert int(ppane.styles.width.value) == init_pw - 8
+
+        # Expand via alt+] and alt+right_square_bracket
+        await pilot.press("alt+]")
+        await pilot.pause()
+        assert int(ppane.styles.width.value) == init_pw - 4
+
+        await pilot.press("alt+right_square_bracket")
+        await pilot.pause()
+        assert int(ppane.styles.width.value) == init_pw
+
+        # 3. Scratchpad in Power Mode (Context-Aware Resizing when focused)
+        await pilot.press("ctrl+n")
+        await pilot.pause()
+        sp_pane = power.query_one("#scratchpad_pane")
+        assert sp_pane.display is True
+        init_spw = int(
+            sp_pane.styles.width.value
+            if sp_pane.styles.width and sp_pane.styles.width.value
+            else (sp_pane.region.width or 32)
+        )
+
+        # Expand scratchpad via alt+[ and alt+left_square_bracket (moves left divider leftward)
+        await pilot.press("alt+[")
+        await pilot.pause()
+        assert int(sp_pane.styles.width.value) == init_spw + 4
+
+        await pilot.press("alt+left_square_bracket")
+        await pilot.pause()
+        assert int(sp_pane.styles.width.value) == init_spw + 8
+
+        # Shrink scratchpad via alt+] and alt+right_square_bracket (moves left divider rightward)
+        await pilot.press("alt+]")
+        await pilot.pause()
+        assert int(sp_pane.styles.width.value) == init_spw + 4
+
+        await pilot.press("alt+right_square_bracket")
+        await pilot.pause()
+        assert int(sp_pane.styles.width.value) == init_spw
+
+
+@pytest.mark.asyncio
+async def test_dashboard_instant_workspace_switch_updates_session_details():
+    """Verify that switching workspaces instantly updates session overview without delay or empty card."""
+    from cyguide.app import CyGuideApp
+
+    app = CyGuideApp(db_path=":memory:")
+    async with app.run_test(size=(120, 45)) as pilot:
+        d = app.screen
+        ws_list = d.query_one("#workspace_list")
+
+        workspaces = await app.power_facade.list_workspaces()
+        ws1 = [w["id"] for w in workspaces if w["name"] == "Default Project"][0]
+        await app.power_facade.create_session(ws1, "Alpha Session")
+
+        ws2 = await app.power_facade.create_workspace("Beta Project")
+        await app.power_facade.create_session(ws2, "Beta Session")
+
+        await d.refresh_workspaces()
+        ws_items = [
+            w for w in (await app.power_facade.list_workspaces()) if w.get("status") != "SYSTEM"
+        ]
+        first_ws_name = ws_items[0]["name"]
+        first_sess_name = "Alpha Session" if first_ws_name == "Default Project" else "Beta Session"
+        second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
+
+        # 1. Start at index 0 with corresponding selected_ws_id
+        await pilot.pause(0.1)
+        d.selected_ws_id = ws_items[0]["id"]
+        ws_list.index = 0
+        ws_list.focus()
+        await pilot.pause(0.1)
+        assert ws_list.index == 0
+        assert ws_list.has_focus is True
+
+        # 2. Navigate down to second workspace
+        await pilot.press("down")
+        await pilot.pause(0.1)
+        if d._ws_debounce_task:
+            await d._ws_debounce_task
+        await pilot.pause(0.1)
+        assert ws_list.index == 1
+
+        details = d.query_one("#session_details_content")
+        assert not details.query(".session_empty_card"), (
+            "Must not display empty card when workspace has sessions"
+        )
+        assert details.query(".session_id_card"), "Must render session card immediately"
+        title_label = d.query_one("#session_title_text")
+        assert second_sess_name in str(title_label.render())
+
+        # 3. Navigate back up to first workspace
+        await pilot.press("up")
+        await pilot.pause(0.1)
+        if d._ws_debounce_task:
+            await d._ws_debounce_task
+        await pilot.pause(0.1)
+        assert ws_list.index == 0
+
+        details = d.query_one("#session_details_content")
+        assert not details.query(".session_empty_card"), (
+            "Must not display empty card when workspace has sessions"
+        )
+        assert details.query(".session_id_card"), "Must render session card immediately"
+        title_label = d.query_one("#session_title_text")
+        assert first_sess_name in str(title_label.render())
