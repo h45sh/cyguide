@@ -115,6 +115,8 @@ class PowerModeScreen(Screen):
         self._scratchpad_file: Optional[str] = None
         self.show_global_graph: bool = False
         self._active_subscriptions: Dict[UUID, Callable] = {}
+        self._live_update_task: Optional[asyncio.Task] = None
+        self._pending_live_update_session_id: Optional[str] = None
 
     @property
     def scratchpad_file(self) -> str:
@@ -237,6 +239,8 @@ class PowerModeScreen(Screen):
             self.app.store.on_upsert(self.handle_live_update)
 
     def on_unmount(self) -> None:
+        if self._live_update_task and not self._live_update_task.done():
+            self._live_update_task.cancel()
         if hasattr(self.app, "power_facade"):
             self.app.power_facade.remove_job_status_change(self._handle_job_status_change)
             for j_id, cb in list(self._active_subscriptions.items()):
@@ -569,7 +573,19 @@ class PowerModeScreen(Screen):
             cmd_input.focus()
 
     async def handle_live_update(self, session_id: str, finding: Any) -> None:
-        if session_id == self.active_session_id:
+        if session_id != self.active_session_id:
+            return
+        self._pending_live_update_session_id = session_id
+        if self._live_update_task and not self._live_update_task.done():
+            return
+        self._live_update_task = asyncio.create_task(self._debounced_live_update())
+
+    async def _debounced_live_update(self, delay: float = 0.25) -> None:
+        try:
+            await asyncio.sleep(delay)
+            target_sess = self._pending_live_update_session_id
+            if target_sess != self.active_session_id or not self.active_session_id:
+                return
             if self.show_global_graph:
                 session_data = await self.app.power_facade.get_session(self.active_session_id)
                 if session_data:
@@ -584,6 +600,8 @@ class PowerModeScreen(Screen):
                 await self.query_one("#entity_browser", EntityBrowser).refresh_entities(nodes)
             except NoMatches:
                 pass
+        except asyncio.CancelledError:
+            pass
 
     async def on_job_queue_job_selected(self, event: JobQueue.JobSelected) -> None:
         if event.session_id != self.active_session_id:

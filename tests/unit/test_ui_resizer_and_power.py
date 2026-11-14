@@ -489,3 +489,54 @@ def test_command_palette_submission_strips_duplicate_prefixes():
     assert sub.tool_name == "whois"
     assert sub.expanded_params == ["104.20.23.154"]
     assert sub.value == "whois 104.20.23.154"
+
+
+@pytest.mark.asyncio
+async def test_entity_browser_caps_large_categories():
+    import json
+    from cyguide.ui.widgets.power import EntityBrowser
+
+    browser = EntityBrowser()
+    nodes = []
+    for i in range(250):
+        nodes.append({
+            "id": f"dns_{i}",
+            "schema_type": "dns.record",
+            "pik_json": json.dumps({"domain": f"sub{i}.example.com", "type": "A"}),
+            "data_json": "{}",
+            "status": "confirmed",
+        })
+
+    await browser.refresh_entities({"nodes": nodes, "edges": []})
+    assert len(browser.root.children) == 1
+    dns_root = browser.root.children[0]
+    assert "Domains & DNS (250)" in str(dns_root.label)
+    # Capped at 200 visible children + 1 informative leaf note
+    assert len(dns_root.children) == 201
+    assert "… 50 more (filter with search)" in str(dns_root.children[-1].label)
+
+
+@pytest.mark.asyncio
+async def test_power_mode_live_update_debouncing():
+    from unittest.mock import AsyncMock, PropertyMock
+
+    screen = PowerModeScreen()
+    screen.active_session_id = "test-session"
+    mock_app = MagicMock()
+    mock_facade = MagicMock()
+    mock_facade.get_graph_snapshot = AsyncMock(return_value={"nodes": [], "edges": []})
+    mock_app.power_facade = mock_facade
+
+    with patch.object(PowerModeScreen, "app", new_callable=PropertyMock) as mock_prop:
+        mock_prop.return_value = mock_app
+        # Rapidly fire 20 live update events
+        for _ in range(20):
+            await screen.handle_live_update("test-session", MagicMock())
+
+        # Only one debounced task was created
+        assert screen._live_update_task is not None
+        assert not screen._live_update_task.done()
+
+        # Let debounced task execute
+        await screen._live_update_task
+        mock_facade.get_graph_snapshot.assert_called_once_with("test-session")
