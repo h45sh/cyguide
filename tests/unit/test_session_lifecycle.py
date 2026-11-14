@@ -6,6 +6,7 @@ import pytest
 from cyguide.app import CyGuideApp
 from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.store import GraphStore
+from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.power import ActionRequest, ActionSource
 
 
@@ -173,9 +174,6 @@ async def test_dashboard_toggle_history_and_archive(tmp_path):
 
 @pytest.mark.asyncio
 async def test_dashboard_handle_new_finding_throttling(tmp_path):
-    from cyguide.app import CyGuideApp
-    from cyguide.schemas.network import NetworkHost
-
     db_path = str(tmp_path / "test_finding_throttle.db")
     app = CyGuideApp(db_path=db_path)
     async with app.run_test() as pilot:
@@ -197,4 +195,3 @@ async def test_dashboard_handle_new_finding_throttling(tmp_path):
         # Activity list was rate-limited, not flooded with 50 items
         act_list = dash.query_one("#activity_list")
         assert len(act_list.children) < 5
-

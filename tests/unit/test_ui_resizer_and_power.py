@@ -1,8 +1,9 @@
 """Tests for ResizeHandle and Power mode UI enhancements."""
 
 import asyncio
+import json
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 from uuid import uuid4
 
 import pytest
@@ -13,7 +14,7 @@ from textual.widgets import Static
 
 from cyguide.schemas.power import JobStatus, JobStatusEnum
 from cyguide.ui.screens.power import PowerModeScreen
-from cyguide.ui.widgets.power import JobQueue
+from cyguide.ui.widgets.power import EntityBrowser, JobQueue
 from cyguide.ui.widgets.resizer import ResizeHandle
 
 
@@ -493,19 +494,18 @@ def test_command_palette_submission_strips_duplicate_prefixes():
 
 @pytest.mark.asyncio
 async def test_entity_browser_caps_large_categories():
-    import json
-    from cyguide.ui.widgets.power import EntityBrowser
-
     browser = EntityBrowser()
     nodes = []
     for i in range(250):
-        nodes.append({
-            "id": f"dns_{i}",
-            "schema_type": "dns.record",
-            "pik_json": json.dumps({"domain": f"sub{i}.example.com", "type": "A"}),
-            "data_json": "{}",
-            "status": "confirmed",
-        })
+        nodes.append(
+            {
+                "id": f"dns_{i}",
+                "schema_type": "dns.record",
+                "pik_json": json.dumps({"domain": f"sub{i}.example.com", "type": "A"}),
+                "data_json": "{}",
+                "status": "confirmed",
+            }
+        )
 
     await browser.refresh_entities({"nodes": nodes, "edges": []})
     assert len(browser.root.children) == 1
@@ -518,8 +518,6 @@ async def test_entity_browser_caps_large_categories():
 
 @pytest.mark.asyncio
 async def test_power_mode_live_update_debouncing():
-    from unittest.mock import AsyncMock, PropertyMock
-
     screen = PowerModeScreen()
     screen.active_session_id = "test-session"
     mock_app = MagicMock()

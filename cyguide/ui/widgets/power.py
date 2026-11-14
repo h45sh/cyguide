@@ -205,7 +205,9 @@ class EntityBrowser(Tree):
                     add_node_to_tree(new_tree_node, cid, depth + 1)
                 if len(child_ids) > MAX_DISPLAY_PER_CATEGORY:
                     remaining = len(child_ids) - MAX_DISPLAY_PER_CATEGORY
-                    new_tree_node.add_leaf(f"[dim #94a3b8]… {remaining} more (filter with search)[/]")
+                    new_tree_node.add_leaf(
+                        f"[dim #94a3b8]… {remaining} more (filter with search)[/]"
+                    )
             else:
                 parent_tree_node.add_leaf(label, data={"id": node_id, "type": node["schema_type"]})
 
