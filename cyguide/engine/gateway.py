@@ -2,10 +2,24 @@
 
 import ipaddress
 import socket
+from typing import Any, Callable, Dict, Optional, Tuple
 
+from cyguide.engine.network import get_lhost_info
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.power import ActionRequest, ActionSource
+
+
+def _resolve_lhost() -> Tuple[Optional[str], Optional[str]]:
+    import sys
+
+    pf = sys.modules.get("cyguide.engine.power_facade")
+    resolver = getattr(pf, "get_lhost_info", get_lhost_info) if pf else get_lhost_info
+    try:
+        return resolver()
+    except Exception:
+        return None, None
+
 
 BLOCKED_TARGETS = {
     "169.254.",  # IPv4 Link-Local / Cloud Metadata (AWS, Azure, GCP, DigitalOcean, Oracle)
@@ -101,6 +115,44 @@ class ActionGateway:
     def __init__(self, registry: ToolRegistry, store: GraphStore):
         self.registry = registry
         self.store = store
+
+    @staticmethod
+    def resolve_entity_variables(
+        pik: Optional[Dict[str, Any]] = None,
+        lhost_resolver: Optional[Callable[[], Tuple[Optional[str], Optional[str]]]] = None,
+    ) -> Dict[str, Any]:
+        """Extract standard investigation variables ($TARGET, $PORT, $SERVICE, $PROTOCOL, $LHOST, $IFACE)."""
+        resolved: Dict[str, Any] = {}
+        if pik:
+            target = pik.get("ip") or pik.get("domain") or pik.get("host_ip")
+            if target:
+                resolved["TARGET"] = target
+            if "port" in pik:
+                resolved["PORT"] = pik["port"]
+            if "service" in pik:
+                resolved["SERVICE"] = pik["service"]
+            if "protocol" in pik:
+                resolved["PROTOCOL"] = pik["protocol"]
+
+        resolver = lhost_resolver or _resolve_lhost
+        try:
+            ip, iface = resolver()
+            if ip:
+                resolved["LHOST"] = ip
+            if iface:
+                resolved["IFACE"] = iface
+        except Exception:
+            pass
+        return resolved
+
+    @staticmethod
+    def interpolate_variables(text: str, variables: Dict[str, Any]) -> str:
+        """Replace $VAR placeholders in command text with resolved values."""
+        for var_name, val in variables.items():
+            placeholder = f"${var_name}"
+            if placeholder in text:
+                text = text.replace(placeholder, str(val))
+        return text
 
     async def validate_action(self, action: ActionRequest) -> bool:
         """Validate an action request against registry and store state.

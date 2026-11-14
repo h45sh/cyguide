@@ -29,7 +29,7 @@ def render_markdown(text: str) -> RichMarkdown:
     return RichMarkdown(text, justify="left", code_theme="monokai")
 
 
-from cyguide.ui.widgets.resizer import ResizeHandle
+from cyguide.ui.widgets import ResizeHandle, TerminalStreamPane
 
 
 class RecipeListItem(ListItem):
@@ -251,12 +251,7 @@ class LearningModeScreen(Screen):
                         with Horizontal(classes="pane_toolbar"):
                             yield Button("COPY", id="copy_output_btn", classes="pane_action_btn")
                             yield Button("CLEAR", id="clear_output_btn", classes="pane_action_btn")
-                        with VerticalScroll(id="output_scroll"):
-                            yield Static(
-                                "No scan executed yet. Configure flags and click ▶ RUN to execute.",
-                                id="raw_output_text",
-                                markup=False,
-                            )
+                        yield TerminalStreamPane(id="raw_output_terminal")
 
                     with TabPane("◆ RECIPES", id="tab_recipes"):
                         with VerticalScroll(id="recipes_scroll"):
@@ -357,30 +352,13 @@ class LearningModeScreen(Screen):
 
         # Keep previous buffer history across tools if already present
         if not self.log_buffer:
-            empty_state = (
-                f"{'═' * 65}\n"
-                f"▶ {manifest.meta.name.upper()} — RAW TERMINAL OUTPUT STREAM\n"
-                f"{'═' * 65}\n\n"
-                "  Status: Idle (No scan executed yet)\n\n"
-                "  Quick Instructions:\n"
-                f"  • Configure target IP/host & flags on the left panel.\n"
-                f"  • Click ▶ RUN or press Enter to launch `{self.active_tool}`.\n"
-                "  • Live terminal stdout/stderr stream will appear here in real-time.\n"
-                "  • AI tutor security analysis will stream under ◆ EXPLANATION.\n\n"
-                f"{'─' * 65}\n"
-            )
-            self.query_one("#raw_output_text", Static).update(empty_state)
+            self.query_one("#raw_output_terminal", TerminalStreamPane).clear()
         if not self.explanation_buffer:
+            summary = manifest.meta.one_line_summary or "Security inspection and analysis tool."
             welcome_md = (
-                f"# ◆ {manifest.meta.name.upper()} — Learning Lab\n\n"
-                f"{manifest.meta.one_line_summary}\n\n"
-                "---\n\n"
-                "### Quick Start Guide\n\n"
-                "* **Select a Recipe**: Choose a pre-configured audit workflow on the left sidebar.\n"
-                f"* **Configure Target**: Enter an IP or hostname (default: `127.0.0.1` — safe local sandbox).\n"
-                f"* **Run Tool**: Click **▶ RUN SCAN** or press `Enter` to begin scanning.\n"
-                "* **Real-time Tutor**: Watch this pane for live analysis of findings and security explanations.\n"
-                "* **Raw Output**: Switch to the **◆ RAW OUTPUT** tab above to view raw terminal output.\n"
+                f"# ◆ {manifest.meta.name.upper()}\n\n"
+                f"{summary}\n\n"
+                "*Select a workflow recipe and run a scan to begin live AI explanations.*"
             )
             self.query_one("#explanation_text", Static).update(render_markdown(welcome_md))
 
@@ -591,7 +569,11 @@ class LearningModeScreen(Screen):
 
     def action_copy_output(self) -> None:
         """Copy the raw terminal output to system clipboard."""
-        text = "".join(self.log_buffer).strip()
+        try:
+            term = self.query_one("#raw_output_terminal", TerminalStreamPane)
+            text = term.get_text().strip()
+        except Exception:
+            text = "".join(self.log_buffer).strip()
         if not text:
             self.notify("Raw terminal output is empty.", severity="warning")
             return
@@ -632,7 +614,9 @@ class LearningModeScreen(Screen):
 
     def clear_output(self) -> None:
         self.log_buffer = []
-        self.query_one("#raw_output_text", Static).update("Terminal output cleared.")
+        self.query_one("#raw_output_terminal", TerminalStreamPane).update(
+            "Terminal output cleared."
+        )
         self.set_focus(None)
         self.notify("Raw output cleared")
 
@@ -1102,7 +1086,12 @@ class LearningModeScreen(Screen):
         else:
             await self.app.executor.stop_task(str(self.app.learning_session_id))
         self.log_buffer.append("\n[!] Scan stopped by user.\n")
-        self.query_one("#raw_output_text", Static).update("".join(self.log_buffer))
+        try:
+            term = self.query_one("#raw_output_terminal", TerminalStreamPane)
+            term.write("\n[!] Scan stopped by user.\n")
+            term.flush()
+        except Exception:
+            pass
         self.reset_ui_after_run()
 
     def reset_ui_after_run(self):
@@ -1201,8 +1190,7 @@ class LearningModeScreen(Screen):
         flags_used = params.get("raw_flags", "")
         cmd_str = f"{self.active_tool} {flags_used} {target_ip}".strip().replace("  ", " ")
 
-        output_pane = self.query_one("#raw_output_text", Static)
-        output_scroll = self.query_one("#output_scroll", VerticalScroll)
+        output_terminal = self.query_one("#raw_output_terminal", TerminalStreamPane)
         explainer_pane = self.query_one("#explanation_text", Static)
         explainer_scroll = self.query_one("#explanation_scroll", VerticalScroll)
 
@@ -1213,8 +1201,8 @@ class LearningModeScreen(Screen):
             else f"{'═' * 65}\n▶ RUN #{self.run_count} [{timestamp}]  $ {cmd_str}\n{'═' * 65}\n\n"
         )
         self.log_buffer.append(log_header)
-        output_pane.update("".join(self.log_buffer[-2000:]))
-        output_scroll.scroll_end(animate=False)
+        output_terminal.write(log_header)
+        output_terminal.flush()
 
         # Append Run Header to Explanation only if AI explanations are enabled
         if getattr(self, "ai_explanations_enabled", True):
@@ -1232,25 +1220,10 @@ class LearningModeScreen(Screen):
                 pass
             explainer_scroll.scroll_end(animate=False)
 
-        # Throttling state
-        self._last_ui_update = 0
-        UPDATE_INTERVAL = 0.05
-
-        async def update_ui_throttled():
-            import time
-
-            now = time.time()
-            if now - self._last_ui_update > UPDATE_INTERVAL:
-                display_slice = "".join(self.log_buffer[-2000:])
-                output_pane.update(display_slice)
-                output_scroll.scroll_end(animate=False)
-                self._last_ui_update = now
-
-            await asyncio.sleep(0)  # ALWAYS yield to UI loop
-
         async def on_raw_output(line: str):
             self.log_buffer.append(line)
-            await update_ui_throttled()
+            output_terminal.write(line)
+            await asyncio.sleep(0)  # ALWAYS yield to UI loop
 
         from uuid import UUID
 
@@ -1393,9 +1366,7 @@ class LearningModeScreen(Screen):
         except Exception as e:
             self.log_buffer.append(f"\n[!] Error: {str(e)}\n")
         finally:
-            # Final UI flush
-            output_pane.update("".join(self.log_buffer[-2000:]))
-            output_scroll.scroll_end(animate=False)
+            output_terminal.flush()
             self.reset_ui_after_run()
 
     def action_show_shortcuts(self) -> None:

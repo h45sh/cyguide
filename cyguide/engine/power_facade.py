@@ -227,6 +227,10 @@ class PowerWorkspaceFacade:
         """Register a callback for finding upserts."""
         self.store.on_upsert(callback)
 
+    def on_findings_batch(self, callback: Any) -> None:
+        """Register a callback for batched finding upserts."""
+        self.store.on_findings_batch(callback)
+
     async def generate_markdown_report(self, session_id: str) -> str:
         """Generate markdown report string for a session."""
         from cyguide.engine.reporter import generate_markdown_report
@@ -309,11 +313,8 @@ class PowerWorkspaceFacade:
 
     async def remove_job(self, job_id: UUID) -> None:
         """Remove a job from tracking, e.g., when its tab is closed."""
-        job = self.execution._active_jobs.pop(job_id, None)
-        self.execution._job_actions.pop(job_id, None)
-        self.execution._job_buffers.pop(job_id, None)
+        job = self.execution.remove_job(job_id)
         self._output_subscribers.pop(job_id, None)
-        self.execution.closed_job_ids.add(str(job_id))
         session_id = str(job.session_id) if job else None
         await self.store.mark_event_closed(str(job_id), session_id=session_id)
         if job:
@@ -394,12 +395,12 @@ class PowerWorkspaceFacade:
 
     def register_job(self, job: JobStatus) -> None:
         """Register or update a JobStatus in the active job registry."""
-        self.execution._active_jobs[job.job_id] = job
+        self.execution.register_job(job)
         self._notify_job_change(job)
 
     def is_job_closed(self, job_id: str) -> bool:
         """Check if a job has been marked closed by the operator."""
-        return str(job_id) in self.execution.closed_job_ids
+        return self.execution.is_job_closed(job_id)
 
     async def validate_action(self, action: ActionRequest) -> bool:
         """Validate an action request against registry and store policies."""
@@ -411,7 +412,7 @@ class PowerWorkspaceFacade:
 
     def get_job_action(self, job_id: UUID) -> Optional[ActionRequest]:
         """Get the original ActionRequest for a job."""
-        return self.execution._job_actions.get(job_id)
+        return self.execution.get_job_action(job_id)
 
     async def export_session(self, session_id: str, dest_db_path: str) -> None:
         """Export a session's database rows to a portable database."""

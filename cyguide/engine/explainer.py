@@ -284,6 +284,11 @@ class OllamaBackend(ExplainerBackend):
             self.last_error = f"Ollama connection failed ({e}). Please ensure Ollama is running (`ollama serve`) at {self.base_url}."
             yield f"[Error: Ollama connection failed ({e}). Please ensure Ollama is running (`ollama serve`).]\n"
 
+    async def stream(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
+        """Conform to ProviderAdapter protocol for unified streaming."""
+        async for chunk in self.explain(prompt, system=system):
+            yield chunk
+
 
 # --- Profile Management ---
 
@@ -478,6 +483,45 @@ class ExplanationTutor(ExplainerBackend):
             return self.ollama_backend.explain(prompt, system=system)
         return self.ollama_backend.explain(prompt)
 
+    async def _execute_ollama_fallback(
+        self,
+        prompt: str,
+        system: Optional[str],
+        cloud_err_summary: str,
+        notice_message: str,
+    ) -> AsyncIterator[TutorEvent]:
+        """Consolidated runner for Ollama fallback execution."""
+        first = True
+        ollama_failed = False
+        ollama_err = ""
+        try:
+            async for chunk in self._call_ollama_explain(prompt, system=system):
+                if first:
+                    if chunk.startswith("[Error: Ollama connection failed") or chunk.startswith(
+                        "Error: Ollama returned status"
+                    ):
+                        ollama_failed = True
+                        ollama_err = (
+                            getattr(self.ollama_backend, "last_error", None) or chunk.strip()
+                        )
+                        break
+                    first = False
+                    yield TutorStatus(message=notice_message)
+                yield TutorToken(text=chunk)
+        except Exception as e:
+            ollama_failed = True
+            ollama_err = (
+                f"Ollama connection failed ({e}). Ensure Ollama is running (`ollama serve`)."
+            )
+
+        if ollama_failed:
+            yield TutorError(
+                error=format_dual_ai_error(cloud_err_summary, ollama_err),
+                is_fatal=True,
+                cloud_error=cloud_err_summary,
+                ollama_error=ollama_err,
+            )
+
     async def stream(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[TutorEvent]:
         """Stream typed TutorEvents across priority chains, cooldowns, and fallbacks."""
         ollama_pre_err: Optional[str] = None
@@ -488,17 +532,15 @@ class ExplanationTutor(ExplainerBackend):
             if self.ollama_backend:
                 try:
                     async for chunk in self._call_ollama_explain(prompt, system=system):
-                        if first:
-                            if chunk.startswith(
-                                "[Error: Ollama connection failed"
-                            ) or chunk.startswith("Error: Ollama returned status"):
-                                ollama_failed = True
-                                ollama_pre_err = (
-                                    getattr(self.ollama_backend, "last_error", None)
-                                    or chunk.strip()
-                                )
-                                break
-                            first = False
+                        if chunk.startswith("[Error: Ollama connection failed") or chunk.startswith(
+                            "Error: Ollama returned status"
+                        ):
+                            ollama_failed = True
+                            ollama_pre_err = (
+                                getattr(self.ollama_backend, "last_error", None) or chunk.strip()
+                            )
+                            break
+                        first = False
                         yield TutorToken(text=chunk)
                 except Exception as e:
                     ollama_failed = True
@@ -534,6 +576,13 @@ class ExplanationTutor(ExplainerBackend):
                     ollama_error=ollama_pre_err,
                 )
                 return
+
+            fallback_msg = (
+                "Ollama connection dropped mid-stream. Falling back to Cloud AI..."
+                if not first
+                else f"Local Ollama unavailable ({ollama_pre_err or 'connection error'}). Falling back to Cloud AI..."
+            )
+            yield TutorStatus(message=fallback_msg, is_warning=True)
         else:
             chain = self.get_priority_chain()
 
@@ -544,37 +593,9 @@ class ExplanationTutor(ExplainerBackend):
                 else "Cloud AI access is disabled in settings."
             )
             if self.fallback_to_ollama and self.ollama_backend:
-                first = True
-                ollama_failed = False
-                ollama_err = ""
-                try:
-                    async for chunk in self._call_ollama_explain(prompt, system=system):
-                        if first:
-                            if chunk.startswith(
-                                "[Error: Ollama connection failed"
-                            ) or chunk.startswith("Error: Ollama returned status"):
-                                ollama_failed = True
-                                ollama_err = (
-                                    getattr(self.ollama_backend, "last_error", None)
-                                    or chunk.strip()
-                                )
-                                break
-                            first = False
-                            yield TutorStatus(
-                                message=f"Cloud AI key not configured. Falling back to Local Ollama ({self.ollama_backend.model})..."
-                            )
-                        yield TutorToken(text=chunk)
-                except Exception as e:
-                    ollama_failed = True
-                    ollama_err = f"Ollama connection failed ({e}). Ensure Ollama is running (`ollama serve`)."
-
-                if ollama_failed:
-                    yield TutorError(
-                        error=format_dual_ai_error(cloud_err, ollama_err),
-                        is_fatal=True,
-                        cloud_error=cloud_err,
-                        ollama_error=ollama_err,
-                    )
+                notice = f"Cloud AI key not configured. Falling back to Local Ollama ({self.ollama_backend.model})..."
+                async for ev in self._execute_ollama_fallback(prompt, system, cloud_err, notice):
+                    yield ev
                 return
 
             yield TutorError(error=cloud_err, is_fatal=True, cloud_error=cloud_err)
@@ -676,38 +697,9 @@ class ExplanationTutor(ExplainerBackend):
             return
 
         if self.fallback_to_ollama and self.ollama_backend:
-            first = True
-            ollama_failed = False
-            ollama_err = ""
-            try:
-                async for chunk in self._call_ollama_explain(prompt, system=system):
-                    if first:
-                        if chunk.startswith("[Error: Ollama connection failed") or chunk.startswith(
-                            "Error: Ollama returned status"
-                        ):
-                            ollama_failed = True
-                            ollama_err = (
-                                getattr(self.ollama_backend, "last_error", None) or chunk.strip()
-                            )
-                            break
-                        first = False
-                        yield TutorStatus(
-                            message=f"All cloud keys failed. Falling back to Local Ollama ({self.ollama_backend.model})..."
-                        )
-                    yield TutorToken(text=chunk)
-            except Exception as e:
-                ollama_failed = True
-                ollama_err = (
-                    f"Ollama connection failed ({e}). Ensure Ollama is running (`ollama serve`)."
-                )
-
-            if ollama_failed:
-                yield TutorError(
-                    error=format_dual_ai_error(summary, ollama_err),
-                    is_fatal=True,
-                    cloud_error=summary,
-                    ollama_error=ollama_err,
-                )
+            notice = f"All cloud keys failed. Falling back to Local Ollama ({self.ollama_backend.model})..."
+            async for ev in self._execute_ollama_fallback(prompt, system, summary, notice):
+                yield ev
             return
 
         yield TutorError(

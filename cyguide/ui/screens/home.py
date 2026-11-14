@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from textual import events
 from textual.app import ComposeResult
@@ -291,7 +291,10 @@ class DashboardScreen(Screen):
         yield Footer()
 
     async def on_mount(self) -> None:
-        self.app.power_facade.on_finding_upsert(self.handle_new_finding)
+        if hasattr(self.app.power_facade, "on_findings_batch"):
+            self.app.power_facade.on_findings_batch(self.handle_findings_batch)
+        else:
+            self.app.power_facade.on_finding_upsert(self.handle_new_finding)
         self.app.power_facade.on_job_status_change(self._handle_job_status_change)
         self.set_interval(5.0, self._poll_live_status)
         await self.refresh_workspaces()
@@ -392,6 +395,45 @@ class DashboardScreen(Screen):
                 pass
         except asyncio.CancelledError:
             pass
+
+    async def handle_findings_batch(self, session_id: str, findings: List[Any]) -> None:
+        """Reactive callback triggered by GraphStore on a batch of findings."""
+        if not self.selected_ws_id or not findings:
+            return
+
+        # 1. Throttle metrics update
+        if not self._metrics_debounce_task or self._metrics_debounce_task.done():
+            self._metrics_debounce_task = asyncio.create_task(self._debounced_update_metrics())
+
+        # 2. Rate limit activity list prepend to at most 1 item per 0.15s (using latest finding)
+        now = asyncio.get_event_loop().time()
+        if now - self._last_activity_insert_time >= 0.15:
+            self._last_activity_insert_time = now
+            session = await self.app.power_facade.get_session(session_id)
+            if session and session.get("workspace_id") == self.selected_ws_id:
+                try:
+                    act_list = self.query_one("#activity_list", ListView)
+                    ts = datetime.now(UTC).strftime("%H:%M")
+                    latest = findings[-1]
+                    msg = format_activity(
+                        session["name"],
+                        latest.schema_type,
+                        f"Discovered {latest.schema_type}",
+                        finding_obj=latest,
+                    )
+                    new_item = ListItem(Static(f"{ts} {msg}"))
+                    await act_list.insert(0, [new_item])
+                    if len(act_list.children) > 15:
+                        await act_list.children[-1].remove()
+                except NoMatches:
+                    pass
+
+        # 3. If current session is selected, refresh its details (stats) with debouncing
+        if self.selected_session_id == session_id:
+            if not self._sess_debounce_task or self._sess_debounce_task.done():
+                self._sess_debounce_task = asyncio.create_task(
+                    self._debounced_show_session_details(session_id)
+                )
 
     async def handle_new_finding(self, session_id: str, finding: Any) -> None:
         """Reactive callback triggered by the GraphStore on every finding."""

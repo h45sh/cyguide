@@ -8,7 +8,7 @@ import pytest
 from textual.widgets import Input, Label, Switch
 
 from cyguide.app import CyGuideApp, CyGuideCommandPalette
-from cyguide.engine.explainer import ExplanationTutor, OllamaBackend
+from cyguide.engine.explainer import ExplanationTutor
 from cyguide.ui.screens.config_modal import (
     CloudAPIConfigProvider,
     ConfigModal,
@@ -243,9 +243,11 @@ async def test_config_modal_save_and_apply(tmp_path):
         assert os.environ.get("CYGUIDE_API_KEY") == "gsk_test12345678"
         assert os.environ.get("CYGUIDE_API_TYPE") == "groq"
 
-        # Verify explainer reloaded with Ollama
-        assert isinstance(app.explainer_backend, OllamaBackend)
-        assert app.explainer_backend.model == "mistral"
+        # Verify explainer reloaded with Ollama prefer mode and configured model
+        assert isinstance(app.explainer_backend, ExplanationTutor)
+        assert app.explainer_backend.prefer_ollama is True
+        assert app.explainer_backend.ollama_backend is not None
+        assert app.explainer_backend.ollama_backend.model == "mistral"
 
         # Verify persisted to settings.json
         settings_path = app._get_settings_path()
@@ -319,7 +321,8 @@ async def test_toggle_ollama_action(tmp_path):
         app.action_toggle_ollama()
         await pilot.pause()
         assert app.use_ollama is True
-        assert isinstance(app.explainer_backend, OllamaBackend)
+        assert isinstance(app.explainer_backend, ExplanationTutor)
+        assert app.explainer_backend.prefer_ollama is True
 
         app.action_toggle_ollama()
         await pilot.pause()

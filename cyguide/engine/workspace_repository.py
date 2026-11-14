@@ -44,16 +44,7 @@ class WorkspaceRepository:
         session_ids = {s["id"] for s in sessions}
 
         if self.execution:
-            target_jobs = [
-                j for j in self.execution.get_active_jobs() if str(j.session_id) in session_ids
-            ]
-            for job in target_jobs:
-                try:
-                    await self.execution.kill_job(job.job_id)
-                except Exception:
-                    pass
-                self.execution._active_jobs.pop(job.job_id, None)
-                self.execution.closed_job_ids.discard(str(job.job_id))
+            await self.execution.evict_sessions(session_ids)
 
         await self.store.delete_workspace(workspace_id)
 
@@ -104,16 +95,7 @@ class WorkspaceRepository:
     async def delete_session(self, session_id: str) -> None:
         """Clean up active execution jobs for the session, then delete it."""
         if self.execution:
-            target_jobs = [
-                j for j in self.execution.get_active_jobs() if str(j.session_id) == session_id
-            ]
-            for job in target_jobs:
-                try:
-                    await self.execution.kill_job(job.job_id)
-                except Exception:
-                    pass
-                self.execution._active_jobs.pop(job.job_id, None)
-                self.execution.closed_job_ids.discard(str(job.job_id))
+            await self.execution.evict_session(session_id)
 
         await self.store.delete_session(session_id)
 

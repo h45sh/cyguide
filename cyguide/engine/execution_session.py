@@ -22,7 +22,7 @@ from typing import (
 from uuid import UUID
 
 from cyguide.engine.adapter import ToolAdapter
-from cyguide.engine.executor import Executor, sanitize_subprocess_env
+from cyguide.engine.executor import Executor, LogSpooler, sanitize_subprocess_env
 from cyguide.engine.gateway import ActionGateway
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
@@ -205,6 +205,7 @@ class ExecutionSession:
         self._status_listeners: List[Callable[[JobStatus], Any]] = []
         self._session_cwd: Dict[str, str] = {}
         self.closed_job_ids: set[str] = set()
+        self._job_spoolers: Dict[UUID, LogSpooler] = {}
 
     def add_status_listener(self, listener: Callable[[JobStatus], Any]) -> None:
         """Register a callback notified when any job changes status."""
@@ -223,6 +224,28 @@ class ExecutionSession:
 
     def get_job(self, action_id: UUID) -> Optional[JobStatus]:
         return self._active_jobs.get(action_id)
+
+    def get_job_action(self, action_id: UUID) -> Optional[ActionRequest]:
+        """Get the original ActionRequest for a job."""
+        return self._job_actions.get(action_id)
+
+    def register_job(self, job: JobStatus) -> None:
+        """Register or update a JobStatus in active job tracking."""
+        self._active_jobs[job.job_id] = job
+        self._notify_status(job)
+
+    def remove_job(self, action_id: UUID) -> Optional[JobStatus]:
+        """Remove a job from active in-memory tracking and record in closed_job_ids."""
+        job = self._active_jobs.pop(action_id, None)
+        self._job_actions.pop(action_id, None)
+        self._job_buffers.pop(action_id, None)
+        self._running_tasks.pop(action_id, None)
+        self.closed_job_ids.add(str(action_id))
+        return job
+
+    def is_job_closed(self, action_id: Any) -> bool:
+        """Check if an action has been marked closed."""
+        return str(action_id) in self.closed_job_ids
 
     def get_active_jobs(self) -> List[JobStatus]:
         return list(self._active_jobs.values())
@@ -297,36 +320,18 @@ class ExecutionSession:
                 "Cannot execute actions in an archived session. Reopen the session first."
             )
 
-        # 1. Variable substitution ($TARGET, $PORT, $LHOST, etc.)
-        from cyguide.engine.network import get_lhost_info
-
-        resolved_vars: Dict[str, Any] = {}
+        # 1. Variable substitution ($TARGET, $PORT, $LHOST, etc.) via ActionGateway
+        pik = None
         if action.target_entity_id:
             node_data = await self.store.get_node(str(action.session_id), action.target_entity_id)
             if node_data:
                 import json
 
                 pik = json.loads(node_data.get("pik_json") or "{}")
-                resolved_vars["TARGET"] = pik.get("ip") or pik.get("domain") or pik.get("host_ip")
-                if "port" in pik:
-                    resolved_vars["PORT"] = pik["port"]
-                if "service" in pik:
-                    resolved_vars["SERVICE"] = pik["service"]
-                if "protocol" in pik:
-                    resolved_vars["PROTOCOL"] = pik["protocol"]
 
-        try:
-            ip, iface = get_lhost_info()
-            resolved_vars["LHOST"] = ip
-            resolved_vars["IFACE"] = iface
-        except Exception:
-            pass
-
+        resolved_vars = self.gateway.resolve_entity_variables(pik)
         raw_flags = action.params.get("raw_flags", "") if action.params else ""
-        for var_name, val in resolved_vars.items():
-            placeholder = f"${var_name}"
-            if placeholder in raw_flags:
-                raw_flags = raw_flags.replace(placeholder, str(val))
+        raw_flags = self.gateway.interpolate_variables(raw_flags, resolved_vars)
         if action.params:
             action.params["raw_flags"] = raw_flags
 
@@ -431,11 +436,15 @@ class ExecutionSession:
         if len(buf) > 5000:
             self._job_buffers[action_id] = buf[-2500:]
 
-        try:
-            with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
-                f.write(text)
-        except Exception:
-            pass
+        spooler = self._job_spoolers.get(action_id)
+        if spooler:
+            spooler.write(text)
+        elif log_file_path:
+            try:
+                with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
+                    f.write(text)
+            except Exception:
+                pass
 
         await self._emit_event(
             action_id, ExecutionChunk(action_id=action_id, text=text, is_error=is_error)
@@ -557,19 +566,16 @@ class ExecutionSession:
         cwd = self.get_cwd(str(action.session_id))
         clean_env = sanitize_subprocess_env(self.user_env)
 
-        # Log file header
-        try:
-            log_dir = os.path.dirname(log_file_path)
-            if log_dir:
-                os.makedirs(log_dir, exist_ok=True)
-            with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
-                f.write(f"=== Execution Start: {datetime.now(UTC).isoformat()} ===\n")
-                f.write(f"Tool: {action.tool_name}\n")
-                f.write(f"Session: {action.session_id}\n")
-                f.write(f"Action ID: {action.action_id}\n")
-                f.write("=" * 50 + "\n\n")
-        except Exception:
-            pass
+        # Initialize LogSpooler with 64KB buffering
+        spooler = LogSpooler(log_file_path)
+        self._job_spoolers[action.action_id] = spooler
+        spooler.write(
+            f"=== Execution Start: {datetime.now(UTC).isoformat()} ===\n"
+            f"Tool: {action.tool_name}\n"
+            f"Session: {action.session_id}\n"
+            f"Action ID: {action.action_id}\n"
+            f"{'=' * 50}\n\n"
+        )
 
         await self._emit_event(
             action.action_id,
@@ -648,17 +654,13 @@ class ExecutionSession:
             elapsed = asyncio.get_event_loop().time() - start_time
             job.completed_at = datetime.now(UTC)
 
-            # Record final status in disk log
-            try:
-                with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
-                    status_str = (
-                        "SUCCESS" if job.status == JobStatusEnum.DONE else f"FAILED ({err_msg})"
-                    )
-                    f.write(
-                        f"\n\n=== Execution End: {datetime.now(UTC).isoformat()} [{status_str}] ===\n"
-                    )
-            except Exception:
-                pass
+            # Record final status in disk log and close spooler
+            status_str = "SUCCESS" if job.status == JobStatusEnum.DONE else f"FAILED ({err_msg})"
+            spooler.write(
+                f"\n\n=== Execution End: {datetime.now(UTC).isoformat()} [{status_str}] ===\n"
+            )
+            spooler.close()
+            self._job_spoolers.pop(action.action_id, None)
 
             # Persist to database event log
             if not getattr(self.store, "_closed", False):
@@ -732,6 +734,25 @@ class ExecutionSession:
         job.status = JobStatusEnum.FAILED
         self._notify_status(job)
         return True
+
+    async def evict_session(self, session_id: str) -> None:
+        """Clean up and purge all tracked execution jobs, buffers, and state for a session."""
+        target_jobs = [j for j in self.get_active_jobs() if str(j.session_id) == str(session_id)]
+        for job in target_jobs:
+            try:
+                await self.kill_job(job.job_id)
+            except Exception:
+                pass
+            self._active_jobs.pop(job.job_id, None)
+            self._job_actions.pop(job.job_id, None)
+            self._job_buffers.pop(job.job_id, None)
+            self._running_tasks.pop(job.job_id, None)
+            self.closed_job_ids.discard(str(job.job_id))
+
+    async def evict_sessions(self, session_ids: set[str] | List[str]) -> None:
+        """Clean up and purge all tracked execution jobs for multiple sessions."""
+        for sid in session_ids:
+            await self.evict_session(sid)
 
     async def shutdown(self) -> None:
         """Gracefully stop all running executions."""

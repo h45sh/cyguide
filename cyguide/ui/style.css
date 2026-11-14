@@ -529,8 +529,10 @@ Screen > .screen--selection {
 .no-animations #learning_sidebar,
 .no-animations #power_sidebar,
 .no-animations #workspace_sidebar,
-.no-animations #lesson_config_pane {
-    transition: none !important;
+.no-animations #lesson_config_pane,
+.no-animations #scratchpad_pane,
+.no-animations * {
+    transition: width 1ms, height 1ms, offset 1ms, opacity 1ms !important;
 }
 
 .section_header {
@@ -1204,11 +1206,11 @@ Button.recipe_stop_btn:focus,
 
 #learning_tabs > ContentSwitcher {
     border: none;
-    background: #0f1114;
+    background: transparent;
 }
 
 #learning_tabs TabPane {
-    background: #0f1114;
+    background: transparent;
     padding: 0;
     border: none;
 }
@@ -1216,7 +1218,7 @@ Button.recipe_stop_btn:focus,
 .pane_toolbar {
     height: 1;
     padding: 0 1;
-    background: #0f1114;
+    background: transparent;
     align: right middle;
     margin: 0;
 }
@@ -1287,7 +1289,7 @@ Button.ai_toggle_off:focus {
 
 #explanation_scroll, #output_scroll {
     height: 1fr;
-    background: #0f1114;
+    background: transparent;
     border: none;
     padding: 0 2 1 2;
     margin: 0;
@@ -1340,10 +1342,12 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
     text-align: left;
 }
 
-#raw_output_text {
+#raw_output_text, #raw_output_terminal {
     color: #cbd5e1;
-    height: auto;
-    padding: 0;
+    background: transparent;
+    height: 1fr;
+    border: none;
+    padding: 0 1;
 }
 
 /* Bottom Chat Dock (docked bar identical to Power Mode command dock) */
@@ -1597,7 +1601,7 @@ Footer > .footer--highlight-key {
 #power_sidebar.-resizing,
 #scratchpad_pane.-resizing,
 #lesson_config_pane.-resizing {
-    transition: none !important;
+    transition: width 1ms, height 1ms !important;
 }
 
 ResizeHandle {

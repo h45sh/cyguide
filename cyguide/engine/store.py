@@ -22,6 +22,7 @@ class GraphStore:
     def __init__(self, db_path: str):
         self.db_path = db_path
         self._on_upsert_callbacks = []
+        self._on_batch_callbacks = []
         self._conn: Optional[aiosqlite.Connection] = None
         self._closed: bool = False
         self.timeline = ActionTimelineRepository(self)
@@ -29,6 +30,16 @@ class GraphStore:
     def on_upsert(self, callback):
         """Register an async callback to fire when any finding is upserted."""
         self._on_upsert_callbacks.append(callback)
+
+    def on_findings_batch(self, callback):
+        """Register an async callback to fire when a batch of findings is upserted."""
+        self._on_batch_callbacks.append(callback)
+
+    @asynccontextmanager
+    async def connection(self):
+        """Public context manager for acquiring a database connection."""
+        async with self._get_conn() as conn:
+            yield conn
 
     @asynccontextmanager
     async def _get_conn(self):
@@ -463,14 +474,26 @@ class GraphStore:
         # Trigger reactive callbacks
         import logging
 
-        for finding in findings:
-            for cb in self._on_upsert_callbacks:
+        logger = logging.getLogger(__name__)
+
+        if self._on_batch_callbacks and findings:
+            for cb in self._on_batch_callbacks:
                 try:
-                    await cb(session_id, finding)
+                    await cb(session_id, findings)
                 except Exception as e:
-                    logging.getLogger(__name__).error(
-                        f"Error in reactive callback {getattr(cb, '__name__', 'callback')}: {e}"
+                    logger.error(
+                        f"Error in reactive batch callback {getattr(cb, '__name__', 'callback')}: {e}"
                     )
+
+        if self._on_upsert_callbacks and findings:
+            for finding in findings:
+                for cb in self._on_upsert_callbacks:
+                    try:
+                        await cb(session_id, finding)
+                    except Exception as e:
+                        logger.error(
+                            f"Error in reactive callback {getattr(cb, '__name__', 'callback')}: {e}"
+                        )
 
         return node_ids
 

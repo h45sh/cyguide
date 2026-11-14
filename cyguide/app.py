@@ -179,7 +179,6 @@ import subprocess
 from typing import Any, Dict, List, Optional
 
 from cyguide.engine.executor import Executor
-from cyguide.engine.explainer import OllamaBackend
 from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
@@ -572,6 +571,7 @@ class CyGuideApp(App):
         self.push_screen("dashboard")
         if not self.animations_enabled:
             self.add_class("no-animations")
+            self.animation_level = "none"
 
         # Request thin blinking line cursor from terminal emulator
         import sys
@@ -589,14 +589,7 @@ class CyGuideApp(App):
 
         load_dotenv()
         ollama_base_url = self.settings.get("ollama_base_url", "http://localhost:11434")
-        if self.use_ollama or not getattr(self, "use_cloud_api", True):
-            self.explainer_backend = OllamaBackend(
-                model=self.ollama_model, base_url=ollama_base_url
-            )
-            self.explainer = self.explainer_backend
-            return
-
-        from cyguide.engine.explainer import CloudKeyProfile, ExplanationTutor
+        from cyguide.engine.explainer import CloudKeyProfile, ExplanationTutor, OllamaBackend
 
         profiles: List[CloudKeyProfile] = []
         if hasattr(self, "cloud_keys") and self.cloud_keys:
@@ -637,12 +630,22 @@ class CyGuideApp(App):
     def action_toggle_animations(self) -> None:
         """Toggle UI animations on or off via the command palette."""
         self.animations_enabled = not self.animations_enabled
+        self.animation_level = "full" if self.animations_enabled else "none"
         self.save_settings({"animations_enabled": self.animations_enabled})
+        try:
+            curr_screen = self.screen
+        except Exception:
+            curr_screen = None
+
         if self.animations_enabled:
             self.remove_class("no-animations")
+            if curr_screen:
+                curr_screen.remove_class("no-animations")
             self.notify("Animations Enabled")
         else:
             self.add_class("no-animations")
+            if curr_screen:
+                curr_screen.add_class("no-animations")
             self.notify("Animations Disabled")
 
     def action_command_palette(self, preserve_highlight: bool = False) -> None:

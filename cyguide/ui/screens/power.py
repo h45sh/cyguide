@@ -117,6 +117,7 @@ class PowerModeScreen(Screen):
         self._active_subscriptions: Dict[UUID, Callable] = {}
         self._live_update_task: Optional[asyncio.Task] = None
         self._pending_live_update_session_id: Optional[str] = None
+        self._pending_log_chunks: Dict[RichLog, List[str]] = {}
 
     @property
     def scratchpad_file(self) -> str:
@@ -233,12 +234,35 @@ class PowerModeScreen(Screen):
             self.app.power_facade.on_job_status_change(self._handle_job_status_change)
         await self._restore_tabs()
         await self.refresh_ui()
+        self.set_interval(0.033, self._flush_log_buffers)
         if hasattr(self.app, "power_facade"):
-            self.app.power_facade.on_finding_upsert(self.handle_live_update)
+            if hasattr(self.app.power_facade, "on_findings_batch"):
+                self.app.power_facade.on_findings_batch(self.handle_live_update_batch)
+            else:
+                self.app.power_facade.on_finding_upsert(self.handle_live_update)
         else:
             self.app.store.on_upsert(self.handle_live_update)
 
+    def _queue_log_chunk(self, target_log: RichLog, chunk: str) -> None:
+        """Buffer raw output chunks to be flushed at 30 FPS."""
+        self._pending_log_chunks.setdefault(target_log, []).append(chunk)
+
+    def _flush_log_buffers(self) -> None:
+        """Flush accumulated chunks to RichLog at 30 FPS, avoiding per-chunk redraw freezes."""
+        if not self._pending_log_chunks:
+            return
+        for target_log, chunks in list(self._pending_log_chunks.items()):
+            if not chunks:
+                continue
+            combined = "".join(chunks)
+            chunks.clear()
+            try:
+                target_log.write(Text.from_ansi(combined))
+            except Exception:
+                pass
+
     def on_unmount(self) -> None:
+        self._flush_log_buffers()
         if self._live_update_task and not self._live_update_task.done():
             self._live_update_task.cancel()
         if hasattr(self.app, "power_facade"):
@@ -469,10 +493,7 @@ class PowerModeScreen(Screen):
             # Subscribe to live streaming output chunks
             def make_chunk_subscriber(target_log):
                 async def _on_chunk(chunk: str):
-                    try:
-                        target_log.write(Text.from_ansi(chunk))
-                    except Exception:
-                        pass
+                    self._queue_log_chunk(target_log, chunk)
 
                 return _on_chunk
 
@@ -572,6 +593,14 @@ class PowerModeScreen(Screen):
         except NoMatches:
             cmd_input.focus()
 
+    async def handle_live_update_batch(self, session_id: str, findings: List[Any]) -> None:
+        if session_id != self.active_session_id:
+            return
+        self._pending_live_update_session_id = session_id
+        if self._live_update_task and not self._live_update_task.done():
+            return
+        self._live_update_task = asyncio.create_task(self._debounced_live_update())
+
     async def handle_live_update(self, session_id: str, finding: Any) -> None:
         if session_id != self.active_session_id:
             return
@@ -660,10 +689,7 @@ class PowerModeScreen(Screen):
             if is_running:
 
                 async def _on_chunk(chunk: str):
-                    try:
-                        log.write(Text.from_ansi(chunk))
-                    except Exception:
-                        pass
+                    self._queue_log_chunk(log, chunk)
 
                 self._active_subscriptions[j_uuid] = _on_chunk
                 self.app.power_facade.subscribe_job_output(j_uuid, _on_chunk)

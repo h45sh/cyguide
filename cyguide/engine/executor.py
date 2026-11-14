@@ -52,6 +52,48 @@ def sanitize_subprocess_env(env: Optional[Dict[str, str]] = None) -> Dict[str, s
     }
 
 
+class LogSpooler:
+    """High-throughput disk spooler with 64KB buffering and zero-allocation flushing."""
+
+    def __init__(self, log_path: Optional[str] = None):
+        self.log_path = log_path
+        self._file = None
+        if self.log_path:
+            try:
+                log_dir = os.path.dirname(os.path.abspath(self.log_path))
+                if log_dir:
+                    os.makedirs(log_dir, exist_ok=True)
+                self._file = open(
+                    self.log_path, "a", encoding="utf-8", errors="replace", buffering=65536
+                )
+            except Exception as e:
+                logger.error(f"Failed to open log file {self.log_path}: {e}")
+
+    def write(self, chunk: str) -> None:
+        if self._file:
+            try:
+                self._file.write(chunk)
+            except Exception:
+                pass
+
+    def flush(self) -> None:
+        if self._file:
+            try:
+                self._file.flush()
+            except Exception:
+                pass
+
+    def close(self) -> None:
+        if self._file:
+            try:
+                self._file.flush()
+                self._file.close()
+            except Exception:
+                pass
+            finally:
+                self._file = None
+
+
 class Executor:
     """Executes tools and manages their lifecycle and output persistence."""
 
@@ -134,13 +176,14 @@ class Executor:
         # Internal queue to bridge stream readers and findings generator
         finding_queue = asyncio.Queue()
         parsing_context = {"params": params}  # Shared context for the duration of this tool run
+        spooler = LogSpooler(log_file_path)
 
         async def _drain_stream(stream, callback, is_stdout=True):
             buffer = ""
             try:
                 while True:
-                    # Use smaller chunks for more frequent UI updates
-                    chunk = await stream.read(1024)
+                    # 64KB read chunks for high-throughput stream draining without event loop starvation
+                    chunk = await stream.read(65536)
                     if not chunk:
                         # Process any remaining text in the buffer as a final line
                         if buffer and is_stdout:
@@ -151,12 +194,7 @@ class Executor:
                         break
 
                     raw_text = chunk.decode(errors="replace")
-                    if log_file_path:
-                        try:
-                            with open(log_file_path, "a", encoding="utf-8", errors="replace") as f:
-                                f.write(raw_text)
-                        except Exception:
-                            pass
+                    spooler.write(raw_text)
 
                     if callback:
                         await callback(raw_text)
@@ -247,6 +285,7 @@ class Executor:
                     pass
 
             await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+            spooler.close()
 
         if process.returncode != 0:
             logger.error(f"Command failed with exit code {process.returncode}")
