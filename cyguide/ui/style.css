@@ -1206,11 +1206,11 @@ Button.recipe_stop_btn:focus,
 
 #learning_tabs > ContentSwitcher {
     border: none;
-    background: transparent;
+    background: #0f1114;
 }
 
 #learning_tabs TabPane {
-    background: transparent;
+    background: #0f1114;
     padding: 0;
     border: none;
 }
@@ -1218,7 +1218,7 @@ Button.recipe_stop_btn:focus,
 .pane_toolbar {
     height: 1;
     padding: 0 1;
-    background: transparent;
+    background: #0f1114;
     align: right middle;
     margin: 0;
 }
@@ -1289,7 +1289,7 @@ Button.ai_toggle_off:focus {
 
 #explanation_scroll, #output_scroll {
     height: 1fr;
-    background: transparent;
+    background: #0f1114;
     border: none;
     padding: 0 2 1 2;
     margin: 0;
@@ -1344,7 +1344,7 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
 
 #raw_output_text, #raw_output_terminal {
     color: #cbd5e1;
-    background: transparent;
+    background: #0f1114;
     height: 1fr;
     border: none;
     padding: 0 1;
