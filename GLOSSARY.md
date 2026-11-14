@@ -56,3 +56,8 @@ _Avoid_: Context helper, context assembler, facade query
 The deep module managing environmental health auditing, tool availability checks, database integrity validation, and explainer connectivity probing.
 _Avoid_: Diagnostics runner, health check script, test utility
 
+**PreferencesStore**:
+The deep module managing persistent operator settings, active AI key profile configuration, and atomic scratchpad note-taking with NIST-compliant filesystem permission controls.
+_Avoid_: Config helper, settings manager, json reader, file utility
+
+

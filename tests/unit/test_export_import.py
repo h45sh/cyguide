@@ -201,4 +201,58 @@ async def test_session_report_service(tmp_path):
     assert os.path.exists(out_file)
     with open(out_file, "r") as f:
         assert f.read() == md
+
+    # Verify extract_structured_findings
+    ui_txt, llm_txt = await service.extract_structured_findings(sess_id)
+    assert "Hosts (1)" in ui_txt
+    assert "10.20.30.40" in ui_txt
+    assert "Hosts (1): `10.20.30.40`" in llm_txt
+
+    await store.close()
+
+
+def test_reporter_html_escaping():
+    from cyguide.engine.reporter import build_markdown_table_for_type
+
+    nodes = [
+        {
+            "id": "abc123456789",
+            "schema_type": "web.endpoint",
+            "pik_json": '{"url": "<script>alert(1)</script>"}',
+            "data_json": '{"title": "<b>Dashboard</b>"}',
+            "status": "confirmed",
+        }
+    ]
+    lines = build_markdown_table_for_type("web.endpoint", nodes)
+    report_text = "\n".join(lines)
+    assert "<script>" not in report_text
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in report_text
+    assert "<b>" not in report_text
+    assert "&lt;b&gt;Dashboard&lt;/b&gt;" in report_text
+
+
+@pytest.mark.asyncio
+async def test_reporter_backtick_command_escaping():
+    from uuid import uuid4
+
+    from cyguide.engine.reporter import generate_markdown_report
+    from cyguide.schemas.power import ActionRequest, ActionSource
+
+    store = GraphStore(":memory:")
+    await store.initialize()
+
+    ws_id = await store.create_workspace("Test WS")
+    sess_id = await store.create_session(ws_id, "Test Sess")
+
+    action = ActionRequest(
+        session_id=uuid4(),
+        tool_name="!echo",
+        params={"raw_flags": "`whoami`"},
+        triggered_by=ActionSource.USER,
+        is_explicit_shell=True,
+    )
+    await store.append_event(sess_id, action, {"output": "root\n"}, "Ran echo")
+
+    report = await generate_markdown_report(store, sess_id)
+    assert "`` !echo `whoami` ``" in report
     await store.close()

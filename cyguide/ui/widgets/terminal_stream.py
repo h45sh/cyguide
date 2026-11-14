@@ -10,6 +10,8 @@ Decouples subprocess output streaming from Textual layout calculation:
 from collections import deque
 from typing import List, Optional
 
+from rich.segment import Segment
+from rich.style import Style as RichStyle
 from rich.text import Text
 from textual.geometry import Size
 from textual.scroll_view import ScrollView
@@ -40,6 +42,7 @@ class TerminalStreamPane(ScrollView, can_focus=True):
         self._line_buffer: str = ""
         self._max_width: int = 80
         self.auto_scroll: bool = True
+        self._ansi_cache: dict[str, Text] = {}
 
     def on_mount(self) -> None:
         """Schedule 30 FPS background flush cadence."""
@@ -63,6 +66,7 @@ class TerminalStreamPane(ScrollView, can_focus=True):
         self._pending_chunks.clear()
         self._line_buffer = ""
         self._max_width = 80
+        self._ansi_cache.clear()
         self.virtual_size = Size(0, 0)
         self.refresh()
 
@@ -74,8 +78,12 @@ class TerminalStreamPane(ScrollView, can_focus=True):
         return "\n".join(all_lines)
 
     def selection_updated(self, selection: Optional[Selection]) -> None:
-        """Trigger visual refresh when mouse text selection updates."""
-        self.refresh()
+        """Trigger visual refresh when mouse text selection updates without re-layout."""
+        self._repaint_required = True
+        try:
+            self.screen.refresh(self.region, repaint=True, layout=False)
+        except Exception:
+            self.refresh()
 
     def get_selection(self, selection: Selection) -> tuple[str, str] | None:
         """Extract selected text from buffer under active Selection coordinates."""
@@ -108,6 +116,15 @@ class TerminalStreamPane(ScrollView, can_focus=True):
 
         self.refresh()
 
+    def _get_parsed_text(self, line_str: str) -> Text:
+        txt = self._ansi_cache.get(line_str)
+        if txt is None:
+            txt = Text.from_ansi(line_str)
+            if len(self._ansi_cache) > 2000:
+                self._ansi_cache.clear()
+            self._ansi_cache[line_str] = txt
+        return txt
+
     def render_line(self, y: int) -> Strip:
         """Render a single visible line strip on demand (O(viewport) rendering)."""
         scroll_x, scroll_y = self.scroll_offset
@@ -121,20 +138,29 @@ class TerminalStreamPane(ScrollView, can_focus=True):
             return Strip.blank(self.size.width, self.rich_style)
 
         try:
-            txt = Text.from_ansi(line_str)
+            txt = self._get_parsed_text(line_str).copy()
             selection = self.text_selection
             if selection is not None:
                 if (select_span := selection.get_span(idx)) is not None:
                     start, end = select_span
-                    if end == -1:
-                        end = len(txt)
+                    txt_len = len(txt)
+                    if end == -1 or end > txt_len:
+                        end = txt_len
                     try:
                         selection_style = self.screen.get_component_rich_style("screen--selection")
                     except Exception:
                         selection_style = "reverse"
                     txt.stylize(selection_style, start, end)
 
-            strip = Strip(txt.render(self.app.console))
+            segments = []
+            curr_x = 0
+            for seg in txt.render(self.app.console):
+                seg_style = seg.style or self.rich_style
+                new_style = seg_style + RichStyle(meta={"offset": (curr_x, idx)})
+                segments.append(Segment(seg.text, new_style))
+                curr_x += len(seg.text)
+
+            strip = Strip(segments)
             return strip.crop_extend(scroll_x, scroll_x + self.size.width, self.rich_style)
         except Exception:
             return Strip.blank(self.size.width, self.rich_style)

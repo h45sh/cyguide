@@ -178,6 +178,7 @@ class CyGuideCommandPalette(CommandPalette):
 import subprocess
 from typing import Any, Dict, List, Optional
 
+from cyguide.common.preferences import PreferencesStore
 from cyguide.engine.executor import Executor
 from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.registry import ToolRegistry
@@ -246,8 +247,9 @@ class CyGuideApp(App):
             db_dir = os.path.dirname(os.path.abspath(self.db_path))
             os.makedirs(db_dir, exist_ok=True)
 
-        # Persistent settings
-        self.settings: Dict[str, Any] = self._load_settings()
+        # Persistent preferences store deep module
+        self.preferences = PreferencesStore(data_dir=self.data_dir, db_path=self.db_path)
+        self.settings: Dict[str, Any] = self.preferences.all()
         self.animations_enabled: bool = self.settings.get("animations_enabled", True)
         if "theme" in self.settings:
             self.theme = self.settings["theme"]
@@ -423,27 +425,13 @@ class CyGuideApp(App):
 
     def save_settings(self, updates: Dict[str, Any]) -> None:
         """Persist application settings updates."""
-        if not hasattr(self, "settings") or self.settings is None:
-            self.settings = {}
-        self.settings.update(updates)
-        path = self._get_settings_path()
-        if not path:
-            return
-        try:
-            current = self._load_settings()
-            current.update(updates)
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            try:
-                with open(fd, "w", encoding="utf-8", closefd=False) as f:
-                    json.dump(current, f, indent=2)
-            finally:
-                os.close(fd)
-            try:
-                os.chmod(path, 0o600)
-            except OSError:
-                pass
-        except Exception:
-            pass
+        if hasattr(self, "preferences"):
+            self.preferences.update(updates)
+            self.settings = self.preferences.all()
+        else:
+            if not hasattr(self, "settings") or self.settings is None:
+                self.settings = {}
+            self.settings.update(updates)
 
     def watch_theme(self, new_theme: str) -> None:
         if hasattr(self, "save_settings"):

@@ -53,7 +53,7 @@ Authoritative technical specifications and catalogues:
 
 * **[Master Keyboard Shortcuts & Hotkeys](user/USER_MANUAL.md#master-keyboard-shortcuts--hotkeys-quick-reference)**: Comprehensive lookup table for all global, dashboard, learning mode, and operator hotkeys.
 * **[CLI Commands & Diagnostics](user/USER_MANUAL.md#4-cli-subcommands--diagnostics)**: Complete reference for `cyg check`, `cyg export`, and `cyg import`.
-* **[Standard Schema Registry](developer/SCHEMA_REGISTRY.md)**: Specifications for the 15 standardized finding schemas (hosts, services, endpoints, credentials, vulnerabilities) and Primary Identity Keys (PIKs).
+* **[Standard Schema Registry](developer/SCHEMA_REGISTRY.md)**: Specifications for the standardized finding schemas (hosts, services, endpoints, credentials, vulnerabilities) and Primary Identity Keys (PIKs).
 * **[Database Architecture & Relational DDL](developer/DATABASE.md)**: Full SQLite schema, index specifications, ER diagrams, and portability mechanisms.
 * **[Security Vulnerability Policy](../.github/SECURITY.md)**: Supported versions, private reporting channels, response SLAs, and threat model boundaries.
 

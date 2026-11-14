@@ -131,6 +131,10 @@ class PowerWorkspaceFacade:
         """Retrieve background execution task for a job by UUID."""
         return self.execution.get_running_task(job_id)
 
+    def track_task(self, job_id: UUID, task: asyncio.Task) -> None:
+        """Register an asynchronous task under session lifecycle management."""
+        self.execution.track_task(job_id, task)
+
     async def create_workspace(self, name: str) -> str:
         """Create a new workspace, ensuring its name is unique (case-insensitive)."""
         return await self.workspaces.create_workspace(name)
@@ -155,6 +159,12 @@ class PowerWorkspaceFacade:
         """Move a session to another workspace, ensuring no name collision."""
         await self.workspaces.move_session(session_id, target_workspace_id)
 
+    async def move_sessions(
+        self, session_ids: List[str], target_workspace_id: str
+    ) -> Dict[str, Any]:
+        """Move multiple sessions to another workspace."""
+        return await self.workspaces.move_sessions(session_ids, target_workspace_id)
+
     async def delete_session(self, session_id: str) -> None:
         """Clean up active jobs for the session, then delete it."""
         await self.workspaces.delete_session(session_id)
@@ -162,6 +172,12 @@ class PowerWorkspaceFacade:
     async def delete_workspace(self, workspace_id: str) -> None:
         """Clean up active jobs for all sessions in the workspace, then delete it."""
         await self.workspaces.delete_workspace(workspace_id)
+
+    async def batch_delete(
+        self, workspace_ids: List[str], session_ids: List[str]
+    ) -> Dict[str, Any]:
+        """Atomically delete multiple workspaces and sessions, safeguarding SYSTEM workspaces."""
+        return await self.workspaces.batch_delete(workspace_ids, session_ids)
 
     async def close_session(self, session_id: str) -> None:
         """Archive a session and log the closure."""
@@ -345,6 +361,18 @@ class PowerWorkspaceFacade:
                 pass
         return ""
 
+    def append_job_buffer(self, job_id: UUID, chunk: str) -> None:
+        """Append an output chunk to in-memory job buffer."""
+        self.execution.append_job_buffer(job_id, chunk)
+
+    def register_job(self, job: JobStatus) -> None:
+        """Register or update a JobStatus in active job tracking."""
+        self.execution.register_job(job)
+
+    def register_action(self, action: ActionRequest) -> None:
+        """Register the ActionRequest for a job."""
+        self.execution.register_action(action)
+
     def on_job_status_change(self, callback: Callable[[JobStatus], Any]) -> None:
         """Register a callback for job state changes (started, running, completed, killed)."""
         if callback not in self._job_change_listeners:
@@ -367,12 +395,7 @@ class PowerWorkspaceFacade:
 
     def get_active_jobs_count(self, session_id: str) -> int:
         """Get count of active (running/queued) jobs for a session."""
-        return sum(
-            1
-            for j in self.execution.get_active_jobs()
-            if str(j.session_id) == session_id
-            and j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
-        )
+        return self.execution.get_active_jobs_count(session_id)
 
     async def get_workspace_running_jobs_count(self, workspace_id: str) -> int:
         """Get count of active (running/queued) jobs for all sessions in a workspace."""
@@ -387,7 +410,7 @@ class PowerWorkspaceFacade:
 
     def get_session_active_jobs(self, session_id: str) -> List[JobStatus]:
         """Get all active/tracked jobs for a session (running, queued, or recently completed)."""
-        return [j for j in self.execution.get_active_jobs() if str(j.session_id) == str(session_id)]
+        return self.execution.get_session_active_jobs(session_id)
 
     def get_job(self, job_id: UUID) -> Optional[JobStatus]:
         """Fetch JobStatus by UUID from active job registry."""

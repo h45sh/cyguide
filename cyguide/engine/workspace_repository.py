@@ -1,7 +1,7 @@
 """Deep module managing Workspace and Session persistence, lifecycle, and forensic auditing."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from cyguide.engine.execution_session import ExecutionSession
 from cyguide.engine.store import GraphStore
@@ -125,6 +125,68 @@ class WorkspaceRepository:
         if any(s["name"].strip().lower() == session["name"].strip().lower() for s in existing):
             raise ValueError("A session with this name already exists in the target workspace.")
         await self.store.move_session(session_id, target_workspace_id)
+
+    async def move_sessions(
+        self, session_ids: List[str], target_workspace_id: str
+    ) -> Dict[str, Any]:
+        """Move multiple sessions to a target workspace with collision checks and validation."""
+        target_ws = await self.store.get_workspace(target_workspace_id)
+        if not target_ws:
+            raise ValueError("Target workspace not found.")
+
+        existing = await self.store.list_sessions(target_workspace_id)
+        existing_names = {s["name"].strip().lower() for s in existing}
+
+        moved: List[str] = []
+        errors: List[str] = []
+
+        for sid in session_ids:
+            session = await self.store.get_session(sid)
+            if not session:
+                errors.append(f"Session {sid} not found.")
+                continue
+            sess_name_lower = session["name"].strip().lower()
+            if sess_name_lower in existing_names:
+                errors.append(f"Session '{session['name']}' already exists in target workspace.")
+                continue
+            await self.store.move_session(sid, target_workspace_id)
+            existing_names.add(sess_name_lower)
+            moved.append(sid)
+
+        return {"moved": moved, "errors": errors}
+
+    async def batch_delete(
+        self, workspace_ids: List[str], session_ids: List[str]
+    ) -> Dict[str, Any]:
+        """Atomically delete multiple workspaces and sessions, safeguarding SYSTEM workspaces."""
+        deleted_workspaces: List[str] = []
+        skipped_system: List[str] = []
+        deleted_sessions: List[str] = []
+
+        # 1. Process workspaces with SYSTEM guard
+        for wid in workspace_ids:
+            ws = await self.store.get_workspace(wid)
+            if not ws:
+                continue
+            if ws.get("status") == "SYSTEM":
+                skipped_system.append(ws["name"])
+                continue
+            await self.delete_workspace(wid)
+            deleted_workspaces.append(wid)
+
+        # 2. Process sessions (excluding sessions belonging to already deleted workspaces)
+        for sid in session_ids:
+            sess = await self.store.get_session(sid)
+            if not sess:
+                continue
+            await self.delete_session(sid)
+            deleted_sessions.append(sid)
+
+        return {
+            "deleted_workspaces": deleted_workspaces,
+            "skipped_system_workspaces": skipped_system,
+            "deleted_sessions": deleted_sessions,
+        }
 
     async def list_sessions(
         self, workspace_id: str, status_filter: Optional[str] = None

@@ -1,7 +1,7 @@
 [meta]
 name = "whois"
-description = "Retrieve domain registration and IP information"
-one_line_summary = "ownership and registry intelligence"
+description = "Retrieve domain registration, ownership records, netblock assignments, and Autonomous System (ASN) routing intelligence."
+one_line_summary = "ownership, registrar, and IP netblock intelligence"
 category = "Network Reconnaissance"
 categories = ["recon", "osint"]
 binary = "whois"
@@ -11,19 +11,72 @@ learning = true
 power = true
 
 [input]
-# whois can take a domain or an IP
 accepts = ["dns.record", "network.host"]
 
 [output]
-produces = ["domain.info", "network.host"]
+produces = ["domain.info", "network.netblock", "network.host"]
 
 [learning]
 enabled = true
 
 [[learning.recipes]]
-name = "Domain Look-up"
-description = "Get registrar and ownership data for a domain"
+name = "Domain Registrar & Ownership Lookup"
+difficulty = "Beginner"
+description = "Query the authoritative WHOIS registry for domain registrar, creation/expiration dates, and registrant organization."
 flags = []
+
+[learning.recipes.theory]
+concept = "Domain Name Registration Model & Extensible Provisioning Protocol (RFC 5730)"
+explanation = """
+When an organization purchases a top-level domain (TLD), the registrar submits ownership and technical delegation metadata to the authoritative TLD registry (e.g. Verisign for .com).
+The WHOIS protocol operates over TCP port 43 as a simple text request/response standard (RFC 3912).
+Querying WHOIS discloses:
+1. Sponsoring Registrar and IANA ID.
+2. Creation, expiration, and update timestamps (crucial for detecting domain expiry hijacking).
+3. Authoritative nameserver delegations.
+"""
+packet_wire_summary = "Client TCP:43 -> Connect to whois.iana.org / registrar server -> Transmit domain string -> Receive plaintext registry response"
+remediation = "Enable Registrar Lock (TransferProhibited) and WHOIS Privacy Protection / GDPR masking to prevent social engineering."
+
+[[learning.recipes]]
+name = "Regional Internet Registry (RIR) Netblock Query"
+difficulty = "Beginner"
+description = "Lookup the Classless Inter-Domain Routing (CIDR) netblock assignment and network owner for an IP address."
+flags = []
+
+[learning.recipes.theory]
+concept = "Regional Internet Registry (RIR) Allocation Hierarchy (RFC 4632)"
+explanation = """
+Global IPv4 and IPv6 address space is managed by IANA and delegated to five Regional Internet Registries:
+- ARIN (North America)
+- RIPE NCC (Europe, Middle East, Central Asia)
+- APNIC (Asia-Pacific)
+- LACNIC (Latin America & Caribbean)
+- AFRINIC (Africa)
+Querying an IP address against WHOIS queries the respective RIR database, returning the NetRange, CIDR notation (e.g. 192.0.2.0/24), and parent ISP/hosting provider.
+"""
+packet_wire_summary = "Client queries RIR database (e.g. whois.arin.net) -> Resolves OrgName, NetRange, and CIDR block"
+remediation = "Maintain accurate Network Coordination Center (POC) contact information for immediate security incident notification."
+
+[[learning.recipes]]
+name = "Direct ARIN / RIPE Host Query"
+difficulty = "Intermediate"
+description = "Force the query to a specific regional registry host to bypass local referral timeouts."
+flags = ["-h", "whois.arin.net"]
+
+[learning.recipes.theory]
+concept = "WHOIS Referral Chains & Regional Database Redirection"
+explanation = """
+Because IP allocations are divided geographically, standard WHOIS clients initiate a query against a default server and follow referral pointers (e.g. 'ReferralServer: whois://whois.ripe.net').
+Explicitly targeting the authoritative RIR server with '-h' reduces latency, avoids rate-limiting on gateway referral servers, and returns the full uncut technical allocation records.
+"""
+packet_wire_summary = "Client connects directly to target RIR port 43 -> Bypasses multi-hop referral queries"
+remediation = "Ensure organization records are synchronized across all regional registries where infrastructure is deployed."
 
 [power]
 enabled = true
+suggests = [
+  { target = "domain.info", condition = "domain != ''", tool = "subfinder", flags = "-d {target.pik.domain}" },
+  { target = "domain.info", condition = "domain != ''", tool = "dnspython", flags = "{target.pik.domain} -t NS" },
+  { target = "network.netblock", condition = "cidr != ''", tool = "nmap", flags = "-sn {target.pik.cidr}" }
+]

@@ -313,7 +313,7 @@ Our complete documentation is organized using the **[Diátaxis Framework](docs/R
 * **[User Manual](docs/user/USER_MANUAL.md)**: Navigation guide, hotkeys master table, and UI workflows.
 * **[Architecture & Domain Context](docs/developer/ARCHITECTURE.md)**: Subsystem pipelines, ADRs, and facade contracts.
 * **[Database Architecture & Specification](docs/developer/DATABASE.md)**: Relational schema, PIK hashing, and ER diagrams.
-* **[Schema Registry](docs/developer/SCHEMA_REGISTRY.md)**: Standard 15-schema finding models and identity keys.
+* **[Schema Registry](docs/developer/SCHEMA_REGISTRY.md)**: Standard finding schema models and identity keys.
 * **[Roadmap & Progress Tracker](docs/developer/ROADMAP.md)**: Project phases, active tasks, and historical milestones.
 * **[Autonomous Agent Harness Vision](docs/developer/FUTURE_POWER_MODE.md)**: Architecture for autonomous ReAct loops and safety gates.
 * **[Developer Performance Notes](docs/developer/DEVELOPER_NOTES.md)**: Real-time streaming, event loops, and lessons learned.

@@ -1,0 +1,56 @@
+{
+  "commandline": "ffuf -u http://example.com/FUZZ -w common_dirs.txt -of json",
+  "time": "2026-11-14T23:55:00Z",
+  "results": [
+    {
+      "input": {
+        "FUZZ": "admin"
+      },
+      "position": 1,
+      "status": 200,
+      "length": 1256,
+      "words": 84,
+      "lines": 15,
+      "content-type": "text/html; charset=utf-8",
+      "redirectlocation": "",
+      "duration": 4512390,
+      "resultfile": "",
+      "url": "http://example.com/admin",
+      "host": "example.com"
+    },
+    {
+      "input": {
+        "FUZZ": ".env"
+      },
+      "position": 2,
+      "status": 200,
+      "length": 450,
+      "words": 20,
+      "lines": 8,
+      "content-type": "text/plain",
+      "redirectlocation": "",
+      "duration": 3512390,
+      "resultfile": "",
+      "url": "http://example.com/.env",
+      "host": "example.com"
+    },
+    {
+      "input": {
+        "FUZZ": "login"
+      },
+      "position": 3,
+      "status": 302,
+      "length": 0,
+      "words": 0,
+      "lines": 1,
+      "content-type": "text/html",
+      "redirectlocation": "/auth/login",
+      "duration": 4123900,
+      "url": "http://example.com/login",
+      "host": "example.com"
+    }
+  ],
+  "config": {
+    "url": "http://example.com/FUZZ"
+  }
+}

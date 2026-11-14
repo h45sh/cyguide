@@ -683,7 +683,7 @@ async def test_learning_sidebar_layout_and_wrapping():
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test(size=(120, 45)) as pilot:
         await app.push_screen("learning_mode")
-        await pilot.pause()
+        await pilot.pause(0.2)
 
         screen = app.screen
         pane = screen.query_one("#lesson_config_pane")
@@ -1035,3 +1035,27 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         assert details.query(".session_id_card"), "Must render session card immediately"
         title_label = d.query_one("#session_title_text")
         assert first_sess_name in str(title_label.render())
+
+
+@pytest.mark.asyncio
+async def test_screen_pop_cleans_up_all_workers():
+    """Rule: Pushing and popping any modal/screen must not leak running background workers."""
+    from cyguide.ui.screens.config_modal import ConfigModal
+
+    app = CyGuideApp(db_path=":memory:")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        initial_running = len([w for w in app.workers if w.is_running and not w.is_cancelled])
+
+        modal = ConfigModal()
+        await app.push_screen(modal)
+        await pilot.pause()
+
+        # Simulate user closing modal cleanly
+        await pilot.press("escape")
+        await pilot.pause()
+
+        active_workers = [w for w in app.workers if w.is_running and not w.is_cancelled]
+        assert len(active_workers) <= initial_running, (
+            f"Screen unmount leaked active background workers: {active_workers}"
+        )

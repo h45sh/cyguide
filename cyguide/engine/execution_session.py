@@ -234,6 +234,16 @@ class ExecutionSession:
         self._active_jobs[job.job_id] = job
         self._notify_status(job)
 
+    def register_action(self, action: ActionRequest) -> None:
+        """Register the ActionRequest for a job."""
+        self._job_actions[action.action_id] = action
+
+    def append_job_buffer(self, action_id: UUID, chunk: str) -> None:
+        """Append an output chunk to in-memory job buffer."""
+        if action_id not in self._job_buffers:
+            self._job_buffers[action_id] = []
+        self._job_buffers[action_id].append(chunk)
+
     def remove_job(self, action_id: UUID) -> Optional[JobStatus]:
         """Remove a job from active in-memory tracking and record in closed_job_ids."""
         job = self._active_jobs.pop(action_id, None)
@@ -253,6 +263,10 @@ class ExecutionSession:
     def get_running_task(self, action_id: UUID) -> Optional[asyncio.Task]:
         return self._running_tasks.get(action_id)
 
+    def track_task(self, action_id: UUID, task: asyncio.Task) -> None:
+        """Register an asynchronous task under session lifecycle management."""
+        self._running_tasks[action_id] = task
+
     def get_cwd(self, session_id: str) -> str:
         return self._session_cwd.get(session_id, os.getcwd())
 
@@ -262,6 +276,29 @@ class ExecutionSession:
     def get_output_history(self, action_id: UUID) -> List[str]:
         """Return buffered output chunks for replay when switching or restoring tabs."""
         return list(self._job_buffers.get(action_id, []))
+
+    def get_job_buffer(self, action_id: UUID) -> List[str]:
+        """Return buffered output chunks for an action."""
+        return self.get_output_history(action_id)
+
+    def get_active_jobs_count(self, session_id: Optional[str] = None) -> int:
+        """Get count of active (running/queued) jobs, optionally filtered by session_id."""
+        if session_id is None:
+            return sum(
+                1
+                for j in self._active_jobs.values()
+                if j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
+            )
+        return sum(
+            1
+            for j in self._active_jobs.values()
+            if str(j.session_id) == str(session_id)
+            and j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
+        )
+
+    def get_session_active_jobs(self, session_id: str) -> List[JobStatus]:
+        """Get all active/tracked jobs for a session."""
+        return [j for j in self._active_jobs.values() if str(j.session_id) == str(session_id)]
 
     async def subscribe(self, action_id: UUID) -> AsyncIterator[ExecutionEvent]:
         """Subscribe to live typed execution events for an action with backlog replay."""

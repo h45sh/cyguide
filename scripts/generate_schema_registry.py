@@ -28,9 +28,7 @@ def get_all_finding_schemas():
         module = importlib.import_module(module_name)
 
         for _name, obj in inspect.getmembers(module):
-            if (inspect.isclass(obj) and
-                issubclass(obj, BaseFinding) and
-                obj is not BaseFinding):
+            if inspect.isclass(obj) and issubclass(obj, BaseFinding) and obj is not BaseFinding:
                 schemas.append(obj)
 
     # Sort by schema_type if possible
@@ -66,7 +64,9 @@ def generate_registry(check_only: bool = False):
         if not pik_fields:
             errors.append(f"ERROR: Schema '{schema.__name__}' is missing 'pik_fields' declaration.")
         if schema_type == "UNKNOWN" or schema_type is None:
-            errors.append(f"ERROR: Schema '{schema.__name__}' is missing 'schema_type' declaration.")
+            errors.append(
+                f"ERROR: Schema '{schema.__name__}' is missing 'schema_type' declaration."
+            )
 
         if errors:
             continue
@@ -77,8 +77,25 @@ def generate_registry(check_only: bool = False):
         parent = "—"
         if schema_type == "network.service":
             parent = "`network.host`"
-        elif schema_type == "web.endpoint":
+        elif schema_type in ("web.endpoint", "tls.certificate"):
             parent = "`network.service`"
+        elif schema_type in ("web.resource", "web.vulnerability"):
+            parent = "`web.endpoint`"
+        elif schema_type == "web.technology":
+            parent = "`web.endpoint` / `network.service`"
+        elif schema_type == "vulnerability.found":
+            parent = "`network.service` / `network.host`"
+        elif schema_type == "exploit.reference":
+            parent = "`vulnerability.found` / `network.service`"
+        elif schema_type == "audit.misconfig":
+            parent = "`web.endpoint` / `network.service`"
+        elif schema_type in (
+            "credential.found",
+            "process.running",
+            "file.system_object",
+            "software.package",
+        ):
+            parent = "`network.host`"
 
         # Heuristic/Detection for Associations
         assoc = "—"
@@ -86,6 +103,8 @@ def generate_registry(check_only: bool = False):
             assoc = "`resolves_to` → `network.host`"
         elif schema_type == "domain.info":
             assoc = "`whois_data_for` → `dns.record`"
+        elif schema_type == "exploit.reference":
+            assoc = "`exploits_cve` → `vulnerability.found`"
 
         rows.append(f"| `{schema_type}` | {doc} | {pik_str} | {parent} | {assoc} |")
 
@@ -103,7 +122,10 @@ def generate_registry(check_only: bool = False):
 
     if check_only:
         if not output_path.exists():
-            print(f"ERROR: {output_path} does not exist. Run without --check to generate it.", file=sys.stderr)
+            print(
+                f"ERROR: {output_path} does not exist. Run without --check to generate it.",
+                file=sys.stderr,
+            )
             sys.exit(1)
         existing_content = output_path.read_text(encoding="utf-8")
         if existing_content != content:
@@ -112,7 +134,10 @@ def generate_registry(check_only: bool = False):
                 f"Run 'python3 scripts/generate_schema_registry.py' to update it.\n"
             )
             sys.exit(1)
-        print(f"[SUCCESS] Schema registry documentation is in sync ({len(rows)} schemas).", file=sys.stdout)
+        print(
+            f"[SUCCESS] Schema registry documentation is in sync ({len(rows)} schemas).",
+            file=sys.stdout,
+        )
         return
 
     with open(output_path, "w", encoding="utf-8") as f:
@@ -124,4 +149,3 @@ def generate_registry(check_only: bool = False):
 if __name__ == "__main__":
     check_mode = "--check" in sys.argv
     generate_registry(check_only=check_mode)
-

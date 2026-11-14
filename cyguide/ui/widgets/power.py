@@ -15,6 +15,7 @@ from textual.geometry import Offset
 from textual.widgets import Input, Label, ListItem, ListView, Static, Tree
 
 from cyguide.schemas.power import JobStatus, JobStatusEnum
+from cyguide.schemas.presentation import build_ip_to_name_map, format_node_label
 
 
 def _format_elapsed(seconds: float) -> str:
@@ -95,98 +96,10 @@ class EntityBrowser(Tree):
                 has_parent.add(dst)
 
         # Build IP-to-Name / Hostname / Alias mapping across all nodes and DNS records
-        ip_to_name: Dict[str, str] = {}
-        for n in nodes:
-            st = n.get("schema_type", "")
-            try:
-                npik = json.loads(n.get("pik_json", "{}"))
-                ndata = json.loads(n.get("data_json", "{}"))
-            except Exception:
-                continue
-
-            if st == "network.host":
-                ip_val = npik.get("ip") or npik.get("host_ip")
-                if ip_val:
-                    if ndata.get("alias"):
-                        ip_to_name[ip_val] = ndata["alias"]
-                    elif ndata.get("hostname"):
-                        ip_to_name[ip_val] = ndata["hostname"]
-                    elif ip_val in ("127.0.0.1", "::1"):
-                        ip_to_name.setdefault(ip_val, "localhost")
-
-            elif st == "dns.record":
-                dom = npik.get("domain")
-                val = npik.get("value")
-                if dom and val and val not in ("ANY", "unknown") and "." in val:
-                    ip_to_name.setdefault(val, dom)
-
-            elif st == "domain.info":
-                dom = npik.get("domain")
-                ip = ndata.get("ip") or ndata.get("resolved_ip")
-                if dom and ip:
-                    ip_to_name.setdefault(ip, dom)
+        ip_to_name = build_ip_to_name_map(nodes)
 
         def get_label(node: Dict[str, Any]) -> str:
-            st = node["schema_type"]
-            pik = json.loads(node.get("pik_json", "{}"))
-            data = json.loads(node.get("data_json", "{}"))
-            custom_alias = data.get("alias")
-
-            if st == "network.host":
-                ip = pik.get("ip") or pik.get("host_ip") or node["id"][:8]
-                hostname = custom_alias or data.get("hostname") or ip_to_name.get(ip)
-                if ip in ("127.0.0.1", "::1") and not hostname:
-                    hostname = "localhost"
-                if hostname:
-                    return f"{ip} ({hostname})"
-                return ip
-            elif st == "network.service":
-                port = pik.get("port")
-                protocol = pik.get("protocol", "tcp")
-                base = f"{port}/{protocol}" if port else node["id"][:8]
-                return f"{base} ({custom_alias})" if custom_alias else base
-            elif st == "network.netblock":
-                cidr = pik.get("cidr") or "Netblock"
-                org = custom_alias or data.get("organization")
-                if org and len(org) > 16:
-                    org = org[:14] + "…"
-                return f"{cidr} ({org})" if org else cidr
-            elif st == "domain.info":
-                dom = pik.get("domain", "Domain")
-                reg = custom_alias or data.get("registrar") or data.get("organization")
-                if reg and len(reg) > 16:
-                    reg = reg[:14] + "…"
-                return f"{dom} ({reg})" if reg else dom
-            elif st == "dns.record":
-                dom = pik.get("domain", "")
-                rtype = pik.get("type", "DNS")
-                val = pik.get("value", "")
-                base = (
-                    f"{dom} [{rtype} ❯ {val}]"
-                    if (val and val not in ("ANY", "unknown"))
-                    else f"{dom} [{rtype}]"
-                )
-                return f"{base} ({custom_alias})" if custom_alias else base
-            elif st == "tls.certificate":
-                cn = custom_alias or data.get("common_name")
-                return (
-                    f"TLS: {cn}"
-                    if cn
-                    else f"TLS: {pik.get('fingerprint_sha256', node['id'][:8])[:16]}"
-                )
-            elif st.startswith("web."):
-                base = pik.get("url") or pik.get("path") or f"{node['id'][:8]}"
-                return f"{base} ({custom_alias})" if custom_alias else base
-            elif st.startswith("credential."):
-                username = pik.get("username", "?")
-                base = f"{username}:****"
-                return f"{base} ({custom_alias})" if custom_alias else base
-            elif st.startswith("vulnerability."):
-                base = pik.get("vuln_id") or pik.get("cve_id") or pik.get("title") or node["id"][:8]
-                return f"{base} ({custom_alias})" if custom_alias else base
-            else:
-                base = node["id"][:8]
-                return f"{base} ({custom_alias})" if custom_alias else base
+            return format_node_label(node, ip_to_name)
 
         MAX_DISPLAY_PER_CATEGORY = 200
 
@@ -643,6 +556,8 @@ class CommandPalette(Vertical):
             self.post_message(self.ShowShortcutsRequest())
             return
         elif event.key == "ctrl+w":
+            if cmd_input.has_focus:
+                return
             event.stop()
             event.prevent_default()
             self.post_message(self.CloseTabRequest())

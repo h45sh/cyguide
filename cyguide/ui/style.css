@@ -516,11 +516,13 @@ Screen > .screen--selection {
 
 /* Collapse State */
 #sidebar.collapsed, #learning_sidebar.collapsed, #power_sidebar.collapsed, #workspace_sidebar.collapsed {
-    display: none !important;
-    width: 0;
-    padding: 0;
-    margin-right: 0;
-    border: none;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin-right: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
 }
 
 
@@ -802,7 +804,7 @@ ConfirmationDialog {
 
 #lesson_config_pane {
     width: 32;
-    min-width: 20;
+    min-width: 0;
     max-width: 70;
     height: 100%;
     border: round #334155;
@@ -818,13 +820,13 @@ ConfirmationDialog {
 }
 
 #lesson_config_pane.collapsed {
-    display: none !important;
-    width: 0;
-    min-width: 0;
-    max-width: 0;
-    padding: 0;
-    margin-right: 0;
-    border: none;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin-right: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
 }
 
 #tool_context_zone {
@@ -973,6 +975,8 @@ RecipeListItem.--highlight .recipe_desc {
     margin-top: 0;
     margin-bottom: 0;
     height: auto;
+    width: 100%;
+    max-width: 80;
 }
 
 .recipe_card_actions {
@@ -1287,7 +1291,7 @@ Button.ai_toggle_off:focus {
     border: none !important;
 }
 
-#explanation_scroll, #output_scroll {
+#explanation_scroll, #output_scroll, #power_guide_scroll {
     height: 1fr;
     background: #0f1114;
     border: none;
@@ -1331,7 +1335,7 @@ Button.ai_toggle_off:focus {
     height: auto;
 }
 
-#explanation_text {
+#explanation_text, #power_guide_text {
     color: #e2e8f0;
     height: auto;
     padding: 0;
@@ -1517,7 +1521,7 @@ Footer > .footer--highlight-key {
 
 #power_sidebar {
     width: 34;
-    min-width: 20;
+    min-width: 0;
     max-width: 80;
     height: 100%;
     background: #14161b;
@@ -1534,11 +1538,13 @@ Footer > .footer--highlight-key {
 }
 
 #power_sidebar.collapsed {
-    display: none !important;
-    width: 0;
-    padding: 0;
-    margin-right: 0;
-    border: none;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin-right: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
 }
 
 

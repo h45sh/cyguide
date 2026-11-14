@@ -6,7 +6,7 @@ import shutil
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -429,6 +429,33 @@ class DiagnosticEngine:
                 }
 
         return health
+
+    @staticmethod
+    def validate_db_path(path: str) -> Tuple[bool, str]:
+        """Validate database path writability and basic SQLite integrity synchronously."""
+        import sqlite3
+
+        expanded = os.path.abspath(os.path.expanduser(path.strip()))
+        parent = os.path.dirname(expanded)
+        if parent:
+            try:
+                os.makedirs(parent, exist_ok=True)
+            except Exception as e:
+                return False, f"Cannot create database directory {parent}: {e}"
+        try:
+            if os.path.exists(expanded):
+                with open(expanded, "a+b"):
+                    pass
+            else:
+                with open(expanded, "wb"):
+                    pass
+            conn = sqlite3.connect(expanded)
+            conn.execute("PRAGMA quick_check;")
+            conn.close()
+            size_kb = os.path.getsize(expanded) / 1024
+            return True, f"Database path valid & writable ({size_kb:.1f} KB at {expanded})"
+        except Exception as e:
+            return False, f"Database test failed: {e}"
 
 
 # Module-level convenience functions

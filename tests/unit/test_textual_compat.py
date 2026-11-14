@@ -133,3 +133,247 @@ async def test_static_unselectable_and_markdown_selection_isolation():
 
         # 5. Verify Screen.allow_select is True so mouse selection event dispatch works
         assert app.screen.allow_select is True
+
+
+def test_mouse_move_can_replace_coalescing():
+    """Verify MouseMove coalesces consecutive events with identical button/modifier state."""
+    setup_textual_compat()
+    from textual.events import MouseMove
+
+    m1 = MouseMove(None, 10, 20, 0, 0, button=0, shift=False, meta=False, ctrl=False)
+    m2 = MouseMove(None, 12, 22, 0, 0, button=0, shift=False, meta=False, ctrl=False)
+    m_diff_button = MouseMove(None, 15, 25, 0, 0, button=1, shift=False, meta=False, ctrl=False)
+
+    assert m1.can_replace(m2) is True
+    assert m1.can_replace(m_diff_button) is False
+
+
+@pytest.mark.asyncio
+async def test_universal_word_deletion_input():
+    """Verify Input widget binds ctrl+backspace, alt+backspace, ctrl+w, ctrl+h to delete_left_word."""
+    setup_textual_compat()
+    from textual.widgets import Input
+
+    class InputTestApp(App):
+        def compose(self) -> ComposeResult:
+            yield Input(value="hello security world", id="inp")
+
+    app = InputTestApp()
+    async with app.run_test() as pilot:
+        inp = app.query_one("#inp", Input)
+        inp.focus()
+        inp.cursor_position = len("hello security world")
+
+        # Press ctrl+backspace to delete 'world'
+        await pilot.press("ctrl+backspace")
+        assert inp.value == "hello security "
+
+        # Press ctrl+w to delete 'security'
+        await pilot.press("ctrl+w")
+        assert inp.value == "hello "
+
+        # Press ctrl+h (ASCII 8 backspace) to delete 'hello'
+        await pilot.press("ctrl+h")
+        assert inp.value == ""
+
+
+@pytest.mark.asyncio
+async def test_universal_word_deletion_textarea():
+    """Verify TextArea widget binds ctrl+backspace, ctrl+w, ctrl+h to delete_word_left."""
+    setup_textual_compat()
+    from textual.widgets import TextArea
+
+    class TextAreaTestApp(App):
+        def compose(self) -> ComposeResult:
+            yield TextArea("first second third", id="ta")
+
+    app = TextAreaTestApp()
+    async with app.run_test() as pilot:
+        ta = app.query_one("#ta", TextArea)
+        ta.focus()
+        ta.cursor_location = (0, len("first second third"))
+
+        # Press ctrl+backspace to delete 'third'
+        await pilot.press("ctrl+backspace")
+        assert ta.text == "first second "
+
+        # Press ctrl+w to delete 'second'
+        await pilot.press("ctrl+w")
+        assert ta.text == "first "
+
+
+@pytest.mark.asyncio
+async def test_selection_smoothness_and_boundary_clamping():
+    """Verify selection highlight clamps to actual text without trailing padding blowout or re-render churn."""
+    setup_textual_compat()
+    from rich.markdown import Markdown
+    from textual.geometry import Offset
+    from textual.selection import Selection
+    from textual.widgets import Static
+
+    class SelectionTestApp(App):
+        def compose(self) -> ComposeResult:
+            yield Static(
+                Markdown("- 80/tcp: http (standard protocol)\n- 443/tcp: https (secure)\n"),
+                id="exp",
+                classes="selectable",
+            )
+
+    app = SelectionTestApp()
+    async with app.run_test(size=(100, 24)) as pilot:
+        exp = app.query_one("#exp", Static)
+        assert hasattr(exp, "_render_cache")
+
+        # 1. Multi-line selection: line 1 should NOT highlight 80 columns of trailing padding
+        app.screen.selections = {exp: Selection.from_offsets(Offset(0, 1), Offset(5, 2))}
+        line_1 = exp.render_line(1)
+
+        # Count styled segments
+        styled_text = "".join(
+            seg.text
+            for seg in line_1._segments
+            if "0284c7" in str(seg.style) or "reverse" in str(seg.style)
+        )
+        assert "80/tcp: http" in styled_text
+        assert not styled_text.endswith(" " * 20), (
+            "Must not highlight full-width trailing whitespace"
+        )
+
+        # 2. Selection update should NOT wipe _render_cache
+        cached_lines = exp._render_cache.lines
+        exp.selection_updated(Selection.from_offsets(Offset(2, 0), Offset(10, 0)))
+        assert exp._render_cache.lines is cached_lines, (
+            "Must preserve _render_cache during mouse selection"
+        )
+
+
+@pytest.mark.asyncio
+async def test_selectable_static_render_line_monotonic_offsets():
+    """Verify that horizontal selection on selectable Static widgets produces monotonically increasing cell offsets without jitter or collapse."""
+    setup_textual_compat()
+    from rich.markdown import Markdown
+    from textual.geometry import Offset
+    from textual.selection import Selection
+    from textual.widgets import Static
+
+    class MonotonicTestApp(App):
+        def compose(self) -> ComposeResult:
+            yield Static(
+                Markdown("• 445/tcp: microsoft-ds (file and printer sharing, often SMB)\n"),
+                id="exp",
+                classes="selectable",
+            )
+
+    app = MonotonicTestApp()
+    async with app.run_test(size=(100, 24)) as pilot:
+        exp = app.query_one("#exp", Static)
+        start_x = 0
+
+        # Simulate horizontal dragging from column 10 to 60
+        for current_x in range(10, 60):
+            sel = Selection.from_offsets(Offset(start_x, 0), Offset(current_x, 0))
+            app.screen.selections = {exp: sel}
+
+            # Render line with active selection
+            rendered_line = exp.render_line(0)
+
+            # Query compositor offset at current_x
+            _, detected_offset = app.screen._compositor.get_widget_and_offset_at(
+                exp.region.x + current_x, exp.region.y
+            )
+            assert detected_offset is not None, f"Expected offset at x={current_x}"
+            assert detected_offset.x == current_x, (
+                f"Offset collapsed or jittered: expected {current_x}, got {detected_offset.x}"
+            )
+
+
+@pytest.mark.asyncio
+async def test_input_and_textarea_extended_delete_shortcuts():
+    """Verify Input and TextArea handle Shift+Delete, Ctrl+Delete, Alt+Delete, and Ctrl+D gracefully."""
+    setup_textual_compat()
+    from textual.widgets import Input, TextArea
+
+    class EditorApp(App):
+        def compose(self) -> ComposeResult:
+            yield Input(id="in_test", value="alpha beta gamma")
+            yield TextArea(id="ta_test", text="alpha beta gamma")
+
+    app = EditorApp()
+    async with app.run_test() as pilot:
+        inp = app.query_one("#in_test", Input)
+        ta = app.query_one("#ta_test", TextArea)
+
+        # 1. Input: Ctrl+Delete deletes word right
+        inp.focus()
+        inp.cursor_position = 0
+        await pilot.press("ctrl+delete")
+        assert inp.value == "beta gamma"
+
+        # 2. Input: Alt+Delete deletes word right
+        await pilot.press("alt+delete")
+        assert inp.value == "gamma"
+
+        # 3. Input: Shift+Delete deletes single character right
+        inp.cursor_position = 0
+        await pilot.press("shift+delete")
+        assert inp.value == "amma"
+
+        # 4. Input: Ctrl+D deletes single character right
+        inp.cursor_position = 0
+        await pilot.press("ctrl+d")
+        assert inp.value == "mma"
+
+        # 5. TextArea: Ctrl+Delete deletes word right
+        ta.focus()
+        ta.cursor_location = (0, 0)
+        await pilot.press("ctrl+delete")
+        assert ta.text == " beta gamma"
+
+        # 6. TextArea: Shift+Delete deletes single character right
+        ta.cursor_location = (0, 0)
+        await pilot.press("shift+delete")
+        assert ta.text == "beta gamma"
+
+
+@pytest.mark.asyncio
+async def test_robust_check_bindings_action_exception_resilience():
+    """Verify robust_check_bindings catches and swallows action exceptions gracefully without crashing."""
+    setup_textual_compat()
+    from textual.binding import Binding
+
+    class ExplodingApp(App):
+        BINDINGS = [
+            Binding("ctrl+d", "explode", "Explode", show=False),
+        ]
+
+        def action_explode(self) -> None:
+            raise RuntimeError("Intentional explosion during key shortcut")
+
+    app = ExplodingApp()
+    async with app.run_test() as pilot:
+        # Pressing ctrl+d triggers action_explode which raises an exception.
+        # Under robust_check_bindings, this must not tear down Textual or escape unhandled.
+        await pilot.press("ctrl+d")
+        assert app.is_running is True
+
+
+def test_kitty_parser_extended_delete_aliases():
+    """Verify extended Kitty escape sequences for delete and control combinations resolve safely."""
+    setup_textual_compat()
+    from textual._xterm_parser import XTermParser
+    from textual.events import _get_key_aliases
+
+    parser = XTermParser(lambda msg: None)
+    # \x1b[3;5u is Kitty's Ctrl+Delete
+    res_ctrl = parser._parse_extended_key("\x1b[3;5u")
+    assert res_ctrl is not None
+    key_name = res_ctrl[0].key
+    aliases = _get_key_aliases(key_name)
+    assert "ctrl+delete" in aliases
+
+    # \x1b[3;2u is Kitty's Shift+Delete
+    res_shift = parser._parse_extended_key("\x1b[3;2u")
+    assert res_shift is not None
+    shift_key_name = res_shift[0].key
+    shift_aliases = _get_key_aliases(shift_key_name)
+    assert "shift+delete" in shift_aliases

@@ -296,6 +296,7 @@ $$\text{Node ID} = \text{SHA-256}\left(\text{schema\_type} + \text{":"} + \text{
 def _generate_node_id(self, schema_type: str, pik: Dict[str, Any]) -> str:
     import hashlib
     import json
+
     pik_str = json.dumps(pik, sort_keys=True)
     return hashlib.sha256(f"{schema_type}:{pik_str}".encode()).hexdigest()
 ```
@@ -368,12 +369,12 @@ if finding.parent:
     # Ensure parent stub exists
     await db.execute(
         "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
-        (session_id, parent_id, p.target_type, json.dumps(p.target_pik), "{}")
+        (session_id, parent_id, p.target_type, json.dumps(p.target_pik), "{}"),
     )
     # Insert edge
     await db.execute(
         "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
-        (session_id, parent_id, node_id, p.via)
+        (session_id, parent_id, node_id, p.via),
     )
 
 # 2. Handle Associations (Auto-wires semantic cross-entity edges)
@@ -381,11 +382,11 @@ for assoc in finding.associations:
     assoc_id = self._generate_node_id(assoc.target_type, assoc.target_pik)
     await db.execute(
         "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
-        (session_id, assoc_id, assoc.target_type, json.dumps(assoc.target_pik), "{}")
+        (session_id, assoc_id, assoc.target_type, json.dumps(assoc.target_pik), "{}"),
     )
     await db.execute(
         "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
-        (session_id, node_id, assoc_id, assoc.via)
+        (session_id, node_id, assoc_id, assoc.via),
     )
 ```
 

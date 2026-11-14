@@ -1,0 +1,104 @@
+[meta]
+name = "nuclei"
+description = "Fast, customizable vulnerability scanner powered by community-authored YAML templates covering CVEs, misconfigurations, and technology fingerprints."
+one_line_summary = "template-based vulnerability scanner and misconfiguration auditor"
+category = "Vulnerability Assessment"
+categories = ["vulnerability", "scanner", "cve", "dast"]
+binary = "nuclei"
+
+[modes]
+learning = true
+power = true
+
+[input]
+accepts = ["network.host", "web.endpoint", "dns.record"]
+
+[output]
+produces = ["vulnerability.found", "audit.misconfig", "web.technology"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "Critical & High Severity CVE Scan"
+difficulty = "Beginner"
+description = "Scan the target endpoint for known critical and high-severity CVE vulnerabilities using verified templates."
+flags = ["-u", "{url}", "-severity", "critical,high", "-tags", "cve", "-jsonl"]
+
+[learning.recipes.theory]
+concept = "Declarative Vulnerability Scanning & Exploit Signature Matching"
+explanation = """
+Nuclei executes declarative YAML templates containing exact HTTP, DNS, SSL, and TCP payloads alongside matchers (status codes, regexes, DSL expressions).
+Filtering for 'critical,high' severity prioritizes remote code execution (RCE), SQL injection, and authentication bypass flaws with CVSS scores above 7.0.
+JSON Lines output allows realtime streaming and continuous correlation into the attack graph.
+"""
+packet_wire_summary = "Client sends specific PoC payloads defined in YAML template -> Analyzes HTTP headers/body for vulnerability signature"
+remediation = "Isolate affected instances, apply vendor patches, and configure web application firewall (WAF) virtual patching rules."
+
+[[learning.recipes]]
+name = "Technology Fingerprinting & Asset Profiling"
+difficulty = "Beginner"
+description = "Identify underlying web servers, application frameworks, CMS platforms, and Javascript libraries."
+flags = ["-u", "{url}", "-tags", "tech", "-severity", "info", "-jsonl"]
+
+[learning.recipes.theory]
+concept = "HTTP Response Header Fingerprinting & Passive Artifact Recognition"
+explanation = """
+Applications leak identifying indicators across HTTP headers (Server, X-Powered-By, X-AspNet-Version), cookies, favicon hashes, and specific JavaScript script tags.
+Fingerprinting technology versions provides attack surface context and informs targeted vulnerability assessments.
+"""
+packet_wire_summary = "Client GET / -> Server Response Headers + DOM inspected for known framework signatures (React, Nginx, Django, WordPress)"
+remediation = "Suppress identifying server banner headers (e.g. Nginx 'server_tokens off;') and remove default boilerplate pages."
+
+[[learning.recipes]]
+name = "Security Misconfigurations & Sensitive Exposure"
+difficulty = "Intermediate"
+description = "Detect exposed internal dashboards, leaked source repositories, unauthenticated APIs, and cloud credential files."
+flags = ["-u", "{url}", "-tags", "misconfig,exposure", "-severity", "medium,high", "-jsonl"]
+
+[learning.recipes.theory]
+concept = "OWASP Top 10 A05:2021 Security Misconfiguration & Exposed Sensitive Assets"
+explanation = """
+Security misconfigurations occur when default credentials, open administrative interfaces, debug portals (Spring Boot Actuator, Django Debug), or backup directories are exposed to the public Internet without authentication.
+Nuclei templates verify existence and unauthenticated accessibility of known sensitive paths.
+"""
+packet_wire_summary = "Client GET /actuator/env -> Server returns environment variables containing database passwords and AWS keys"
+remediation = "Enforce least privilege, disable unused endpoints, and restrict administrative portals to internal VPN networks."
+
+[[learning.recipes]]
+name = "SSL/TLS Cipher Suite & Certificate Audit"
+difficulty = "Intermediate"
+description = "Evaluate SSL/TLS certificate validity, expiration, deprecated protocols (TLS 1.0/1.1), and weak cipher suites."
+flags = ["-u", "{url}", "-tags", "ssl,tls", "-jsonl"]
+
+[learning.recipes.theory]
+concept = "Transport Layer Security (TLS) Cryptographic Negotiation"
+explanation = """
+During the TLS ClientHello and ServerHello handshake, the client and server negotiate cryptographic ciphers, key exchange algorithms, and protocol versions.
+Insecure configurations support broken ciphers (RC4, DES, CBC mode ciphers vulnerable to BEAST/POODLE) or expired X.509 certificates.
+Nuclei probes the TLS termination point to verify compliance with modern cryptographic standards.
+"""
+packet_wire_summary = "Client TLS ClientHello (proposing modern TLS 1.3 ciphers) -> Server ServerHello (Certificate chain & cipher suite verification)"
+remediation = "Enforce TLS 1.2+ with forward secrecy (ECDHE) ciphers and automate certificate renewal using ACME / Let's Encrypt."
+
+[[learning.recipes]]
+name = "Rate-Limited Custom Template Sweep"
+difficulty = "Advanced"
+description = "Run a high-coverage vulnerability audit while limiting concurrency to prevent target service degradation."
+flags = ["-u", "{url}", "-c", "25", "-rate-limit", "50", "-jsonl"]
+
+[learning.recipes.theory]
+concept = "Concurrency Control, TCP Socket Management & Safe Auditing"
+explanation = """
+Automated scanners can inadvertently cause denial-of-service (DoS) conditions on un-optimized production web servers by opening thousands of concurrent TCP sockets.
+Nuclei's '-c' flag constrains worker threads, while '-rate-limit' regulates requests-per-second, ensuring reliable auditing without exhausting server memory or database connection pools.
+"""
+packet_wire_summary = "Client throttles to 50 req/sec with max 25 worker routines -> Prevents server socket exhaustion"
+remediation = "Schedule extensive vulnerability scans during approved maintenance windows and continuously monitor server metrics."
+
+[power]
+enabled = true
+suggests = [
+    { target = "vulnerability.found", condition = "vuln_id != ''", tool = "searchsploit", flags = "--cve {target.pik.vuln_id}" },
+    { target = "web.technology", condition = "name != ''", tool = "searchsploit", flags = "{target.pik.name} {target.data.version}" }
+]

@@ -306,10 +306,7 @@ class ToolAdapter(ABC):
 
     @abstractmethod
     async def parse_output(
-        self,
-        raw_stdout: str,
-        target: BaseFinding,
-        context: Dict[str, Any] = None
+        self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
     ) -> AsyncIterator[BaseFinding]:
         """Parse raw stdout and yield standardized BaseFinding objects."""
         pass
@@ -410,17 +407,18 @@ In addition to the CLI command (`cyg check`), the active TUI surfaces a live int
 * **Consequences**: Transactional, atomic, zero-memory exports producing standalone `.db` files that can be shared, graded, and inspected using standard SQLite tools.
 
 ### ADR-08: Deep Modules & High-Leverage Architectural Seams
-* **Context**: As CyGuide grew, cross-cutting concerns (workspace lifecycle, report generation, context variable resolution, timeline logging, execution streaming, diagnostic probing) were intermingled inside UI layers and large procedural methods.
+* **Context**: As CyGuide grew, cross-cutting concerns (workspace lifecycle, report generation, context variable resolution, timeline logging, execution streaming, diagnostic probing, prompt boundary sanitization, and settings management) were intermingled inside UI layers and large procedural methods.
 * **Decision**: Refactor the codebase around Deep Modules (John Ousterhout principle: small, simple interfaces hiding substantial internal complexity):
-  1. `ExecutionSession` ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)): Subprocess lifecycle, interactive terminal suspension, disk log spooling, atomic session eviction (`evict_session`), and typed pub/sub event streaming (`subscribe`).
-  2. `ExplanationTutor` ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)): Multi-key cloud fallbacks, cooldown tracking, prompt boundary sanitization, and uniform `ProviderAdapter` streaming with local Ollama failover.
+  1. `ExecutionSession` ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)): Subprocess lifecycle, interactive terminal suspension, disk log spooling, atomic session eviction (`evict_session`), typed pub/sub event streaming (`subscribe`), and encapsulated job query interfaces (`get_active_jobs_count`, `get_session_active_jobs`).
+  2. `ExplanationTutor` ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)): Multi-key cloud fallbacks, cooldown tracking, prompt boundary sanitization, deep scan context encapsulation (`explain_scan`, `stream_scan`, `strip_scanner_noise`), and uniform `ProviderAdapter` streaming with local Ollama failover.
   3. `ActionGateway` ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py)): Security boundary policy enforcement, cloud metadata SSRF defense (`BLOCKED_TARGETS`), tool manifest validation, and centralized variable resolution.
-  4. `WorkspaceRepository` ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py)): Workspace and session CRUD, forensic read-only locking, and atomic job cleanup delegation.
+  4. `WorkspaceRepository` ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py)): Workspace and session CRUD, forensic read-only locking, atomic job cleanup delegation, and high-leverage batch operations (`move_sessions`, `batch_delete` with `SYSTEM` workspace guards).
   5. Declarative `BaseFinding` Canonicalization ([`cyguide/schemas/base.py`](../../cyguide/schemas/base.py)): Automatic whitespace trimming, lowercase normalizations, and IPv6 expansion via Pydantic model configuration.
   6. `SessionReportService` ([`cyguide/engine/reporter.py`](../../cyguide/engine/reporter.py)): Multi-format forensic reporting, Markdown tables, Mermaid attack flow graphs, and stat summaries.
   7. `ActionTimelineRepository` ([`cyguide/engine/timeline.py`](../../cyguide/engine/timeline.py)): Append-only action event logs, tab state restoration, and timeline replay queries using public `store.connection()`.
   8. `WorkspaceContextBuilder` ([`cyguide/engine/context_builder.py`](../../cyguide/engine/context_builder.py)): Point-in-time context compilation using `ActionGateway` variable resolution.
   9. `DiagnosticEngine` ([`cyguide/engine/diagnostics.py`](../../cyguide/engine/diagnostics.py)): Pluggable probe registry for system, database, security toolchain, and AI connectivity.
+  10. `PreferencesStore` ([`cyguide/common/preferences.py`](../../cyguide/common/preferences.py)): Atomic `0o600` filesystem persistence for settings, active API key profile switching, and operator scratchpad note-taking.
 * **Consequences**: Drastic reduction in cognitive load and high locality of change. Adding new features, security tools, or AI models requires zero modifications to core orchestration pipelines.
 
 ---
@@ -553,7 +551,7 @@ CyGuide implements strict defense-in-depth controls across process execution, ne
 ## 17. Related Technical Documentation
 
 * **[Database Architecture & Storage Specification (`docs/developer/DATABASE.md`)](DATABASE.md)**: Full DDL schemas, ER diagrams, PIK formulas, auto-wiring mechanics, and query recipes.
-* **[Schema Registry (`docs/developer/SCHEMA_REGISTRY.md`)](SCHEMA_REGISTRY.md)**: The standard 15-schema finding vocabulary and PIK declarations.
+* **[Schema Registry (`docs/developer/SCHEMA_REGISTRY.md`)](SCHEMA_REGISTRY.md)**: The standard finding schema vocabulary and PIK declarations.
 * **[Project Roadmap & Progress Tracker (`docs/developer/ROADMAP.md`)](ROADMAP.md)**: Feature checklist, implementation phases, and development history.
 * **[User Manual (`docs/user/USER_MANUAL.md`)](../user/USER_MANUAL.md)**: Operating instructions, hotkeys, and CLI reference.
 * **[Contributing Guide (`docs/user/CONTRIBUTING.md`)](../user/CONTRIBUTING.md)**: Plugin contract, implementation patterns, tiered protection rules, and test verification.

@@ -82,3 +82,21 @@ def get_action_log_path(action_id: str, data_dir: Optional[str] = None) -> str:
     """Return the absolute path for an action execution log file."""
     logs_dir = get_default_logs_dir(data_dir)
     return os.path.join(logs_dir, f"{action_id}.log")
+
+
+def get_default_wordlists_dir(data_dir: Optional[str] = None) -> str:
+    """Return the default wordlists directory (~/.cyguide/wordlists)."""
+    base = data_dir if data_dir is not None else get_default_data_dir()
+    wordlists_dir = os.path.join(base, "wordlists")
+    try:
+        os.makedirs(wordlists_dir, mode=0o700, exist_ok=True)
+    except OSError:
+        pass
+    return wordlists_dir
+
+
+def get_wordlist_path(name: str, data_dir: Optional[str] = None) -> str:
+    """Return the absolute path for a named wordlist in the wordlists directory."""
+    wordlists_dir = get_default_wordlists_dir(data_dir)
+    filename = name if name.endswith(".txt") else f"{name}.txt"
+    return os.path.join(wordlists_dir, filename)

@@ -29,6 +29,7 @@ class BaseFinding(BaseModel):
     """The base finding structure all schemas must follow."""
 
     schema_type: str  # e.g. "network.service"
+    schema_version: str = "1.0"
     pik_fields: ClassVar[List[str]] = []  # Declarative PIK fields for registry/linter
     pik: Dict[str, Any]  # Primary Identity Key fields
     parent: Optional[Relation] = None

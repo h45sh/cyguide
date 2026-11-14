@@ -347,6 +347,9 @@ async def test_learning_recipes_tab_and_circular_navigation():
         recipes_scroll = screen.query_one("#recipes_scroll")
         recipe_cards = recipes_scroll.query(".recipe_card")
         assert len(recipe_cards) == len(recipe_list.children)
+        for card in recipe_cards:
+            desc = card.query_one(".recipe_card_desc")
+            assert desc.size.width <= 80
 
         # 5. Test loading recipe via button in tab_recipes
         tabs.active = "tab_recipes"
@@ -379,6 +382,20 @@ async def test_learning_ask_ai_and_run_buttons():
         await pilot.pause()
 
         screen = app.screen
+        import uuid
+
+        async def mock_stream(*args, **kwargs):
+            yield "Mock explanation response."
+
+        app.explainer.explain_scan = mock_stream
+        app.explainer.explain = mock_stream
+
+        async def mock_submit_action(action, on_output=None):
+            if on_output:
+                await on_output("Nmap scan report for 127.0.0.1\n")
+            return uuid.uuid4()
+
+        app.power_facade.submit_action = mock_submit_action
         tabs = screen.query_one("#learning_tabs", TabbedContent)
 
         # 1. Sidebar Ask AI button verification
@@ -576,3 +593,37 @@ async def test_learning_ask_ai_and_run_buttons():
             "Previous explanation must NOT be wiped when AI is ON!"
         )
         assert f"Run #{screen.run_count}" in screen.explanation_buffer
+
+
+@pytest.mark.asyncio
+async def test_learning_mode_welcome_guide_lifecycle():
+    """Verify freshly opened Learning Mode shows instructions and shortcuts in Explanation tab and clears when command/question runs."""
+    from cyguide.app import CyGuideApp
+
+    app = CyGuideApp(db_path=":memory:")
+    async with app.run_test(size=(120, 45)) as pilot:
+        app.learning_mode_tool = "nmap"
+        await app.push_screen("learning_mode")
+        await pilot.pause()
+
+        screen = app.screen
+        from textual.widgets import Static
+
+        # 1. Explanation tab contains welcome instructions and hidden shortcuts
+        explanation_widget = screen.query_one("#explanation_text", Static)
+        markup = getattr(explanation_widget.content, "markup", str(explanation_widget.content))
+        assert "Quick Start Guide" in markup
+        assert "Alt+[" in markup
+        assert "Alt+]" in markup
+        assert "Ctrl+B" in markup
+
+        # 2. Asking a tutor question clears the welcome guide
+        await screen.query_ai_tutor("what is this tool?").wait()
+        await pilot.pause()
+        assert "what is this tool?" in screen.explanation_buffer
+
+        updated_markup = getattr(
+            explanation_widget.content, "markup", str(explanation_widget.content)
+        )
+        assert "Quick Start Guide" not in updated_markup
+        assert "what is this tool?" in updated_markup

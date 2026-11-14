@@ -1,0 +1,37 @@
+[
+  {
+    "name": "example.com",
+    "type": "A",
+    "ttl": 300,
+    "value": "93.184.216.34",
+    "server": "8.8.8.8"
+  },
+  {
+    "name": "example.com",
+    "type": "AAAA",
+    "ttl": 300,
+    "value": "2606:2800:220:1:248:1893:25c8:1946",
+    "server": "8.8.8.8"
+  },
+  {
+    "name": "example.com",
+    "type": "MX",
+    "ttl": 3600,
+    "value": "10 mail.example.com",
+    "server": "8.8.8.8"
+  },
+  {
+    "name": "example.com",
+    "type": "NS",
+    "ttl": 86400,
+    "value": "a.iana-servers.net",
+    "server": "8.8.8.8"
+  },
+  {
+    "name": "example.com",
+    "type": "TXT",
+    "ttl": 3600,
+    "value": "v=spf1 -all",
+    "server": "8.8.8.8"
+  }
+]

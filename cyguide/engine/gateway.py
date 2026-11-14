@@ -4,6 +4,7 @@ import ipaddress
 import socket
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from cyguide import paths
 from cyguide.engine.network import get_lhost_info
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
@@ -143,6 +144,8 @@ class ActionGateway:
                 resolved["IFACE"] = iface
         except Exception:
             pass
+
+        resolved["WORDLIST"] = paths.get_wordlist_path("common_dirs")
         return resolved
 
     @staticmethod

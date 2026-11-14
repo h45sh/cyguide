@@ -6,18 +6,21 @@ This registry defines the shared language of CyGuide findings. Every tool must e
 
 | Schema Type | Description | PIK Fields | Parent | Associations |
 | :--- | :--- | :--- | :--- | :--- |
-| `credential.found` | A username/password or token discovery. Linked to a host or domain. Produced by hydra, medusa, leak-lookups. | `context`, `username` | — | — |
+| `audit.misconfig` | A detected security misconfiguration, policy violation, or information exposure. Child of web.endpoint, network.service, or network.host. Produced by nuclei, nikto, testssl. | `target`, `check_id` | `web.endpoint` / `network.service` | — |
+| `credential.found` | A username/password or token discovery. Linked to a host or domain. Produced by hydra, medusa, leak-lookups. | `context`, `username` | `network.host` | — |
 | `dns.record` | A single DNS entry mapping a name to a value. Produced by dig, whois, or passive DNS tools. | `domain`, `type`, `value` | — | `resolves_to` → `network.host` |
 | `domain.info` | Whois registration data for a domain — owner, registrar, dates. Produced by whois. | `domain` | — | `whois_data_for` → `dns.record` |
 | `entity.alias` | Links two identifiers that represent the same entity (e.g. hostname to IP). Produced by resolvers. | `source_id`, `target_id` | — | — |
-| `file.system_object` | A file or directory found on a host. Child of network.host. Produced by find, ls. | `host_ip`, `path` | — | — |
+| `exploit.reference` | A known exploit or proof-of-concept reference from Exploit-DB or CVE archives. Child of network.service or vulnerability.found. Produced by searchsploit. | `exploit_id` | `vulnerability.found` / `network.service` | `exploits_cve` → `vulnerability.found` |
+| `file.system_object` | A file or directory found on a host. Child of network.host. Produced by find, ls. | `host_ip`, `path` | `network.host` | — |
 | `network.host` | A discovered machine on the network, identified by IP. Root entity for most scans. Produced by nmap. | `ip` | — | — |
 | `network.netblock` | An IP range with ownership data — org, ASN, CIDR. Produced by whois against an IP. | `cidr` | — | — |
 | `network.service` | A listening port on a host. Child of network.host. Produced by nmap -sV. | `host_ip`, `port`, `protocol` | `network.host` | — |
-| `process.running` | A running process on a host. Child of network.host. Produced by ps, netstat. | `host_ip`, `pid` | — | — |
-| `software.package` | An installed software package. Child of network.host. Produced by dpkg, rpm, brew. | `host_ip`, `package_name` | — | — |
-| `tls.certificate` | A TLS certificate associated with a service. Child of network.service. Produced by sslscan, nmap-scripts. | `fingerprint` | — | — |
-| `vulnerability.found` | A generic vulnerability linked to a host or service. Child of network.service or network.host. Produced by nmap-vulners, nessus. | `host_ip`, `vuln_id` | — | — |
+| `process.running` | A running process on a host. Child of network.host. Produced by ps, netstat. | `host_ip`, `pid` | `network.host` | — |
+| `software.package` | An installed software package. Child of network.host. Produced by dpkg, rpm, brew. | `host_ip`, `package_name` | `network.host` | — |
+| `tls.certificate` | A TLS certificate associated with a service. Child of network.service. Produced by sslscan, nmap-scripts. | `fingerprint` | `network.service` | — |
+| `vulnerability.found` | A generic vulnerability linked to a host or service. Child of network.service or network.host. Produced by nmap-vulners, nessus. | `host_ip`, `vuln_id` | `network.service` / `network.host` | — |
 | `web.endpoint` | A reachable HTTP/S URL with response metadata. Child of network.service. Produced by gobuster, curl. | `url` | `network.service` | — |
-| `web.resource` | A specific asset (JS, CSS, Image) found on a web endpoint. Child of web.endpoint. Produced by burp, crawler. | `url`, `resource_path` | — | — |
-| `web.vulnerability` | A web-specific flaw (XSS, SQLi) found on an endpoint. Child of web.endpoint. Produced by nikto, zap. | `url`, `vuln_type`, `parameter` | — | — |
+| `web.resource` | A specific asset (JS, CSS, Image) found on a web endpoint. Child of web.endpoint. Produced by burp, crawler. | `url`, `resource_path` | `web.endpoint` | — |
+| `web.technology` | A detected web technology, framework, server, or CMS. Child of web.endpoint or network.service. Produced by whatweb, wappalyzer, httpx, nikto. | `url`, `technology_name` | `web.endpoint` / `network.service` | — |
+| `web.vulnerability` | A web-specific flaw (XSS, SQLi) found on an endpoint. Child of web.endpoint. Produced by nikto, zap. | `url`, `vuln_type`, `parameter` | `web.endpoint` | — |

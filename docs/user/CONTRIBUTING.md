@@ -69,6 +69,7 @@ from cyguide.engine.adapter import ToolAdapter
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.web import WebEndpointFinding
 
+
 class MyToolAdapter(ToolAdapter):
     @property
     def name(self) -> str:
@@ -82,17 +83,15 @@ class MyToolAdapter(ToolAdapter):
         """Construct the CLI arguments safely as an argument list (preventing shell injection)."""
         return ["mytool", "-u", target] + flags
 
-    async def parse_output(self, stream: AsyncGenerator[str, None]) -> AsyncGenerator[BaseFinding, None]:
+    async def parse_output(
+        self, stream: AsyncGenerator[str, None]
+    ) -> AsyncGenerator[BaseFinding, None]:
         """Parse streaming line-by-line stdout into validated BaseFinding schemas."""
         async for line in stream:
             cleaned = line.strip()
             if "200 OK" in cleaned:
                 path = cleaned.split()[0]
-                yield WebEndpointFinding(
-                    url=path,
-                    status_code=200,
-                    source_tool="mytool"
-                )
+                yield WebEndpointFinding(url=path, status_code=200, source_tool="mytool")
 ```
 
 ---
@@ -125,18 +124,20 @@ from cyguide.engine.store import GraphStore
 from cyguide.engine.executor import SubprocessExecutor
 from tools.mytool.adapter import MyToolAdapter
 
+
 async def test_run():
     store = GraphStore(":memory:")
     await store.initialize()
-    
+
     adapter = MyToolAdapter()
     executor = SubprocessExecutor(store)
-    
+
     # Run against a mock target or local test server
     cmd = adapter.build_command("http://127.0.0.1:8000", [])
     print(f"Executing: {' '.join(cmd)}")
-    
+
     await store.close()
+
 
 if __name__ == "__main__":
     asyncio.run(test_run())
@@ -176,7 +177,7 @@ To protect system determinism and database stability, CyGuide follows a three-ti
 Before submitting a Pull Request, run the automated verification pipeline:
 
 ```bash
-# Execute the full verification suite (170+ tests, schema doc sync, and code style)
+# Execute the full verification suite (unit & integration tests, schema doc sync, and code style)
 ./scripts/verify.sh
 
 # Run fast unit tests directly with pytest
@@ -246,18 +247,25 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 
 | Prefix | Description | Example |
 | :--- | :--- | :--- |
-| `feat:` | A new user-facing capability or command | `feat: add workspace export encryption` |
+| `feat:` | A new user-facing capability or command (triggers minor release) | `feat: add workspace export encryption` |
 | `tool:` | A new or updated security tool adapter | `tool: add ffuf web fuzzer adapter` |
-| `fix:` | A bug fix | `fix: resolve aiosqlite race in event bus` |
-| `docs:` | Documentation changes only | `docs: add Diataxis how-to guide for AI setup` |
+| `fix:` | A bug fix (triggers patch release) | `fix: resolve aiosqlite race in event bus` |
+| `docs(user):` | User-facing documentation changes | `docs(user): add Diataxis how-to guide for AI setup` |
+| `docs(internal):` | Internal developer documentation / architecture updates | `docs(internal): refine engine seam boundaries` |
 | `refactor:` | Code restructuring without behavior changes | `refactor: extract subnet parsing into utils` |
 | `test:` | Adding or improving tests | `test: add unit tests for nmap parser` |
 | `ci:` | Changes to CI workflows or build scripts | `ci: add CodeQL security analysis workflow` |
+| `chore:` | Maintenance, dependencies, or internal tooling | `chore: update dev dependencies` |
 
-### B. Pull Request Guidelines
+> [!TIP]
+> **Release PR Hygiene**: Release Please generates user-facing release notes from `feat:`, `fix:`, and `perf:` commits. Internal developer documentation, test refactoring, and roadmap checklists should use `docs(internal):`, `test:`, or `chore:` so that release PRs remain focused on software deliverables and do not get bloated with internal documentation diffs.
+
+### B. Pull Request & Documentation Guidelines
 
 1. **Use the PR Template**: Fill out all sections of [`.github/PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md), noting the architectural tier of your changes.
 2. **One Feature per PR**: Keep changes focused and atomic to simplify review and rollbacks.
 3. **No Decorative Emojis**: Documentation and code comments must remain clean and readable in standard terminal displays without decorative emojis.
-4. **Code Ownership Approval**: Any modifications touching Tier 1 files (`cyguide/engine/store.py`, `cyguide/schemas/base.py`) automatically assign `@h45sh` as a required reviewer via [`.github/CODEOWNERS`](../../.github/CODEOWNERS).
+4. **No Ephemeral Metrics in Documentation**: Avoid hardcoding transient metrics (such as exact test counts or temporary task numbers) in permanent documentation. Describe architectural invariants, capabilities, and system contracts instead to avoid documentation rot.
+5. **Code Ownership Approval**: Any modifications touching Tier 1 files (`cyguide/engine/store.py`, `cyguide/schemas/base.py`) automatically assign `@h45sh` as a required reviewer via [`.github/CODEOWNERS`](../../.github/CODEOWNERS).
+
 

@@ -126,9 +126,15 @@ def setup_textual_compat() -> None:
             if widget_id in (
                 "explanation_text",
                 "raw_output_text",
+                "raw_output_terminal",
                 "command_preview",
                 "test_static",
+                "term",
             ):
+                return True
+            from cyguide.ui.widgets.terminal_stream import TerminalStreamPane
+
+            if isinstance(self, TerminalStreamPane):
                 return True
             classes = getattr(self, "classes", ())
             if "selectable" in classes:
@@ -181,10 +187,17 @@ def setup_textual_compat() -> None:
         def _stylize_strip_selection(
             strip: Strip, start_x: int, end_x: int, sel_style: Style
         ) -> Strip:
-            if end_x == -1:
-                end_x = strip.cell_length
+            raw_text = strip.text
+            text_len = len(raw_text.rstrip())
+            if text_len == 0:
+                return strip
+
+            if end_x == -1 or end_x > text_len:
+                end_x = text_len
+
             if start_x >= end_x or start_x >= strip.cell_length or end_x <= 0:
                 return strip
+
             start_x = max(0, start_x)
             end_x = min(strip.cell_length, end_x)
             cuts = sorted(
@@ -218,7 +231,6 @@ def setup_textual_compat() -> None:
             if not getattr(self, "allow_select", False):
                 return strip
 
-            strip = strip.apply_offsets(0, y)
             try:
                 selection = getattr(self, "text_selection", None)
             except Exception:
@@ -241,9 +253,23 @@ def setup_textual_compat() -> None:
                     except Exception:
                         sel_style = Style.parse("bold #ffffff on #0284c7")
                     strip = _stylize_strip_selection(strip, start_x, end_x, sel_style)
-            return strip
+
+            # Apply offsets AFTER stylizing so Compositor receives exact, monotonically increasing
+            # character cell coordinates for every split segment, completely eliminating jitter.
+            return strip.apply_offsets(0, y)
 
         Static.render_line = selectable_static_render_line
+
+        def selectable_static_selection_updated(self: Static, selection: Selection | None) -> None:
+            # Repaint on demand without clearing _render_cache or marking _dirty_regions.
+            # Avoids re-parsing and re-rendering Markdown on every mouse move.
+            self._repaint_required = True
+            try:
+                self.screen.refresh(self.region, repaint=True, layout=False)
+            except Exception:
+                self.refresh()
+
+        Static.selection_updated = selectable_static_selection_updated
 
         orig_static_get_selection = Static.get_selection
 
@@ -296,23 +322,55 @@ def setup_textual_compat() -> None:
                 return
 
             start_widget = select_state.start.content_widget
+            if start_widget is None:
+                container = select_state.start.container
+                if getattr(container, "allow_select", False):
+                    start_widget = container
+                elif hasattr(container, "children"):
+                    for child in container.children:
+                        if getattr(child, "allow_select", False):
+                            start_widget = child
+                            break
+
             if start_widget is not None and getattr(start_widget, "allow_select", False):
-                start_offset = select_state.start.content_offset or Offset(0, 0)
+                region = getattr(start_widget, "content_region", start_widget.region)
+                scroll_offset = (
+                    start_widget.scroll_offset
+                    if getattr(start_widget, "is_scrollable", False)
+                    else getattr(start_widget, "container_scroll_offset", Offset(0, 0))
+                )
+                start_offset = select_state.start.content_offset
+                if start_offset is None:
+                    sx = max(
+                        0,
+                        select_state.start.pointer_start_offset.x - region.x + int(scroll_offset.x),
+                    )
+                    sy = max(
+                        0,
+                        select_state.start.pointer_start_offset.y - region.y + int(scroll_offset.y),
+                    )
+                    start_offset = Offset(sx, sy)
+
                 if (
                     select_state.end.content_widget is start_widget
                     and select_state.end.content_offset is not None
                 ):
                     end_offset = select_state.end.content_offset
                 else:
-                    region = start_widget.region
-                    rel_x = max(0, min(region.width, select_state.screen_offset.x - region.x))
-                    rel_y = max(0, select_state.screen_offset.y - region.y)
+                    rel_x = max(0, select_state.screen_offset.x - region.x + int(scroll_offset.x))
+                    rel_y = max(0, select_state.screen_offset.y - region.y + int(scroll_offset.y))
                     if (
                         hasattr(start_widget, "_render_cache")
                         and start_widget._render_cache
                         and start_widget._render_cache.lines
                     ):
                         rel_y = min(len(start_widget._render_cache.lines) - 1, rel_y)
+                    elif hasattr(start_widget, "_lines"):
+                        total_l = len(start_widget._lines) + (
+                            1 if getattr(start_widget, "_line_buffer", None) else 0
+                        )
+                        if total_l > 0:
+                            rel_y = min(total_l - 1, rel_y)
                     end_offset = Offset(rel_x, rel_y)
 
                 s_off, e_off = start_offset, end_offset
@@ -326,6 +384,31 @@ def setup_textual_compat() -> None:
             self.selections = {}
 
         Screen._watch__select_state = robust_watch_select_state
+
+        def sync_watch_selections(
+            self: Screen,
+            old_selections: dict,
+            selections: dict,
+        ) -> None:
+            for widget in old_selections.keys() | selections.keys():
+                widget.selection_updated(selections.get(widget, None))
+
+        Screen._watch_selections = sync_watch_selections
+
+        # Coalesce high-frequency mouse movements to prevent queue flooding and jitter
+        from textual.events import MouseMove
+        from textual.message import Message
+
+        def mouse_move_can_replace(self: MouseMove, message: Message) -> bool:
+            return (
+                isinstance(message, MouseMove)
+                and self.button == message.button
+                and self.ctrl == message.ctrl
+                and self.shift == message.shift
+                and self.meta == message.meta
+            )
+
+        MouseMove.can_replace = mouse_move_can_replace
 
     except Exception:
         pass
@@ -358,18 +441,36 @@ def setup_textual_compat() -> None:
                     "alt+}": ["alt+right_curly_bracket", "alt+right_square_bracket"],
                     "alt+shift+left_square_bracket": ["alt+{", "alt+left_curly_bracket", "alt+["],
                     "alt+shift+right_square_bracket": ["alt+}", "alt+right_curly_bracket", "alt+]"],
+                    "ctrl+\x03": ["ctrl+delete", "delete"],
+                    "shift+\x03": ["shift+delete", "delete"],
+                    "alt+\x03": ["alt+delete", "delete"],
+                    "ctrl+shift+\x03": ["ctrl+shift+delete", "ctrl+delete", "delete"],
+                    "shift+ctrl+\x03": ["ctrl+shift+delete", "ctrl+delete", "delete"],
+                    "alt+ctrl+\x03": ["alt+ctrl+delete", "ctrl+delete", "delete"],
+                    "\x03": ["delete"],
+                    "ctrl+shift+d": ["ctrl+d"],
+                    "shift+ctrl+d": ["ctrl+d"],
                 }
             )
 
         orig_check_bindings = App._check_bindings
 
         async def robust_check_bindings(self: App, key: str, priority: bool = False) -> bool:
-            if await orig_check_bindings(self, key, priority=priority):
-                return True
-            for alias in _get_key_aliases(key):
-                if alias != key:
-                    if await orig_check_bindings(self, alias, priority=priority):
-                        return True
+            try:
+                if await orig_check_bindings(self, key, priority=priority):
+                    return True
+            except Exception:
+                pass
+            try:
+                for alias in _get_key_aliases(key):
+                    if alias != key:
+                        try:
+                            if await orig_check_bindings(self, alias, priority=priority):
+                                return True
+                        except Exception:
+                            pass
+            except Exception:
+                pass
             return False
 
         App._check_bindings = robust_check_bindings
@@ -377,12 +478,108 @@ def setup_textual_compat() -> None:
         orig_seq_to_keys = XTermParser._sequence_to_key_events
 
         def safe_seq_to_keys(self: XTermParser, sequence: str, alt: bool = False):
-            for ev in orig_seq_to_keys(self, sequence, alt=alt):
-                if alt and not ev.key.startswith("alt+"):
-                    yield ev.__class__(f"alt+{ev.key}", ev.character)
-                else:
+            try:
+                events = list(orig_seq_to_keys(self, sequence, alt=alt))
+            except Exception:
+                return
+            for ev in events:
+                try:
+                    if alt and hasattr(ev, "key") and ev.key and not ev.key.startswith("alt+"):
+                        yield ev.__class__(f"alt+{ev.key}", getattr(ev, "character", None))
+                    else:
+                        yield ev
+                except Exception:
                     yield ev
 
         XTermParser._sequence_to_key_events = safe_seq_to_keys
+    except Exception:
+        pass
+
+    # 5. Universal word deletion and navigation shortcuts for text input fields
+    # Textual mistakenly bound ctrl+backspace/alt+backspace to delete_right_word instead of left.
+    # Fix and complete universal shortcuts (Ctrl+Backspace, Ctrl+Delete, Ctrl+W, Ctrl+H, Alt+Backspace, Alt+Delete).
+    try:
+        from textual.binding import Binding
+        from textual.widgets import Input, TextArea
+
+        new_input_bindings = []
+        for b in Input.BINDINGS:
+            if ("backspace" in b.key and "delete_right_word" in b.action) or (
+                "delete" in b.key and "delete_right" in b.action
+            ):
+                continue
+            new_input_bindings.append(b)
+
+        new_input_bindings.extend(
+            [
+                Binding(
+                    "delete,shift+delete,ctrl+d",
+                    "delete_right",
+                    "Delete character right",
+                    show=False,
+                ),
+                Binding(
+                    "ctrl+backspace,alt+backspace,ctrl+w,ctrl+h",
+                    "delete_left_word",
+                    "Delete left to start of word",
+                    show=False,
+                ),
+                Binding(
+                    "ctrl+delete,alt+delete,ctrl+shift+delete,shift+ctrl+delete",
+                    "delete_right_word",
+                    "Delete right to start of word",
+                    show=False,
+                ),
+            ]
+        )
+        Input.BINDINGS = new_input_bindings
+        Input._merged_bindings = Input._merge_bindings()
+        for subcls in Input.__subclasses__():
+            try:
+                subcls._merged_bindings = subcls._merge_bindings()
+            except Exception:
+                pass
+
+        new_textarea_bindings = []
+        for b in TextArea.BINDINGS:
+            if (
+                "ctrl+w" in b.key
+                or "ctrl+backspace" in b.key
+                or "alt+delete" in b.key
+                or "ctrl+delete" in b.key
+                or ("delete" in b.key and "delete_right" in b.action)
+            ):
+                continue
+            new_textarea_bindings.append(b)
+
+        new_textarea_bindings.extend(
+            [
+                Binding(
+                    "delete,shift+delete,ctrl+d",
+                    "delete_right",
+                    "Delete character right",
+                    show=False,
+                ),
+                Binding(
+                    "ctrl+w,ctrl+backspace,alt+backspace,ctrl+h",
+                    "delete_word_left",
+                    "Delete left to start of word",
+                    show=False,
+                ),
+                Binding(
+                    "ctrl+delete,alt+delete,ctrl+shift+delete,shift+ctrl+delete",
+                    "delete_word_right",
+                    "Delete right to start of word",
+                    show=False,
+                ),
+            ]
+        )
+        TextArea.BINDINGS = new_textarea_bindings
+        TextArea._merged_bindings = TextArea._merge_bindings()
+        for subcls in TextArea.__subclasses__():
+            try:
+                subcls._merged_bindings = subcls._merge_bindings()
+            except Exception:
+                pass
     except Exception:
         pass

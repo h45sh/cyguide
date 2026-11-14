@@ -8,8 +8,15 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 from uuid import UUID
 
+from rich.markdown import Markdown as RichMarkdown
 from rich.markup import escape
 from rich.text import Text
+
+
+def render_markdown(text: str) -> RichMarkdown:
+    return RichMarkdown(text, code_theme="monokai")
+
+
 from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -235,13 +242,12 @@ class PowerModeScreen(Screen):
         await self._restore_tabs()
         await self.refresh_ui()
         self.set_interval(0.033, self._flush_log_buffers)
-        if hasattr(self.app, "power_facade"):
-            if hasattr(self.app.power_facade, "on_findings_batch"):
-                self.app.power_facade.on_findings_batch(self.handle_live_update_batch)
-            else:
-                self.app.power_facade.on_finding_upsert(self.handle_live_update)
-        else:
-            self.app.store.on_upsert(self.handle_live_update)
+        facade = getattr(self.app, "power_facade", None)
+        if facade:
+            if hasattr(facade, "on_findings_batch"):
+                facade.on_findings_batch(self.handle_live_update_batch)
+            elif hasattr(facade, "on_finding_upsert"):
+                facade.on_finding_upsert(self.handle_live_update)
 
     def _queue_log_chunk(self, target_log: RichLog, chunk: str) -> None:
         """Buffer raw output chunks to be flushed at 30 FPS."""
@@ -501,6 +507,55 @@ class PowerModeScreen(Screen):
             self._active_subscriptions[r_job.job_id] = chunk_cb
             self.app.power_facade.subscribe_job_output(r_job.job_id, chunk_cb)
 
+        if self.terminal_count == 0:
+            await self._show_welcome_guide()
+
+    async def _show_welcome_guide(self) -> None:
+        """Display an operator onboarding guide when session has no active terminal tabs."""
+        try:
+            tabs = self.query_one("#job_tabs", TabbedContent)
+        except Exception:
+            return
+
+        if self.terminal_count == 0 and not any(p.id == "tab_guide" for p in tabs.query(TabPane)):
+            guide_md = (
+                "# ◆ OPERATOR WORKSPACE GUIDE\n\n"
+                "Welcome to the CyGuide Power Mode live operator environment.\n\n"
+                "### Quick Start\n"
+                "* Select a target from the **Entity Browser** on the left or type directly in the **Command Palette** below.\n"
+                "* Launch a security tool command (e.g. `nmap -sV 192.168.1.1` or `whois example.com`) and press **Enter**.\n"
+                "* Output streams in a dedicated tab with live telemetry and automatic entity graph discovery.\n\n"
+                "### Keyboard Shortcuts & Hidden Features\n"
+                "* **`Alt+[` / `Alt+]` (or `Alt+{` / `Alt+}`)**: Shrink and expand sidebar width (or Scratchpad width when focused).\n"
+                "* **`Ctrl+N`**: Toggle the Markdown **Scratchpad** (persistent operator notes docked on the right).\n"
+                "* **`Ctrl+B`**: Toggle sidebar visibility (Entity Browser and Job Queue).\n"
+                "* **`Ctrl+T` / `Ctrl+W`**: Open a new terminal tab / Close active terminal tab.\n"
+                "* **`Ctrl+Left` / `Ctrl+Right` (or `Ctrl+PageUp` / `PageDown`)**: Switch between active terminal tabs.\n"
+                "* **`Ctrl+F`**: Jump focus to the Target Filter box in the Entity Browser.\n"
+                "* **`!` prefix or `Ctrl+L`**: Execute raw shell commands (`!ls -la` or lock into shell mode with tab completion).\n"
+                "* **`Shift+Enter` / `Alt+Enter` / `Ctrl+J`**: Launch command into a new terminal tab.\n"
+                "* **`Ctrl+K`**: Kill / terminate the currently running tool job (`SIGTERM`).\n"
+                "* **`Ctrl+Y`**: Copy active terminal output to clipboard (`Ctrl+C` copies active mouse selection).\n"
+                "* **`Ctrl+E`**: Export full session markdown report and database archive.\n"
+                "* **`F1` / `?` / `help`**: Open full Keyboard Shortcuts & Hotkeys cheatsheet.\n"
+                "* **`Esc`**: Return to Dashboard.\n"
+            )
+            from textual.containers import VerticalScroll
+
+            guide_pane = TabPane(
+                "◆ GUIDE",
+                VerticalScroll(
+                    Static(render_markdown(guide_md), id="power_guide_text", classes="selectable"),
+                    id="power_guide_scroll",
+                ),
+                id="tab_guide",
+            )
+            try:
+                await tabs.add_pane(guide_pane)
+                tabs.active = "tab_guide"
+            except Exception:
+                pass
+
     async def refresh_ui(self) -> None:
         if not self.active_session_id:
             return
@@ -720,12 +775,18 @@ class PowerModeScreen(Screen):
             await self._update_context_from_selection()
 
     async def action_new_terminal_tab(self, title: Optional[str] = None) -> str:
+        tabs = self.query_one("#job_tabs", TabbedContent)
+        try:
+            if any(p.id == "tab_guide" for p in tabs.query(TabPane)):
+                await tabs.remove_pane("tab_guide")
+        except Exception:
+            pass
+
         self.terminal_count += 1
         tab_id = f"term_{self.terminal_count}"
         display_title = title or f"Terminal #{self.terminal_count}"
 
         job_log = RichLog(id=f"log_{tab_id}", highlight=False, markup=True, max_lines=5000)
-        tabs = self.query_one("#job_tabs", TabbedContent)
         await tabs.add_pane(TabPane(display_title, job_log, id=tab_id))
         tabs.active = tab_id
         return tab_id
@@ -970,15 +1031,51 @@ class PowerModeScreen(Screen):
 
     def action_toggle_sidebar(self) -> None:
         sidebar = self.query_one("#power_sidebar")
-        is_collapsed = not sidebar.has_class("collapsed")
-        sidebar.set_class(is_collapsed, "collapsed")
-        sidebar.display = not is_collapsed
+        resizer = None
         try:
             resizer = self.query_one("#sidebar_resizer")
-            resizer.set_class(is_collapsed, "hidden")
-            resizer.display = not is_collapsed
         except Exception:
             pass
+
+        is_collapsing = not sidebar.has_class("collapsed")
+        target_w = getattr(self, "_saved_sidebar_width", 34)
+        if not is_collapsing:
+            if hasattr(self.app, "settings"):
+                target_w = self.app.settings.get("power_sidebar_width", target_w)
+        else:
+            curr_val = getattr(sidebar.styles.width, "value", None)
+            if curr_val and curr_val > 0:
+                self._saved_sidebar_width = int(curr_val)
+
+        is_animating = getattr(self.app, "animations_enabled", False)
+        if is_animating:
+            if is_collapsing:
+                sidebar.add_class("collapsed")
+                if resizer:
+                    resizer.add_class("hidden")
+                sidebar.styles.animate(
+                    "width",
+                    value=0,
+                    duration=0.2,
+                    easing="in_out_cubic",
+                )
+            else:
+                sidebar.remove_class("collapsed")
+                if resizer:
+                    resizer.remove_class("hidden")
+                sidebar.styles.animate(
+                    "width",
+                    value=target_w,
+                    duration=0.2,
+                    easing="in_out_cubic",
+                )
+        else:
+            sidebar.set_class(is_collapsing, "collapsed")
+            sidebar.display = not is_collapsing
+            if resizer:
+                resizer.set_class(is_collapsing, "hidden")
+                resizer.display = not is_collapsing
+        self.refresh(layout=True)
 
     def action_nav_dashboard(self) -> None:
         self.app.switch_screen("dashboard")
@@ -1092,7 +1189,13 @@ class PowerModeScreen(Screen):
             await self.app.power_facade.remove_job(UUID(target_job_id))
             self.tab_to_job.pop(active_tab_id)
 
-        await tabs.remove_pane(active_tab_id)
+        try:
+            await tabs.remove_pane(active_tab_id)
+        except Exception:
+            pass
+        if not list(tabs.query(TabPane)):
+            self.terminal_count = 0
+            await self._show_welcome_guide()
         await self.refresh_ui()
 
     async def action_kill_job(self) -> None:
@@ -1207,6 +1310,10 @@ class PowerModeScreen(Screen):
 
     def _load_scratchpad(self) -> None:
         try:
+            if hasattr(self.app, "preferences"):
+                content = self.app.preferences.read_scratchpad()
+                self.query_one("#scratchpad_textarea", TextArea).load_text(content)
+                return
             if self.scratchpad_file == ":memory:":
                 return
             if os.path.exists(self.scratchpad_file):
@@ -1218,9 +1325,12 @@ class PowerModeScreen(Screen):
 
     def _save_scratchpad(self) -> None:
         try:
+            content = self.query_one("#scratchpad_textarea", TextArea).text
+            if hasattr(self.app, "preferences"):
+                self.app.preferences.write_scratchpad(content)
+                return
             if self.scratchpad_file == ":memory:":
                 return
-            content = self.query_one("#scratchpad_textarea", TextArea).text
             scratch_dir = os.path.dirname(os.path.abspath(self.scratchpad_file))
             if scratch_dir:
                 os.makedirs(scratch_dir, exist_ok=True)

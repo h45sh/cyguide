@@ -167,3 +167,52 @@ async def test_terminal_stream_text_selection():
 
         # 2. Test selection_updated triggers refresh without error
         term.selection_updated(sel)
+
+
+@pytest.mark.asyncio
+async def test_terminal_stream_mouse_drag_selection():
+    """Verify that mouse drag on TerminalStreamPane properly selects text with accurate coordinates."""
+    app = TerminalTestApp()
+    async with app.run_test() as pilot:
+        term = app.query_one("#term", TerminalStreamPane)
+        term.write("admin.example.com\napi.example.com\n")
+        term.flush()
+        await pilot.pause()
+
+        # Perform mouse click & drag (offset=(1, 0) accounts for 1-column left padding)
+        await pilot.mouse_down(term, offset=(1, 0))
+        await pilot.hover(term, offset=(5, 0))
+        await pilot.mouse_up(term, offset=(5, 0))
+        await pilot.pause()
+
+        selected = app.screen.get_selected_text()
+        assert selected == "admin"
+
+
+def test_ui_markup_escaping():
+    from rich.errors import MarkupError
+    from rich.markup import escape
+    from rich.text import Text
+
+    # Strings with unmatched closing tags that cause rich MarkupError if interpolated unescaped
+    crashing_inputs = [
+        "Unmatched closing tag [/red] in compiler output",
+        "Multiple tags [/bold][/italic][/blink]",
+        "Syntax error: <module> [/unknown_tag]",
+        "Arbitrary [/] root close tag",
+        "nested [/foo][bar][/bar]",
+    ]
+
+    for raw in crashing_inputs:
+        with pytest.raises(MarkupError):
+            Text.from_markup(f"[bold #f85149]Error:[/] [red]{raw}[/]")
+
+    all_inputs = crashing_inputs + [
+        "[bold]Open tag without close",
+        "[link=http://evil.com]clickme[/link]",
+        "[#ff0000]custom color[/#ff0000]",
+    ]
+    for raw in all_inputs:
+        escaped_text = Text.from_markup(f"[bold #f85149]Error:[/] [red]{escape(raw)}[/]")
+        assert escaped_text is not None
+        assert raw in escaped_text.plain

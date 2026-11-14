@@ -1,0 +1,28 @@
+{
+  "SEARCH": "Apache 2.4",
+  "RESULTS_EXPLOIT": [
+    {
+      "Title": "Apache 2.4.49/2.4.50 - Path Traversal & Remote Code Execution (RCE)",
+      "EDB-ID": "50383",
+      "Date_Published": "2021-10-06",
+      "Author": "Ash Daulton",
+      "Type": "remote",
+      "Platform": "multiple",
+      "Path": "/opt/exploitdb/exploits/multiple/remote/50383.sh",
+      "Codes": "CVE-2021-41773;CVE-2021-42013",
+      "Verified": "1"
+    },
+    {
+      "Title": "Apache + PHP < 5.3.12 / < 5.4.2 - cgi-bin Remote Code Execution",
+      "EDB-ID": "29290",
+      "Date_Published": "2013-10-29",
+      "Author": "anonymous",
+      "Type": "remote",
+      "Platform": "linux",
+      "Path": "/opt/exploitdb/exploits/linux/remote/29290.py",
+      "Codes": "CVE-2012-1823",
+      "Verified": "0"
+    }
+  ],
+  "RESULTS_PAPER": []
+}

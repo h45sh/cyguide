@@ -14,12 +14,12 @@ This document is the **single authoritative source of truth** for all completed,
 | **Power Mode Operator Workbench** | **Completed** | 30 | 30 | 0 | 100% |
 | **v1.8.0: Showcase, Textual Resilience & Automated Release** | **Completed** | 4 | 4 | 0 | 100% |
 | **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **Completed** | 22 | 22 | 0 | 100% |
-| **v1.10.0: Terminal Capabilities, IPC & Security/Encryption** | **Planned (Spec Ready)** | 13 | 1 | 12 | 8% |
-| **v1.10.5: Tool Ecosystem & Contributor Scaffolding** | **Planned (Spec Ready)** | 11 | 0 | 11 | 0% |
+| **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **In Progress (Fast-Tracked)** | 23 | 7 | 16 | 30% |
+| **v1.11.0: Advanced Terminal Capabilities, IPC & Security** | **Planned (Spec Ready)** | 13 | 1 | 12 | 8% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 12 | 0 | 12 | 0% |
 | **Phase 4: Tactical Research Co-Pilot & Offensive Engine** | **Planned (Future)** | 15 | 1 | 14 | 7% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **144** | **89** | **55** | **62%** |
+| **Total Project Tasks** | **In Progress** | **156** | **96** | **60** | **62%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -39,9 +39,9 @@ This document is the **single authoritative source of truth** for all completed,
               │
 [ v1.9.0 / Phase 3.5: Engine ] ─── Stream Throttling, Disk Spooling, Tab/Queue Sync, Tree Usability
               │
-[ v1.10.0: Terminal & Security ] ─ Interactive PTY (pyte), AES Vault (cryptography), Syntax (pygments), Graph (networkx)
+[ v1.10.0: Mega-Course & Tools ] ── 6+ Adapters (dnspython, searchsploit, ffuf, nuclei), Schema 2.0, Theory Tabs, Wordlists, Local Lab
               │
-[ v1.10.5: Ecosystem Expansion ] ─ Adapter Generator, Nuclei, FFUF, SQLMap, SearchSploit, NetExec, rich-pixels, dnspython
+[ v1.11.0: Terminal & Security ] ── Interactive PTY (pyte), AES Vault (cryptography), IPC Daemon, Graph (networkx)
               │
 [ v2.0.0: Flagship Launch ] ────── Standalone Binaries, Jinja2/WeasyPrint Reports, Dulwich Git Diffs, DuckDB, Playwright
               │
@@ -59,7 +59,7 @@ This document is the **single authoritative source of truth** for all completed,
 - [x] **Textual TUI Shell**: Implemented the base Textual application with screen management, reactive layouts, and custom theme styling ([`cyguide/app.py`](../../cyguide/app.py), [`cyguide/ui/style.css`](../../cyguide/ui/style.css)).
 - [x] **Dashboard Engagement Hub**: Built workspace and session navigation with inline renaming and deletion cascades ([`cyguide/ui/screens/home.py`](../../cyguide/ui/screens/home.py)).
 - [x] **Learning Mode Framework**: Developed guided curriculum screen with recipe selection, flag editor, and raw output panes ([`cyguide/ui/screens/learning.py`](../../cyguide/ui/screens/learning.py)).
-- [x] **Standard 15-Schema Finding Library**: Created standard Pydantic models for cybersecurity entities ([`cyguide/schemas/`](../../cyguide/schemas)).
+- [x] **Standard Finding Schema Library**: Created standard Pydantic models for cybersecurity entities ([`cyguide/schemas/`](../../cyguide/schemas)).
 - [x] **Project Governance & Packaging**: Established tiered protection rules, `pyproject.toml` packaging, and CI verification ([`docs/user/CONTRIBUTING.md`](../user/CONTRIBUTING.md)).
 
 ---
@@ -85,8 +85,9 @@ This document is the **single authoritative source of truth** for all completed,
 - [x] **High-Performance Database Indexes**: Added 5 composite indexes (`idx_nodes_session_schema`, `idx_edges_session`, `idx_edges_source`, `idx_edges_target`, `idx_event_log_session_time`) to eliminate table scans ([`cyguide/engine/store.py:118`](../../cyguide/engine/store.py#L118)).
 - [x] **Subprocess Execution Timeout Safeguards**: Wired configurable `timeout_seconds` with graceful `SIGTERM` cleanup across executor and actions ([`cyguide/engine/executor.py`](../../cyguide/engine/executor.py)).
 - [x] **Comprehensive User Manual & Contributing Guides**: Master shortcut tables, CLI manuals, and tiered protection documentation ([`docs/user/USER_MANUAL.md`](../user/USER_MANUAL.md), [`docs/user/CONTRIBUTING.md`](../user/CONTRIBUTING.md)).
-- [x] **166-Test Automated Hermetic Suite**: Fully automated test coverage across unit, integration, and UI flows with zero warnings or external network dependencies ([`tests/`](../../tests)).
-- [x] **Defense-in-Depth Security Hardening**: Remediated link-local cloud metadata SSRF vectors, enforced atomic `0o600` private permissions on settings/notes, expanded subprocess secret scrubbing, and neutralized LLM prompt tag breakouts ([`docs/developer/ARCHITECTURE.md:520`](ARCHITECTURE.md#L520), [`tests/unit/test_security_fixes.py`](../../tests/unit/test_security_fixes.py)).
+- [x] **Comprehensive Automated Hermetic Suite**: Fully automated test coverage across unit, integration, and UI flows with zero warnings or external network dependencies ([`tests/`](../../tests)).
+- [x] **Defense-in-Depth Security Hardening**: Remediated link-local cloud metadata SSRF vectors, enforced atomic `0o600` private permissions on settings/notes, expanded subprocess secret scrubbing, and neutralized LLM prompt tag breakouts ([`docs/developer/ARCHITECTURE.md:520`](ARCHITECTURE.md#L520), [`tests/unit/test_engine_executor.py`](../../tests/unit/test_engine_executor.py), [`tests/unit/test_gateway.py`](../../tests/unit/test_gateway.py)).
+
 - [x] **Centralized Data Directory Architecture (`cyguide/paths.py`)**: Unified cross-platform application directory under `~/.cyguide` (or `$CYGUIDE_DATA_DIR`) preventing directory pollution ([`cyguide/paths.py`](../../cyguide/paths.py)).
 - [x] **In-App Configuration Modal & Command Palette Providers (`ConfigModal`)**: Live tabbed settings editor for Ollama, Cloud AI, Database, and Custom Tools with Command Palette sub-palettes ([`cyguide/ui/screens/config_modal.py`](../../cyguide/ui/screens/config_modal.py)).
 - [x] **Resilient Multi-Key Cloud AI Fallback & Cooldown Engine**: Automatic failover across multi-provider API keys and local Ollama fallback on rate-limiting (429) ([`cyguide/engine/explainer.py:208`](../../cyguide/engine/explainer.py#L208)).
@@ -200,7 +201,95 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 
 ---
 
-### Milestone: v1.10.0 — Terminal Capabilities, IPC & Security/Encryption (Planned)
+### Milestone: v1.10.0 — Learning Mode Mega-Course, Schema 2.0 & Tool Ecosystem (Fast-Tracked)
+*(14/23 tasks complete — 61%)*
+
+> [!NOTE]
+> Fast-tracked ahead of terminal PTY/IPC to prioritize pedagogical mastery, tool richness, and curriculum-grade cybersecurity instruction.
+> Combines schema registry evolution, centralized wordlists, curriculum recipes, interactive theory briefings, offline local labs, and 6+ high-demand tool adapters.
+
+#### Track 1: Schema Registry Evolution & Finding Expansion
+- [x] **`exploit.reference` Schema Model**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Schemas
+  - Create Pydantic model for exploit intelligence capturing Exploit-DB ID, CVE cross-references, PoC code availability, platform (`linux`/`windows`/`webapps`), and verification status ([`cyguide/schemas/vulnerability.py:39`](../../cyguide/schemas/vulnerability.py#L39)).
+- [x] **`web.technology` / `software.banner` Schema Model**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Schemas
+  - Create typed finding schema for web framework, CMS, application server, and runtime version detection with confidence scoring and CPE identifiers ([`cyguide/schemas/web.py:65`](../../cyguide/schemas/web.py#L65)).
+- [x] **`audit.misconfig` Schema Model**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Schemas
+  - Create finding schema for policy violations, exposed `.git`/`.env` files, open directory listings, and cloud metadata exposures emitted by `nuclei` and `nikto` ([`cyguide/schemas/vulnerability.py:118`](../../cyguide/schemas/vulnerability.py#L118)).
+- [x] **Schema Versioning & Flexible Key Anchoring (`schema_version = "1.0"`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Schemas
+  - Add explicit `schema_version` to `BaseFinding` and support URL-anchored or target-flexible Primary Identity Keys (PIKs) for web-native findings. Update `scripts/generate_schema_registry.py` to auto-validate and regenerate documentation ([`cyguide/schemas/base.py:32`](../../cyguide/schemas/base.py#L32), [`docs/developer/SCHEMA_REGISTRY.md`](SCHEMA_REGISTRY.md)).
+
+#### Track 2: Centralized Wordlist & Asset Subsystem
+- [x] **Unified Wordlist Directory Architecture (`paths.get_default_wordlists_dir()`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Assets
+  - Centralize wordlists under `~/.cyguide/wordlists/` (or `$CYGUIDE_DATA_DIR/wordlists`) with `0o700` permissions, eliminating missing file errors in fuzzing tools ([`cyguide/paths.py:87`](../../cyguide/paths.py#L87)).
+- [x] **Bundled High-Signal Starter Micro-Wordlists**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Assets
+  - Package minimal, high-utility dictionaries inside the CyGuide wheel (`common_dirs.txt`, `subdomains_500.txt`, `common_params.txt`, `common_passwords.txt`, `common_usernames.txt`) and auto-extract on initial launch or `cyg init` ([`cyguide/assets/wordlists/`](../../cyguide/assets/wordlists), [`cyguide/engine/wordlists.py:22`](../../cyguide/engine/wordlists.py#L22)).
+- [x] **Dynamic Macro Wordlist Substitution in Recipes**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Engine / Recipes
+  - Support named wordlist macros in recipe flags (e.g. `{wordlist:common_dirs}` → `~/.cyguide/wordlists/common_dirs.txt`) with automatic fallback to bundled lists and UI input overrides ([`cyguide/engine/wordlists.py:91`](../../cyguide/engine/wordlists.py#L91), [`cyguide/ui/screens/learning.py:102`](../../cyguide/ui/screens/learning.py#L102)).
+
+#### Track 3: Tool Ecosystem Expansion & Contributor Scaffolding
+- [x] **AI Adapter Authoring Skill (`adapter-authoring`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Developer & Agent Experience
+  - Dedicated agent skill and workflow guiding the AI to inspect target tool binaries/help/man-pages, map findings to CyGuide schemas, author deep `manifest.toml` files with curriculum-grade recipes & wire theory, implement `adapter.py` with streaming JSON or regex parsing, and generate hermetic pytest fixtures. Replaces rigid CLI scaffolding scripts with contextual AI generation ([`.agents/skills/adapter-authoring/SKILL.md`](../../.agents/skills/adapter-authoring/SKILL.md)).
+- [x] **Pure-Python DNS Recon Probe (`tools/dnspython/`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Zero-Binary Probes
+  - Built-in, zero-external-binary passive DNS resolver, reverse-lookup, and zone-transfer (AXFR) engine emitting `dns.record` findings directly into the entity graph ([`tools/dnspython/`](../../tools/dnspython)).
+- [x] **SearchSploit Tool Adapter (`tools/searchsploit/`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Tool Plugins
+  - Command-line Exploit-DB integration querying local exploit archives for discovered `network.service` software versions via `--json`, directly emitting `exploit.reference` findings ([`tools/searchsploit/`](../../tools/searchsploit)).
+- [x] **FFUF Tool Adapter (`tools/ffuf/`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Tool Plugins
+  - High-performance Go web fuzzer alternative to `gobuster`, leveraging v1.9.0 log batching and named wordlists. Emits `web.endpoint` and `audit.misconfig` ([`tools/ffuf/`](../../tools/ffuf)).
+- [x] **Nuclei Vulnerability Scanner (`tools/nuclei/`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Tool Plugins
+  - Fast, template-based vulnerability scanning using community YAML signatures. Emits `vulnerability.found`, `web.technology`, and `audit.misconfig` ([`tools/nuclei/`](../../tools/nuclei)).
+- [ ] **SQLMap Tool Adapter (`tools/sqlmap/`)**:
+  - *Priority*: **P2** | *Complexity*: High | *Track*: Tool Plugins
+  - Automated SQL injection detection and database takeover with `--batch` non-interactive execution. Emits `vulnerability.found` (SQLi) and `credential.found`.
+- [ ] **NetExec (`nxc`) Network Spraying Adapter (`tools/netexec/`)**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Tool Plugins
+  - High-performance multi-protocol credential spraying and Active Directory enumeration across SMB, SSH, WinRM, and LDAP, emitting `credential.found` and `host.internal` models.
+- [x] **Hermetic Mock Scanner Testbed (`tests/fixtures/mock_tools/`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Testing / Reliability
+  - Pre-recorded CLI output dumps and mock runner fixtures across `nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `nuclei`, `searchsploit`, `ffuf`, and `dnspython` to run full end-to-end adapter tests in CI without requiring live binaries or internet connectivity ([`tests/fixtures/mock_tools/`](../../tests/fixtures/mock_tools), [`tests/unit/test_parsers/`](../../tests/unit/test_parsers)).
+
+#### Track 4: Learning Mode Mega-Course, Theory Primer & Socratic AI
+- [x] **Curriculum-Grade Recipe Taxonomy & Theory Metadata**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode
+  - Upgrade `manifest.toml` recipe specifications with `difficulty`, `track`, `concepts`, `wire_summary`, RFC standards references, and blue-team `remediation_guide`. Expand each tool to 4–6 progressive educational recipes ([`cyguide/engine/manifest.py:17`](../../cyguide/engine/manifest.py#L17), [`tools/`](../../tools)).
+- [ ] **Interactive Theory & Protocol Deep Dive Tab**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode
+  - Add a dedicated third tab in Learning Mode (`Theory & Deep Dive`) displaying OSI layer packet flows, protocol state machines (TCP 3-way handshake vs SYN teardown, DNS recursion vs AXFR, HTTP header injection), and RFC briefings before execution.
+- [ ] **Socratic AI Tutor & Guided Exploration**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode / AI
+  - Implement toggleable "Socratic Tutor" persona in the AI Explainer pane that prompts students with analytical questions about findings (e.g., assessing version risk, HTTP redirect chains) and guides next steps rather than just dumping static summaries.
+- [ ] **Dual-Lens Perspective: Offense vs Blue-Team Defense**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Learning Mode
+  - Provide a toggleable "Defender's Lens" detailing how the scan appears in SIEM/IDS telemetry (Snort, Suricata, Zeek) and exact configuration hardening steps to remediate discovered risks.
+- [ ] **Curriculum Syllabus & Mastery Progress Tracking**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Learning Mode
+  - Group recipes into sequential learning tracks (Network Discovery, DNS Mapping, Web Fuzzing, Vuln Auditing, Exploit Research) with progress tracking saved in `~/.cyguide/settings.json`, displaying mastery badges and completion percentages.
+- [ ] **Pre-flight Dependency & Parameter Verification**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Learning Mode
+  - Validate required binaries, wordlists, and target variables before execution, offering one-click remediation or guidance if an asset is missing.
+
+#### Track 5: Hermetic Local Lab & Target Sandboxes
+- [ ] **Built-in Mock Target Lab Server (`cyg lab start`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Local Lab
+  - Lightweight embedded asyncio loopback server running on `127.0.0.1:8888` simulating realistic web endpoints, HTTP headers, `/robots.txt`, and sample vulnerabilities for 100% legal, offline student practice.
+- [ ] **Interactive Concept Challenges / Flag Verification**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Local Lab
+  - Embedded scenario checks verifying students understand why a scan returned specific responses (e.g., distinguishing 403 Forbidden from 404 Not Found, identifying stealth scan packet resets).
+
+---
+
+### Milestone: v1.11.0 — Advanced Terminal Capabilities, IPC & Security/Encryption (Planned)
 
 > [!NOTE]
 > Detailed technical specifications, data models, and sequence flows are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:36-160`](V2_PLATFORM_SPECIFICATION.md#L36-L160).
@@ -246,47 +335,6 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **Encrypted Archive Integrity & Tamper Fuzzing**:
   - *Priority*: **P2** | *Complexity*: Medium | *Track*: Security / Reliability
   - Automated test suite verifying cryptographic rejection of truncated, bit-flipped, or maliciously crafted session archives (Argon2id + AES-256-GCM auth tag failures).
-
----
-
-### Milestone: v1.10.5 — Tool Ecosystem Expansion & Contributor Scaffolding (Planned)
-
-> [!NOTE]
-> Detailed adapter generator templates and schema contracts are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:162-192`](V2_PLATFORM_SPECIFICATION.md#L162-L192).
-
-- [ ] **CLI Adapter Generator (`cyg create-adapter <name>`)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Developer Experience
-  - Scaffolding generator creating `tools/<name>/manifest.toml`, `adapter.py`, typed finding models, and hermetic pytest tests in one step.
-- [ ] **Nuclei Tool Adapter (`tools/nuclei/`)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Tool Plugins
-  - Fast, template-based vulnerability scanning using community YAML signatures. Emits `vulnerability.found` and `web.vulnerability`.
-- [ ] **SearchSploit Tool Adapter (`tools/searchsploit/`)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Tool Plugins
-  - Command-line Exploit-DB integration querying local exploit archives for discovered `network.service` software versions via `--json`, directly suggesting exploit PoCs and CVE references.
-- [ ] **FFUF Tool Adapter (`tools/ffuf/`)**:
-  - *Priority*: **P2** | *Complexity*: Low | *Track*: Tool Plugins
-  - High-performance Go web fuzzer alternative to `gobuster`, leveraging v1.9.0 log batching. Emits `web.endpoint`.
-- [ ] **SQLMap Tool Adapter (`tools/sqlmap/`)**:
-  - *Priority*: **P2** | *Complexity*: High | *Track*: Tool Plugins
-  - Automated SQL injection detection and database takeover. Emits `vulnerability.found` (SQLi) and `credential.found`.
-- [ ] **NetExec (`nxc`) Network Spraying Adapter (`tools/netexec/`)**:
-  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Tool Plugins
-  - High-performance multi-protocol credential spraying and Active Directory enumeration across SMB, SSH, WinRM, and LDAP, emitting `credential.found` and `host.internal` models.
-- [ ] **Visual Web Recon Adapter (`tools/gowitness/` or `aquatone`)**:
-  - *Priority*: **P2** | *Complexity*: Low | *Track*: Tool Plugins
-  - Automated headless web screenshot capture for all discovered HTTP/HTTPS endpoints, writing PNG captures to session asset directories.
-- [ ] **In-Terminal Image & Screenshot Renderer (`rich-pixels` + `Pillow`)**:
-  - *Priority*: **P2** | *Complexity*: Low | *Track*: UI / Modals
-  - Display captured web screenshots and service favicons directly inside Textual terminal modals using half-block characters and 24-bit ANSI colors.
-- [ ] **Pure-Python DNS Recon Probe (`dnspython`)**:
-  - *Priority*: **P2** | *Complexity*: Low | *Track*: Zero-Binary Probes
-  - Built-in, zero-external-binary passive DNS resolver, reverse-lookup, and zone-transfer (AXFR) engine emitting `dns.record` findings directly into the entity graph.
-- [ ] **External User Plugin Loading**:
-  - *Priority*: **P3** | *Complexity*: Medium | *Track*: Extensibility
-  - Support dynamic runtime discovery of custom user-defined adapters from `~/.config/cyguide/tools/` and `$CYGUIDE_PLUGIN_PATH`.
-- [ ] **Hermetic Mock Scanner Testbed (`tests/fixtures/mock_tools/`)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Testing / Reliability
-  - Pre-recorded CLI output dumps and mock runner fixtures across `nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `nuclei`, `searchsploit`, and `ffuf` to run full end-to-end adapter tests in CI without requiring external network connectivity or root security binaries.
 
 ---
 

@@ -14,10 +14,19 @@ class ToolMeta(BaseModel):
     binary: str
 
 
+class RecipeTheory(BaseModel):
+    concept: str = ""
+    explanation: str = ""
+    packet_wire_summary: str = ""
+    remediation: str = ""
+
+
 class Recipe(BaseModel):
     name: str
+    difficulty: str = "Beginner"
     description: str
     flags: List[str] = Field(default_factory=list)
+    theory: Optional[RecipeTheory] = None
 
 
 class LearningConfig(BaseModel):
