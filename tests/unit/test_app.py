@@ -812,6 +812,22 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         ws_list = dashboard.query_one("#workspace_list")
         sess_list = dashboard.query_one("#session_list")
 
+        async def settle():
+            for _ in range(20):
+                if dashboard._ws_debounce_task and not dashboard._ws_debounce_task.done():
+                    try:
+                        await dashboard._ws_debounce_task
+                    except asyncio.CancelledError:
+                        pass
+                if dashboard._sess_debounce_task and not dashboard._sess_debounce_task.done():
+                    try:
+                        await dashboard._sess_debounce_task
+                    except asyncio.CancelledError:
+                        pass
+                await pilot.pause(0.05)
+                if sess_list.index is not None and len(sess_list.children) > 0:
+                    break
+
         # 1. Start at index 0 and navigate down to index 1
         dashboard.selected_ws_id = ws_list.children[0].id[3:]
         ws_list.index = 0
@@ -819,12 +835,7 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         await pilot.pause(0.1)
         await pilot.press("down")
         await pilot.pause(0.1)
-        if dashboard._ws_debounce_task:
-            await dashboard._ws_debounce_task
-        await pilot.pause(0.1)
-        if dashboard._ws_debounce_task:
-            await dashboard._ws_debounce_task
-        await pilot.pause(0.1)
+        await settle()
         # Unicode pointer ▸ should move immediately to current workspace index
         assert ws_list.index is not None
         assert "▸" in str(ws_list.children[ws_list.index].query_one(Static).render())
@@ -861,9 +872,7 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         # 5. Move down to next workspace
         await pilot.press("down")
         await pilot.pause(0.1)
-        if dashboard._ws_debounce_task:
-            await dashboard._ws_debounce_task
-        await pilot.pause(0.1)
+        await settle()
         assert ws_list.index is not None
         assert "▸" in str(ws_list.children[ws_list.index].query_one(Static).render())
         assert sess_list.index == 0
@@ -872,17 +881,7 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         # 6. Enter workspace via Enter key on workspace_list
         await pilot.press("enter")
         await pilot.pause(0.1)
-        if dashboard._ws_debounce_task:
-            try:
-                await dashboard._ws_debounce_task
-            except asyncio.CancelledError:
-                pass
-        if dashboard._sess_debounce_task:
-            try:
-                await dashboard._sess_debounce_task
-            except asyncio.CancelledError:
-                pass
-        await pilot.pause(0.2)
+        await settle()
         assert sess_list.has_focus is True
         assert sess_list.index == 0
         assert sess_list.children[0].styles.background.hex == "#282E3A"
@@ -1010,6 +1009,20 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         first_sess_name = "Alpha Session" if first_ws_name == "Default Project" else "Beta Session"
         second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
 
+        async def settle_d():
+            for _ in range(20):
+                if d._ws_debounce_task and not d._ws_debounce_task.done():
+                    try:
+                        await d._ws_debounce_task
+                    except asyncio.CancelledError:
+                        pass
+                if d._sess_debounce_task and not d._sess_debounce_task.done():
+                    try:
+                        await d._sess_debounce_task
+                    except asyncio.CancelledError:
+                        pass
+                await pilot.pause(0.05)
+
         # 1. Start at index 0 with corresponding selected_ws_id
         await pilot.pause(0.1)
         d.selected_ws_id = ws_items[0]["id"]
@@ -1022,9 +1035,7 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         # 2. Navigate down to second workspace
         await pilot.press("down")
         await pilot.pause(0.1)
-        if d._ws_debounce_task:
-            await d._ws_debounce_task
-        await pilot.pause(0.1)
+        await settle_d()
         assert ws_list.index == 1
 
         details = d.query_one("#session_details_content")
@@ -1038,9 +1049,7 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         # 3. Navigate back up to first workspace
         await pilot.press("up")
         await pilot.pause(0.1)
-        if d._ws_debounce_task:
-            await d._ws_debounce_task
-        await pilot.pause(0.1)
+        await settle_d()
         assert ws_list.index == 0
 
         details = d.query_one("#session_details_content")
