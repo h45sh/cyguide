@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.10.1](https://github.com/h45sh/cyguide/compare/v1.10.0...v1.10.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **test:** stabilize workspace and session list highlight debounce in unit tests ([766fca2](https://github.com/h45sh/cyguide/commit/766fca2daaa357a9a463b66c4afa9a1ece1437eb))
+
 ## [1.10.0](https://github.com/h45sh/cyguide/compare/v1.9.1...v1.10.0) (2026-11-15)
 
 
