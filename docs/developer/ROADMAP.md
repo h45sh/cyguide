@@ -237,7 +237,7 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 #### Track 3: Tool Ecosystem Expansion & Contributor Scaffolding
 - [x] **AI Adapter Authoring Skill (`adapter-authoring`)**:
   - *Priority*: **P1** | *Complexity*: Low | *Track*: Developer & Agent Experience
-  - Dedicated agent skill and workflow guiding the AI to inspect target tool binaries/help/man-pages, map findings to CyGuide schemas, author deep `manifest.toml` files with curriculum-grade recipes & wire theory, implement `adapter.py` with streaming JSON or regex parsing, and generate hermetic pytest fixtures. Replaces rigid CLI scaffolding scripts with contextual AI generation ([`.agents/skills/adapter-authoring/SKILL.md`](../../.agents/skills/adapter-authoring/SKILL.md)).
+  - Dedicated agent skill and standalone authoring toolkit guiding the AI and developers to inspect target tool binaries/help/man-pages, map findings to CyGuide schemas, author deep `manifest.toml` files with curriculum-grade recipes & wire theory, implement `adapter.py` with streaming JSON or regex parsing, and generate hermetic pytest fixtures. Maintained in the independent [`cyguide-adapter-authoring`](https://github.com/h45sh/cyguide-adapter-authoring) project.
 - [x] **Pure-Python DNS Recon Probe (`tools/dnspython/`)**:
   - *Priority*: **P1** | *Complexity*: Low | *Track*: Zero-Binary Probes
   - Built-in, zero-external-binary passive DNS resolver, reverse-lookup, and zone-transfer (AXFR) engine emitting `dns.record` findings directly into the entity graph ([`tools/dnspython/`](../../tools/dnspython)).
