@@ -71,7 +71,7 @@ WORKDIR /app
 COPY pyproject.toml requirements.txt ./
 COPY cyguide/ cyguide/
 COPY tools/ tools/
-COPY assets/ assets/
+COPY assets/wordlists/ assets/wordlists/
 COPY README.md LICENSE ./
 
 # Install CyGuide in the container
