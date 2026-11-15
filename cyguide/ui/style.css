@@ -2039,7 +2039,7 @@ ShortcutsDialog {
 #browser_header_bar {
     height: auto;
     width: 100%;
-    margin-bottom: 0;
+    margin-bottom: 1;
     align: left middle;
 }
 
@@ -2071,7 +2071,7 @@ ShortcutsDialog {
 
 #search_input {
     margin-top: 0;
-    margin-bottom: 0;
+    margin-bottom: 1;
     background: #0f1114;
     border: round #334155;
     color: #e2e8f0;
@@ -2094,7 +2094,7 @@ ShortcutsDialog {
     background: #14161b;
     border: round #334155;
     padding: 0;
-    margin-right: 0;
+    margin-right: 1;
 }
 
 #tool_catalog_pane:focus-within {
@@ -2229,7 +2229,7 @@ ToolListItem.--highlight .tool_summary_label {
     height: auto;
     width: 100%;
     background: #181c24;
-    padding: 0 1;
+    padding: 1 2;
     border-bottom: solid #283344;
 }
 
@@ -2238,6 +2238,7 @@ ToolListItem.--highlight .tool_summary_label {
     width: 100%;
     align: left middle;
     margin-top: 0;
+    margin-bottom: 0;
 }
 
 #inspector_title {
@@ -2259,7 +2260,7 @@ ToolListItem.--highlight .tool_summary_label {
     height: 1;
     width: 100%;
     align: left middle;
-    margin-top: 0;
+    margin-top: 1;
     margin-bottom: 0;
 }
 
@@ -2287,7 +2288,7 @@ ToolListItem.--highlight .tool_summary_label {
 #inspector_split_body {
     height: 1fr;
     width: 100%;
-    padding: 0;
+    padding: 1 1;
     overflow-y: hidden;
 }
 
@@ -2297,8 +2298,8 @@ ToolListItem.--highlight .tool_summary_label {
     background: #101318;
     border: round #283344;
     padding: 0 1;
-    margin-top: 1;
     margin-right: 1;
+    margin-top: 0;
     margin-bottom: 0;
 }
 
@@ -2308,8 +2309,8 @@ ToolListItem.--highlight .tool_summary_label {
     background: #101318;
     border: round #283344;
     padding: 0 1;
-    margin-top: 1;
     margin-left: 0;
+    margin-top: 0;
     margin-bottom: 0;
 }
 
@@ -2336,7 +2337,7 @@ ToolListItem.--highlight .tool_summary_label {
     text-style: bold;
     width: 100%;
     border-bottom: solid #1e293b;
-    margin-bottom: 0;
+    margin-bottom: 1;
 }
 
 #inspector_desc_text {
@@ -2387,7 +2388,7 @@ ToolListItem.--highlight .tool_summary_label {
     height: auto;
     width: 100%;
     align: center middle;
-    padding: 0 1;
+    padding: 1 2;
     margin-top: 0;
     margin-bottom: 0;
     border-top: solid #283344;
@@ -2397,7 +2398,7 @@ ToolListItem.--highlight .tool_summary_label {
 
 #start_lesson_btn {
     height: 3;
-    width: 38;
+    width: 42;
     min-width: 36;
     background: #132d1d;
     border: round #22c55e;

@@ -6,7 +6,7 @@ Welcome to the authoritative system architecture specification for CyGuide. This
 
 ## 1. Core Philosophy: The Smart-Adapter Platform
 
-CyGuide is a modular cybersecurity investigation and learning platform built for the terminal. It is engineered to solve a pervasive industry problem: **tool fragmentation and cognitive overload**. In traditional workflows, security practitioners run disparate CLI tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`) that emit incompatible text, XML, and JSON outputs, requiring tedious manual correlation.
+CyGuide is a modular cybersecurity investigation and learning platform built for the terminal. It is engineered to solve a pervasive industry problem: **tool fragmentation and cognitive overload**. In traditional workflows, security practitioners run disparate CLI tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`) that emit incompatible text, XML, and JSON outputs, requiring tedious manual correlation.
 
 CyGuide solves this through a **"Smart Adapter / Stupid Framework"** architecture:
 
@@ -23,11 +23,15 @@ CyGuide solves this through a **"Smart Adapter / Stupid Framework"** architectur
 ┌───────────────────────────────────────────┴────────────────────────────────────────────┐
 │                                 THE "SMART" ADAPTERS                                   │
 │                                                                                        │
-│   • tools/nmap       -> Encapsulates nmap flags, stdout parsing, and host/service models│
-│   • tools/gobuster   -> Encapsulates directory fuzzing and endpoint generation         │
-│   • tools/nikto      -> Encapsulates web vulnerability discovery and CVE linking        │
-│   • tools/whois      -> Encapsulates domain and netblock extraction                     │
-│   • tools/subfinder  -> Encapsulates passive subdomain discovery                        │
+│   • tools/nmap         -> Encapsulates nmap flags, stdout parsing, and host/service    │
+│   • tools/gobuster     -> Encapsulates directory fuzzing and endpoint generation       │
+│   • tools/nikto        -> Encapsulates web vulnerability discovery and CVE linking      │
+│   • tools/whois        -> Encapsulates domain and netblock extraction                   │
+│   • tools/subfinder    -> Encapsulates passive subdomain discovery                      │
+│   • tools/dnspython    -> Encapsulates pure-Python DNS resolution and zone transfers    │
+│   • tools/searchsploit -> Encapsulates Exploit-DB offline vulnerability correlation    │
+│   • tools/ffuf         -> Encapsulates high-speed web fuzzing and sensitive exposure   │
+│   • tools/nuclei       -> Encapsulates template-based vulnerability assessment          │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -75,6 +79,10 @@ graph TB
         Nikto["tools/nikto"]
         Whois["tools/whois"]
         Subfinder["tools/subfinder"]
+        FFUF["tools/ffuf"]
+        Nuclei["tools/nuclei"]
+        SearchSploit["tools/searchsploit"]
+        DnsPython["tools/dnspython"]
         Shell["ShellAdapter (!)"]
     end
 
@@ -399,7 +407,7 @@ CyGuide features a dedicated environment diagnostic suite in [`cyguide/engine/di
 
 1. **System Environment**: Python version ($\ge 3.11$), operating system, Textual TUI framework availability.
 2. **Storage Integrity**: Writable `data/` directory, SQLite table existence, database `PRAGMA integrity_check`.
-3. **Security Tool Discovery**: Validates presence of `nmap`, `gobuster`, `nikto`, `subfinder`, and `whois` in `$PATH`.
+3. **Security Tool Discovery**: Validates presence of all 9 security tools (`nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`) in `$PATH` and active Python environment.
 4. **AI Explainer Connectivity**: Verifies local Ollama HTTP status and inspects cloud API key configurations (`CYGUIDE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
 
 In addition to the CLI command (`cyg check`), the active TUI surfaces a live interactive `ToolHealthModal` via the Command Palette (`Ctrl+P`), giving operators real-time discovery badges, exact binary paths, and copyable installation hints without leaving the workbench.

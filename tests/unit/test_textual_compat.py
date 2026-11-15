@@ -363,7 +363,7 @@ def test_kitty_parser_extended_delete_aliases():
     from textual._xterm_parser import XTermParser
     from textual.events import _get_key_aliases
 
-    parser = XTermParser(lambda msg: None)
+    parser = XTermParser(debug=False)
     # \x1b[3;5u is Kitty's Ctrl+Delete
     res_ctrl = parser._parse_extended_key("\x1b[3;5u")
     assert res_ctrl is not None

@@ -822,6 +822,9 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         if dashboard._ws_debounce_task:
             await dashboard._ws_debounce_task
         await pilot.pause(0.1)
+        if dashboard._ws_debounce_task:
+            await dashboard._ws_debounce_task
+        await pilot.pause(0.1)
         # Unicode pointer ▸ should move immediately to current workspace index
         assert ws_list.index is not None
         assert "▸" in str(ws_list.children[ws_list.index].query_one(Static).render())

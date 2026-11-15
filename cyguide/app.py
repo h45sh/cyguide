@@ -866,7 +866,7 @@ class CyGuideApp(App):
 
         # 1. Screen / View Toggles
         anim_badge = (
-            "[bold green]● ON[/bold green]" if self.animations_enabled else "[dim]⊘ OFF[/dim]"
+            "[bold #34d399]● ON[/bold #34d399]" if self.animations_enabled else "[dim]⊘ OFF[/dim]"
         )
         yield SystemCommand(f"Toggle Animations  {anim_badge}", "", self.action_toggle_animations)
 
@@ -878,10 +878,10 @@ class CyGuideApp(App):
         if total == 0:
             health_badge = "[#34d399]● Ready[/]"
         elif not issues:
-            health_badge = f"[bold green]● Healthy ({ok_count}/{total})[/bold green]"
+            health_badge = f"[bold #34d399]● Healthy ({ok_count}/{total})[/bold #34d399]"
         else:
             health_badge = (
-                f"[bold red]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold red]"
+                f"[bold #f87171]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold #f87171]"
             )
 
         yield SystemCommand(f"Tool Health  {health_badge}", "", self.action_show_tool_health)

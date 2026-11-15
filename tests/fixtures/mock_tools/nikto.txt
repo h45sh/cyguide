@@ -1,0 +1,14 @@
+- Nikto v2.1.6
+---------------------------------------------------------------------------
++ Target IP:          192.168.1.50
++ Target Hostname:    target.local
++ Target Port:        80
++ Start Time:         2026-08-26 12:00:00 (GMT0)
+---------------------------------------------------------------------------
++ Server: Apache/2.4.41 (Ubuntu)
++ Retrieved x-powered-by header: PHP/7.4.3
++ /admin/: Directory indexing found.
++ OSVDB-3268: /icons/: Directory indexing found.
++ OSVDB-112004: /cgi-bin/test.cgi: Site appears vulnerable to the 'Shellshock' vulnerability.
++ OSVDB-3092: /test/: This might be interesting...
++ 0 host(s) tested

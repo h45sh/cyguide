@@ -22,6 +22,10 @@ INSTALLATION_HINTS: Dict[str, str] = {
     "nikto": "sudo apt install nikto  (or: brew install nikto)",
     "subfinder": "go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.6.6",
     "whois": "sudo apt install whois  (or: brew install whois)",
+    "dnspython": "pip install dnspython",
+    "ffuf": "sudo apt install ffuf  (or: go install github.com/ffuf/ffuf/v2@latest)",
+    "nuclei": "sudo apt install nuclei  (or: go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest)",
+    "searchsploit": "sudo apt install exploitdb  (or: git clone https://gitlab.com/exploit-database/exploitdb.git /opt/exploitdb)",
 }
 
 
@@ -217,12 +221,17 @@ class DiagnosticEngine:
 
             if is_installed:
                 installed_count += 1
+                binary_label = (
+                    binary_path
+                    if binary_path
+                    else ("Python module" if name == "dnspython" else "PATH")
+                )
                 report.checks.append(
                     DiagnosticCheck(
                         name=f"Tool: {name}",
                         category="Tools",
                         status="ok",
-                        message=f"Installed at {binary_path or 'PATH'}",
+                        message=f"Installed at {binary_label}",
                         details={"description": description, "binary": binary_path},
                     )
                 )
@@ -412,10 +421,15 @@ class DiagnosticEngine:
             )
 
             if is_installed:
+                binary_label = (
+                    binary_path
+                    if binary_path
+                    else ("Python module" if name == "dnspython" else "PATH")
+                )
                 health[name] = {
                     "status": "ok",
                     "healthy": True,
-                    "message": f"Installed ({binary_path or 'PATH'})",
+                    "message": f"Installed ({binary_label})",
                     "binary": binary_path,
                     "hint": None,
                 }

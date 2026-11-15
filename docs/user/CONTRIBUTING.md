@@ -64,52 +64,57 @@ flags = ["-u", "$TARGET", "-w", "/usr/share/wordlists/dirb/common.txt"]
 Adapters inherit from `ToolAdapter` in `cyguide.engine.adapter` and implement three core methods:
 
 ```python
-from typing import List, AsyncGenerator
+import shlex
+import shutil
+from typing import Any, AsyncIterator, Dict, List
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.schemas.base import BaseFinding
-from cyguide.schemas.web import WebEndpointFinding
+from cyguide.schemas.web import WebEndpoint
 
 
 class MyToolAdapter(ToolAdapter):
-    @property
-    def name(self) -> str:
-        return "mytool"
-
     def validate_install(self) -> bool:
         """Check if the external CLI binary is available on PATH."""
-        return self._binary_exists("mytool")
+        return shutil.which("mytool") is not None
 
-    def build_command(self, target: str, flags: List[str]) -> List[str]:
+    def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         """Construct the CLI arguments safely as an argument list (preventing shell injection)."""
-        return ["mytool", "-u", target] + flags
+        raw_flags = params.get("raw_flags", "")
+        flag_args = shlex.split(raw_flags) if raw_flags else []
+        url = target.pik.get("url") or target.data.get("url", "")
+        return ["mytool", "-u", url] + flag_args
 
     async def parse_output(
-        self, stream: AsyncGenerator[str, None]
-    ) -> AsyncGenerator[BaseFinding, None]:
-        """Parse streaming line-by-line stdout into validated BaseFinding schemas."""
-        async for line in stream:
+        self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
+    ) -> AsyncIterator[BaseFinding]:
+        """Parse raw stdout into validated BaseFinding schemas."""
+        for line in raw_stdout.splitlines():
             cleaned = line.strip()
             if "200 OK" in cleaned:
                 path = cleaned.split()[0]
-                yield WebEndpointFinding(url=path, status_code=200, source_tool="mytool")
+                yield WebEndpoint.create(
+                    url=path,
+                    host_ip=target.pik.get("host_ip") or target.pik.get("ip"),
+                    status_code=200,
+                )
 ```
 
 ---
 
 ## 3. Standard Finding Schemas & Primary Identity Keys (PIKs)
 
-To enable tool chaining (e.g. `nmap` discovering a port, triggering `gobuster` on that port), all findings inherit from `BaseFinding` and declare a deterministic **Primary Identity Key (PIK)**.
+To enable tool chaining (e.g. `nmap` discovering a port, triggering `gobuster` or `ffuf` on that port), all findings inherit from `BaseFinding` and declare a deterministic **Primary Identity Key (PIK)**.
 
 | Schema Type | Finding Class | PIK Identifying Fields |
 | :--- | :--- | :--- |
-| `network.host` | `HostFinding` | `{"ip": "<ip_address>"}` |
-| `network.service` | `ServiceFinding` | `{"host_ip": "<ip>", "port": <port>, "protocol": "<proto>"}` |
-| `web.endpoint` | `WebEndpointFinding` | `{"url": "<url>", "method": "<method>"}` |
-| `dns.record` | `DNSRecordFinding` | `{"domain": "<domain>", "record_type": "<type>", "value": "<val>"}` |
-| `vulnerability.found` | `VulnerabilityFinding` | `{"target": "<target>", "vuln_id": "<cve_or_id>"}` |
+| `network.host` | `NetworkHost` | `{"ip": "<ip_address>"}` |
+| `network.service` | `NetworkService` | `{"host_ip": "<ip>", "port": <port>, "protocol": "<proto>"}` |
+| `web.endpoint` | `WebEndpoint` | `{"url": "<url>"}` |
+| `dns.record` | `DnsRecord` | `{"domain": "<domain>", "type": "<type>", "value": "<val>"}` |
+| `vulnerability.found` | `VulnerabilityFound` | `{"host_ip": "<ip>", "vuln_id": "<cve_or_id>"}` |
 
 > [!TIP]
-> Consult [`docs/developer/SCHEMA_REGISTRY.md`](../developer/SCHEMA_REGISTRY.md) for the complete reference of all 15 active schemas.
+> Consult [`docs/developer/SCHEMA_REGISTRY.md`](../developer/SCHEMA_REGISTRY.md) for the complete reference of all 18 active schemas.
 
 ---
 

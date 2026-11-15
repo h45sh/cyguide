@@ -94,7 +94,7 @@ Press `Ctrl+L` from the Dashboard to switch to Learning Mode.
 </p>
 
 ### 1. Tool Browser
-Browse all registered security adapters (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`):
+Browse all registered security adapters (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`):
 * Type to filter tools by name, category, or capability.
 * Inspect tool recipes, supported inputs, and emitted finding types.
 * Press `Enter` on any tool to enter its interactive Lesson Screen.
@@ -167,7 +167,7 @@ Configure external plugin directories (`--tools`) to load third-party adapters a
 </p>
 
 ### Live Tool Health Modal
-Select **Tool Health** in the Command Palette to inspect binary availability on PATH (`nmap`, `gobuster`, `nikto`, `subfinder`, `whois`) with exact filesystem paths and package manager installation hints.
+Select **Tool Health** in the Command Palette to inspect binary and module availability on PATH (`nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`) with exact filesystem paths and package manager installation hints.
 
 <p align="center">
   <img src="../../assets/tool_health.png" alt="CyGuide Tool Health Diagnostics Modal" width="100%">
