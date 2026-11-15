@@ -457,21 +457,31 @@ class CyGuideApp(App):
         return os.environ.get("SHELL", "/bin/bash")
 
     def get_shell_environment(self) -> Dict[str, str]:
-        """Capture the full login shell environment."""
+        """Capture the full shell environment.
+
+        If already running within an active user environment (PATH contains user/home bins),
+        returns a copy of os.environ immediately without forking an expensive login subshell.
+        """
+        current_env = os.environ.copy()
+        path = current_env.get("PATH", "")
+        home = current_env.get("HOME", "")
+        if home and (home in path or "/usr/local/bin" in path or "/home" in path or "/opt" in path):
+            return current_env
+
         shell = self.detect_user_shell()
         try:
             # Run a login shell to capture the fully resolved environment
             result = subprocess.run(
-                [shell, "-l", "-c", "env"], capture_output=True, text=True, timeout=5
+                [shell, "-l", "-c", "env"], capture_output=True, text=True, timeout=2
             )
             env = {}
             for line in result.stdout.splitlines():
                 if "=" in line:
                     key, _, val = line.partition("=")
                     env[key] = val
-            return env if env else os.environ.copy()
+            return env if env else current_env
         except Exception:
-            return os.environ.copy()
+            return current_env
 
     @work(exclusive=True, group="shell_env")
     async def _async_load_shell_env(self) -> None:

@@ -294,6 +294,9 @@ class DashboardScreen(Screen):
         except Exception:
             return
 
+        if not getattr(diag_list, "is_attached", True):
+            return
+
         issues = {name: info for name, info in health.items() if not info.get("healthy", False)}
         await diag_list.clear()
 
