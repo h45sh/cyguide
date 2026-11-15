@@ -1,10 +1,23 @@
 [meta]
 name = "nikto"
-description = "Web server scanner"
-one_line_summary = "scan a web server for known vulnerabilities and misconfigurations"
-category = "Vulnerability Scanning"
+description = "Comprehensive web server scanner for finding dangerous files, outdated server software, insecure HTTP headers, and server misconfigurations."
+one_line_summary = "scan web servers for security misconfigurations and obsolete software"
+category = "Vulnerability Assessment"
 categories = ["vuln", "web", "scanner"]
 binary = "nikto"
+theory = """
+### Protocol Theory & Heuristic Vulnerability Auditing
+Nikto queries over 6,700 known vulnerabilities, dangerous scripts, and software configuration weaknesses across web servers (RFC 2616).
+
+### Primary Audit Vectors
+* **Dangerous HTTP Methods**: Probes for insecure WebDAV and legacy methods (`PUT`, `DELETE`, `TRACE`). Detects Cross-Site Tracing (XST).
+* **Defensive Header Auditing**: Audits missing security headers: `Strict-Transport-Security` (HSTS), `Content-Security-Policy` (CSP), and `X-Frame-Options`.
+* **Outdated Server Fingerprints**: Matches `Server` and `X-Powered-By` version strings against CVE registries.
+
+### Defensive Hardening & Remediation
+* **Banner Suppression**: Obfuscate daemon banners (`ServerTokens Prod`, `server_tokens off`).
+* **Enforce Security Headers**: Implement modern headers to block client-side injection and clickjacking.
+"""
 
 [modes]
 learning = true
@@ -20,15 +33,76 @@ produces = ["vulnerability.found", "web.vulnerability", "web.endpoint"]
 enabled = true
 
 [[learning.recipes]]
-name = "Standard Web Scan"
-description = "Scan web server on target IP/URL"
+name = "Standard Web Misconfiguration Audit"
+difficulty = "Beginner"
+description = "Scan web server for missing security headers, open directory indexing, and default files."
 flags = ["-h", "{target}"]
 
+[learning.recipes.theory]
+concept = "HTTP Defensive Headers & Server Misconfiguration Checks"
+explanation = """
+Nikto inspects incoming HTTP responses for critical defensive headers:
+- Strict-Transport-Security (HSTS, RFC 6797): Enforces HTTPS connections and eliminates SSL stripping.
+- Content-Security-Policy (CSP): Restricts origins of executable scripts to prevent XSS.
+- X-Frame-Options: Protects users against clickjacking attacks.
+- X-Content-Type-Options: Prevents MIME-confusion attacks ('nosniff').
+Missing headers leave end-users exposed to cross-site scripting, framing, and downgrade attacks.
+"""
+packet_wire_summary = "Client GET / -> Analyzes Server response headers for missing HSTS, CSP, and X-Frame-Options"
+remediation = "Implement strict modern security headers in web server reverse proxy configuration."
+
 [[learning.recipes]]
-name = "Specific Port Scan"
-description = "Scan web server on a specific port"
+name = "Specific Port Web Scan"
+difficulty = "Beginner"
+description = "Target administrative or development web portals listening on non-standard ports (8080, 8443)."
 flags = ["-h", "{target}", "-p", "{port}"]
+
+[learning.recipes.theory]
+concept = "High-Port Web Consoles & Alternative HTTP Sockets"
+explanation = """
+Development servers (Tomcat, Spring Boot, Jenkins, Node.js) frequently run on non-standard ports such as 8080 or 8443.
+These services are often deployed with default administrative credentials, exposed debug consoles, and unhardened stack trace configurations.
+"""
+packet_wire_summary = "Client connects to target:PORT -> Sends standard HTTP/1.1 negotiation requests"
+remediation = "Bind administrative web consoles strictly to localhost (127.0.0.1) or restrict access via VPN and bastion hosts."
+
+[[learning.recipes]]
+name = "SSL/TLS Security & Cipher Audit"
+difficulty = "Intermediate"
+description = "Audit the HTTPS handshake, certificate issuer, expired certs, and supported cipher suites."
+flags = ["-h", "{target}", "-ssl"]
+
+[learning.recipes.theory]
+concept = "TLS Handshake Negotiation & Legacy Cipher Deprecation"
+explanation = """
+The '-ssl' flag forces Nikto to perform encrypted TLS handshakes.
+It tests for support of legacy, insecure protocols (SSLv2, SSLv3, TLS 1.0, TLS 1.1) and broken ciphers (RC4, 3DES).
+It also evaluates X.509 certificate validity, checking for hostname mismatch, self-signed certificates, and approaching expiration dates.
+"""
+packet_wire_summary = "Client TLS ClientHello -> Evaluates server cipher preferences and X.509 certificate chain"
+remediation = "Disable TLS 1.0/1.1; enforce TLS 1.2 and TLS 1.3 with modern ephemeral Diffie-Hellman ciphers."
+
+[[learning.recipes]]
+name = "Tuned Information Disclosure Sweep"
+difficulty = "Advanced"
+description = "Run a targeted scan focusing specifically on information disclosure and server configuration leaks."
+flags = ["-h", "{target}", "-Tuning", "2,4,b"]
+
+[learning.recipes.theory]
+concept = "Scanner Tuning & Targeted Payload Classification"
+explanation = """
+Nikto categorizes tests into numeric 'Tuning' classes:
+- 2: Misconfigurations & default files
+- 4: Injection & remote code execution flaws
+- b: Software identification & version extraction
+Using '-Tuning' drastically reduces total scan duration by focusing exclusively on relevant test vectors while skipping irrelevant tests.
+"""
+packet_wire_summary = "Client executes filtered test subset: Only transmits requests matching Tuning classes 2, 4, and b"
+remediation = "Regularly audit server file trees to remove unused staging artifacts and sample test files."
 
 [power]
 enabled = true
-suggests = []
+suggests = [
+  { target = "vulnerability.found", condition = "vuln_id != ''", tool = "searchsploit", flags = "--cve {target.pik.vuln_id}" },
+  { target = "web.vulnerability", condition = "url != ''", tool = "nuclei", flags = "-u {target.pik.url}" }
+]

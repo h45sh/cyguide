@@ -1,0 +1,137 @@
+[meta]
+name = "dnspython"
+description = "Pure-Python asynchronous DNS resolver, reverse pointer mapping, and zone transfer auditing suite."
+one_line_summary = "zero-binary DNS query and zone auditing engine"
+category = "Network Reconnaissance"
+categories = ["recon", "dns", "osint"]
+binary = "python3"
+theory = """
+### Protocol Theory & RFC 1034/1035 Architecture
+The Domain Name System (DNS) is a distributed hierarchical database operating over UDP/TCP port 53. dnspython constructs raw socket queries for deep protocol verification.
+
+### Core Record Auditing Mechanics
+* **Resource Records (A, AAAA, PTR)**: Resolves hostnames and validates reverse pointer trees under `in-addr.arpa`.
+* **Mail & Anti-Spoofing (MX, TXT)**:
+  - `MX`: Prioritized SMTP mail exchanger routing.
+  - `SPF (RFC 7208)`: Defines authorized sender CIDR blocks in TXT records.
+  - `DMARC (RFC 7489)`: Enforces policy rules (`p=reject`) against SPF/DKIM validation failures.
+* **Zone Transfers (AXFR - RFC 5936)**: TCP zone replication query that dumps the entire DNS database if nameservers lack transfer ACLs.
+
+### Defensive Hardening & DNSSEC
+* **Strict AXFR ACLs**: Enforce `allow-transfer { none; };` on public nameservers.
+* **DNSSEC (RFC 4033-4035)**: Deploy cryptographic `RRSIG` validation against cache poisoning.
+"""
+
+[modes]
+learning = true
+power = true
+
+[input]
+accepts = ["dns.record", "network.host"]
+
+[output]
+produces = ["dns.record"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "IPv4 Forward Resolution (A Record)"
+difficulty = "Beginner"
+description = "Resolve the primary IPv4 host address mapping for a fully-qualified domain name (FQDN)."
+flags = ["-t", "A"]
+
+[learning.recipes.theory]
+concept = "Domain Name System (DNS) Address Resolution (RFC 1035)"
+explanation = """
+DNS translates human-readable hostnames (e.g. example.com) into 32-bit IPv4 addresses required by the IP protocol stack for routing packets across the Internet.
+The client resolver sends a UDP query on port 53 containing an IN (Internet) class and A (Host Address) type question. The recursive resolver walks the root (.), TLD (.com), and authoritative nameservers to fetch the canonical IP.
+"""
+packet_wire_summary = "Client UDP:53 -> Query IN A example.com -> Server UDP:53 -> Answer example.com 300 IN A 93.184.216.34"
+remediation = "Ensure DNS records are hosted behind geographically redundant Anycast nameservers with appropriate Time-To-Live (TTL) values."
+
+[[learning.recipes]]
+name = "Mail Exchange & Priority Audit (MX)"
+difficulty = "Beginner"
+description = "Enumerate mail server endpoints and their preference weights responsible for accepting inbound SMTP email."
+flags = ["-t", "MX"]
+
+[learning.recipes.theory]
+concept = "Simple Mail Transfer Protocol (SMTP) Mail Routing (RFC 5321)"
+explanation = """
+MX records designate the mail transfer agents (MTAs) authorized to receive incoming email for a domain.
+Each MX record includes a numerical preference value (priority). Sending MTAs MUST attempt delivery to the lowest numerical value first, falling back to higher values only when primary hosts are unreachable.
+Attackers inspect backup MX servers because secondary mail relays frequently employ less stringent spam, phishing, and anti-malware filtering.
+"""
+packet_wire_summary = "Client Query IN MX example.com -> Response Answer: 10 mail.example.com, 20 backup-mail.example.com"
+remediation = "Harden all secondary and tertiary MX relays with identical perimeter security controls and spam filtering policies as primary servers."
+
+[[learning.recipes]]
+name = "Authoritative Nameserver Chain (NS)"
+difficulty = "Intermediate"
+description = "Identify the authoritative nameservers delegated to manage the target DNS zone."
+flags = ["-t", "NS"]
+
+[learning.recipes.theory]
+concept = "DNS Delegation & Authority Hierarchy (RFC 1034 / RFC 2182)"
+explanation = """
+NS records indicate which servers maintain the master zone database and authoritatively answer queries for the domain.
+During reconnaissance, mapping nameservers reveals cloud providers, DNS hosting infrastructure (e.g., AWS Route53, Cloudflare), and potential subdomain takeover vulnerabilities caused by dangling delegations.
+"""
+packet_wire_summary = "Client Query IN NS example.com -> Response: a.iana-servers.net, b.iana-servers.net"
+remediation = "Audit NS delegations continuously to prevent dangling NS pointers that enable subdomain takeovers."
+
+[[learning.recipes]]
+name = "Anti-Spoofing & SPF Verification (TXT)"
+difficulty = "Intermediate"
+description = "Audit domain TXT records to evaluate Sender Policy Framework (SPF), DKIM, and DMARC email spoofing protections."
+flags = ["-t", "TXT"]
+
+[learning.recipes.theory]
+concept = "Email Sender Authentication & Policy Enforcement (RFC 7208 / RFC 7489)"
+explanation = """
+TXT records store arbitrary human- and machine-readable text associated with a domain. Modern email authentication relies heavily on TXT records:
+1. SPF (v=spf1): Explicitly lists IP ranges and MX hosts permitted to send email originating from the domain.
+2. DMARC (v=DMARC1): Defines alignment policies (none, quarantine, reject) instructing receiving servers how to handle messages failing SPF/DKIM.
+A missing or permissive SPF policy (+all or ~all without DMARC) allows threat actors to forge emails impersonating company executives and services.
+"""
+packet_wire_summary = "Client Query IN TXT example.com -> Response: \"v=spf1 -all\""
+remediation = "Implement a strict SPF record ending in '-all' coupled with an enforced DMARC policy ('p=reject')."
+
+[[learning.recipes]]
+name = "Reverse DNS Pointer Mapping (PTR)"
+difficulty = "Intermediate"
+description = "Perform reverse DNS resolution to map an IP address back to its registered hostname via in-addr.arpa."
+flags = ["-t", "PTR"]
+
+[learning.recipes.theory]
+concept = "Reverse DNS Resolution & in-addr.arpa / ip6.arpa (RFC 1035)"
+explanation = """
+Reverse DNS queries translate an IP address into a domain name by reversing the IP octets and appending the special '.in-addr.arpa' domain (e.g., 93.184.216.34 -> 34.216.184.93.in-addr.arpa).
+Comparing forward A records and reverse PTR records (Forward-Confirmed reverse DNS / FCrDNS) is a primary verification check used by mail servers and network logging systems to detect IP spoofing.
+"""
+packet_wire_summary = "Client Query IN PTR 34.216.184.93.in-addr.arpa -> Response: example.com."
+remediation = "Maintain synchronized forward (A) and reverse (PTR) DNS records for all public server interfaces."
+
+[[learning.recipes]]
+name = "Full Zone Transfer Audit (AXFR)"
+difficulty = "Advanced"
+description = "Attempt an Authoritative Zone Transfer (AXFR) to test for DNS zone exposure and full internal network disclosure."
+flags = ["-t", "AXFR"]
+
+[learning.recipes.theory]
+concept = "DNS Zone Transfer Protocol & Replication Vulnerability (RFC 5936)"
+explanation = """
+AXFR operates over TCP port 53 and was engineered for master nameservers to replicate complete zone data to secondary nameservers.
+If a nameserver is misconfigured to allow AXFR requests from any IP address (rather than restricted slave IPs), any attacker can download the entire internal topology, including unannounced hostnames, staging environments, VPN gateways, and private addresses with a single query.
+"""
+packet_wire_summary = "Client TCP:53 -> Connect -> Query IN AXFR target.com -> Server TCP:53 -> Replicates ALL Zone Records (or Refused)"
+remediation = "Restrict AXFR zone transfers strictly to trusted secondary nameserver IP addresses via ACLs or TSIG keys."
+
+[power]
+enabled = true
+suggests = [
+    { target = "dns.record", condition = "type == 'A'", tool = "nmap", flags = "-sV -Pn" },
+    { target = "dns.record", condition = "type == 'A'", tool = "gobuster", flags = "dir -u http://{target.pik.domain}" },
+    { target = "dns.record", condition = "type == 'NS'", tool = "whois", flags = "{target.data.value}" }
+]

@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from cyguide.engine.adapter import ToolAdapter
@@ -83,6 +83,27 @@ class PowerWorkspaceFacade:
         # Callback subscribers for output chunks (job_id -> set of callbacks)
         self._output_subscribers: Dict[UUID, set] = {}
 
+        # InvestigationSession seam fields
+        self.session_id: Optional[UUID] = None
+        self.workspace_id: Optional[UUID] = None
+        self.explainer: Optional[Any] = None
+
+    async def extract_structured_findings(
+        self,
+        store: Optional[GraphStore] = None,
+        session_id: Optional[Any] = None,
+    ) -> Tuple[str, str]:
+        """Format discovered graph findings for UI display and AI context."""
+        from cyguide.engine.reporter import SessionReportService
+
+        target_store = store or self.store
+        target_session_id = session_id or self.session_id
+        if not target_store or not target_session_id:
+            return "*No structured findings in current session yet.*", "None"
+        return await SessionReportService(target_store).extract_structured_findings(
+            str(target_session_id)
+        )
+
     @property
     def store(self) -> GraphStore:
         return self._store
@@ -99,37 +120,21 @@ class PowerWorkspaceFacade:
         if hasattr(self, "context_builder"):
             self.context_builder.store = new_store
 
-    @property
-    def _active_jobs(self) -> Dict[UUID, JobStatus]:
-        return self.execution._active_jobs
+    def mark_job_closed(self, job_id: Any) -> None:
+        """Mark a job as closed."""
+        self.execution.mark_job_closed(job_id)
 
-    @property
-    def _job_actions(self) -> Dict[UUID, ActionRequest]:
-        return self.execution._job_actions
-
-    @property
-    def _job_subscribers(self) -> Dict[UUID, set]:
-        return self._output_subscribers
-
-    @property
-    def _job_buffers(self) -> Dict[UUID, List[str]]:
-        return self.execution._job_buffers
-
-    @property
-    def _session_cwd(self) -> Dict[str, str]:
-        return self.execution._session_cwd
-
-    @property
-    def closed_job_ids(self) -> set[str]:
-        return self.execution.closed_job_ids
-
-    @property
-    def _running_tasks(self) -> Dict[UUID, asyncio.Task]:
-        return self.execution._running_tasks
+    def has_job_subscriber(self, job_id: UUID, callback: Callable) -> bool:
+        """Check if an output subscriber is registered for a job."""
+        return callback in self._output_subscribers.get(job_id, set())
 
     def get_running_task(self, job_id: UUID) -> Optional[asyncio.Task]:
         """Retrieve background execution task for a job by UUID."""
         return self.execution.get_running_task(job_id)
+
+    def track_task(self, job_id: UUID, task: asyncio.Task) -> None:
+        """Register an asynchronous task under session lifecycle management."""
+        self.execution.track_task(job_id, task)
 
     async def create_workspace(self, name: str) -> str:
         """Create a new workspace, ensuring its name is unique (case-insensitive)."""
@@ -155,6 +160,12 @@ class PowerWorkspaceFacade:
         """Move a session to another workspace, ensuring no name collision."""
         await self.workspaces.move_session(session_id, target_workspace_id)
 
+    async def move_sessions(
+        self, session_ids: List[str], target_workspace_id: str
+    ) -> Dict[str, Any]:
+        """Move multiple sessions to another workspace."""
+        return await self.workspaces.move_sessions(session_ids, target_workspace_id)
+
     async def delete_session(self, session_id: str) -> None:
         """Clean up active jobs for the session, then delete it."""
         await self.workspaces.delete_session(session_id)
@@ -162,6 +173,12 @@ class PowerWorkspaceFacade:
     async def delete_workspace(self, workspace_id: str) -> None:
         """Clean up active jobs for all sessions in the workspace, then delete it."""
         await self.workspaces.delete_workspace(workspace_id)
+
+    async def batch_delete(
+        self, workspace_ids: List[str], session_ids: List[str]
+    ) -> Dict[str, Any]:
+        """Atomically delete multiple workspaces and sessions, safeguarding SYSTEM workspaces."""
+        return await self.workspaces.batch_delete(workspace_ids, session_ids)
 
     async def close_session(self, session_id: str) -> None:
         """Archive a session and log the closure."""
@@ -226,6 +243,10 @@ class PowerWorkspaceFacade:
     def on_finding_upsert(self, callback: Any) -> None:
         """Register a callback for finding upserts."""
         self.store.on_upsert(callback)
+
+    def on_findings_batch(self, callback: Any) -> None:
+        """Register a callback for batched finding upserts."""
+        self.store.on_findings_batch(callback)
 
     async def generate_markdown_report(self, session_id: str) -> str:
         """Generate markdown report string for a session."""
@@ -309,11 +330,8 @@ class PowerWorkspaceFacade:
 
     async def remove_job(self, job_id: UUID) -> None:
         """Remove a job from tracking, e.g., when its tab is closed."""
-        job = self.execution._active_jobs.pop(job_id, None)
-        self.execution._job_actions.pop(job_id, None)
-        self.execution._job_buffers.pop(job_id, None)
+        job = self.execution.remove_job(job_id)
         self._output_subscribers.pop(job_id, None)
-        self.execution.closed_job_ids.add(str(job_id))
         session_id = str(job.session_id) if job else None
         await self.store.mark_event_closed(str(job_id), session_id=session_id)
         if job:
@@ -344,6 +362,18 @@ class PowerWorkspaceFacade:
                 pass
         return ""
 
+    def append_job_buffer(self, job_id: UUID, chunk: str) -> None:
+        """Append an output chunk to in-memory job buffer."""
+        self.execution.append_job_buffer(job_id, chunk)
+
+    def register_job(self, job: JobStatus) -> None:
+        """Register or update a JobStatus in active job tracking."""
+        self.execution.register_job(job)
+
+    def register_action(self, action: ActionRequest) -> None:
+        """Register the ActionRequest for a job."""
+        self.execution.register_action(action)
+
     def on_job_status_change(self, callback: Callable[[JobStatus], Any]) -> None:
         """Register a callback for job state changes (started, running, completed, killed)."""
         if callback not in self._job_change_listeners:
@@ -366,12 +396,7 @@ class PowerWorkspaceFacade:
 
     def get_active_jobs_count(self, session_id: str) -> int:
         """Get count of active (running/queued) jobs for a session."""
-        return sum(
-            1
-            for j in self.execution.get_active_jobs()
-            if str(j.session_id) == session_id
-            and j.status in (JobStatusEnum.RUNNING, JobStatusEnum.QUEUED)
-        )
+        return self.execution.get_active_jobs_count(session_id)
 
     async def get_workspace_running_jobs_count(self, workspace_id: str) -> int:
         """Get count of active (running/queued) jobs for all sessions in a workspace."""
@@ -386,7 +411,7 @@ class PowerWorkspaceFacade:
 
     def get_session_active_jobs(self, session_id: str) -> List[JobStatus]:
         """Get all active/tracked jobs for a session (running, queued, or recently completed)."""
-        return [j for j in self.execution.get_active_jobs() if str(j.session_id) == str(session_id)]
+        return self.execution.get_session_active_jobs(session_id)
 
     def get_job(self, job_id: UUID) -> Optional[JobStatus]:
         """Fetch JobStatus by UUID from active job registry."""
@@ -394,12 +419,12 @@ class PowerWorkspaceFacade:
 
     def register_job(self, job: JobStatus) -> None:
         """Register or update a JobStatus in the active job registry."""
-        self.execution._active_jobs[job.job_id] = job
+        self.execution.register_job(job)
         self._notify_job_change(job)
 
     def is_job_closed(self, job_id: str) -> bool:
         """Check if a job has been marked closed by the operator."""
-        return str(job_id) in self.execution.closed_job_ids
+        return self.execution.is_job_closed(job_id)
 
     async def validate_action(self, action: ActionRequest) -> bool:
         """Validate an action request against registry and store policies."""
@@ -411,7 +436,7 @@ class PowerWorkspaceFacade:
 
     def get_job_action(self, job_id: UUID) -> Optional[ActionRequest]:
         """Get the original ActionRequest for a job."""
-        return self.execution._job_actions.get(job_id)
+        return self.execution.get_job_action(job_id)
 
     async def export_session(self, session_id: str, dest_db_path: str) -> None:
         """Export a session's database rows to a portable database."""

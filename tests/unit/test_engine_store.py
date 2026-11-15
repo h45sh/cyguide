@@ -1,4 +1,5 @@
 import json
+import os
 from uuid import uuid4
 
 import pytest
@@ -241,5 +242,24 @@ async def test_upsert_findings_batch(tmp_path):
     assert stats["network.service"] == 3
     assert stats["network.host"] == 2
     assert stats["total"] == 5
+
+    await store.close()
+
+
+@pytest.mark.asyncio
+async def test_store_trusted_schema_and_permissions(tmp_path):
+    db_file = str(tmp_path / "test_store.db")
+    store = GraphStore(db_file)
+    await store.initialize()
+
+    # Check trusted_schema PRAGMA
+    async with store._get_conn() as db:
+        cursor = await db.execute("PRAGMA trusted_schema")
+        row = await cursor.fetchone()
+        assert row[0] == 0  # OFF
+
+    # Check file permissions on DB
+    mode = oct(os.stat(db_file).st_mode)[-3:]
+    assert mode == "600"
 
     await store.close()

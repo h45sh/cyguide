@@ -12,12 +12,22 @@ class ToolMeta(BaseModel):
     category: str = "Misc"
     categories: List[str]
     binary: str
+    theory: str = ""
+
+
+class RecipeTheory(BaseModel):
+    concept: str = ""
+    explanation: str = ""
+    packet_wire_summary: str = ""
+    remediation: str = ""
 
 
 class Recipe(BaseModel):
     name: str
+    difficulty: str = "Beginner"
     description: str
     flags: List[str] = Field(default_factory=list)
+    theory: Optional[RecipeTheory] = None
 
 
 class LearningConfig(BaseModel):

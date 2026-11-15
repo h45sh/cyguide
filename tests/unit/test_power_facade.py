@@ -60,8 +60,8 @@ async def test_facade_submit_shell_action():
 
     job_id = await facade.submit_action(action)
     assert job_id == action.action_id
-    assert job_id in facade._active_jobs
-    assert facade._active_jobs[job_id].tool_name == "ls"
+    assert facade.get_job(job_id) is not None
+    assert facade.get_job(job_id).tool_name == "ls"
     await store.close()
 
 
@@ -95,7 +95,7 @@ async def test_facade_submit_action_validation():
     # This should pass validation and start a background task
     job_id = await facade.submit_action(action)
     assert job_id == action.action_id
-    assert job_id in facade._active_jobs
+    assert facade.get_job(job_id) is not None
 
     await store.close()
 
@@ -166,16 +166,17 @@ async def test_facade_deletion_cleanup():
         status=JobStatusEnum.RUNNING,
         started_at=datetime.datetime.now(datetime.UTC),
     )
-    facade._active_jobs[job_uuid] = job
-    facade.closed_job_ids.add(str(job_uuid))
+    facade.register_job(job)
+    facade.mark_job_closed(job_uuid)
+    assert facade.is_job_closed(job_uuid) is True
 
     # Delete session
     await facade.delete_session(sess_id)
 
     # Verify executor.stop_task called and facade tracking cleaned up
     executor.stop_task.assert_called_once_with(str(job_uuid))
-    assert job_uuid not in facade._active_jobs
-    assert str(job_uuid) not in facade.closed_job_ids
+    assert facade.get_job(job_uuid) is None
+    assert facade.is_job_closed(job_uuid) is False
 
     await store.close()
 
@@ -199,8 +200,9 @@ async def test_facade_job_output_buffering_and_subscription():
     job = JobStatus(
         job_id=job_uuid, session_id=UUID(sess_id), tool_name="whois", status=JobStatusEnum.RUNNING
     )
-    facade._active_jobs[job_uuid] = job
-    facade._job_buffers[job_uuid] = ["chunk1 ", "chunk2 "]
+    facade.register_job(job)
+    facade.append_job_buffer(job_uuid, "chunk1 ")
+    facade.append_job_buffer(job_uuid, "chunk2 ")
 
     # 1. Test get_job_buffer
     buf = facade.get_job_buffer(job_uuid)
@@ -213,11 +215,11 @@ async def test_facade_job_output_buffering_and_subscription():
         received.append(chunk)
 
     facade.subscribe_job_output(job_uuid, sub)
-    assert sub in facade._job_subscribers[job_uuid]
+    assert facade.has_job_subscriber(job_uuid, sub) is True
 
     # Unsubscribe
     facade.unsubscribe_job_output(job_uuid, sub)
-    assert sub not in facade._job_subscribers[job_uuid]
+    assert facade.has_job_subscriber(job_uuid, sub) is False
 
     await store.close()
 
@@ -247,9 +249,9 @@ async def test_facade_workspace_and_session_running_counts():
     job3 = JobStatus(
         job_id=uuid4(), session_id=UUID(sess1_id), tool_name="ping", status=JobStatusEnum.DONE
     )
-    facade._active_jobs[job1.job_id] = job1
-    facade._active_jobs[job2.job_id] = job2
-    facade._active_jobs[job3.job_id] = job3
+    facade.register_job(job1)
+    facade.register_job(job2)
+    facade.register_job(job3)
 
     # Check counts
     assert facade.get_active_jobs_count(sess1_id) == 1
@@ -300,7 +302,7 @@ async def test_facade_shutdown_graceful_drain():
 
     t = asyncio.create_task(dummy_task())
     task_id = uuid4()
-    facade._running_tasks[task_id] = t
+    facade.track_task(task_id, t)
 
     # Shutdown facade before closing store
     await facade.shutdown()

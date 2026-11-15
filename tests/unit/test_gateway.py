@@ -150,3 +150,203 @@ async def test_gateway_missing_target_entity_by_agent():
     with pytest.raises(ActionValidationError, match="requires a selected target entity"):
         await gateway.validate_action(action)
     await store.close()
+
+
+@pytest.mark.asyncio
+async def test_gateway_blocks_cloud_metadata():
+    store = GraphStore(":memory:")
+    await store.initialize()
+
+    mock_registry = MagicMock()
+    mock_tool = MagicMock()
+    mock_tool.input = {"accepts": ["network.host"]}
+    mock_registry.get_tool.return_value = {"manifest": mock_tool, "adapter": MagicMock()}
+
+    gateway = ActionGateway(mock_registry, store)
+
+    # 1. Blocked via raw_flags
+    action_flag = ActionRequest(
+        session_id=uuid4(),
+        tool_name="nmap",
+        params={"raw_flags": "http://169.254.169.254/latest/meta-data/"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
+        await gateway.validate_action(action_flag)
+
+    # 2. Blocked via tool_name
+    action_name = ActionRequest(
+        session_id=uuid4(),
+        tool_name="curl 169.254.169.254",
+        is_explicit_shell=True,
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
+        await gateway.validate_action(action_name)
+
+    # 3. Blocked via Google metadata domain
+    action_gcp = ActionRequest(
+        session_id=uuid4(),
+        tool_name="curl metadata.google.internal",
+        is_explicit_shell=True,
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
+        await gateway.validate_action(action_gcp)
+
+    await store.close()
+
+
+@pytest.mark.asyncio
+async def test_gateway_blocks_extended_metadata():
+    store = GraphStore(":memory:")
+    await store.initialize()
+
+    mock_registry = MagicMock()
+    gateway = ActionGateway(mock_registry, store)
+
+    # 1. Azure / Generic link-local
+    action_azure = ActionRequest(
+        session_id=uuid4(),
+        tool_name="nmap",
+        params={"raw_flags": "169.254.169.250"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
+        await gateway.validate_action(action_azure)
+
+    # 2. AWS IPv6 metadata
+    action_ipv6 = ActionRequest(
+        session_id=uuid4(),
+        tool_name="curl",
+        params={"raw_flags": "http://[fd00:ec2::254]/latest/meta-data/"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
+        await gateway.validate_action(action_ipv6)
+
+    # 3. Decimal IP notation
+    action_dec = ActionRequest(
+        session_id=uuid4(),
+        tool_name="curl",
+        params={"raw_flags": "http://2852039166/"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(
+        ActionValidationError, match="Access to cloud metadata endpoints is strictly prohibited"
+    ):
+        await gateway.validate_action(action_dec)
+
+    await store.close()
+
+
+def test_gateway_imds_canonicalization_direct():
+    from cyguide.engine.gateway import is_blocked_destination
+
+    assert is_blocked_destination("169.254.169.254") is True
+    assert is_blocked_destination("0251.0376.0251.0376") is True
+    assert is_blocked_destination("0xa9.0xfe.0xa9.0xfe") is True
+    assert is_blocked_destination("2852039166") is True
+    assert is_blocked_destination("::ffff:169.254.169.254") is True
+    assert is_blocked_destination("::ffff:a9fe:a9fe") is True
+    assert is_blocked_destination("fd00:ec2::254") is True
+    assert is_blocked_destination("fe80::1") is True
+    assert is_blocked_destination("metadata.google.internal") is True
+
+    assert is_blocked_destination("8.8.8.8") is False
+    assert is_blocked_destination("1.1.1.1") is False
+    assert is_blocked_destination("10.0.0.1") is False
+    assert is_blocked_destination("192.168.1.100") is False
+    assert is_blocked_destination("172.16.0.5") is False
+    assert is_blocked_destination("example.com") is False
+
+
+@pytest.mark.asyncio
+async def test_gateway_imds_canonicalization_action_request():
+    store = GraphStore(":memory:")
+    await store.initialize()
+
+    mock_registry = MagicMock()
+    mock_tool = MagicMock()
+    mock_tool.input = {"accepts": ["network.host"]}
+    mock_registry.get_tool.return_value = {"manifest": mock_tool, "adapter": MagicMock()}
+
+    gateway = ActionGateway(mock_registry, store)
+
+    # Dotted-octal in raw_flags
+    action_octal = ActionRequest(
+        session_id=uuid4(),
+        tool_name="nmap",
+        params={"raw_flags": "0251.0376.0251.0376"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(ActionValidationError, match="strictly prohibited"):
+        await gateway.validate_action(action_octal)
+
+    # Dotted-hex in raw_flags
+    action_hex = ActionRequest(
+        session_id=uuid4(),
+        tool_name="curl",
+        params={"raw_flags": "http://0xa9.0xfe.0xa9.0xfe/"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(ActionValidationError, match="strictly prohibited"):
+        await gateway.validate_action(action_hex)
+
+    # IPv4-mapped IPv6 in raw_flags
+    action_mapped = ActionRequest(
+        session_id=uuid4(),
+        tool_name="curl",
+        params={"raw_flags": "http://[::ffff:169.254.169.254]/"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(ActionValidationError, match="strictly prohibited"):
+        await gateway.validate_action(action_mapped)
+
+    await store.close()
+
+
+def test_adapter_flag_injection_prevention():
+    from cyguide.schemas.web import WebEndpoint
+    from tools.gobuster.adapter import GobusterAdapter
+    from tools.nikto.adapter import NiktoAdapter
+    from tools.subfinder.adapter import SubfinderAdapter
+
+    # 1. Gobuster adapter with malicious URL containing spaces/flags
+    gobuster = GobusterAdapter()
+    malicious_url = "http://target.com/ -o /tmp/pwned.txt"
+    target = WebEndpoint.create(url=malicious_url)
+    cmd = gobuster.build_command(target, {"raw_flags": "dir -u {url} -w {wordlist}"})
+    u_idx = cmd.index("-u")
+    assert cmd[u_idx + 1] == malicious_url
+    assert "-o" not in cmd
+
+    # 2. Nikto adapter with malicious target containing flags
+    nikto = NiktoAdapter()
+    malicious_target = "10.0.0.1 -format htm"
+    host_target = NetworkHost.create(ip=malicious_target)
+    cmd_nikto = nikto.build_command(host_target, {"raw_flags": "-h {target} -p {port}"})
+    h_idx = cmd_nikto.index("-h")
+    assert cmd_nikto[h_idx + 1] == malicious_target
+    assert "-format" not in cmd_nikto
+
+    # 3. Subfinder adapter with malicious domain containing flags
+    subfinder = SubfinderAdapter()
+    malicious_domain = "example.com -o /tmp/evil"
+    dummy_target = NetworkHost.create(ip="1.2.3.4")
+    dummy_target.schema_type = "dns.record"
+    dummy_target.pik = {"domain": malicious_domain}
+    cmd_sub = subfinder.build_command(dummy_target, {"raw_flags": "-d {domain}"})
+    d_idx = cmd_sub.index("-d")
+    assert cmd_sub[d_idx + 1] == malicious_domain
+    assert "-o" not in cmd_sub

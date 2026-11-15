@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from cyguide.app import CyGuideApp
@@ -569,8 +571,8 @@ async def test_settings_persistence(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_palette_theme_in_and_out_navigation():
-    """Verify right arrow steps into Theme sub-palette and left arrow steps back with Theme highlighted."""
+async def test_palette_config_in_and_out_navigation():
+    """Verify right arrow steps into Config modal and left arrow steps back with Config highlighted."""
     from textual.command import CommandList
 
     from cyguide.app import CyGuideApp
@@ -581,27 +583,25 @@ async def test_palette_theme_in_and_out_navigation():
         await pilot.press("ctrl+p")
         await pilot.pause(0.2)
         cl = app.screen.query_one(CommandList)
-        theme_idx = next(i for i, opt in enumerate(cl.options) if "Theme" in str(opt.prompt))
-        cl.highlighted = theme_idx
+        config_idx = next(i for i, opt in enumerate(cl.options) if "Config" in str(opt.prompt))
+        cl.highlighted = config_idx
         await pilot.pause(0.1)
 
-        # Right arrow steps into Theme sub-palette
+        # Right arrow steps into Config modal
         await pilot.press("right")
         await pilot.pause(0.2)
-        theme_palette = app.screen
-        assert theme_palette.__class__.__name__ == "CyGuideCommandPalette"
-        assert getattr(theme_palette, "is_sub_palette", False) is True
+        assert app.screen.__class__.__name__ == "ConfigModal"
 
-        # Left arrow in Theme sub-palette steps back to root palette
+        # Left arrow in Config modal steps back to root palette
         await pilot.press("left")
         await pilot.pause(0.2)
         root_palette = app.screen
         assert root_palette.__class__.__name__ == "CyGuideCommandPalette"
         assert getattr(root_palette, "is_sub_palette", False) is False
 
-        # Theme option should be preserved as highlighted
+        # Config option should be preserved as highlighted
         root_cl = root_palette.query_one(CommandList)
-        assert "Theme" in str(root_cl.get_option_at_index(root_cl.highlighted).prompt)
+        assert "Config" in str(root_cl.get_option_at_index(root_cl.highlighted).prompt)
 
         # Left arrow in root palette closes it back to dashboard
         await pilot.press("left")
@@ -683,7 +683,7 @@ async def test_learning_sidebar_layout_and_wrapping():
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test(size=(120, 45)) as pilot:
         await app.push_screen("learning_mode")
-        await pilot.pause()
+        await pilot.pause(0.2)
 
         screen = app.screen
         pane = screen.query_one("#lesson_config_pane")
@@ -822,6 +822,9 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         if dashboard._ws_debounce_task:
             await dashboard._ws_debounce_task
         await pilot.pause(0.1)
+        if dashboard._ws_debounce_task:
+            await dashboard._ws_debounce_task
+        await pilot.pause(0.1)
         # Unicode pointer ▸ should move immediately to current workspace index
         assert ws_list.index is not None
         assert "▸" in str(ws_list.children[ws_list.index].query_one(Static).render())
@@ -868,10 +871,22 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
 
         # 6. Enter workspace via Enter key on workspace_list
         await pilot.press("enter")
-        await pilot.pause()
+        await pilot.pause(0.1)
+        if dashboard._ws_debounce_task:
+            try:
+                await dashboard._ws_debounce_task
+            except asyncio.CancelledError:
+                pass
+        if dashboard._sess_debounce_task:
+            try:
+                await dashboard._sess_debounce_task
+            except asyncio.CancelledError:
+                pass
+        await pilot.pause(0.2)
         assert sess_list.has_focus is True
         assert sess_list.index == 0
         assert sess_list.children[0].styles.background.hex == "#282E3A"
+        await pilot.pause(0.1)
 
 
 @pytest.mark.asyncio
@@ -1035,3 +1050,75 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         assert details.query(".session_id_card"), "Must render session card immediately"
         title_label = d.query_one("#session_title_text")
         assert first_sess_name in str(title_label.render())
+
+
+@pytest.mark.asyncio
+async def test_screen_pop_cleans_up_all_workers():
+    """Rule: Pushing and popping any modal/screen must not leak running background workers."""
+    from cyguide.ui.screens.config_modal import ConfigModal
+
+    app = CyGuideApp(db_path=":memory:")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        initial_running = len([w for w in app.workers if w.is_running and not w.is_cancelled])
+
+        modal = ConfigModal()
+        await app.push_screen(modal)
+        await pilot.pause()
+
+        # Simulate user closing modal cleanly
+        await pilot.press("escape")
+        await pilot.pause()
+
+        active_workers = [w for w in app.workers if w.is_running and not w.is_cancelled]
+        assert len(active_workers) <= initial_running, (
+            f"Screen unmount leaked active background workers: {active_workers}"
+        )
+
+@pytest.mark.asyncio
+async def test_dismiss_notification_shortcut():
+    """Verify Ctrl+/ (and terminal aliases) dismisses one active notification at a time."""
+    app = CyGuideApp(db_path=":memory:")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        # Initially no notifications
+        assert not list(app._notifications)
+        # Calling dismiss on empty notifications is a safe no-op
+        app.action_dismiss_notification()
+        assert not list(app._notifications)
+
+        # Trigger 3 notifications
+        app.notify("First notice", timeout=10.0)
+        app.notify("Second notice", timeout=10.0)
+        app.notify("Third notice", timeout=10.0)
+        await pilot.pause(0.1)
+
+        active = list(app._notifications)
+        assert len(active) == 3
+
+        # Press ctrl+slash: should dismiss the most recent one ("Third notice")
+        await pilot.press("ctrl+slash")
+        await pilot.pause(0.1)
+        active = list(app._notifications)
+        assert len(active) == 2
+        assert "Third notice" not in [str(n.message) for n in active]
+
+        # Press ctrl+underscore (terminal 0x1F unit separator alias): should dismiss "Second notice"
+        await pilot.press("ctrl+underscore")
+        await pilot.pause(0.1)
+        active = list(app._notifications)
+        assert len(active) == 1
+        assert "Second notice" not in [str(n.message) for n in active]
+        assert "First notice" in [str(n.message) for n in active]
+
+        # Action directly: dismiss last remaining notification
+        app.action_dismiss_notification()
+        await pilot.pause(0.1)
+        assert len(list(app._notifications)) == 0
+
+        # Safe no-op when empty
+        await pilot.press("ctrl+slash")
+        await pilot.pause(0.1)
+        assert len(list(app._notifications)) == 0
+

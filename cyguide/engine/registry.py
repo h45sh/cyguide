@@ -43,7 +43,7 @@ class ToolRegistry:
         if not self.tools_dir.exists():
             return
 
-        for tool_path in self.tools_dir.iterdir():
+        for tool_path in sorted(self.tools_dir.iterdir(), key=lambda p: p.name):
             if tool_path.is_dir():
                 manifest_path = tool_path / "manifest.toml"
                 adapter_path = tool_path / "adapter.py"

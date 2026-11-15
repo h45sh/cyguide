@@ -1,4 +1,5 @@
 """Entry point script for CyGuide."""
+# codeguard: ignore-file[DEBUG_PYTHON_PRINT] (CLI entrypoint uses stdout/stderr output)
 
 import argparse
 import os

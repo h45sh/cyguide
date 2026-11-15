@@ -13,8 +13,12 @@ An immutable, persistent investigation timeline stored in SQLite containing grap
 _Avoid_: Engagement, project, run, tab
 
 **ExecutionSession**:
-The active, in-memory runtime managing command execution lifecycles, privileged interaction, and output streams for a session.
+The active, in-memory runtime managing command execution lifecycles, privileged interaction, session eviction, and output streams for a session.
 _Avoid_: Job manager, runner, terminal instance, worker
+
+**ActionGateway**:
+The deep module managing security boundary enforcement, cloud metadata SSRF defense, tool manifest input contract validation, and target variable interpolation.
+_Avoid_: Validator, firewall, auth check, proxy
 
 **Finding**:
 A structured, canonicalized unit of discovered security intelligence associated with an entity.
@@ -51,4 +55,29 @@ _Avoid_: Context helper, context assembler, facade query
 **DiagnosticEngine**:
 The deep module managing environmental health auditing, tool availability checks, database integrity validation, and explainer connectivity probing.
 _Avoid_: Diagnostics runner, health check script, test utility
+
+**PreferencesStore**:
+The deep module managing persistent operator settings, active AI key profile configuration, and atomic scratchpad note-taking with NIST-compliant filesystem permission controls.
+_Avoid_: Config helper, settings manager, json reader, file utility
+
+**LearningSession**:
+The deep module encapsulating interactive single-tool learning mode workflows: tool context resolution, recipe parameter binding, execution lifecycle orchestration, structured finding extraction, and AI educational tutoring behind an agnostic headless seam.
+_Avoid_: Learning controller, learning screen backend, lesson helper, tutor runner
+
+**RecipeBinding**:
+The deep module resolving tool workflow recipes, flag parameter substitutions, target macros, and wordlist interpolations for security tools.
+_Avoid_: Recipe parser, flag builder, command formatter
+
+**InvestigationSession**:
+The core seam governing investigation runtime environments (Learning & Power), standardizing action dispatch, stop controls, and structured reporting.
+_Avoid_: Session interface, runtime controller, execution wrapper
+
+**RecipeDeck**:
+The deep presentation widget encapsulating tool metadata badges, status states, and interactive workflow recipe cards behind a declarative update interface.
+_Avoid_: Recipe list view, card container, recipe scroller
+
+**CommandPreviewEditor**:
+The deep presentation adapter managing target and flag inputs while delegating real-time command syntax and macro resolution to RecipeBinding.
+_Avoid_: Flag editor, parameter input box, command builder
+
 

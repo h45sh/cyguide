@@ -6,7 +6,7 @@ Welcome to the authoritative system architecture specification for CyGuide. This
 
 ## 1. Core Philosophy: The Smart-Adapter Platform
 
-CyGuide is a modular cybersecurity investigation and learning platform built for the terminal. It is engineered to solve a pervasive industry problem: **tool fragmentation and cognitive overload**. In traditional workflows, security practitioners run disparate CLI tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`) that emit incompatible text, XML, and JSON outputs, requiring tedious manual correlation.
+CyGuide is a modular cybersecurity investigation and learning platform built for the terminal. It is engineered to solve a pervasive industry problem: **tool fragmentation and cognitive overload**. In traditional workflows, security practitioners run disparate CLI tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`) that emit incompatible text, XML, and JSON outputs, requiring tedious manual correlation.
 
 CyGuide solves this through a **"Smart Adapter / Stupid Framework"** architecture:
 
@@ -23,11 +23,15 @@ CyGuide solves this through a **"Smart Adapter / Stupid Framework"** architectur
 ┌───────────────────────────────────────────┴────────────────────────────────────────────┐
 │                                 THE "SMART" ADAPTERS                                   │
 │                                                                                        │
-│   • tools/nmap       -> Encapsulates nmap flags, stdout parsing, and host/service models│
-│   • tools/gobuster   -> Encapsulates directory fuzzing and endpoint generation         │
-│   • tools/nikto      -> Encapsulates web vulnerability discovery and CVE linking        │
-│   • tools/whois      -> Encapsulates domain and netblock extraction                     │
-│   • tools/subfinder  -> Encapsulates passive subdomain discovery                        │
+│   • tools/nmap         -> Encapsulates nmap flags, stdout parsing, and host/service    │
+│   • tools/gobuster     -> Encapsulates directory fuzzing and endpoint generation       │
+│   • tools/nikto        -> Encapsulates web vulnerability discovery and CVE linking      │
+│   • tools/whois        -> Encapsulates domain and netblock extraction                   │
+│   • tools/subfinder    -> Encapsulates passive subdomain discovery                      │
+│   • tools/dnspython    -> Encapsulates pure-Python DNS resolution and zone transfers    │
+│   • tools/searchsploit -> Encapsulates Exploit-DB offline vulnerability correlation    │
+│   • tools/ffuf         -> Encapsulates high-speed web fuzzing and sensitive exposure   │
+│   • tools/nuclei       -> Encapsulates template-based vulnerability assessment          │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -75,6 +79,10 @@ graph TB
         Nikto["tools/nikto"]
         Whois["tools/whois"]
         Subfinder["tools/subfinder"]
+        FFUF["tools/ffuf"]
+        Nuclei["tools/nuclei"]
+        SearchSploit["tools/searchsploit"]
+        DnsPython["tools/dnspython"]
         Shell["ShellAdapter (!)"]
     end
 
@@ -224,6 +232,43 @@ sequenceDiagram
 
 ---
 
+### 4.3. Guided Investigation Pipeline (Learning Mode)
+
+Learning Mode provides an isolated, curriculum-driven execution environment backed by the polymorphic `InvestigationSession` seam. It allows security students and operators to explore tools interactively without affecting active client workspace engagements.
+
+```text
+[ LearningModeScreen (Textual TUI) ]
+       │ Delegates flag layout & live preview to CommandPreviewEditor / FlagEditor
+       │ Delegates recipe presentation & execution cards to RecipeDeck
+       ▼
+[ LearningSession (Deep Module) ]
+       │ Conforms to InvestigationSession seam
+       ├─► RecipeBinding: Resolves {target}, {url}, and {wordlist:...} macros
+       ├─► Database Sweep: Queries GraphStore nodes (network.host, dns.record, web.endpoint)
+       ├─► ExecutionSession: Dispatches subprocesses via sanitizing Async Executor
+       ├─► SessionReportService: Auto-extracts discovered findings into structured tables
+       └─► ExplanationTutor: Streams real-time AI briefings (TutorStreamChunk)
+```
+
+#### 1. The `InvestigationSession` Core Seam ([`cyguide/engine/session.py`](../../cyguide/engine/session.py))
+* Polymorphic protocol unifying runtime lifecycle requirements across both **Power Mode** (`PowerWorkspaceFacade`) and **Learning Mode** (`LearningSession`).
+* Declares standard access to `session_id`, `workspace_id`, `store`, `registry`, `execution`, `explainer`, and `extract_structured_findings`.
+* Allows application controllers and background reloading routines to manage either investigation mode through a single interface.
+
+#### 2. `LearningSession` Deep Module ([`cyguide/engine/learning.py`](../../cyguide/engine/learning.py))
+* **Tool Context Resolution**: Resolves tool metadata, installation binary paths, capabilities, and pre-configured curriculum recipes from manifest files via `select_tool`.
+* **Recipe Binding (`RecipeBinding`)**: Encapsulates command line macro substitution (`{target}`, `{url}`, `{domain}`, `{port}`, `{wordlist:...}`) and recipe index matching.
+* **Database Target Resolution & Sweeping**:
+  * `get_database_targets()`: Queries SQLite `GraphStore` nodes across the workspace or session to extract all unique network hosts, domains, and web endpoints.
+  * `sweep_targets()`: Sequentially iterates through database targets, executing the chosen tool recipe against each entity while yielding typed stream events (`ScanStartedEvent`, `ScanCompletedEvent`).
+* **AI Tutor Decoupling (`stream_tutor_response`)**: Handles token pacing, throttling, greeting fallbacks, and typed stream emission (`TutorStreamChunk`), keeping TUI screens completely free of polling loops.
+
+#### 3. Presentation Seams
+* **`RecipeDeck`** ([`cyguide/ui/widgets/recipe_deck.py`](../../cyguide/ui/widgets/recipe_deck.py)): Encapsulates DOM construction of recipe cards, action buttons (`▶ RUN`, `? ASK`), and dynamic run/stop button state transitions.
+* **`FlagEditor`** ([`cyguide/ui/widgets/flags.py`](../../cyguide/ui/widgets/flags.py)): Encapsulates input parameters, wordlist path selectors, and real-time command syntax previews.
+
+---
+
 ## 5. Universal Variable Substitution Engine
 
 To enable an identical command interface for human operators and automated agents, variable substitution is handled centrally in [`WorkspaceContextBuilder`](../../cyguide/engine/context_builder.py) and exposed through `PowerWorkspaceFacade.get_context()`.
@@ -306,10 +351,7 @@ class ToolAdapter(ABC):
 
     @abstractmethod
     async def parse_output(
-        self,
-        raw_stdout: str,
-        target: BaseFinding,
-        context: Dict[str, Any] = None
+        self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
     ) -> AsyncIterator[BaseFinding]:
         """Parse raw stdout and yield standardized BaseFinding objects."""
         pass
@@ -365,7 +407,7 @@ CyGuide features a dedicated environment diagnostic suite in [`cyguide/engine/di
 
 1. **System Environment**: Python version ($\ge 3.11$), operating system, Textual TUI framework availability.
 2. **Storage Integrity**: Writable `data/` directory, SQLite table existence, database `PRAGMA integrity_check`.
-3. **Security Tool Discovery**: Validates presence of `nmap`, `gobuster`, `nikto`, `subfinder`, and `whois` in `$PATH`.
+3. **Security Tool Discovery**: Validates presence of all 9 security tools (`nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`) in `$PATH` and active Python environment.
 4. **AI Explainer Connectivity**: Verifies local Ollama HTTP status and inspects cloud API key configurations (`CYGUIDE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
 
 In addition to the CLI command (`cyg check`), the active TUI surfaces a live interactive `ToolHealthModal` via the Command Palette (`Ctrl+P`), giving operators real-time discovery badges, exact binary paths, and copyable installation hints without leaving the workbench.
@@ -385,9 +427,9 @@ In addition to the CLI command (`cyg check`), the active TUI surfaces a live int
 * **Consequences**: Enables seamless transition to future autonomous AI agent drivers without rewriting UI or execution logic.
 
 ### ADR-03: Engine-Level Universal Variable Resolution
-* **Context**: Variable placeholders (`$TARGET`, `$PORT`) could be resolved either in the Textual TUI Command Palette or inside the engine.
-* **Decision**: Implement variable substitution in `PowerWorkspaceFacade.get_context()`.
-* **Consequences**: Guarantees identical execution semantics whether a command is triggered by human keystrokes in the TUI, via automated batch scripts, or by an AI agent.
+* **Context**: Variable placeholders (`$TARGET`, `$PORT`, `$LHOST`) could be resolved either in the Textual TUI Command Palette or inside the engine.
+* **Decision**: Implement variable resolution and interpolation in `ActionGateway` (`resolve_entity_variables` and `interpolate_variables`) and consume it across `WorkspaceContextBuilder` and `ExecutionSession`.
+* **Consequences**: Guarantees identical execution semantics and zero logic duplication whether a command is triggered by human keystrokes in the TUI, via automated batch scripts, or by an AI agent.
 
 ### ADR-04: Dual Graph/Event-Log Persistence Model
 * **Context**: We needed both rapid graph queries for UI trees and historical auditability for lab grading.
@@ -410,17 +452,29 @@ In addition to the CLI command (`cyg check`), the active TUI surfaces a live int
 * **Consequences**: Transactional, atomic, zero-memory exports producing standalone `.db` files that can be shared, graded, and inspected using standard SQLite tools.
 
 ### ADR-08: Deep Modules & High-Leverage Architectural Seams
-* **Context**: As CyGuide grew, cross-cutting concerns (workspace lifecycle, report generation, context variable resolution, timeline logging, execution streaming, diagnostic probing) were intermingled inside UI layers and large procedural methods.
-* **Decision**: Refactor the codebase around 8 "Deep Modules" (John Ousterhout principle: small, simple interfaces hiding substantial internal complexity):
-  1. `ExecutionSession` ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)): Subprocess lifecycle, PTY execution, disk spooling, and pub/sub output streaming.
-  2. `ExplanationTutor` ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)): Multi-key cloud fallbacks, cooldown tracking, prompt boundary sanitization, and local Ollama failover.
-  3. `WorkspaceRepository` ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py)): Workspace and session CRUD, forensic read-only locking, and persistence.
-  4. Declarative `BaseFinding` Canonicalization ([`cyguide/schemas/base.py`](../../cyguide/schemas/base.py)): Automatic whitespace trimming, lowercase normalizations, and IPv6 expansion via Pydantic model configuration.
-  5. `SessionReportService` ([`cyguide/engine/reporter.py`](../../cyguide/engine/reporter.py)): Multi-format forensic reporting, Markdown tables, Mermaid attack flow graphs, and stat summaries.
-  6. `ActionTimelineRepository` ([`cyguide/engine/timeline.py`](../../cyguide/engine/timeline.py)): Append-only action event logs, tab state restoration, and timeline replay queries.
-  7. `WorkspaceContextBuilder` ([`cyguide/engine/context_builder.py`](../../cyguide/engine/context_builder.py)): Hierarchical entity context extraction and `$TARGET` / `$PORT` / `$SERVICE` variable substitution.
-  8. `DiagnosticEngine` ([`cyguide/engine/diagnostics.py`](../../cyguide/engine/diagnostics.py)): Pluggable probe registry for system, database, security toolchain, and AI connectivity.
+* **Context**: As CyGuide grew, cross-cutting concerns (workspace lifecycle, report generation, context variable resolution, timeline logging, execution streaming, diagnostic probing, prompt boundary sanitization, and settings management) were intermingled inside UI layers and large procedural methods.
+* **Decision**: Refactor the codebase around Deep Modules (John Ousterhout principle: small, simple interfaces hiding substantial internal complexity):
+  1. `ExecutionSession` ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)): Subprocess lifecycle, interactive terminal suspension, disk log spooling, atomic session eviction (`evict_session`), typed pub/sub event streaming (`subscribe`), and encapsulated job query interfaces (`get_active_jobs_count`, `get_session_active_jobs`).
+  2. `ExplanationTutor` ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)): Multi-key cloud fallbacks, cooldown tracking, prompt boundary sanitization, deep scan context encapsulation (`explain_scan`, `stream_scan`, `strip_scanner_noise`), and uniform `ProviderAdapter` streaming with local Ollama failover.
+  3. `ActionGateway` ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py)): Security boundary policy enforcement, cloud metadata SSRF defense (`BLOCKED_TARGETS`), tool manifest validation, and centralized variable resolution.
+  4. `WorkspaceRepository` ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py)): Workspace and session CRUD, forensic read-only locking, atomic job cleanup delegation, and high-leverage batch operations (`move_sessions`, `batch_delete` with `SYSTEM` workspace guards).
+  5. Declarative `BaseFinding` Canonicalization ([`cyguide/schemas/base.py`](../../cyguide/schemas/base.py)): Automatic whitespace trimming, lowercase normalizations, and IPv6 expansion via Pydantic model configuration.
+  6. `SessionReportService` ([`cyguide/engine/reporter.py`](../../cyguide/engine/reporter.py)): Multi-format forensic reporting, Markdown tables, Mermaid attack flow graphs, and stat summaries.
+  7. `ActionTimelineRepository` ([`cyguide/engine/timeline.py`](../../cyguide/engine/timeline.py)): Append-only action event logs, tab state restoration, and timeline replay queries using public `store.connection()`.
+  8. `WorkspaceContextBuilder` ([`cyguide/engine/context_builder.py`](../../cyguide/engine/context_builder.py)): Point-in-time context compilation using `ActionGateway` variable resolution.
+  9. `DiagnosticEngine` ([`cyguide/engine/diagnostics.py`](../../cyguide/engine/diagnostics.py)): Pluggable probe registry for system, database, security toolchain, and AI connectivity.
+  10. `PreferencesStore` ([`cyguide/common/preferences.py`](../../cyguide/common/preferences.py)): Atomic `0o600` filesystem persistence for settings, active API key profile switching, and operator scratchpad note-taking.
 * **Consequences**: Drastic reduction in cognitive load and high locality of change. Adding new features, security tools, or AI models requires zero modifications to core orchestration pipelines.
+
+### ADR-09: Compressed Asset Packaging & Linguist Vendoring for Micro-Wordlists
+* **Context**: Bundled starter dictionaries (`subdomains_500.txt`, `common_params.txt`, etc.) represented 6,318 lines of raw text, inflating Git lines-of-code statistics and cluttering pull request diffs.
+* **Decision**: Compress bundled wordlists into `.txt.gz` archives in `cyguide/assets/wordlists/` and configure `.gitattributes` with `linguist-vendored=true` and `-diff`. Decompress automatically on initial launch into the user's `~/.cyguide/wordlists/*.txt` directory with `0o600` permissions.
+* **Consequences**: Zero open-text line churn in Git history, ~78% reduced wheel package asset size, transparent runtime operation for external security CLI tools (`ffuf`, `gobuster`), and clean GitHub language analytics.
+
+### ADR-10: High-Throughput Terminal Virtualization & Encapsulation Integrity
+* **Context**: Fast security scanners (`ffuf`, `nuclei`) emitting tens of thousands of lines per second flooded Textual's event loop and quadratic Rich markup rendering, while `PowerWorkspaceFacade` leaked private attributes from `ExecutionSession`.
+* **Decision**: Universally virtualize high-velocity terminal logs with `TerminalStreamPane` (30 FPS micro-batching, `collections.deque(maxlen=5000)`, pure viewport row rendering). Strictly encapsulate `ExecutionSession` and remove backward-compatibility property forwarders from `PowerWorkspaceFacade`.
+* **Consequences**: Zero dropped chunks, steady-state $O(1)$ memory consumption (< 3 MB per terminal buffer), responsive UI at 60 FPS under 100,000+ line streams, and zero private attribute leakage across architecture layers.
 
 ---
 
@@ -552,7 +606,7 @@ CyGuide implements strict defense-in-depth controls across process execution, ne
 ## 17. Related Technical Documentation
 
 * **[Database Architecture & Storage Specification (`docs/developer/DATABASE.md`)](DATABASE.md)**: Full DDL schemas, ER diagrams, PIK formulas, auto-wiring mechanics, and query recipes.
-* **[Schema Registry (`docs/developer/SCHEMA_REGISTRY.md`)](SCHEMA_REGISTRY.md)**: The standard 15-schema finding vocabulary and PIK declarations.
+* **[Schema Registry (`docs/developer/SCHEMA_REGISTRY.md`)](SCHEMA_REGISTRY.md)**: The standard finding schema vocabulary and PIK declarations.
 * **[Project Roadmap & Progress Tracker (`docs/developer/ROADMAP.md`)](ROADMAP.md)**: Feature checklist, implementation phases, and development history.
 * **[User Manual (`docs/user/USER_MANUAL.md`)](../user/USER_MANUAL.md)**: Operating instructions, hotkeys, and CLI reference.
 * **[Contributing Guide (`docs/user/CONTRIBUTING.md`)](../user/CONTRIBUTING.md)**: Plugin contract, implementation patterns, tiered protection rules, and test verification.

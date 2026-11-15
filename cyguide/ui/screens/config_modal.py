@@ -1253,30 +1253,9 @@ class ConfigModal(ModalScreen[None]):
     def _test_db_writable(self, path: str) -> Tuple[bool, str]:
         if path == ":memory:":
             return True, "In-memory database (:memory:) is valid and ready."
-        expanded = os.path.abspath(os.path.expanduser(path))
-        parent = os.path.dirname(expanded)
-        if parent and not os.path.exists(parent):
-            try:
-                os.makedirs(parent, exist_ok=True)
-            except Exception as e:
-                return False, f"Cannot create database directory {parent}: {e}"
-        try:
-            # Test writability cleanly without untracked schema mutation
-            if os.path.exists(expanded):
-                with open(expanded, "a+b"):
-                    pass
-            else:
-                with open(expanded, "wb"):
-                    pass
-            import sqlite3
+        from cyguide.engine.diagnostics import DiagnosticEngine
 
-            conn = sqlite3.connect(expanded)
-            conn.execute("PRAGMA quick_check;")
-            conn.close()
-            size_kb = os.path.getsize(expanded) / 1024
-            return True, f"Database path valid & writable ({size_kb:.1f} KB at {expanded})"
-        except Exception as e:
-            return False, f"Database test failed: {e}"
+        return DiagnosticEngine.validate_db_path(path)
 
     def _test_tools_directory(self, path: str) -> Tuple[bool, str]:
         if not path or not path.strip():

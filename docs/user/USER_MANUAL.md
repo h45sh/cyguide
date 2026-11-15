@@ -94,7 +94,7 @@ Press `Ctrl+L` from the Dashboard to switch to Learning Mode.
 </p>
 
 ### 1. Tool Browser
-Browse all registered security adapters (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`):
+Browse all registered security adapters (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`):
 * Type to filter tools by name, category, or capability.
 * Inspect tool recipes, supported inputs, and emitted finding types.
 * Press `Enter` on any tool to enter its interactive Lesson Screen.
@@ -104,16 +104,26 @@ Browse all registered security adapters (`nmap`, `gobuster`, `nikto`, `whois`, `
 </p>
 
 ### 2. Interactive Lesson Screen
-* **Recipe Selection**: Choose a pre-configured recipe (e.g. "Pingless Service Scan") to auto-populate flags.
-* **Flag & Target Editor**: Interactively customize flags and target parameters with live preview updates.
-* **Execution**: Click `RUN` to execute or `STOP` to terminate early.
+* **Recipe Deck (`RecipeDeck`)**: Choose from curriculum-grade pre-configured recipes (e.g. "Pingless Service Scan", "Full Version & Service Detection") with instant execution (`▶ RUN`), flag loading, and targeted flag breakdown queries (`? ASK`).
+* **Target & Flag Editor (`FlagEditor`)**: Interactively customize flags, wordlists, and target parameters with live macro substitution (`{target}`, `{url}`, `{domain}`, `{wordlist:...}`).
+* **Target Execution Modes**:
+  * **Single Target**: Enter any target IP, domain, or URL in the target field for focused lesson execution.
+  * **Database Entity Sweep (`sweep_targets`)**: Programmatically sweep the selected recipe across all targets stored in the database (`GraphStore` nodes including discovered `network.host` IPs, `dns.record` domains, and `web.endpoint` URLs).
+* **Execution & Streaming**: Click `RUN` to execute with real-time terminal output streaming (`TerminalStreamPane`) or `STOP` to terminate early.
 * **AI Explainer Breakdown**: After execution, the AI tutor synthesizes:
   * Quick Target Summary
-  * Discovered Services & Findings Table
-  * Detailed Command Flags Breakdown
+  * Discovered Services & Structured Findings Table (auto-correlated from `GraphStore`)
+  * Detailed Command Flags Breakdown & Scanner Behavior
   * Key Security Takeaways & Hardening Advice
-  * Next Recommended Commands
-* **AI Tutor Chat**: Use the chat prompt at the bottom right to ask specific questions about output lines or protocols.
+  * Recommended Next Commands
+* **AI Tutor Chat (`stream_tutor_response`)**: Use the interactive chat prompt at the bottom right to ask specific questions about output lines, protocols, or commands. Supports slash commands:
+  * `/help`: List all available tutor commands.
+  * `/model`: Inspect currently active LLM backend profile and tool context.
+  * `/recipes`: View all curriculum recipes for the active tool.
+  * `/summary`: Request an on-demand educational summary of the current session.
+  * `/flags`: Break down the currently active command flags.
+  * `/ai on|off`: Toggle automated AI briefings on scan completion.
+  * `/clear`: Clear the explanation pane.
 
 ---
 
@@ -157,7 +167,7 @@ Configure external plugin directories (`--tools`) to load third-party adapters a
 </p>
 
 ### Live Tool Health Modal
-Select **Tool Health** in the Command Palette to inspect binary availability on PATH (`nmap`, `gobuster`, `nikto`, `subfinder`, `whois`) with exact filesystem paths and package manager installation hints.
+Select **Tool Health** in the Command Palette to inspect binary and module availability on PATH (`nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`) with exact filesystem paths and package manager installation hints.
 
 <p align="center">
   <img src="../../assets/tool_health.png" alt="CyGuide Tool Health Diagnostics Modal" width="100%">
@@ -243,10 +253,22 @@ cyg --tools /path/to/custom_tools
 ### Global Shortcuts
 | Shortcut | Action |
 | :--- | :--- |
-| `F1` or `Ctrl+/` | Open Keyboard Shortcuts Help Dialog |
-| `Ctrl+P` | Open Command Palette (Configuration, Themes, Tool Health) |
+| `F1` | Open Keyboard Shortcuts Help Dialog |
+| `Ctrl+P` | Open Command Palette (Commands, Settings, Diagnostics, Health) |
 | `Ctrl+Shift+C` | Open In-App Configuration Panel |
+| `Ctrl+/` | Dismiss active notification toast (one at a time) |
 | `Q` or `Ctrl+Q` | Quit CyGuide (from Dashboard, Tool Browser, or Lesson Screen) |
+
+### Command Palette (`Ctrl+P`)
+| Shortcut | Action |
+| :--- | :--- |
+| `Ctrl+P` | Open the Command Palette modal from any screen |
+| `Type text` | Fuzzy real-time command search |
+| `Up` / `Down` | Navigate matching commands |
+| `Enter` or `Right` (`→`) | Execute highlighted command or open Config |
+| `Left` (`←`) | Return to parent command list or dismiss modal |
+| `PageUp` / `PageDown` | Switch tabs in Configuration dialog (`Ollama` ↔ `Cloud AI` ↔ `Database` ↔ `Tools`) |
+| `Escape` | Dismiss Command Palette |
 
 ### Dashboard Shortcuts
 | Shortcut | Action |
@@ -263,6 +285,29 @@ cyg --tools /path/to/custom_tools
 | `Escape` | Cancel Delete or Organize mode |
 | `Enter` | Launch Power Mode for highlighted Session |
 | `Up` / `Down` | Navigate list items |
+
+### Learning Mode Dashboard (Tool Catalog)
+| Shortcut | Action |
+| :--- | :--- |
+| `Up` / `Down` | Navigate security tool list (focus starts directly in list) |
+| `Right` (`→`) or `Enter` | Launch highlighted tool directly into Learning Mode |
+| `Type directly (a-z, 0-9)` | Instant type-to-search (automatically routes to search bar) |
+| `Escape` | Single return directly to Dashboard (preserves active tool highlight) |
+| `F1` | Open Keyboard Shortcuts Help Dialog |
+
+### Learning Mode (Guided Lesson Screen)
+| Shortcut | Action |
+| :--- | :--- |
+| `Ctrl+Left` / `Ctrl+Right` | Cycle Tabs (`Recipes` ➔ `Raw Output` ➔ `Explanation`) |
+| `Ctrl+B` | Toggle lesson configuration sidebar |
+| `Alt+[` / `Alt+]` | Shrink / expand sidebar width |
+| `Enter` / `▶ RUN SCAN` | Execute configured tool command |
+| `■ STOP SCAN` | Stop currently running tool scan |
+| `✦ ASK AI` | Ask AI Tutor to explain active command or workflow recipe |
+| `● AI: ON / OFF` | Toggle automated live streaming AI explanations |
+| `COPY` / `Ctrl+Y` | Copy explanations or raw terminal output to clipboard |
+| `/summary`, `/flags`, `/recipes` | AI Tutor slash commands in bottom dock |
+| `Escape` | Return to Tool Browser (preserves active tool highlight) |
 
 ### Power Mode Shortcuts
 | Shortcut | Action |

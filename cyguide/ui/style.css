@@ -516,11 +516,13 @@ Screen > .screen--selection {
 
 /* Collapse State */
 #sidebar.collapsed, #learning_sidebar.collapsed, #power_sidebar.collapsed, #workspace_sidebar.collapsed {
-    display: none !important;
-    width: 0;
-    padding: 0;
-    margin-right: 0;
-    border: none;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin-right: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
 }
 
 
@@ -529,8 +531,10 @@ Screen > .screen--selection {
 .no-animations #learning_sidebar,
 .no-animations #power_sidebar,
 .no-animations #workspace_sidebar,
-.no-animations #lesson_config_pane {
-    transition: none !important;
+.no-animations #lesson_config_pane,
+.no-animations #scratchpad_pane,
+.no-animations * {
+    transition: width 1ms, height 1ms, offset 1ms, opacity 1ms !important;
 }
 
 .section_header {
@@ -800,7 +804,7 @@ ConfirmationDialog {
 
 #lesson_config_pane {
     width: 32;
-    min-width: 20;
+    min-width: 0;
     max-width: 70;
     height: 100%;
     border: round #334155;
@@ -816,13 +820,13 @@ ConfirmationDialog {
 }
 
 #lesson_config_pane.collapsed {
-    display: none !important;
-    width: 0;
-    min-width: 0;
-    max-width: 0;
-    padding: 0;
-    margin-right: 0;
-    border: none;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin-right: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
 }
 
 #tool_context_zone {
@@ -927,9 +931,53 @@ RecipeListItem.--highlight .recipe_desc {
     margin-bottom: 1;
 }
 
+.tool_ref_card {
+    height: auto;
+    background: #101318;
+    border: round #283344;
+    padding: 1 2;
+    margin-bottom: 1;
+}
+
+.tool_ref_header {
+    height: 1;
+    width: 100%;
+    align: left middle;
+    margin-bottom: 1;
+}
+
+.tool_ref_title {
+    color: #38bdf8;
+    text-style: bold;
+    width: auto;
+}
+
+.tool_ref_category_badge {
+    dock: right;
+    background: #1e293b;
+    color: #eab308;
+    text-style: bold;
+    padding: 0 1;
+    height: 1;
+}
+
+.tool_ref_meta_bar {
+    height: 1;
+    width: 100%;
+    align: left middle;
+    margin-bottom: 1;
+}
+
+.tool_ref_desc {
+    color: #cbd5e1;
+    height: auto;
+    width: 100%;
+    margin-bottom: 0;
+}
+
 .recipe_card {
     height: auto;
-    background: #14161b;
+    background: #101318;
     border: round #283344;
     padding: 0 1;
     margin-bottom: 1;
@@ -938,7 +986,7 @@ RecipeListItem.--highlight .recipe_desc {
 .recipe_card:focus-within,
 .recipe_card:hover {
     border: round #38bdf8;
-    background: #181c24;
+    background: #141720;
 }
 
 .recipe_card_header {
@@ -953,11 +1001,11 @@ RecipeListItem.--highlight .recipe_desc {
     color: #38bdf8;
     text-style: bold;
     width: auto;
-    margin-right: 2;
+    margin-right: 1;
 }
 
 .recipe_card_flags_badge {
-    background: #1e293b;
+    background: #181c24;
     color: #eab308;
     text-style: bold;
     padding: 0 1;
@@ -967,10 +1015,11 @@ RecipeListItem.--highlight .recipe_desc {
 }
 
 .recipe_card_desc {
-    color: #cbd5e1;
+    color: #94a3b8;
     margin-top: 0;
     margin-bottom: 0;
     height: auto;
+    width: 100%;
 }
 
 .recipe_card_actions {
@@ -1001,7 +1050,7 @@ Button.recipe_ask_btn:hover,
 Button.recipe_ask_btn:focus,
 .recipe_card Button.recipe_ask_btn:hover,
 .recipe_card Button.recipe_ask_btn:focus {
-    background: #283344 !important;
+    background: #28384d !important;
     color: #7dd3fc !important;
     border: none !important;
 }
@@ -1010,8 +1059,8 @@ Button.recipe_run_btn,
 Button.recipe_load_btn,
 .recipe_card Button.recipe_run_btn,
 .recipe_card Button.recipe_load_btn {
-    background: #38bdf8 !important;
-    color: #000000 !important;
+    background: #132d1d !important;
+    color: #4ade80 !important;
 }
 
 Button.recipe_run_btn:hover,
@@ -1022,8 +1071,8 @@ Button.recipe_load_btn:focus,
 .recipe_card Button.recipe_run_btn:focus,
 .recipe_card Button.recipe_load_btn:hover,
 .recipe_card Button.recipe_load_btn:focus {
-    background: #7dd3fc !important;
-    color: #000000 !important;
+    background: #1e462d !important;
+    color: #86efac !important;
     border: none !important;
 }
 
@@ -1049,7 +1098,7 @@ Button.recipe_stop_btn:focus,
     margin-top: 0;
 }
 
-#flag_editor_container, FlagEditor {
+#flag_editor_container, FlagEditor, CommandPreviewEditor {
     height: auto;
     padding: 0;
     margin: 0;
@@ -1285,7 +1334,7 @@ Button.ai_toggle_off:focus {
     border: none !important;
 }
 
-#explanation_scroll, #output_scroll {
+#explanation_scroll, #output_scroll, #power_guide_scroll {
     height: 1fr;
     background: #0f1114;
     border: none;
@@ -1329,7 +1378,7 @@ Button.ai_toggle_off:focus {
     height: auto;
 }
 
-#explanation_text {
+#explanation_text, #power_guide_text {
     color: #e2e8f0;
     height: auto;
     padding: 0;
@@ -1340,10 +1389,12 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
     text-align: left;
 }
 
-#raw_output_text {
+#raw_output_text, #raw_output_terminal {
     color: #cbd5e1;
-    height: auto;
-    padding: 0;
+    background: #0f1114;
+    height: 1fr;
+    border: none;
+    padding: 0 1;
 }
 
 /* Bottom Chat Dock (docked bar identical to Power Mode command dock) */
@@ -1513,7 +1564,7 @@ Footer > .footer--highlight-key {
 
 #power_sidebar {
     width: 34;
-    min-width: 20;
+    min-width: 0;
     max-width: 80;
     height: 100%;
     background: #14161b;
@@ -1530,11 +1581,13 @@ Footer > .footer--highlight-key {
 }
 
 #power_sidebar.collapsed {
-    display: none !important;
-    width: 0;
-    padding: 0;
-    margin-right: 0;
-    border: none;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin-right: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
 }
 
 
@@ -1597,7 +1650,7 @@ Footer > .footer--highlight-key {
 #power_sidebar.-resizing,
 #scratchpad_pane.-resizing,
 #lesson_config_pane.-resizing {
-    transition: none !important;
+    transition: width 1ms, height 1ms !important;
 }
 
 ResizeHandle {
@@ -1951,9 +2004,19 @@ ShortcutsDialog {
     background: #14161b;
 }
 
-#shortcuts_dialog Markdown {
+#shortcuts_dialog #shortcuts_scroll {
     height: 1fr;
-    overflow-y: scroll;
+    width: 1fr;
+    scrollbar-size-vertical: 1;
+}
+
+#shortcuts_dialog #shortcuts_scroll:focus {
+    border: none;
+}
+
+#shortcuts_dialog #shortcuts_content {
+    width: 1fr;
+    height: auto;
 }
 
 #shortcuts_dialog .dialog_buttons {
@@ -1969,8 +2032,20 @@ ShortcutsDialog {
 #browser_container {
     height: 1fr;
     width: 1fr;
-    padding: 1 2;
+    padding: 0 1;
     background: #0c0d10;
+}
+
+#browser_header_bar {
+    height: auto;
+    width: 100%;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+#browser_titles {
+    height: auto;
+    width: 1fr;
 }
 
 #browser_title {
@@ -1981,10 +2056,21 @@ ShortcutsDialog {
 
 #browser_subtitle {
     color: #94a3b8;
-    margin-bottom: 1;
+    margin-bottom: 0;
+}
+
+#browser_stats_badge {
+    dock: right;
+    background: transparent;
+    color: #38bdf8;
+    text-style: bold;
+    padding: 0 1;
+    height: 1;
+    margin-top: 0;
 }
 
 #search_input {
+    margin-top: 0;
     margin-bottom: 1;
     background: #0f1114;
     border: round #334155;
@@ -1995,75 +2081,344 @@ ShortcutsDialog {
     border: round #38bdf8;
 }
 
-#tool_list_area {
+#browser_workspace {
+    height: 1fr;
+    width: 1fr;
+}
+
+#tool_catalog_pane {
+    width: 36;
+    min-width: 30;
+    max-width: 44;
     height: 1fr;
     background: #14161b;
     border: round #334155;
-    padding: 0 1;
+    padding: 0;
+    margin-right: 1;
 }
 
-#tool_list_area:focus-within {
+#tool_catalog_pane:focus-within {
     border: round #38bdf8;
+}
+
+#catalog_header_row {
+    height: 1;
+    width: 100%;
+    background: #181c24;
+    padding: 0 1;
+    border-bottom: solid #283344;
 }
 
 #tool_list {
     background: transparent;
     height: 1fr;
+    padding: 0;
     scrollbar-size: 1 1;
     scrollbar-size-vertical: 1;
-    scrollbar-size-horizontal: 1;
-}
-
-ToolListItem {
-    height: 1;
-    padding: 0 1;
-    background: transparent;
-    color: #cbd5e1;
-}
-
-ToolListItem:hover {
-    background: #191c24;
-    color: #e2e8f0;
-}
-
-ToolListItem.-highlight,
-ToolListItem.--highlight {
-    background: #282e3a;
-    color: #e2e8f0;
-}
-
-ToolListItem.-highlight Label,
-ToolListItem.--highlight Label {
-    color: #e2e8f0;
-}
-
-ToolListItem > .tool_item_row {
-    height: 1;
-    width: 1fr;
-}
-
-.tool_name_label {
-    color: #e2e8f0;
-    text-style: bold;
-    width: 18;
-}
-
-.tool_summary_label {
-    color: #94a3b8;
-    width: 1fr;
 }
 
 .category_header_item {
-    height: 1;
-    color: #64748b;
-    text-style: bold;
+    height: auto;
     background: transparent;
     margin-top: 1;
+    margin-bottom: 0;
     padding: 0 1;
 }
 
 .category_header_item:hover {
     background: transparent;
+}
+
+.category_header_title {
+    color: #94a3b8;
+    text-style: bold;
+    width: 100%;
+}
+
+ToolListItem {
+    height: 1;
+    min-height: 1;
+    padding: 0 1;
+    background: transparent;
+    color: #94a3b8;
+    margin-bottom: 0;
+}
+
+ToolListItem:hover {
+    background: #181c24;
+    color: #e2e8f0;
+}
+
+ToolListItem.-highlight,
+ToolListItem.--highlight {
+    background: #1e293b !important;
+    color: #38bdf8 !important;
+}
+
+ToolListItem.-highlight .tool_name_label,
+ToolListItem.--highlight .tool_name_label {
+    color: #38bdf8 !important;
+    text-style: bold;
+}
+
+ToolListItem.-highlight .tool_recipe_badge,
+ToolListItem.--highlight .tool_recipe_badge {
+    background: transparent !important;
+    color: #38bdf8 !important;
+}
+
+.tool_item_card {
+    height: auto;
+    width: 100%;
+}
+
+.tool_item_row {
+    height: 1;
+    width: 100%;
+    align: left middle;
+}
+
+.tool_name_label {
+    color: #e2e8f0;
+    text-style: bold;
+    width: auto;
+}
+
+.tool_recipe_badge {
+    dock: right;
+    background: transparent;
+    color: #64748b;
+    text-style: bold;
+    padding: 0;
+    height: 1;
+}
+
+.tool_summary_label {
+    color: #64748b;
+    width: 100%;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    overflow-x: hidden;
+}
+
+ToolListItem.-highlight .tool_summary_label,
+ToolListItem.--highlight .tool_summary_label {
+    color: #94a3b8 !important;
+}
+
+.no_tools_found {
+    color: #64748b;
+    padding: 1;
+    text-style: italic;
+}
+
+#tool_inspector_pane {
+    width: 1fr;
+    height: 1fr;
+    background: #14161b;
+    border: round #334155;
+    padding: 0;
+    overflow-y: hidden;
+}
+
+#tool_inspector_pane:focus-within {
+    border: round #38bdf8;
+}
+
+#inspector_header_card {
+    height: auto;
+    width: 100%;
+    background: #181c24;
+    padding: 1 2;
+    border-bottom: solid #283344;
+}
+
+#inspector_title_row {
+    height: 1;
+    width: 100%;
+    align: left middle;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+#inspector_title {
+    color: #38bdf8;
+    text-style: bold;
+    width: auto;
+}
+
+#inspector_category_badge {
+    dock: right;
+    background: transparent;
+    color: #eab308;
+    text-style: bold;
+    padding: 0;
+    height: 1;
+}
+
+#inspector_meta_bar {
+    height: 1;
+    width: 100%;
+    align: left middle;
+    margin-top: 1;
+    margin-bottom: 0;
+}
+
+.meta_badge {
+    background: #181c24;
+    color: #94a3b8;
+    padding: 0 1;
+    margin-right: 1;
+    text-style: bold;
+    height: 1;
+}
+
+.meta_badge.status_ready {
+    background: #0d1e17;
+    color: #34d399;
+    text-style: bold;
+}
+
+.meta_badge.status_missing {
+    background: #271415;
+    color: #f87171;
+    text-style: bold;
+}
+
+#inspector_split_body {
+    height: 1fr;
+    width: 100%;
+    padding: 1 1;
+    overflow-y: hidden;
+}
+
+#inspector_desc_card {
+    width: 1fr;
+    height: 100%;
+    background: #101318;
+    border: round #283344;
+    padding: 0 1;
+    margin-right: 1;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+#inspector_recipes_card {
+    width: 1fr;
+    height: 100%;
+    background: #101318;
+    border: round #283344;
+    padding: 0 1;
+    margin-left: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+#inspector_desc_scroll {
+    height: 1fr;
+    width: 100%;
+    overflow-y: auto;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    padding-right: 1;
+}
+
+#inspector_recipes_scroll {
+    height: 1fr;
+    width: 100%;
+    overflow-y: auto;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    padding-right: 1;
+}
+
+.inspector_card_title {
+    color: #94a3b8;
+    text-style: bold;
+    width: 100%;
+    border-bottom: solid #1e293b;
+    margin-bottom: 1;
+}
+
+#inspector_desc_text {
+    color: #cbd5e1;
+    margin-top: 0;
+    margin-bottom: 0;
+    height: auto;
+    width: 100%;
+}
+
+#inspector_recipes_container {
+    height: auto;
+    width: 100%;
+    margin-top: 0;
+}
+
+.inspector_recipe_row {
+    height: 1;
+    width: 100%;
+    align: left middle;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+.inspector_recipe_row:hover {
+    background: #181c24;
+}
+
+.inspector_recipe_row_name {
+    color: #cbd5e1;
+    width: 1fr;
+    text-overflow: ellipsis;
+    text-wrap: nowrap;
+    overflow-x: hidden;
+}
+
+.inspector_recipe_row_flags {
+    width: auto;
+    background: transparent;
+    color: #eab308;
+    text-style: bold;
+    padding: 0 0 0 1;
+    height: 1;
+    text-align: right;
+}
+
+#inspector_action_bar {
+    height: auto;
+    width: 100%;
+    align: center middle;
+    padding: 1 2;
+    margin-top: 0;
+    margin-bottom: 0;
+    border-top: solid #283344;
+    background: #181c24;
+    dock: bottom;
+}
+
+#start_lesson_btn {
+    height: 3;
+    width: 42;
+    min-width: 36;
+    background: #132d1d;
+    border: round #22c55e;
+    color: #4ade80;
+    text-style: bold;
+}
+
+#start_lesson_btn:hover,
+#start_lesson_btn:focus {
+    background: #1a3c27;
+    border: round #4ade80;
+    color: #86efac;
+}
+
+.inspector_empty_msg,
+.inspector_intro_text {
+    color: #64748b;
+    text-style: italic;
+    padding: 2;
+    text-align: center;
 }
 
 /* ==========================================================================

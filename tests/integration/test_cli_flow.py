@@ -188,3 +188,36 @@ async def test_cli_export_report_only(tmp_path):
 
     assert "[+] Markdown report exported successfully" in output
     assert report_md.exists()
+
+
+@pytest.mark.asyncio
+async def test_cli_report_atomic_permissions(tmp_path):
+    db_path = tmp_path / "test.db"
+    store = GraphStore(str(db_path))
+    await store.initialize()
+    _ws_id, sess_id = await store.get_or_create_learning_sandbox()
+    await store.close()
+
+    export_db = tmp_path / "exported.db"
+    report_file = tmp_path / "export_report.md"
+
+    # Even with loose ambient umask 0o000, atomic descriptor creation enforces 0o600
+    old_umask = os.umask(0o000)
+    try:
+        args_list = [
+            "cyg",
+            "--db",
+            str(db_path),
+            "export",
+            str(sess_id),
+            str(export_db),
+            "--report",
+            str(report_file),
+        ]
+        await asyncio.to_thread(_run_cli_in_thread, args_list)
+    finally:
+        os.umask(old_umask)
+
+    assert report_file.exists()
+    st_mode = os.stat(report_file).st_mode & 0o777
+    assert oct(st_mode) == "0o600"

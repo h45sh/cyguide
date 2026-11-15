@@ -24,37 +24,38 @@ class WhoisAdapter(ToolAdapter):
             query = target.pik.get("domain")
         elif target.schema_type == "network.host":
             query = target.pik.get("ip")
-            
+
         args = ["whois"]
-        
+
         raw_flags = params.get("raw_flags", "")
         if raw_flags:
             import shlex
+
             args.extend(shlex.split(raw_flags))
-            
+
         if query:
             args.append(query)
         elif not raw_flags:
-            raise ValueError(f"Target finding {target.schema_type} missing query field (domain/ip), and no flags provided.")
-            
+            raise ValueError(
+                f"Target finding {target.schema_type} missing query field (domain/ip), and no flags provided."
+            )
+
         return args
 
-    async def parse_output(self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None) -> AsyncIterator[BaseFinding]:
+    async def parse_output(
+        self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
+    ) -> AsyncIterator[BaseFinding]:
         """Parse whois output for registrar, organization, and IP info."""
-        
+
         registrar = self._extract(raw_stdout, r"Registrar:\s*(.*)")
         org = self._extract(raw_stdout, r"(?:Organization|Registrant Organization):\s*(.*)")
         cidr = self._extract(raw_stdout, r"(?:CIDR|NetRange):\s*(.*)")
-        
+
         # 1. If we queried a domain, emit DomainInfo
         if target.schema_type == "dns.record":
             domain = target.pik.get("domain")
-            yield DomainInfo.create(
-                domain=domain,
-                registrar=registrar,
-                organization=org
-            )
-            
+            yield DomainInfo.create(domain=domain, registrar=registrar, organization=org)
+
         # 2. Emit Netblock info if found
         if cidr or org:
             yield NetworkNetblock.create(cidr=cidr or "Unknown", organization=org)

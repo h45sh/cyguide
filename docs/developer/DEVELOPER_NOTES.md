@@ -50,6 +50,29 @@ When a user terminates a scan, race conditions can occur if the process complete
   3. Throttled explanation streaming to 250ms and explicitly awaited `explainer_pane.update()` in `LearningModeScreen`.
 * **Decommissioning Criteria**: This technical debt can be retired once upstream Textual implements defensive null checks (`if container is not None:`) before evaluating `container.region` in `_forward_event`. Tracked and verified via `tests/unit/test_textual_compat.py`.
 
+### 8. High-Velocity Terminal Virtualization (`TerminalStreamPane`)
+* **The Roadblock**: Standard `RichLog` widgets store rendered output lines as full Rich `Strip` objects. High-frequency scanners (such as `ffuf` or `nuclei` emitting 10,000+ lines per second) flooded Textual's async message queue and caused catastrophic RAM bloat (exceeding 800 MB on long scans) and main thread starvation.
+* **The Architecture (`cyguide/ui/widgets/terminal_stream.py`)**:
+  1. **$O(1)$ Staging Queue**: Raw subprocess stdout chunks append directly to an in-memory list without Rich parsing on arrival.
+  2. **30 FPS Micro-Batch Cadence**: A 30 Hz timer flushes accumulated chunks in atomic batches, preserving terminal responsiveness at a stable 60 FPS.
+  3. **Bounded Ring Buffer**: A `collections.deque(maxlen=5000)` strictly clamps in-memory lines, keeping steady-state UI heap consumption under 3 MB.
+  4. **Viewport Virtualization**: `render_line(y)` renders only the visible rows on the terminal viewport rather than building DOM elements for off-screen lines.
+  5. **Direct Disk Spooling**: The async executor streams complete, uncapped output directly to `data/logs/{action_id}.log` for forensic completeness.
+
+### 9. Tree DOM Virtualization & In-Place Identity Caching (`EntityBrowser`)
+* **The Roadblock**: Under high finding influx (e.g. multi-subnet port sweeps yielding 1,000+ hosts and services), calling `self.clear()` on Textual's `Tree` widget on every finding destroyed and rebuilt thousands of `TreeNode` widgets, freezing the interface for 500ms+ per update.
+* **The Optimization (`cyguide/ui/widgets/power.py`)**:
+  1. **Identity Cache Fast-Path**: If the graph snapshot data and active search query are unchanged, `refresh_entities()` immediately returns in sub-1ms, skipping DOM reconstruction entirely.
+  2. **Category Capping**: Capped maximum visible child nodes per category (`Targets`, `Services`, `Web`) to 200 items, appending a summary overflow leaf (`… X more (filter with search)`).
+  3. **State Preservation**: Persisted user expanded/collapsed branch keys across background store updates.
+
+### 10. Micro-Wordlist Compression & Vendoring Strategy
+* **The Roadblock**: Bundled micro-wordlists (`subdomains_500.txt`, `common_params.txt`, etc.) contributed 6,318 lines of raw text, inflating Git lines-of-code statistics and cluttering pull request review diffs.
+* **The Solution (`cyguide/engine/wordlists.py`)**:
+  1. **`.gitattributes` Vendoring**: Added `linguist-vendored=true` and `-diff` to suppress wordlist assets from GitHub language analytics and git diff calculations.
+  2. **Gzip Compressed Archives**: Wordlists are packaged as `.txt.gz` inside the Python wheel (~78% size reduction).
+  3. **Transparent Runtime Extraction**: `seed_bundled_wordlists()` stream-decompresses `.txt.gz` archives into the user's `~/.cyguide/wordlists/*.txt` directory on initial run with `0o600` permissions.
+
 ---
 
 ## 3. General Developer Lessons

@@ -1,0 +1,7 @@
+Domain Name: EXAMPLE.COM
+Registry Domain ID: 2336799_DOMAIN_COM-VRSN
+Registrar WHOIS Server: whois.iana.org
+Registrar: Internet Assigned Numbers Authority
+Organization: Example Corporation
+Updated Date: 2026-08-14T07:01:44Z
+Creation Date: 1995-08-14T04:00:00Z

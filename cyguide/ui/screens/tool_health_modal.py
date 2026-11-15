@@ -109,7 +109,7 @@ class ToolHealthModal(ModalScreen[None]):
                 classes = "tool_status_row status_ok"
             elif info.get("status") == "missing":
                 status_glyph = "× Missing"
-                desc = info.get("hint") or "Not installed"
+                desc = "Not Available"
                 classes = "tool_status_row status_missing"
             else:
                 status_glyph = "▲ Error"

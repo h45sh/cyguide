@@ -50,9 +50,14 @@ CyGuide manages database files across distinct locations depending on operationa
 * **Custom Data Directory (`cyg --data-dir <path>`)**: Configures an alternate unified data directory or via `CYGUIDE_DATA_DIR` environment variable.
 * **Custom Database Override (`cyg --db <path>`)**: Allows operators to bind CyGuide to a specific database file for engagement isolation.
 * **Transient Testing (`sqlite:///:memory:`)**: All unit and integration test suites run against isolated in-memory databases with sub-millisecond setup and teardown.
-* **Integrity Pragmas**:
+* **Connection Lifecycle & Integrity Pragmas**:
+  Connection management is encapsulated via `GraphStore.connection()`. Every active connection enforces security, concurrency, and durability pragmas:
   ```sql
   PRAGMA foreign_keys = ON;
+  PRAGMA trusted_schema = OFF;
+  PRAGMA busy_timeout = 5000;
+  PRAGMA journal_mode = WAL;
+  PRAGMA synchronous = NORMAL;
   ```
   Foreign key enforcement is strictly enabled on every connection to maintain relational integrity and trigger cascading deletes.
 
@@ -291,6 +296,7 @@ $$\text{Node ID} = \text{SHA-256}\left(\text{schema\_type} + \text{":"} + \text{
 def _generate_node_id(self, schema_type: str, pik: Dict[str, Any]) -> str:
     import hashlib
     import json
+
     pik_str = json.dumps(pik, sort_keys=True)
     return hashlib.sha256(f"{schema_type}:{pik_str}".encode()).hexdigest()
 ```
@@ -363,12 +369,12 @@ if finding.parent:
     # Ensure parent stub exists
     await db.execute(
         "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
-        (session_id, parent_id, p.target_type, json.dumps(p.target_pik), "{}")
+        (session_id, parent_id, p.target_type, json.dumps(p.target_pik), "{}"),
     )
     # Insert edge
     await db.execute(
         "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
-        (session_id, parent_id, node_id, p.via)
+        (session_id, parent_id, node_id, p.via),
     )
 
 # 2. Handle Associations (Auto-wires semantic cross-entity edges)
@@ -376,11 +382,11 @@ for assoc in finding.associations:
     assoc_id = self._generate_node_id(assoc.target_type, assoc.target_pik)
     await db.execute(
         "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
-        (session_id, assoc_id, assoc.target_type, json.dumps(assoc.target_pik), "{}")
+        (session_id, assoc_id, assoc.target_type, json.dumps(assoc.target_pik), "{}"),
     )
     await db.execute(
         "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
-        (session_id, node_id, assoc_id, assoc.via)
+        (session_id, node_id, assoc_id, assoc.via),
     )
 ```
 

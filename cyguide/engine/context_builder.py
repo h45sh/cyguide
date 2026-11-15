@@ -5,7 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from cyguide.engine.execution_session import ExecutionSession
-from cyguide.engine.network import get_lhost_info
+from cyguide.engine.gateway import ActionGateway
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.power import WorkspaceContext
@@ -31,7 +31,7 @@ class WorkspaceContextBuilder:
 
         # 1. Resolve selected entity and variables
         selected_entity = None
-        resolved_vars = {}
+        pik = None
         if selected_entity_id:
             node_data = await self.store.get_node(session_id, selected_entity_id)
             if node_data:
@@ -43,26 +43,7 @@ class WorkspaceContextBuilder:
                     status=node_data.get("status", "confirmed"),
                 )
 
-                # Context Resolution Logic
-                resolved_vars["TARGET"] = pik.get("ip") or pik.get("domain") or pik.get("host_ip")
-                if "port" in pik:
-                    resolved_vars["PORT"] = pik["port"]
-                if "service" in pik:
-                    resolved_vars["SERVICE"] = pik["service"]
-                if "protocol" in pik:
-                    resolved_vars["PROTOCOL"] = pik["protocol"]
-
-        # Operator context resolution: Always resolve LHOST
-        try:
-            import sys
-
-            pf = sys.modules.get("cyguide.engine.power_facade")
-            resolver = getattr(pf, "get_lhost_info", get_lhost_info) if pf else get_lhost_info
-            lhost_ip, _ = resolver()
-            if lhost_ip:
-                resolved_vars["LHOST"] = lhost_ip
-        except Exception:
-            pass
+        resolved_vars = ActionGateway.resolve_entity_variables(pik)
 
         # 2. Aggregate counts and jobs
         stats = await self.store.get_stats(session_id)

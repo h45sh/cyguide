@@ -1,0 +1,15 @@
+===============================================================
+Gobuster v3.5
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     http://10.10.10.50:8080
+[+] Method:                  GET
+[+] Threads:                 10
+[+] Wordlist:                /path/to/wordlist.txt
+===============================================================
+/admin               (Status: 200) [Size: 1024]
+/login               (Status: 302) [Size: 0] [--> /auth/login]
+/config.php          (Status: 403) [Size: 280]
+/static              (Status: 301) [Size: 150]
+===============================================================
+Finished

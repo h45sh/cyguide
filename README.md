@@ -13,7 +13,7 @@
 
 **TUI-Based Guided Cybersecurity Learning and Terminal Tool Orchestration Platform.**
 
-CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models.
+CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models.
 
 For an interactive overview and project showcase, visit the official webpage at [https://h45sh.com/portfolio/cyguide/](https://h45sh.com/portfolio/cyguide/).
 
@@ -91,12 +91,13 @@ CyGuide is built on a **Smart Adapter / Stupid Framework** model:
                                     │ Event Streaming
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                         Security Tool Adapters                         │
-│   nmap  •  gobuster  •  nikto  •  whois  •  subfinder  •  custom...    │
+│  nmap • gobuster • nikto • whois • subfinder • dnspython • ffuf • nuclei│
+│                    • searchsploit • custom plugins...                  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 * **Core Engine (`cyguide/engine`)**: Asynchronous process execution sessions with disk spooling, policy gateway, action timeline repository, workspace repository, and SQLite graph store.
-* **Unified Schemas (`cyguide/schemas`)**: 15 standard Pydantic models defining shared security entities with declarative canonicalization.
+* **Unified Schemas (`cyguide/schemas`)**: 18 standard Pydantic models defining shared security entities with declarative canonicalization.
 * **Smart Adapters (`tools/`)**: Isolated plugins that construct commands and parse streaming output.
 * **Textual TUI (`cyguide/ui`)**: Fast, keyboard-driven terminal interface with split panes and scratchpad.
 
@@ -177,11 +178,10 @@ If you prefer to install packages manually using your distribution's native pack
 
 ```bash
 sudo apt update
-sudo apt install -y nmap gobuster nikto whois libxml-writer-perl curl unzip
+sudo apt install -y nmap gobuster nikto whois ffuf libxml-writer-perl curl unzip tar git
 
-# Install subfinder (official ProjectDiscovery binary release)
-curl -fsSL https://github.com/projectdiscovery/subfinder/releases/download/v2.6.6/subfinder_2.6.6_linux_amd64.zip -o /tmp/subfinder.zip
-unzip -q /tmp/subfinder.zip -d /tmp && sudo mv /tmp/subfinder /usr/local/bin/ && rm /tmp/subfinder.zip
+# Install subfinder, nuclei, and searchsploit (or run ./scripts/install_deps.sh for automated binaries)
+./scripts/install_deps.sh
 ```
 </details>
 
@@ -191,7 +191,7 @@ unzip -q /tmp/subfinder.zip -d /tmp && sudo mv /tmp/subfinder /usr/local/bin/ &&
 ```bash
 # All tools are natively available in official Kali & Parrot repositories
 sudo apt update
-sudo apt install -y nmap gobuster nikto whois subfinder libxml-writer-perl
+sudo apt install -y nmap gobuster nikto whois subfinder ffuf nuclei exploitdb libxml-writer-perl
 ```
 </details>
 
@@ -199,7 +199,7 @@ sudo apt install -y nmap gobuster nikto whois subfinder libxml-writer-perl
 <summary><b>Arch Linux / Manjaro / EndeavourOS / BlackArch</b></summary>
 
 ```bash
-sudo pacman -Syu --needed nmap gobuster nikto whois subfinder perl-xml-writer
+sudo pacman -Syu --needed nmap gobuster nikto whois subfinder ffuf nuclei exploitdb perl-xml-writer
 ```
 </details>
 
@@ -207,9 +207,9 @@ sudo pacman -Syu --needed nmap gobuster nikto whois subfinder perl-xml-writer
 <summary><b>Fedora / RHEL / CentOS Stream / Rocky / AlmaLinux</b></summary>
 
 ```bash
-sudo dnf install -y nmap whois perl-XML-Writer curl unzip
-# Gobuster / Nikto / Subfinder (or run ./scripts/install_deps.sh for automated binaries)
-sudo dnf install -y gobuster nikto 2>/dev/null || ./scripts/install_deps.sh
+sudo dnf install -y nmap whois perl-XML-Writer curl unzip tar git
+# Security CLI tools (or run ./scripts/install_deps.sh for automated binaries)
+sudo dnf install -y gobuster nikto ffuf 2>/dev/null || ./scripts/install_deps.sh
 ```
 </details>
 
@@ -217,7 +217,7 @@ sudo dnf install -y gobuster nikto 2>/dev/null || ./scripts/install_deps.sh
 <summary><b>openSUSE (Tumbleweed / Leap)</b></summary>
 
 ```bash
-sudo zypper install -y nmap whois perl-XML-Writer curl unzip
+sudo zypper install -y nmap whois perl-XML-Writer curl unzip tar git
 ./scripts/install_deps.sh
 ```
 </details>
@@ -226,7 +226,7 @@ sudo zypper install -y nmap whois perl-XML-Writer curl unzip
 <summary><b>Alpine Linux</b></summary>
 
 ```bash
-sudo apk add nmap gobuster nikto whois perl-xml-writer curl unzip
+sudo apk add nmap gobuster nikto whois ffuf perl-xml-writer curl unzip tar git
 ./scripts/install_deps.sh
 ```
 </details>
@@ -235,7 +235,7 @@ sudo apk add nmap gobuster nikto whois perl-xml-writer curl unzip
 <summary><b>macOS (Homebrew)</b></summary>
 
 ```bash
-brew install nmap gobuster nikto whois subfinder
+brew install nmap gobuster nikto whois subfinder ffuf nuclei exploitdb
 ```
 </details>
 
@@ -313,7 +313,7 @@ Our complete documentation is organized using the **[Diátaxis Framework](docs/R
 * **[User Manual](docs/user/USER_MANUAL.md)**: Navigation guide, hotkeys master table, and UI workflows.
 * **[Architecture & Domain Context](docs/developer/ARCHITECTURE.md)**: Subsystem pipelines, ADRs, and facade contracts.
 * **[Database Architecture & Specification](docs/developer/DATABASE.md)**: Relational schema, PIK hashing, and ER diagrams.
-* **[Schema Registry](docs/developer/SCHEMA_REGISTRY.md)**: Standard 15-schema finding models and identity keys.
+* **[Schema Registry](docs/developer/SCHEMA_REGISTRY.md)**: Standard finding schema models and identity keys.
 * **[Roadmap & Progress Tracker](docs/developer/ROADMAP.md)**: Project phases, active tasks, and historical milestones.
 * **[Autonomous Agent Harness Vision](docs/developer/FUTURE_POWER_MODE.md)**: Architecture for autonomous ReAct loops and safety gates.
 * **[Developer Performance Notes](docs/developer/DEVELOPER_NOTES.md)**: Real-time streaming, event loops, and lessons learned.

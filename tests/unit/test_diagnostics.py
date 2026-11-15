@@ -259,6 +259,10 @@ async def test_tool_health_modal_realtime_apply_health():
     await modal.apply_health(issues_health)
     summary_label.update.assert_called_with("▲ 1 issue(s) detected across 2 registered tools.")
     assert items_list.append.call_count == 2
+    # Verify missing tool row renders "Not Available"
+    first_item = items_list.append.call_args_list[1][0][0]
+    first_static = first_item._pending_children[0]
+    assert "Not Available" in str(first_static.content)
 
     # 2. All healthy
     clean_health = {

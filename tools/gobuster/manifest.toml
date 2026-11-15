@@ -1,10 +1,23 @@
 [meta]
 name = "gobuster"
-description = "Directory/File, DNS and VHost busting tool"
-one_line_summary = "brute-force directories and files on a web server"
+description = "High-speed URI directory, file path, and DNS subdomain brute-forcing scanner written in Go."
+one_line_summary = "brute-force hidden directories, files, and endpoints on web servers"
 category = "Web Enumeration"
 categories = ["recon", "web", "brute-force"]
 binary = "gobuster"
+theory = """
+### Protocol Theory & RFC 7230/7231 URI Traversal
+Web servers route incoming HTTP request URIs to disk files or routing handlers. Gobuster executes deterministic dictionary traversal over concurrent worker routines.
+
+### Response Classification & Attack Vectors
+* **Status Triage**: Identifies live paths (`200 OK`), redirects (`301/302`), restricted portals (`401/403`), and unhandled application crashes (`500`).
+* **Unlinked Assets**: Discovers administrative consoles (`/admin`), leaked VCS files (`/.git`), and environment configurations (`/.env`).
+* **Extension Permutations**: Appends specific server extensions (`.php`, `.bak`, `.sql`, `.json`) to find exposed backups.
+
+### Defensive Hardening & Mitigation
+* **Directory Indexing**: Explicitly disable `Options -Indexes` and default file directory listings.
+* **WAF Rate Limiting**: Deploy IP request rate throttles (e.g. Nginx `limit_req`) to block high-frequency scans.
+"""
 
 [modes]
 learning = true
@@ -20,15 +33,72 @@ produces = ["web.endpoint"]
 enabled = true
 
 [[learning.recipes]]
-name = "Common Directory Scan"
-description = "Scan for common directories and files"
-flags = ["dir", "-u", "{url}", "-w", "{wordlist}"]
+name = "Standard Directory Discovery"
+difficulty = "Beginner"
+description = "Enumerate common web paths and directories using the bundled wordlist."
+flags = ["dir", "-u", "{url}", "-w", "{wordlist:common_dirs}"]
+
+[learning.recipes.theory]
+concept = "HTTP URI Directory Fuzzing & Status Code Triaging (RFC 7231)"
+explanation = """
+Web applications do not expose an index of all valid endpoints unless directory listing is enabled.
+Directory busting systematically requests thousands of common dictionary words (e.g. /admin, /api, /login, /uploads) appended to the target URL.
+Evaluating the HTTP status code (200, 301, 302, 403) reveals hidden administration portals and unprotected REST API resources.
+"""
+packet_wire_summary = "Client GET /word HTTP/1.1 -> Server 200 OK (Resource exists) or 404 Not Found"
+remediation = "Disable directory browsing, enforce authentication on private routes, and log high-frequency 404 status codes."
 
 [[learning.recipes]]
-name = "Fast Directory Scan"
-description = "Scan with multiple threads (faster)"
-flags = ["dir", "-u", "{url}", "-w", "{wordlist}", "-t", "50"]
+name = "High-Concurrency Accelerated Scan"
+difficulty = "Beginner"
+description = "Accelerate enumeration using a 50-worker thread pool on high-bandwidth networks."
+flags = ["dir", "-u", "{url}", "-w", "{wordlist:common_dirs}", "-t", "50"]
+
+[learning.recipes.theory]
+concept = "Thread Pool Concurrency, HTTP Keep-Alive & Socket Reuse"
+explanation = """
+Sequential HTTP requests are constrained by network latency and round-trip times (RTT).
+Configuring '-t 50' spawns 50 concurrent Go routines, establishing persistent HTTP/1.1 connections (Keep-Alive) to reuse TCP sockets and maximize throughput.
+High thread counts must be balanced against server capacity to avoid triggering DDoS protections or crashing fragile web servers.
+"""
+packet_wire_summary = "Client initiates 50 parallel TCP connections reusing HTTP Keep-Alive pipelines"
+remediation = "Implement edge rate limiting and Web Application Firewall (WAF) threshold blocking."
+
+[[learning.recipes]]
+name = "File Extension & Script Enumeration"
+difficulty = "Intermediate"
+description = "Discover server-side scripts, database exports, and backup files by appending specific extensions."
+flags = ["dir", "-u", "{url}", "-w", "{wordlist:common_dirs}", "-x", "php,html,json,txt,bak"]
+
+[learning.recipes.theory]
+concept = "MIME Type Handling & Script Execution Architectures"
+explanation = """
+Web frameworks handle files differently based on extension:
+- .php/.py/.aspx: Executed by backend interpreters before rendering HTML.
+- .bak/.old/.txt: Served as static raw files, frequently exposing source code or hardcoded credentials.
+The '-x' flag appends each extension to every dictionary word, checking for /index.php, /config.bak, and /database.sql.
+"""
+packet_wire_summary = "Client GET /config.bak HTTP/1.1 -> Server 200 OK text/plain -> Database credentials revealed"
+remediation = "Prohibit backup file creation in webroot; configure web server rules to deny access to .bak, .old, and .env files."
+
+[[learning.recipes]]
+name = "Status Code Allowlist & Redirection Filter"
+difficulty = "Intermediate"
+description = "Isolate successful responses and redirects while suppressing permission errors and soft-404 pages."
+flags = ["dir", "-u", "{url}", "-w", "{wordlist:common_dirs}", "-s", "200,204,301,302,307", "-b", ""]
+
+[learning.recipes.theory]
+concept = "HTTP Response Semantics & Custom 404 Handling"
+explanation = """
+Some misconfigured web applications return HTTP 200 OK or 302 Redirect for non-existent pages (Soft 404).
+Using '-s' establishes an explicit allowlist of status codes of interest (e.g. 200 OK, 301 Redirect), preventing terminal clutter and false positives.
+"""
+packet_wire_summary = "Client filters incoming responses: Drops 404/500, logs 200/301/302 endpoints"
+remediation = "Ensure web applications return RFC-compliant 404 Not Found or 410 Gone responses for nonexistent resources."
 
 [power]
 enabled = true
-suggests = []
+suggests = [
+  { target = "web.endpoint", condition = "status_code == 200", tool = "nikto", flags = "-h {target.pik.url}" },
+  { target = "web.endpoint", condition = "status_code == 200", tool = "nuclei", flags = "-u {target.pik.url}" }
+]

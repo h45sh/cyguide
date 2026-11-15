@@ -152,3 +152,50 @@ async def test_entity_alias_and_graph_queries():
         assert stats.get("total", 0) >= 1
     finally:
         await store.close()
+
+
+@pytest.mark.asyncio
+async def test_workspace_repository_batch_operations():
+    """Verify batch_delete (including SYSTEM workspace guard) and move_sessions."""
+    store = GraphStore(":memory:")
+    await store.initialize()
+    repo = WorkspaceRepository(store)
+
+    try:
+        # Create standard and system workspaces
+        ws1 = await repo.create_workspace("Source WS")
+        ws2 = await repo.create_workspace("Target WS")
+        ws3 = await repo.create_workspace("Delete WS")
+
+        # Mark ws1 as SYSTEM in store
+        async with store.connection() as conn:
+            await conn.execute("UPDATE workspaces SET status = 'SYSTEM' WHERE id = ?", (ws1,))
+            await conn.commit()
+
+        s1 = await repo.create_session(ws1, "Session 1")
+        s2 = await repo.create_session(ws1, "Session 2")
+        s3 = await repo.create_session(ws3, "Session 3")
+
+        # 1. Test move_sessions
+        res = await repo.move_sessions([s1, s2], ws2)
+        assert len(res["moved"]) == 2
+        assert s1 in res["moved"]
+        assert s2 in res["moved"]
+        assert len(res["errors"]) == 0
+
+        # Collision test on subsequent move
+        res_collision = await repo.move_sessions([s1], ws2)
+        assert len(res_collision["errors"]) == 1
+        assert "already exists" in res_collision["errors"][0]
+
+        # 2. Test batch_delete with SYSTEM guard
+        del_res = await repo.batch_delete(workspace_ids=[ws1, ws3], session_ids=[s3])
+        assert ws1 not in del_res["deleted_workspaces"]
+        assert "Source WS" in del_res["skipped_system_workspaces"]
+        assert ws3 in del_res["deleted_workspaces"]
+
+        # Verify ws1 still exists, ws3 is gone
+        assert await repo.get_workspace(ws1) is not None
+        assert await repo.get_workspace(ws3) is None
+    finally:
+        await store.close()

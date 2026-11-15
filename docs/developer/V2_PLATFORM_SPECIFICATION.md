@@ -80,6 +80,7 @@ import struct
 import fcntl
 import termios
 
+
 def set_pty_size(master_fd: int, rows: int, cols: int):
     """Update pseudo-terminal window geometry dynamically."""
     winsize = struct.pack("HHHH", rows, cols, 0, 0)
@@ -175,6 +176,7 @@ In `ActionGateway`, enforce declarative engagement boundaries:
 ```python
 import ipaddress
 
+
 def validate_target_scope(target_ip: str, allowed_cidrs: list[str]) -> bool:
     """Ensure the target IP strictly belongs to the operator's authorized CIDR scope."""
     ip = ipaddress.ip_address(target_ip)
@@ -186,23 +188,18 @@ Any action targeting an address outside authorized engagement bounds is rejected
 
 ## 5. Tool Ecosystem Scaffolder & High-Impact Adapters
 
-### 5.1 CLI Scaffolder (`cyg create-adapter <name>`)
-To make adding community tools turnkey, a built-in generator scaffolds the complete adapter package with 100% typing and schema contracts:
+### 5.1 AI Adapter Authoring Skill (`adapter-authoring`)
+Rather than maintaining a rigid CLI code generator, adapter authoring is handled via an AI Agent Skill. The skill guides the model to inspect target CLI `--help` or documentation, map outputs to CyGuide's schema registry, author rich `manifest.toml` files with pedagogical recipes and protocol theory, implement `adapter.py` (streaming JSON or regex parser), and produce hermetic pytest fixtures:
 
-```bash
-cyg create-adapter nuclei --category vulnerability --description "Fast YAML-based vulnerability scanner"
-```
-
-Generates:
 ```text
-tools/nuclei/
+tools/<name>/
 ├── __init__.py
-├── manifest.toml         # Binary metadata, recipes, parameters, requirements
-├── adapter.py            # ToolAdapter implementation with typed finding parsers
-└── test_adapter.py       # Hermetic pytest tests mocking command execution
+├── manifest.toml         # Binary metadata, progressive recipes, wire theory, blue-team remediation
+├── adapter.py            # ToolAdapter implementation with typed finding parsers & relation wiring
+└── (fixtures in tests/fixtures/mock_tools/<name>.* + tests/unit/test_parsers/test_<name>_parser.py)
 ```
 
-### 5.2 Key v1.10.5 Tool Adapters
+### 5.2 Key Tool Adapters
 
 | Tool | Category | Primary Output Schemas | Key Capabilities |
 | :--- | :--- | :--- | :--- |

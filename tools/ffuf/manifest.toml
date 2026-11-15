@@ -1,0 +1,121 @@
+[meta]
+name = "ffuf"
+description = "Fast, high-performance web fuzzer written in Go for discovering directories, virtual hosts, parameters, and sensitive file disclosures."
+one_line_summary = "high-speed HTTP directory and virtual host fuzzer"
+category = "Web Enumeration"
+categories = ["web", "fuzzing", "recon"]
+binary = "ffuf"
+theory = """
+### Protocol Theory & Request Injection Vectors
+Fuzzing injects dictionary payloads into candidate protocol fields denoted by the `FUZZ` anchor across HTTP requests.
+
+### Multi-Vector Enumeration Mechanics
+* **Virtual Host Enumeration (`Host: FUZZ.domain`)**: Enumerates unannounced internal web apps behind shared reverse proxies.
+* **Parameter Fuzzing (`?FUZZ=1`)**: Discovers undocumented administrative APIs, test keys, and debug toggles.
+* **Heuristic Filtering**: Suppresses noise by matching HTTP status code (`-fc`), response byte length (`-fs`), word count (`-fw`), or regex patterns (`-mr`).
+
+### Defensive Hardening & Routing
+* **Strict Reverse Proxy Rules**: Reject unrecognized or missing `Host` headers with HTTP 421 Misdirected Request.
+* **WAF Anomaly Detection**: Enforce anomaly scoring on high-frequency burst patterns from identical IP subnets.
+"""
+
+[modes]
+learning = true
+power = true
+
+[input]
+accepts = ["network.host", "web.endpoint", "dns.record"]
+
+[output]
+produces = ["web.endpoint", "audit.misconfig"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "Standard Directory Discovery"
+difficulty = "Beginner"
+description = "Enumerate hidden directories, REST API routes, and web assets using the bundled common directories dictionary."
+flags = ["-u", "{url}/FUZZ", "-w", "{wordlist:common_dirs}", "-mc", "200,301,302,403"]
+
+[learning.recipes.theory]
+concept = "HTTP Resource Discovery & Status Code Triage (RFC 7231)"
+explanation = """
+FFUF performs high-concurrency HTTP GET requests replacing the 'FUZZ' keyword with entries from a wordlist.
+Web servers respond with standard status codes indicating accessibility:
+- 200 OK: Accessible resource, potentially containing sensitive data.
+- 301/302 Redirect: Route exists and forwards to an authentication portal or trailing slash.
+- 403 Forbidden: Endpoint exists but requires elevated authorization (e.g. /admin).
+Filtering status codes with '-mc' isolates meaningful endpoints while discarding pervasive 404 Not Found responses.
+"""
+packet_wire_summary = "Client GET /FUZZ HTTP/1.1 -> Host: target -> Server HTTP/1.1 200 OK (Content-Length: N)"
+remediation = "Disable directory browsing, enforce strict authentication across all private routes, and deploy a WAF to detect brute-force fuzzing."
+
+[[learning.recipes]]
+name = "Virtual Host & Subdomain Fuzzing"
+difficulty = "Intermediate"
+description = "Discover unannounced internal virtual hosts routed behind a single reverse proxy by fuzzing the HTTP Host header."
+flags = ["-u", "{url}", "-H", "Host: FUZZ.{domain}", "-w", "{wordlist:subdomains_500}"]
+
+[learning.recipes.theory]
+concept = "Host-Header Based Virtual Hosting (RFC 7230 / RFC 9112)"
+explanation = """
+Modern web servers (Nginx, Apache, Cloudflare) host hundreds of independent applications on a single public IP address using Name-Based Virtual Hosting.
+When a request arrives, the server checks the 'Host' header to determine which application configuration to route the connection to.
+By keeping the target IP constant and fuzzing the Host header (e.g. dev.example.com, staging.example.com, api.example.com), attackers discover non-public applications that have no public DNS records.
+"""
+packet_wire_summary = "Client GET / HTTP/1.1 -> Host: dev.example.com -> Server routes to internal staging application"
+remediation = "Configure default server blocks (catch-all) to drop or reject unknown Host headers with 421 Misdirected Request or 404."
+
+[[learning.recipes]]
+name = "Hidden Parameter Discovery"
+difficulty = "Intermediate"
+description = "Fuzz URL query parameters to uncover hidden administrative, debug, or developer toggles."
+flags = ["-u", "{url}/?FUZZ=1", "-w", "{wordlist:common_params}", "-mc", "200"]
+
+[learning.recipes.theory]
+concept = "HTTP Query Parameter Injection & Hidden Endpoint Logic"
+explanation = """
+Developers often embed hidden parameters for testing, administration, or debugging (e.g. ?debug=true, ?admin=1, ?test=1, ?load=secrets).
+Parameter fuzzing tests dictionary words as query keys. When a valid parameter key is evaluated by the backend script, the response typically shifts in length, status code, or response time.
+"""
+packet_wire_summary = "Client GET /index.php?debug=1 -> Backend activates verbose debug output and reveals stack traces"
+remediation = "Remove all testing and debug toggles prior to production deployment; implement strict parameter allowlists."
+
+[[learning.recipes]]
+name = "Backup & Configuration File Exposure"
+difficulty = "Intermediate"
+description = "Fuzz common filenames coupled with risky extensions (.bak, .old, .env, .git) to detect configuration leaks."
+flags = ["-u", "{url}/FUZZ", "-w", "{wordlist:common_dirs}", "-e", ".env,.git,.bak,.old,.json,.txt,.php"]
+
+[learning.recipes.theory]
+concept = "Sensitive Artifact Disclosure & Backup File Leaks (CWE-530)"
+explanation = """
+Text editors and sysadmins often leave temporary backup copies of production source code or configuration files in the web root (e.g., config.php.bak, index.php.old, .env).
+Unlike executable .php files that are parsed by the server engine before sending output, backup extensions are served as plain text (text/plain), exposing database passwords, API secrets, and encryption keys.
+"""
+packet_wire_summary = "Client GET /.env HTTP/1.1 -> Server 200 OK -> Content-Type: text/plain -> DB_PASSWORD=secret"
+remediation = "Prohibit backup files in the webroot via server configuration rules (e.g. Nginx 'location ~ /\\.(?!well-known).* { deny all; }')."
+
+[[learning.recipes]]
+name = "Stealth & Rate-Limited Scanning"
+difficulty = "Advanced"
+description = "Throttle request rate and add jitter to audit targets without triggering rate-limits or exhausting upstream sockets."
+flags = ["-u", "{url}/FUZZ", "-w", "{wordlist:common_dirs}", "-rate", "15", "-p", "0.2"]
+
+[learning.recipes.theory]
+concept = "Traffic Shaping, Rate-Limiting & Anti-DDoS Thresholds"
+explanation = """
+Security devices and Web Application Firewalls (WAFs) monitor request volume per client IP using Leaky-Bucket or Token-Bucket algorithms.
+Sending hundreds of requests per second triggers automatic IP banning and socket starvation.
+Configuring '-rate' limits peak requests per second, while '-p' introduces random millisecond pauses (jitter) to blend traffic with human user behavior.
+"""
+packet_wire_summary = "Client limits to 15 req/sec with 200ms randomized jitter -> Evades volume-based IDS tripwires"
+remediation = "Employ behavioral and machine-learning anomaly detection alongside fixed-threshold rate-limiting."
+
+[power]
+enabled = true
+suggests = [
+    { target = "web.endpoint", condition = "status_code == 200", tool = "nikto", flags = "-h {target.pik.url}" },
+    { target = "audit.misconfig", condition = "check_id == 'exposed-sensitive-file'", tool = "nuclei", flags = "-u {target.pik.target} -tags exposure" }
+]

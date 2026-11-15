@@ -75,14 +75,19 @@ The facade serves as the single point of entry for both human operators and auto
 
 ```python
 # Programmatic API exposed to agents:
-async def get_context(session_id: str, selected_entity_id: Optional[str] = None) -> WorkspaceContext:
+async def get_context(
+    session_id: str, selected_entity_id: Optional[str] = None
+) -> WorkspaceContext:
     """Builds a point-in-time snapshot of the target environment and discovered entities."""
+
 
 async def submit_action(action: ActionRequest) -> UUID:
     """Validates and schedules a tool action through the ActionGateway."""
 
+
 async def get_graph_snapshot(session_id: str) -> Dict[str, List[Dict]]:
     """Fetches all confirmed findings and relationship edges."""
+
 
 async def get_proposed_findings(session_id: str) -> List[BaseFinding]:
     """Fetches pending tool recommendations waiting for execution."""
@@ -224,4 +229,4 @@ To balance speed and safety, the agent harness will support three governance ope
 
 * **[System Architecture Blueprint (`docs/developer/ARCHITECTURE.md`)](ARCHITECTURE.md)**: Layered execution pipeline and ADRs.
 * **[Database Architecture & Storage Specification (`docs/developer/DATABASE.md`)](DATABASE.md)**: SQLite relational schema and PIK hashing.
-* **[Schema Registry (`docs/developer/SCHEMA_REGISTRY.md`)](SCHEMA_REGISTRY.md)**: Standard 15-schema finding models.
+* **[Schema Registry (`docs/developer/SCHEMA_REGISTRY.md`)](SCHEMA_REGISTRY.md)**: Standard finding schema models.

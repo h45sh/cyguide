@@ -1,0 +1,103 @@
+[meta]
+name = "searchsploit"
+description = "Command-line search utility for Exploit-DB, enabling offline discovery of verified exploits, PoCs, and CVE references."
+one_line_summary = "offline Exploit-DB and public PoC intelligence lookup"
+category = "Vulnerability Assessment"
+categories = ["exploit", "cve", "recon"]
+binary = "searchsploit"
+theory = """
+### Theory & Vulnerability Lifecycle
+Vulnerability research correlates software version strings identified during reconnaissance against public CVE databases and verified exploit archives.
+
+### Exploit Architecture & Classification
+* **Remote (`remote`)**: Weaponized exploits executable over a network socket without valid credentials.
+* **Privilege Escalation (`local`)**: Requires an unprivileged shell to escalate to root or SYSTEM rights.
+* **Web Applications (`webapps`)**: Exploits targeting SQLi, RCE, LFI, and SSRF in web frameworks.
+* **Offline Verification**: Operates fully disconnected from the internet, ideal for air-gapped environments.
+
+### Defensive Hardening & Governance
+* **Patch Cadence**: Maintain an aggressive patch schedule for internet-facing daemons.
+* **Principle of Least Privilege**: Isolate daemons in unprivileged accounts with SELinux/AppArmor confinement.
+"""
+
+[modes]
+learning = true
+power = true
+
+[input]
+accepts = ["network.service", "vulnerability.found", "network.host"]
+
+[output]
+produces = ["exploit.reference"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "Service Version Exploit Lookup"
+difficulty = "Beginner"
+description = "Search local Exploit-DB archives for publicly documented exploits matching discovered software version strings."
+flags = ["--json"]
+
+[learning.recipes.theory]
+concept = "Offline Exploit Indexing & Version Fingerprint Matching"
+explanation = """
+SearchSploit evaluates local copies of the Offensive Security Exploit Database (Exploit-DB).
+Instead of sending network packets to the target, it performs substring and regex searches across thousands of archived vulnerability PoCs.
+Matching service names and version numbers against Exploit-DB allows security engineers to quickly discover if a running service has known remote compromise vectors.
+"""
+packet_wire_summary = "Local Query -> Match CSV/JSON index against service version -> Output exploit file paths"
+remediation = "Upgrade exposed services to the latest supported patch release and backport vendor security fixes."
+
+[[learning.recipes]]
+name = "Remote Code Execution (RCE) Filter"
+difficulty = "Intermediate"
+description = "Isolate remote execution exploits that allow an unauthenticated attacker to execute commands over the network."
+flags = ["-t", "Remote", "--json"]
+
+[learning.recipes.theory]
+concept = "Remote Attack Surfaces & CVSS Impact Classification"
+explanation = """
+Exploits in Exploit-DB are tagged by Type (remote, local, webapps, dos).
+Remote exploits target listening daemons without requiring prior local shell access, representing the highest operational risk (CVSS 9.0–10.0).
+Filtering for 'Remote' helps prioritize remediation on public internet-facing perimeters before evaluating local privilege escalations.
+"""
+packet_wire_summary = "Filter criteria: Type=='remote' -> Prioritizes pre-authentication vulnerabilities"
+remediation = "Place listening services behind firewall ACLs, zero-trust network access (ZTNA), or VPN gateways."
+
+[[learning.recipes]]
+name = "Direct CVE Correlation"
+difficulty = "Intermediate"
+description = "Lookup proof-of-concept scripts and weaponized code corresponding to a specific Common Vulnerabilities and Exposures (CVE) identifier."
+flags = ["--cve", "{cve_id}", "--json"]
+
+[learning.recipes.theory]
+concept = "Common Vulnerabilities and Exposures (CVE) Standardization"
+explanation = """
+CVE provides a standardized alphanumeric identifier for publicly known cybersecurity vulnerabilities.
+Querying by CVE eliminates version-string ambiguity and directly maps scanner findings (such as from Nuclei or Nikto) to working proof-of-concept scripts in the local archive.
+"""
+packet_wire_summary = "Query CVE-YYYY-NNNN -> Cross-reference EDB-ID -> Display exploit code path"
+remediation = "Reference the vendor security bulletin corresponding to the CVE and deploy mitigation workarounds if patches are pending."
+
+[[learning.recipes]]
+name = "Verified Exploit Filter"
+difficulty = "Advanced"
+description = "Query only exploits verified by Offensive Security lab engineers to avoid non-functional or unreliable proof-of-concepts."
+flags = ["-w", "-t", "--json"]
+
+[learning.recipes.theory]
+concept = "Proof-of-Concept Reliability & Weaponization Verification"
+explanation = """
+Exploit-DB flags submissions with a 'Verified' bit indicating that Offensive Security analysts have independently reproduced the vulnerability and verified code execution in a test environment.
+Focusing on verified exploits allows penetration testers and red teams to select reliable tools that won't crash production services due to unhandled exceptions or memory corruptions.
+"""
+packet_wire_summary = "Filter criteria: Verified=='1' -> Guarantees reproducible exploit payload"
+remediation = "Prioritize emergency patching for vulnerabilities that possess verified, weaponized exploit code in the wild."
+
+[power]
+enabled = true
+suggests = [
+    { target = "network.service", condition = "service_name != ''", tool = "searchsploit", flags = "{target.data.service_name} {target.data.version}" },
+    { target = "vulnerability.found", condition = "vuln_id != ''", tool = "searchsploit", flags = "--cve {target.pik.vuln_id}" }
+]

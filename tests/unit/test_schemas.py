@@ -5,8 +5,17 @@ from cyguide.schemas.host_internal import FileSystemObject, ProcessRunning, Soft
 from cyguide.schemas.netblock import NetworkNetblock
 from cyguide.schemas.network import NetworkHost, NetworkService
 from cyguide.schemas.tls import TLSCertificate
-from cyguide.schemas.vulnerability import VulnerabilityFound
-from cyguide.schemas.web import WebEndpoint, WebResource, WebVulnerability
+from cyguide.schemas.vulnerability import (
+    AuditMisconfig,
+    ExploitReference,
+    VulnerabilityFound,
+)
+from cyguide.schemas.web import (
+    WebEndpoint,
+    WebResource,
+    WebTechnology,
+    WebVulnerability,
+)
 
 
 def test_network_host():
@@ -243,3 +252,267 @@ def test_workspace_context_defaults():
     assert ctx.session_name == "Test Session"
     assert ctx.resolved_vars == {}
     assert ctx.active_jobs == []
+
+
+def test_schema_version_default_and_custom():
+    host = NetworkHost.create(ip="10.0.0.1")
+    assert host.schema_version == "1.0"
+
+    exploit = ExploitReference.create(
+        exploit_id="EDB-ID:50000",
+        title="Apache 2.4.49 Path Traversal",
+        schema_version="2.0",
+    )
+    assert exploit.schema_version == "2.0"
+
+
+def test_exploit_reference():
+    # 1. Linked to service with CVE association
+    exp_svc = ExploitReference.create(
+        exploit_id="EDB-ID:50000",
+        title="Apache 2.4.49 Path Traversal",
+        cve_id="CVE-2021-41773",
+        platform="multiple",
+        exploit_type="remote",
+        verified=True,
+        file_path="exploits/multiple/remote/50000.py",
+        host_ip="192.168.1.100",
+        port=80,
+    )
+    assert exp_svc.schema_type == "exploit.reference"
+    assert exp_svc.pik == {"exploit_id": "EDB-ID:50000"}
+    assert exp_svc.parent is not None
+    assert exp_svc.parent.target_type == "network.service"
+    assert exp_svc.parent.target_pik == {"host_ip": "192.168.1.100", "port": 80, "protocol": "tcp"}
+    assert exp_svc.parent.via == "service_has_exploit"
+    assert len(exp_svc.associations) == 1
+    assert exp_svc.associations[0].target_type == "vulnerability.found"
+    assert exp_svc.associations[0].target_pik == {
+        "host_ip": "192.168.1.100",
+        "vuln_id": "CVE-2021-41773",
+    }
+    assert exp_svc.associations[0].via == "exploits_cve"
+
+    # 2. Linked directly to vulnerability
+    exp_vuln = ExploitReference.create(
+        exploit_id="EDB-ID:49999",
+        title="Log4Shell RCE",
+        vuln_id="CVE-2021-44228",
+        host_ip="192.168.1.50",
+    )
+    assert exp_vuln.parent is not None
+    assert exp_vuln.parent.target_type == "vulnerability.found"
+    assert exp_vuln.parent.target_pik == {"host_ip": "192.168.1.50", "vuln_id": "CVE-2021-44228"}
+    assert exp_vuln.parent.via == "vuln_has_exploit"
+
+
+def test_web_technology():
+    # 1. Linked to web.endpoint by default
+    tech_ep = WebTechnology.create(
+        url="http://example.com/blog",
+        technology_name="WordPress",
+        version="6.2.2",
+        categories=["CMS", "Blogs"],
+        cpe="cpe:2.3:a:wordpress:wordpress:6.2.2:*:*:*:*:*:*:*",
+        confidence=0.95,
+    )
+    assert tech_ep.schema_type == "web.technology"
+    assert tech_ep.pik == {"url": "http://example.com/blog", "technology_name": "WordPress"}
+    assert tech_ep.parent is not None
+    assert tech_ep.parent.target_type == "web.endpoint"
+    assert tech_ep.parent.target_pik == {"url": "http://example.com/blog"}
+    assert tech_ep.parent.via == "endpoint_uses_technology"
+    assert tech_ep.data["version"] == "6.2.2"
+    assert tech_ep.data["categories"] == ["CMS", "Blogs"]
+    assert tech_ep.data["confidence"] == 0.95
+
+    # 2. Linked to network.service if host and port provided
+    tech_svc = WebTechnology.create(
+        url="http://192.168.1.10:8080",
+        technology_name="Apache Tomcat",
+        version="9.0.50",
+        host_ip="192.168.1.10",
+        port=8080,
+    )
+    assert tech_svc.parent is not None
+    assert tech_svc.parent.target_type == "network.service"
+    assert tech_svc.parent.target_pik == {
+        "host_ip": "192.168.1.10",
+        "port": 8080,
+        "protocol": "tcp",
+    }
+    assert tech_svc.parent.via == "service_uses_technology"
+
+
+def test_audit_misconfig():
+    # 1. URL target linked to web.endpoint
+    mis_web = AuditMisconfig.create(
+        target="http://example.com/.git/config",
+        check_id="exposed-git-config",
+        title="Exposed Git Configuration",
+        severity="high",
+        description="Publicly accessible Git repository config discloses repository metadata.",
+        remediation="Disable public access to .git directories via web server rules.",
+    )
+    assert mis_web.schema_type == "audit.misconfig"
+    assert mis_web.pik == {
+        "target": "http://example.com/.git/config",
+        "check_id": "exposed-git-config",
+    }
+    assert mis_web.parent is not None
+    assert mis_web.parent.target_type == "web.endpoint"
+    assert mis_web.parent.target_pik == {"url": "http://example.com/.git/config"}
+    assert mis_web.parent.via == "endpoint_has_misconfig"
+    assert mis_web.data["severity"] == "high"
+
+    # 2. Host target linked to network.host
+    mis_host = AuditMisconfig.create(
+        target="192.168.1.1",
+        check_id="default-snmp-community",
+        title="Default SNMP Public Community String",
+        severity="medium",
+        host_ip="192.168.1.1",
+    )
+    assert mis_host.parent is not None
+    assert mis_host.parent.target_type == "network.host"
+    assert mis_host.parent.target_pik == {"ip": "192.168.1.1"}
+    assert mis_host.parent.via == "host_has_misconfig"
+
+
+def test_new_schemas_presentation_metadata():
+    import json
+
+    from cyguide.schemas.presentation import (
+        format_activity_entry,
+        format_node_label,
+        get_schema_display_meta,
+    )
+
+    # 1. Display meta
+    sym, color, name = get_schema_display_meta("exploit.reference")
+    assert sym == "▲"
+    assert name == "Exploits"
+
+    sym, color, name = get_schema_display_meta("web.technology")
+    assert sym == "●"
+    assert name == "Technologies"
+
+    sym, color, name = get_schema_display_meta("audit.misconfig")
+    assert sym == "▲"
+    assert name == "Misconfigurations"
+
+    # 2. Activity formatting
+    exp = ExploitReference.create(exploit_id="EDB-ID:50000", title="Test Exploit")
+    act_exp = format_activity_entry(
+        "Session 1", "exploit.reference", "Found exploit", finding_obj=exp
+    )
+    assert "Exploit: EDB-ID:50000" in act_exp
+
+    tech = WebTechnology.create(url="http://test.local", technology_name="Nginx", version="1.18")
+    act_tech = format_activity_entry("Session 1", "web.technology", "Found tech", finding_obj=tech)
+    assert "Tech: Nginx 1.18" in act_tech
+
+    # 3. Node labels
+    node_exp = {
+        "id": "node_1",
+        "schema_type": "exploit.reference",
+        "pik_json": json.dumps({"exploit_id": "EDB-ID:50000"}),
+        "data_json": json.dumps({"title": "Apache Path Traversal"}),
+    }
+    lbl_exp = format_node_label(node_exp)
+    assert "EDB-ID:50000: Apache Path Traversal" in lbl_exp
+
+    node_tech = {
+        "id": "node_2",
+        "schema_type": "web.technology",
+        "pik_json": json.dumps({"technology_name": "PHP"}),
+        "data_json": json.dumps({"version": "8.1"}),
+    }
+    lbl_tech = format_node_label(node_tech)
+    assert lbl_tech == "PHP 8.1"
+
+
+def test_all_schemas_json_roundtrip_symmetry():
+    """Rule: Every finding schema must support 100% loss-free round-trip JSON serialization.
+
+    Validates model_dump_json() -> model_validate_json() preserves all fields, types, and associations.
+    """
+    sample_findings = [
+        NetworkHost.create(ip="192.168.1.1", hostname="router.local"),
+        NetworkService.create(
+            host_ip="192.168.1.1", port=443, protocol="tcp", service_name="https"
+        ),
+        NetworkNetblock.create(cidr="192.168.0.0/16", organization="Test Corp"),
+        DnsRecord.create(
+            domain="example.com",
+            record_type="A",
+            value="93.184.216.34",
+            resolved_ip="93.184.216.34",
+        ),
+        DomainInfo.create(domain="example.com", registrar="IANA", organization="ICANN"),
+        TLSCertificate.create(
+            fingerprint="SHA256:abcd",
+            host_ip="192.168.1.1",
+            port=443,
+            subject_cn="example.com",
+            issuer_cn="Let's Encrypt",
+        ),
+        VulnerabilityFound.create(
+            host_ip="192.168.1.1",
+            vuln_id="CVE-2023-1234",
+            title="Sample Vuln",
+            severity="high",
+            port=443,
+        ),
+        ExploitReference.create(
+            exploit_id="EDB-50000", title="Sample Exploit", cve_id="CVE-2023-1234"
+        ),
+        AuditMisconfig.create(
+            target="192.168.1.1",
+            check_id="SSH-ROOT-LOGIN",
+            title="Root login permitted",
+            severity="medium",
+            host_ip="192.168.1.1",
+        ),
+        WebEndpoint.create(
+            url="https://example.com/api",
+            path="/api",
+            method="POST",
+            host_ip="192.168.1.1",
+            port=443,
+        ),
+        WebResource.create(
+            url="https://example.com/api",
+            resource_path="/favicon.ico",
+        ),
+        WebTechnology.create(
+            url="https://example.com",
+            technology_name="React",
+            version="18.2",
+        ),
+        WebVulnerability.create(
+            url="https://example.com/login",
+            vuln_type="SQLi",
+        ),
+        CredentialFound.create(
+            context="ssh", username="admin", password="secret", host_ip="192.168.1.1"
+        ),
+        ProcessRunning.create(host_ip="192.168.1.1", pid=1001, name="sshd"),
+        FileSystemObject.create(host_ip="192.168.1.1", path="/etc/shadow"),
+        SoftwarePackage.create(
+            host_ip="192.168.1.1", package_name="openssh-server", version="9.0p1"
+        ),
+        EntityAlias.create(
+            source_id="host:192.168.1.1",
+            target_id="gateway.local",
+            relation_type="alias_of",
+        ),
+    ]
+
+    for finding in sample_findings:
+        cls = finding.__class__
+        serialized = finding.model_dump_json()
+        restored = cls.model_validate_json(serialized)
+        assert restored == finding, f"Round-trip failed for {cls.__name__}"
+        assert restored.schema_type == finding.schema_type
+        assert restored.pik == finding.pik

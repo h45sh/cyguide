@@ -1,10 +1,23 @@
 [meta]
 name = "subfinder"
-description = "Subdomain discovery tool"
-one_line_summary = "discover valid subdomains for websites"
-category = "DNS Reconnaissance"
-categories = ["recon", "dns", "enumeration"]
+description = "Fast passive subdomain discovery tool designed to map enterprise attack surfaces using passive online reconnaissance sources."
+one_line_summary = "discover subdomains passively using OSINT sources and CT logs"
+category = "Network Reconnaissance"
+categories = ["recon", "dns", "enumeration", "osint"]
 binary = "subfinder"
+theory = """
+### Protocol Theory & Passive Attack Surface Mapping
+Subfinder executes non-intrusive enumeration without transmitting packets to target infrastructure, leaving zero footprint in target IDS/IPS logs.
+
+### Primary Intelligence Channels
+* **Certificate Transparency Logs (RFC 6962)**: Public, append-only Merkle tree logs mandated for public CAs recording every issued TLS certificate.
+* **Passive DNS (pDNS) Aggregation**: Streams historical resolution data from global DNS telemetry sensors.
+* **Search Indices & Threat Feeds**: Collects indexed hostnames from public threat intelligence APIs.
+
+### Defensive Hardening & Hygiene
+* **CT Log Monitoring**: Deploy real-time alerts (e.g. Certstream) to detect unexpected certificate issuance.
+* **DNS Garbage Collection**: De-provision stale CNAME pointers to prevent Subdomain Takeovers.
+"""
 
 [modes]
 learning = true
@@ -20,15 +33,72 @@ produces = ["dns.record"]
 enabled = true
 
 [[learning.recipes]]
-name = "Standard Subdomain Discovery"
-description = "Find subdomains using passive sources"
+name = "Passive OSINT Subdomain Enumeration"
+difficulty = "Beginner"
+description = "Query passive threat intelligence feeds and Certificate Transparency logs without transmitting packets to target infrastructure."
 flags = ["-d", "{domain}"]
 
+[learning.recipes.theory]
+concept = "Passive Reconnaissance & Certificate Transparency Logs (RFC 6962)"
+explanation = """
+Passive discovery uncovers subdomains without sending a single probe to the target company's network.
+Certificate Transparency (CT) mandates that Certificate Authorities publicly log every issued SSL/TLS certificate.
+Search engines (Google, Bing), DNS aggregators (PassiveTotal, DNSDumpster), and CT databases (crt.sh) continually index these logs.
+Subfinder queries these public databases to harvest subdomains completely undetected by the target's SOC or intrusion detection systems.
+"""
+packet_wire_summary = "Client HTTPS -> Third-party intelligence APIs (crt.sh, AlienVault) -> Zero traffic sent to target network"
+remediation = "Maintain an automated external attack surface management (EASM) pipeline to identify and decommission forgotten legacy subdomains."
+
 [[learning.recipes]]
-name = "Silent Output"
-description = "Only output subdomains, no banners or logging"
-flags = ["-d", "{domain}", "-silent"]
+name = "All-Source Deep Enumeration"
+difficulty = "Intermediate"
+description = "Query all available passive provider sources to maximize subdomain discovery coverage."
+flags = ["-d", "{domain}", "-all"]
+
+[learning.recipes.theory]
+concept = "Intelligence Aggregation & Attack Surface Coverage Maximization"
+explanation = """
+Individual passive sources only maintain partial snapshots of an organization's domain footprint.
+For example, historical archives may contain subdomains active 5 years ago, while Certificate Transparency logs reflect recent cloud deployments.
+Enabling '-all' aggregates data across dozens of passive feeds, cross-validates records, and deduplicates the resulting domain list.
+"""
+packet_wire_summary = "Client queries 40+ independent threat feeds simultaneously -> Deduplicates and normalizes FQDN results"
+remediation = "Enforce strict DNS lifecycle management to remove DNS pointers when cloud instances or SaaS integrations are terminated."
+
+[[learning.recipes]]
+name = "Rate-Limited & Throttled Discovery"
+difficulty = "Intermediate"
+description = "Control request concurrency and rate-limits to avoid IP bans on public OSINT API endpoints."
+flags = ["-d", "{domain}", "-rate-limit", "10", "-t", "5"]
+
+[learning.recipes.theory]
+concept = "API Rate Limits, Token Buckets & Provider Throttling"
+explanation = """
+Public intelligence providers (e.g. VirusTotal, Censys, Shodan) protect their compute infrastructure by implementing aggressive IP-based rate limiting.
+Exceeding rate thresholds results in HTTP 429 Too Many Requests errors and temporary blacklisting.
+Configuring '-rate-limit' regulates requests-per-second, ensuring reliable enumeration across entire enterprise address spaces.
+"""
+packet_wire_summary = "Client paces queries to 10 requests per second across 5 concurrent worker threads"
+remediation = "Use dedicated API tokens with elevated tier quotas for authorized penetration testing workflows."
+
+[[learning.recipes]]
+name = "JSON Output Streaming Pipeline"
+difficulty = "Advanced"
+description = "Emit structured JSON lines output for direct automated piping into vulnerability and port scanners."
+flags = ["-d", "{domain}", "-oJ", "-silent"]
+
+[learning.recipes.theory]
+concept = "Unix Pipeline Philosophy & Structured Telemetry Ingestion"
+explanation = """
+Modern reconnaissance relies on composable, streaming architectures.
+Emitting output as JSON Lines (-oJ) accompanied by '-silent' suppresses ASCII art banners, allowing downstream automation (like CyGuide's Action Gateway) to parse domain names, discovered IPs, and provider sources in real time without regex fragility.
+"""
+packet_wire_summary = "Tool streams newline-delimited JSON objects -> CyGuide ActionGateway -> SQLite entity graph"
+remediation = "Automate continuous discovery pipelines to alert SOC teams when new unauthorized subdomains emerge."
 
 [power]
 enabled = true
-suggests = []
+suggests = [
+  { target = "dns.record", condition = "type == 'A'", tool = "nmap", flags = "-sV {target.data.value}" },
+  { target = "dns.record", condition = "domain != ''", tool = "ffuf", flags = "-u http://{target.pik.domain}/FUZZ -w {wordlist:common_dirs}" }
+]

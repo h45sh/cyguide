@@ -1,10 +1,23 @@
 [meta]
 name = "nmap"
-description = "Network host and port scanner"
-one_line_summary = "discover hosts and services on a network"
+description = "Network host and port scanner and network security auditing suite."
+one_line_summary = "discover hosts, open ports, and running services across a network"
 category = "Network Reconnaissance"
-categories = ["recon", "enumeration"]
+categories = ["recon", "enumeration", "network"]
 binary = "nmap"
+theory = """
+### Protocol Theory & RFC 793 Standards
+Network enumeration interrogates the remote operating system's transport-layer stack (RFC 793) to deduce listening socket states.
+
+### Core Mechanics & Wire-Level Probing
+* **TCP SYN Half-Open (`-sS`)**: Injects raw `SYN` frames. If listening, server replies `SYN/ACK`. Nmap terminates immediately with `RST` to evade application connection logging.
+* **Service Versioning (`-sV`)**: Matches welcome banners against `nmap-service-probes` database (SSH, HTTP Server, FTP).
+* **OS Fingerprinting (`-O`)**: Probes window scale, initial sequence number (ISN) drift, and IP ID predictability.
+
+### Defensive Hardening & Detection
+* **Stateful Firewalls**: Drop unsolicited packets (`DROP` vs `REJECT/RST`) to induce timeouts.
+* **IDS/IPS Rules**: Monitor high-frequency SYN flag sequences across non-contiguous destination ports.
+"""
 
 [modes]
 learning = true
@@ -20,22 +33,127 @@ produces = ["network.service"]
 enabled = true
 
 [[learning.recipes]]
-name = "Quick Scan"
-description = "Standard service scan on common ports"
+name = "Standard Service Version Scan"
+difficulty = "Beginner"
+description = "Fast standard service and version detection on top common ports."
 flags = ["-sV"]
 
-[[learning.recipes]]
-name = "Pingless Scan"
-description = "Scan target without pinging (useful for firewalled hosts)"
-flags = ["-sV", "-Pn"]
+[learning.recipes.theory]
+concept = "Application Layer Banner Grabbing & Service Fingerprinting (RFC 793)"
+explanation = """
+Service version detection (-sV) queries open TCP ports with a series of protocol-specific probes.
+Nmap inspects the initial banner responses (e.g. SSH protocol strings, HTTP Server headers, FTP greetings) and matches them against nmap-service-probes to identify the exact application daemon and version.
+"""
+packet_wire_summary = "Client completes 3-way handshake -> Reads application welcome banner or transmits GET / probe"
+remediation = "Sanitize or suppress verbose server version strings in daemon configuration files."
 
 [[learning.recipes]]
-name = "Full Scan"
-description = "Scan all 65535 ports for services"
-flags = ["-sV", "-p 1-65535"]
+name = "Pingless Firewall Evasion Scan"
+difficulty = "Beginner"
+description = "Bypass host-discovery ICMP ping probes to scan firewalled targets that drop ICMP echo requests."
+flags = ["-sV", "-Pn"]
+
+[learning.recipes.theory]
+concept = "ICMP Host Discovery Suppression & Stateful Packet Filtering (RFC 792)"
+explanation = """
+By default, Nmap sends ICMP Echo requests, TCP SYN to 443, TCP ACK to 80, and ICMP Timestamp to determine if a host is active before port scanning.
+Many corporate perimeter firewalls silently drop all ICMP and unsolicited TCP to ports 80/443, causing Nmap to mark live hosts as 'down'.
+The '-Pn' flag instructs Nmap to skip host discovery entirely and proceed directly to port enumeration on every requested IP.
+"""
+packet_wire_summary = "Client skips ICMP Echo -> Directly transmits port probes to target socket addresses"
+remediation = "Audit perimeter ACLs; do not rely on ICMP blocking as security-through-obscurity."
+
+[[learning.recipes]]
+name = "TCP SYN Half-Open Stealth Scan"
+difficulty = "Beginner"
+description = "Fast, stealthy port scan that determines port state without completing the full TCP 3-way handshake."
+flags = ["-sS", "-sV", "--top-ports", "100"]
+
+[learning.recipes.theory]
+concept = "TCP 3-Way Handshake & Half-Open Connection Teardown (RFC 793)"
+explanation = """
+TCP SYN scanning is the default and most popular scan technique.
+The scanner sends a raw TCP packet with only the SYN flag set.
+- Open Port: Target replies with SYN/ACK. Scanner immediately sends a RST packet to tear down the connection before the target OS hands the socket to application logs.
+- Closed Port: Target immediately replies with RST.
+- Filtered: Packet is dropped by a firewall or answered with ICMP unreachable.
+"""
+packet_wire_summary = "Client SYN -> Server SYN/ACK -> Client RST (Connection terminated before application logging)"
+remediation = "Employ stateful firewall inspection (conntrack) and next-gen firewalls (NGFW) to detect and rate-limit half-open SYN sweeps."
+
+[[learning.recipes]]
+name = "Default NSE Script Engine Audit"
+difficulty = "Intermediate"
+description = "Execute safe default Nmap Scripting Engine (NSE) scripts to fingerprint software banners, SSL certs, and known CVEs."
+flags = ["-sC", "-sV"]
+
+[learning.recipes.theory]
+concept = "Automated Protocol Handshakes & Lua Script Sandboxing (NSE Architecture)"
+explanation = """
+The Nmap Scripting Engine (NSE) allows users to write and execute Lua scripts to automate network checks.
+The '-sC' flag triggers scripts in the 'default' category, vetted by the community for safety, speed, and low invasiveness.
+NSE queries application layers directly: fetching HTTP titles, parsing SSL/TLS X.509 certificates, checking SSH hostkeys, and verifying anonymous FTP access.
+"""
+packet_wire_summary = "Client negotiates application-layer protocols (HTTP GET, SSH banner exchange, TLS ClientHello) via Lua socket engine"
+remediation = "Disable anonymous access, sanitize public software banners, and restrict administrative services to management subnets."
+
+[[learning.recipes]]
+name = "Comprehensive 65,535 Full Port Audit"
+difficulty = "Intermediate"
+description = "Enumerate the entire 16-bit TCP port range to locate unannounced services listening on non-standard high ports."
+flags = ["-sV", "-p-", "-T4"]
+
+[learning.recipes.theory]
+concept = "Transport Layer Addressing Space & High-Port Obfuscation"
+explanation = """
+TCP port numbers are 16-bit unsigned integers ranging from 1 to 65,535 (ports 1–1023 well-known, 1024–49151 registered, 49152–65535 dynamic/ephemeral).
+Administrators frequently bind sensitive services (SSH on port 2222, web consoles on 8080/8443, database proxies on 54321) to evade default scans that only check top 1,000 ports.
+The '-p-' flag forces a scan of all 65,535 ports, while '-T4' optimizes timing for modern high-bandwidth networks.
+"""
+packet_wire_summary = "Client systematically cycles through port range 1..65535 using adaptive round-trip-time (RTT) congestion algorithms"
+remediation = "Enforce a strict default-deny egress and ingress firewall policy; inspect network listening sockets using 'ss -tulpn'."
+
+[[learning.recipes]]
+name = "UDP Service Discovery (DNS, SNMP, NTP)"
+difficulty = "Advanced"
+description = "Probe critical connectionless UDP services including DNS (53), SNMP (161), and NTP (123)."
+flags = ["-sU", "--top-ports", "25", "-sV"]
+
+[learning.recipes.theory]
+concept = "User Datagram Protocol (UDP) & ICMP Port Unreachable Semantics (RFC 768 / RFC 792)"
+explanation = """
+Unlike TCP, UDP is connectionless and does not utilize a handshake.
+When a scanner transmits a UDP packet to an open port, the application usually does not respond unless the packet matches its exact payload format.
+However, if the port is closed, the host's IP stack MUST reply with an ICMP Type 3 Code 3 (Destination Unreachable: Port Unreachable) packet.
+Linux kernels strictly rate-limit ICMP error messages (typically 1 packet per second), making UDP scans significantly slower.
+"""
+packet_wire_summary = "Client sends protocol-specific UDP datagram -> If Port Closed: Server returns ICMP Type 3 Code 3"
+remediation = "Firewall unused UDP ports and disable legacy protocols (SNMPv1/v2c, NTP monlist reflection) vulnerable to amplification attacks."
+
+[[learning.recipes]]
+name = "OS Fingerprinting & TCP/IP Stack Profiling"
+difficulty = "Advanced"
+description = "Analyze quirks in TCP/IP packet generation to fingerprint the target operating system kernel and version."
+flags = ["-O", "-sV"]
+
+[learning.recipes.theory]
+concept = "TCP/IP Stack Quirks & Initial Sequence Number (ISN) Predictability"
+explanation = """
+Different operating systems (Linux kernel versions, Windows NT, FreeBSD) implement RFC specifications with minor vendor differences.
+Nmap's '-O' engine transmits a sequence of crafted TCP/UDP/ICMP probes and evaluates responses against thousands of OS signatures:
+1. TCP Initial Sequence Number (ISN) generation algorithm.
+2. TCP Window Size and Window Scale option support.
+3. IP Header Don't Fragment (DF) and Type of Service (TOS) handling.
+4. TCP Options ordering and timestamp behaviors.
+"""
+packet_wire_summary = "Client transmits crafted probes with unusual flag combinations -> Compares response packet headers against nmap-os-db"
+remediation = "Modern Linux kernels randomize ISN and IP ID by default; maintain up-to-date kernel patches to prevent legacy OS fingerprinting."
 
 [power]
 enabled = true
 suggests = [
-  { when_output_contains = "open_ports:80",  suggest = "gobuster" }
+  { when_output_contains = "open_ports:80",  suggest = "gobuster" },
+  { when_output_contains = "open_ports:443", suggest = "gobuster" },
+  { when_output_contains = "service:http",   suggest = "ffuf" },
+  { when_output_contains = "service:http",   suggest = "nuclei" }
 ]

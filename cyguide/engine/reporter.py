@@ -305,6 +305,126 @@ class SessionReportService:
         except OSError:
             pass
 
+    @staticmethod
+    def extract_structured_findings_summary(nodes: List[Dict[str, Any]]) -> tuple[str, str]:
+        """Format both a human-readable UI card summary and a dense LLM context block from raw finding nodes."""
+        if not nodes:
+            return "*No structured findings in current session yet.*", "None"
+
+        services = []
+        hosts = []
+        endpoints = []
+        dns_records = []
+        vulns = []
+
+        for n in nodes:
+            st = n.get("schema_type", "")
+            pik_raw = n.get("pik_json", "{}")
+            pik = json.loads(pik_raw) if isinstance(pik_raw, str) else (pik_raw or {})
+            data_raw = n.get("data_json", "{}")
+            data = json.loads(data_raw) if isinstance(data_raw, str) else (data_raw or {})
+
+            if st == "network.service":
+                port = pik.get("port")
+                proto = pik.get("protocol", "tcp")
+                svc = data.get("service_name") or data.get("product") or "unknown"
+                ver = data.get("version", "")
+                ver_str = f" {ver}" if ver else ""
+                services.append(f"Port `{port}/{proto}`: {svc}{ver_str}")
+            elif st == "network.host":
+                ip = pik.get("ip") or pik.get("host_ip")
+                status = data.get("state") or n.get("status") or "up"
+                hosts.append(f"`{ip}` (State: {status})")
+            elif st.startswith("web."):
+                url = pik.get("url") or pik.get("path")
+                code = data.get("status_code", "")
+                code_str = f" [Status: {code}]" if code else ""
+                endpoints.append(f"`{url}`{code_str}")
+            elif st in ("domain.info", "dns.record"):
+                dom = pik.get("domain")
+                rtype = pik.get("type", "A")
+                val = pik.get("value", "")
+                val_str = f" ❯ {val}" if val and val not in ("ANY", "unknown") else ""
+                dns_records.append(f"`{dom}` [{rtype}{val_str}]")
+            elif st.startswith("vulnerability."):
+                vid = pik.get("vuln_id") or pik.get("cve_id") or pik.get("title")
+                sev = data.get("severity", "info").upper()
+                vulns.append(f"[{sev}] `{vid}`")
+
+        ui_sections = []
+        llm_sections = []
+
+        if hosts:
+            ui_sections.append(
+                f"**Hosts ({len(hosts)})**:\n"
+                + "\n".join(f"- {h}" for h in hosts[:6])
+                + (f"\n- *...and {len(hosts) - 6} more hosts*" if len(hosts) > 6 else "")
+            )
+            llm_sections.append(f"Hosts ({len(hosts)}): " + ", ".join(hosts[:10]))
+
+        if services:
+            ui_sections.append(
+                f"**Services ({len(services)})**:\n"
+                + "\n".join(f"- {s}" for s in services[:8])
+                + (f"\n- *...and {len(services) - 8} more services*" if len(services) > 8 else "")
+            )
+            llm_sections.append(f"Services ({len(services)}): " + "; ".join(services[:12]))
+
+        if endpoints:
+            ui_sections.append(
+                f"**Web Endpoints ({len(endpoints)})**:\n"
+                + "\n".join(f"- {e}" for e in endpoints[:6])
+                + (
+                    f"\n- *...and {len(endpoints) - 6} more endpoints*"
+                    if len(endpoints) > 6
+                    else ""
+                )
+            )
+            llm_sections.append(f"Web Endpoints ({len(endpoints)}): " + ", ".join(endpoints[:10]))
+
+        if vulns:
+            ui_sections.append(
+                f"**Vulnerabilities ({len(vulns)})**:\n"
+                + "\n".join(f"- {v}" for v in vulns[:6])
+                + (f"\n- *...and {len(vulns) - 6} more*" if len(vulns) > 6 else "")
+            )
+            llm_sections.append(f"Vulnerabilities ({len(vulns)}): " + "; ".join(vulns[:10]))
+
+        if dns_records:
+            ui_sections.append(
+                f"**DNS Records ({len(dns_records)})**:\n"
+                + "\n".join(f"- {d}" for d in dns_records[:5])
+                + (
+                    f"\n- *...and {len(dns_records) - 5} more records*"
+                    if len(dns_records) > 5
+                    else ""
+                )
+            )
+            llm_sections.append(f"DNS Records ({len(dns_records)}): " + ", ".join(dns_records[:8]))
+
+        ui_text = (
+            "\n\n".join(ui_sections)
+            if ui_sections
+            else "*No structured findings in current session yet.*"
+        )
+        llm_text = "\n".join(llm_sections) if llm_sections else "None"
+        return ui_text, llm_text
+
+    async def extract_structured_findings(self, session_id: str) -> tuple[str, str]:
+        """Fetch session nodes from store and format UI and LLM structured finding summaries."""
+        if not self.store:
+            return "*No structured findings in current session yet.*", "None"
+        try:
+            if hasattr(self.store, "get_all_nodes"):
+                nodes = await self.store.get_all_nodes(str(session_id))
+            elif hasattr(self.store, "list_nodes"):
+                nodes = await self.store.list_nodes(str(session_id))
+            else:
+                nodes = []
+        except Exception:
+            nodes = []
+        return self.extract_structured_findings_summary(nodes)
+
 
 # Module-level convenience functions
 def build_markdown_table_for_type(schema_type: str, nodes: List[Dict[str, Any]]) -> List[str]:
@@ -325,3 +445,7 @@ async def generate_markdown_report(store: GraphStore, session_id: str) -> str:
 
 async def export_markdown_report(store: GraphStore, session_id: str, output_path: str) -> None:
     await SessionReportService(store).export_markdown_report(session_id, output_path)
+
+
+async def extract_structured_findings(store: GraphStore, session_id: str) -> tuple[str, str]:
+    return await SessionReportService(store).extract_structured_findings(session_id)

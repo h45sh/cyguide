@@ -1,8 +1,9 @@
 """Workspace and Session Management Dashboard with refined Delete/Organize flows."""
 
 import asyncio
+import os
 from datetime import UTC, datetime
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from textual import events
 from textual.app import ComposeResult
@@ -12,6 +13,10 @@ from textual.css.query import NoMatches
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Label, ListItem, ListView, Static
 
+from cyguide.schemas.presentation import (
+    SCHEMA_DISPLAY_MAP,
+    format_activity_entry,
+)
 from cyguide.ui.dialogs import RenameDialog, ShortcutsDialog
 
 
@@ -22,80 +27,14 @@ def format_activity(
     finding_json: Optional[str] = None,
     finding_obj: Optional[Any] = None,
 ) -> str:
-    # 1. Shorten session name
-    s_name = session_name
-    if s_name.startswith("Session "):
-        s_name = s_name[8:]
-    if len(s_name) > 10:
-        s_name = s_name[:8] + ".."
-
-    message = human_readable
-    # 2. Extract description for findings
-    if schema_type != "system.event":
-        try:
-            import json
-
-            if finding_obj:
-                pik = finding_obj.pik
-                data = finding_obj.data
-            else:
-                finding_data = json.loads(finding_json) if finding_json else {}
-                pik = finding_data.get("pik", {})
-                data = finding_data.get("data", {})
-
-            if schema_type == "network.host" and "ip" in pik:
-                message = f"Host: {pik['ip']}"
-            elif schema_type == "network.service" and "port" in pik:
-                service_name = data.get("service_name") or pik.get("service") or "unknown"
-                message = f"Port: {pik['port']} ({service_name})"
-            elif "cidr" in pik:
-                message = f"Netblock: {pik['cidr']}"
-            elif "vuln_type" in pik:
-                message = f"Vuln: {pik['vuln_type']}"
-            elif "vuln_id" in pik:
-                message = f"Vuln: {pik['vuln_id']}"
-            elif "url" in pik:
-                url = pik["url"]
-                if url.startswith("http://"):
-                    url = url[7:]
-                elif url.startswith("https://"):
-                    url = url[8:]
-                message = f"URL: {url}"
-            elif "domain" in pik:
-                message = f"Domain: {pik['domain']}"
-            elif "endpoint" in pik:
-                message = f"Endpoint: {pik['endpoint']}"
-            else:
-                short_type = schema_type.split(".")[-1] if "." in schema_type else schema_type
-                message = f"New {short_type}"
-        except Exception:
-            pass
-
-    # 3. Shorten system event labels
-    if message.startswith("Ran "):
-        message = f"Run: {message[4:]}"
-
-    return f"[{s_name}] {message}"
-
-
-SCHEMA_DISPLAY_MAP: Dict[str, tuple[str, str, str]] = {
-    # schema_type: (bullet_symbol, color_hex, display_name)
-    "network.host": ("●", "#38bdf8", "Hosts"),
-    "network.service": ("●", "#34d399", "Services"),
-    "network.netblock": ("●", "#a78bfa", "Netblocks"),
-    "web.endpoint": ("●", "#f59e0b", "Web Endpoints"),
-    "web.resource": ("●", "#fbbf24", "Web Resources"),
-    "web.vulnerability": ("▲", "#f87171", "Web Vulnerabilities"),
-    "vulnerability.found": ("▲", "#f87171", "Vulnerabilities"),
-    "domain.info": ("●", "#ec4899", "Domains"),
-    "dns.record": ("●", "#60a5fa", "DNS Records"),
-    "tls.certificate": ("●", "#2dd4bf", "TLS Certificates"),
-    "credential.found": ("◆", "#fbbf24", "Credentials"),
-    "process.running": ("●", "#4ade80", "Processes"),
-    "file.system_object": ("●", "#94a3b8", "Files"),
-    "software.package": ("●", "#818cf8", "Packages"),
-    "entity.alias": ("●", "#c084fc", "Aliases"),
-}
+    """Format an activity event for the dashboard (delegates to schemas.presentation)."""
+    return format_activity_entry(
+        session_name=session_name,
+        schema_type=schema_type,
+        human_readable=human_readable,
+        finding_json=finding_json,
+        finding_obj=finding_obj,
+    )
 
 
 SCHEMA_CANONICAL_ORDER: list[str] = [
@@ -291,9 +230,13 @@ class DashboardScreen(Screen):
         yield Footer()
 
     async def on_mount(self) -> None:
-        self.app.power_facade.on_finding_upsert(self.handle_new_finding)
+        if hasattr(self.app.power_facade, "on_findings_batch"):
+            self.app.power_facade.on_findings_batch(self.handle_findings_batch)
+        else:
+            self.app.power_facade.on_finding_upsert(self.handle_new_finding)
         self.app.power_facade.on_job_status_change(self._handle_job_status_change)
-        self.set_interval(5.0, self._poll_live_status)
+        if "PYTEST_CURRENT_TEST" not in os.environ and "CI" not in os.environ:
+            self.set_interval(5.0, self._poll_live_status)
         await self.refresh_workspaces()
         await self.refresh_diagnostics()
 
@@ -353,6 +296,9 @@ class DashboardScreen(Screen):
         except Exception:
             return
 
+        if not getattr(diag_list, "is_attached", True):
+            return
+
         issues = {name: info for name, info in health.items() if not info.get("healthy", False)}
         await diag_list.clear()
 
@@ -365,7 +311,7 @@ class DashboardScreen(Screen):
             for tool, info in sorted(issues.items()):
                 if info.get("status") == "missing":
                     diag_list.append(
-                        ListItem(Static(f"×  {tool}: Not installed", classes="diagnostics_error"))
+                        ListItem(Static(f"×  {tool}: Not Available", classes="diagnostics_error"))
                     )
                 else:
                     diag_list.append(
@@ -392,6 +338,45 @@ class DashboardScreen(Screen):
                 pass
         except asyncio.CancelledError:
             pass
+
+    async def handle_findings_batch(self, session_id: str, findings: List[Any]) -> None:
+        """Reactive callback triggered by GraphStore on a batch of findings."""
+        if not self.selected_ws_id or not findings:
+            return
+
+        # 1. Throttle metrics update
+        if not self._metrics_debounce_task or self._metrics_debounce_task.done():
+            self._metrics_debounce_task = asyncio.create_task(self._debounced_update_metrics())
+
+        # 2. Rate limit activity list prepend to at most 1 item per 0.15s (using latest finding)
+        now = asyncio.get_event_loop().time()
+        if now - self._last_activity_insert_time >= 0.15:
+            self._last_activity_insert_time = now
+            session = await self.app.power_facade.get_session(session_id)
+            if session and session.get("workspace_id") == self.selected_ws_id:
+                try:
+                    act_list = self.query_one("#activity_list", ListView)
+                    ts = datetime.now(UTC).strftime("%H:%M")
+                    latest = findings[-1]
+                    msg = format_activity(
+                        session["name"],
+                        latest.schema_type,
+                        f"Discovered {latest.schema_type}",
+                        finding_obj=latest,
+                    )
+                    new_item = ListItem(Static(f"{ts} {msg}"))
+                    await act_list.insert(0, [new_item])
+                    if len(act_list.children) > 15:
+                        await act_list.children[-1].remove()
+                except NoMatches:
+                    pass
+
+        # 3. If current session is selected, refresh its details (stats) with debouncing
+        if self.selected_session_id == session_id:
+            if not self._sess_debounce_task or self._sess_debounce_task.done():
+                self._sess_debounce_task = asyncio.create_task(
+                    self._debounced_show_session_details(session_id)
+                )
 
     async def handle_new_finding(self, session_id: str, finding: Any) -> None:
         """Reactive callback triggered by the GraphStore on every finding."""
@@ -713,16 +698,14 @@ class DashboardScreen(Screen):
 
             async def check_confirm(confirmed: bool) -> None:
                 if confirmed:
-                    for wid in list(self.selected_workspaces):
-                        ws = await self.app.power_facade.get_workspace(wid)
-                        if ws and ws.get("status") == "SYSTEM":
-                            self.notify(
-                                f"Cannot delete system workspace: {ws['name']}", severity="error"
-                            )
-                            continue
-                        await self.app.power_facade.delete_workspace(wid)
-                    for sid in self.selected_sessions:
-                        await self.app.power_facade.delete_session(sid)
+                    res = await self.app.power_facade.batch_delete(
+                        list(self.selected_workspaces), list(self.selected_sessions)
+                    )
+                    skipped_sys = (
+                        res.get("skipped_system") or res.get("skipped_system_workspaces") or []
+                    )
+                    for sys_name in skipped_sys:
+                        self.notify(f"Cannot delete system workspace: {sys_name}", severity="error")
                     self.notify(f"Deleted {' and '.join(parts)}.")
                     self.mode = "NORMAL"
                     self.selected_workspaces.clear()
@@ -759,12 +742,13 @@ class DashboardScreen(Screen):
 
                 async def check_move(confirmed: bool) -> None:
                     if confirmed:
-                        for sid in list(self.selected_sessions):
-                            try:
-                                await self.app.power_facade.move_session(sid, dest_id)
-                            except ValueError as e:
-                                self.notify(str(e), severity="error")
-                        self.notify(f"Moved {count} session(s) to '{dest_name}'.")
+                        res = await self.app.power_facade.move_sessions(
+                            list(self.selected_sessions), dest_id
+                        )
+                        for err in res.get("errors", []):
+                            self.notify(err, severity="error")
+                        moved_count = len(res.get("moved", []))
+                        self.notify(f"Moved {moved_count} session(s) to '{dest_name}'.")
                         self.mode = "NORMAL"
                         self.organize_step = 1
                         self.selected_sessions.clear()
@@ -1204,17 +1188,17 @@ class DashboardScreen(Screen):
         """Debounce workspace details query so rapid arrow navigation doesn't flood event loop."""
         try:
             await asyncio.sleep(delay)
-            await self.show_workspace_details(ws_id)
         except asyncio.CancelledError:
-            pass
+            return
+        await self.show_workspace_details(ws_id)
 
     async def _debounced_show_session(self, sess_id: str, delay: float = 0.05) -> None:
         """Debounce session details query so rapid arrow navigation doesn't flood event loop."""
         try:
             await asyncio.sleep(delay)
-            await self.show_session_details(sess_id)
         except asyncio.CancelledError:
-            pass
+            return
+        await self.show_session_details(sess_id)
 
     async def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if self.mode in ("NORMAL", "DELETE") or (

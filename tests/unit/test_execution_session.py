@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 from uuid import UUID, uuid4
 
@@ -47,7 +46,6 @@ class FakeInMemoryRunner:
         for chunk in self.output_chunks:
             if on_output:
                 await on_output(chunk)
-            await asyncio.sleep(0.01)
 
         # Emit finding
         yield BaseFinding(

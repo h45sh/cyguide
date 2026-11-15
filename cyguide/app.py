@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 from typing import Any
+from uuid import UUID
 
 from textual import events, work
 from textual.app import App, ComposeResult, SystemCommand
@@ -178,8 +179,8 @@ class CyGuideCommandPalette(CommandPalette):
 import subprocess
 from typing import Any, Dict, List, Optional
 
+from cyguide.common.preferences import PreferencesStore
 from cyguide.engine.executor import Executor
-from cyguide.engine.explainer import OllamaBackend
 from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
@@ -208,6 +209,12 @@ class CyGuideApp(App):
 
     BINDINGS = [
         Binding("ctrl+p", "command_palette", "Palette", show=False),
+        Binding(
+            "ctrl+/,ctrl+slash,ctrl+underscore",
+            "dismiss_notification",
+            "Dismiss Notification",
+            show=False,
+        ),
     ]
 
     # Register screens so they can be switched by name
@@ -238,6 +245,20 @@ class CyGuideApp(App):
         self.selected_workspace_id: Optional[str] = None
         self.user_env: Dict[str, str] = os.environ.copy()
         self.user_shell: str = "/bin/bash"
+
+        from rich.theme import Theme
+
+        self.console.push_theme(
+            Theme({
+                "markdown.h1": "bold #38bdf8",
+                "markdown.h2": "bold #38bdf8",
+                "markdown.h3": "bold #38bdf8",
+                "markdown.h4": "bold #7dd3fc",
+                "markdown.h5": "bold #94a3b8",
+                "markdown.h6": "dim #94a3b8",
+                "markdown.block_quote": "#38bdf8",
+            })
+        )
         self._cached_tool_health: Dict[str, Dict[str, Any]] = {}
         self.navigating_sub_palette: bool = False
         self.last_palette_highlight: Optional[Any] = None
@@ -247,11 +268,10 @@ class CyGuideApp(App):
             db_dir = os.path.dirname(os.path.abspath(self.db_path))
             os.makedirs(db_dir, exist_ok=True)
 
-        # Persistent settings
-        self.settings: Dict[str, Any] = self._load_settings()
+        # Persistent preferences store deep module
+        self.preferences = PreferencesStore(data_dir=self.data_dir, db_path=self.db_path)
+        self.settings: Dict[str, Any] = self.preferences.all()
         self.animations_enabled: bool = self.settings.get("animations_enabled", True)
-        if "theme" in self.settings:
-            self.theme = self.settings["theme"]
 
         # Apply saved settings when not explicitly overridden by non-default CLI arguments
         if "use_ollama" in self.settings and not use_ollama:
@@ -424,52 +444,53 @@ class CyGuideApp(App):
 
     def save_settings(self, updates: Dict[str, Any]) -> None:
         """Persist application settings updates."""
-        if not hasattr(self, "settings") or self.settings is None:
-            self.settings = {}
-        self.settings.update(updates)
-        path = self._get_settings_path()
-        if not path:
-            return
-        try:
-            current = self._load_settings()
-            current.update(updates)
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            try:
-                with open(fd, "w", encoding="utf-8", closefd=False) as f:
-                    json.dump(current, f, indent=2)
-            finally:
-                os.close(fd)
-            try:
-                os.chmod(path, 0o600)
-            except OSError:
-                pass
-        except Exception:
-            pass
-
-    def watch_theme(self, new_theme: str) -> None:
-        if hasattr(self, "save_settings"):
-            self.save_settings({"theme": new_theme})
+        if hasattr(self, "preferences"):
+            self.preferences.update(updates)
+            self.settings = self.preferences.all()
+        else:
+            if not hasattr(self, "settings") or self.settings is None:
+                self.settings = {}
+            self.settings.update(updates)
 
     def detect_user_shell(self) -> str:
         """Find the user's default shell."""
         return os.environ.get("SHELL", "/bin/bash")
 
     def get_shell_environment(self) -> Dict[str, str]:
-        """Capture the full login shell environment."""
+        """Capture the full shell environment.
+
+        If already running within an active user environment (PATH contains user/home bins),
+        returns a copy of os.environ immediately without forking an expensive login subshell.
+        """
+        current_env = os.environ.copy()
+        if "PYTEST_CURRENT_TEST" in current_env or "CI" in current_env or "GITHUB_ACTIONS" in current_env:
+            return current_env
+
+        path = current_env.get("PATH", "")
+        home = current_env.get("HOME", "")
+        if home and (
+            home in path
+            or "/Users" in path
+            or "/home" in path
+            or "/opt" in path
+            or "/usr/local/bin" in path
+        ):
+            return current_env
+
         shell = self.detect_user_shell()
         try:
             # Run a login shell to capture the fully resolved environment
             result = subprocess.run(
-                [shell, "-l", "-c", "env"], capture_output=True, text=True, timeout=5
+                [shell, "-l", "-c", "env"], capture_output=True, text=True, timeout=2
             )
             env = {}
             for line in result.stdout.splitlines():
                 if "=" in line:
                     key, _, val = line.partition("=")
                     env[key] = val
-            return env if env else os.environ.copy()
+            return env if env else current_env
         except Exception:
-            return os.environ.copy()
+            return current_env
 
     @work(exclusive=True, group="shell_env")
     async def _async_load_shell_env(self) -> None:
@@ -547,7 +568,8 @@ class CyGuideApp(App):
 
         # Initial tool health check and start real-time periodic watcher (2s interval)
         self.check_and_update_tool_health()
-        self.set_interval(2.0, self.check_and_update_tool_health, name="tool_health_watcher")
+        if "PYTEST_CURRENT_TEST" not in os.environ and "CI" not in os.environ:
+            self.set_interval(2.0, self.check_and_update_tool_health, name="tool_health_watcher")
 
         self.store = GraphStore(self.db_path)
         await self.store.initialize()
@@ -568,10 +590,22 @@ class CyGuideApp(App):
         self.power_facade.user_shell = self.user_shell
         self.workspace_repo = self.power_facade.workspaces
 
+        from cyguide.engine.learning import LearningSession
+
+        self.learning_session = LearningSession(
+            store=self.store,
+            registry=self.registry,
+            execution=self.power_facade.execution,
+            explainer=getattr(self, "explainer", None),
+            session_id=UUID(self.learning_session_id) if self.learning_session_id else None,
+            workspace_id=UUID(self.learning_ws_id) if self.learning_ws_id else None,
+        )
+
         # 2. Setup UI
         self.push_screen("dashboard")
         if not self.animations_enabled:
             self.add_class("no-animations")
+            self.animation_level = "none"
 
         # Request thin blinking line cursor from terminal emulator
         import sys
@@ -589,14 +623,7 @@ class CyGuideApp(App):
 
         load_dotenv()
         ollama_base_url = self.settings.get("ollama_base_url", "http://localhost:11434")
-        if self.use_ollama or not getattr(self, "use_cloud_api", True):
-            self.explainer_backend = OllamaBackend(
-                model=self.ollama_model, base_url=ollama_base_url
-            )
-            self.explainer = self.explainer_backend
-            return
-
-        from cyguide.engine.explainer import CloudKeyProfile, ExplanationTutor
+        from cyguide.engine.explainer import CloudKeyProfile, ExplanationTutor, OllamaBackend
 
         profiles: List[CloudKeyProfile] = []
         if hasattr(self, "cloud_keys") and self.cloud_keys:
@@ -616,6 +643,10 @@ class CyGuideApp(App):
         )
 
         self.explainer = self.explainer_backend
+        if hasattr(self, "learning_session") and self.learning_session:
+            self.learning_session.reload_explainer(self.explainer)
+        if hasattr(self, "power_facade") and self.power_facade:
+            self.power_facade.explainer = self.explainer
 
     def reload_registry(self) -> None:
         """Reload the tool registry if tools_dir changed."""
@@ -623,6 +654,8 @@ class CyGuideApp(App):
         self.registry.load_tools()
         if hasattr(self, "power_facade") and self.power_facade is not None:
             self.power_facade.registry = self.registry
+        if hasattr(self, "learning_session") and self.learning_session is not None:
+            self.learning_session.registry = self.registry
         self._async_refresh_tool_health_cache()
 
     async def on_unmount(self) -> None:
@@ -637,12 +670,22 @@ class CyGuideApp(App):
     def action_toggle_animations(self) -> None:
         """Toggle UI animations on or off via the command palette."""
         self.animations_enabled = not self.animations_enabled
+        self.animation_level = "full" if self.animations_enabled else "none"
         self.save_settings({"animations_enabled": self.animations_enabled})
+        try:
+            curr_screen = self.screen
+        except Exception:
+            curr_screen = None
+
         if self.animations_enabled:
             self.remove_class("no-animations")
+            if curr_screen:
+                curr_screen.remove_class("no-animations")
             self.notify("Animations Enabled")
         else:
             self.add_class("no-animations")
+            if curr_screen:
+                curr_screen.add_class("no-animations")
             self.notify("Animations Disabled")
 
     def action_command_palette(self, preserve_highlight: bool = False) -> None:
@@ -709,6 +752,11 @@ class CyGuideApp(App):
 
             if hasattr(self, "power_facade") and self.power_facade:
                 self.power_facade.store = self.store
+
+            if hasattr(self, "learning_session") and self.learning_session:
+                self.learning_session.store = self.store
+                self.learning_session.session_id = UUID(new_session_id)
+                self.learning_session.workspace_id = UUID(new_ws_id)
 
             self.save_settings({"db_path": new_db_path})
         except Exception as e:
@@ -798,20 +846,6 @@ class CyGuideApp(App):
             "Configuration reset to CLI defaults (API keys preserved)", title="Config Reset"
         )
 
-    def search_themes(self) -> None:
-        """Show the theme selection palette with unified left/right arrow navigation."""
-        from textual.theme import ThemeProvider
-
-        self.last_palette_highlight = "Theme"
-        self.push_screen(
-            CyGuideCommandPalette(
-                providers=[ThemeProvider],
-                placeholder="Search for themes…",
-                is_sub_palette=True,
-                id="--command-palette-theme",
-            )
-        )
-
     def action_show_hotkeys(self) -> None:
         """Open the F1 Shortcuts / Help dialog."""
         from cyguide.ui.dialogs import ShortcutsDialog
@@ -832,7 +866,7 @@ class CyGuideApp(App):
 
         # 1. Screen / View Toggles
         anim_badge = (
-            "[bold green]● ON[/bold green]" if self.animations_enabled else "[dim]⊘ OFF[/dim]"
+            "[bold #34d399]● ON[/bold #34d399]" if self.animations_enabled else "[dim]⊘ OFF[/dim]"
         )
         yield SystemCommand(f"Toggle Animations  {anim_badge}", "", self.action_toggle_animations)
 
@@ -844,10 +878,10 @@ class CyGuideApp(App):
         if total == 0:
             health_badge = "[#34d399]● Ready[/]"
         elif not issues:
-            health_badge = f"[bold green]● Healthy ({ok_count}/{total})[/bold green]"
+            health_badge = f"[bold #34d399]● Healthy ({ok_count}/{total})[/bold #34d399]"
         else:
             health_badge = (
-                f"[bold red]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold red]"
+                f"[bold #f87171]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold #f87171]"
             )
 
         yield SystemCommand(f"Tool Health  {health_badge}", "", self.action_show_tool_health)
@@ -859,25 +893,30 @@ class CyGuideApp(App):
             self.action_show_config,
         )
 
-        # 4. Theme
-        if "theme" in base_cmds:
-            cmd = base_cmds["theme"]
-            yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
-
-        # 5. Hotkeys
+        # 4. Hotkeys
         yield SystemCommand("Hotkeys", "", self.action_show_hotkeys)
 
-        # 6. Utilities
+        # 5. Utilities
         if "screenshot" in base_cmds:
             cmd = base_cmds["screenshot"]
             yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
 
-        # 7. Exit (Conventional menu order: Quit is always the last option)
+        # 6. Exit (Conventional menu order: Quit is always the last option)
         if "quit" in base_cmds:
             cmd = base_cmds["quit"]
             yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
         else:
             yield SystemCommand("Quit", "", self.action_quit)
+
+    def action_dismiss_notification(self) -> None:
+        """Dismiss one active notification at a time across the entire application."""
+        if not hasattr(self, "_notifications") or not self._notifications:
+            return
+        active = list(self._notifications)
+        if not active:
+            return
+        target = active[-1]
+        self._unnotify(target, refresh=True)
 
     def action_quit(self) -> None:
         """Quit the app and restore terminal cursor."""

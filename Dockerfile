@@ -13,22 +13,26 @@ ENV DEBIAN_FRONTEND=noninteractive \
     CYGUIDE_DATA_DIR=/root/.cyguide
 
 # Install core security tool dependencies:
-# - nmap, gobuster, nikto, whois: standard CLI tool adapters
+# - nmap, gobuster, nikto, whois, ffuf: standard CLI tool adapters
 # - libxml-writer-perl: required by nikto for XML output
-# - ca-certificates, curl, unzip: needed for secure asset downloading
+# - ca-certificates, curl, unzip, git, tar: needed for asset downloading and tool installations
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nmap \
     gobuster \
     whois \
+    ffuf \
     perl \
     libnet-ssleay-perl \
     libxml-writer-perl \
     ca-certificates \
     curl \
     unzip \
+    tar \
     git \
     && git clone --depth 1 https://github.com/sullo/nikto.git /opt/nikto \
     && ln -s /opt/nikto/program/nikto.pl /usr/local/bin/nikto \
+    && git clone --depth 1 https://gitlab.com/exploit-database/exploitdb.git /opt/exploitdb \
+    && ln -s /opt/exploitdb/searchsploit /usr/local/bin/searchsploit \
     && apt-get purge -y --auto-remove git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -46,13 +50,28 @@ RUN ARCH="$(dpkg --print-architecture)" && \
     chmod +x /usr/local/bin/subfinder && \
     rm -rf /tmp/subfinder*
 
+# Install nuclei binary from official ProjectDiscovery release
+ARG NUCLEI_VERSION=3.3.7
+RUN ARCH="$(dpkg --print-architecture)" && \
+    case "${ARCH}" in \
+        amd64) NUCLEI_ARCH="amd64" ;; \
+        arm64) NUCLEI_ARCH="arm64" ;; \
+        *) echo "Unsupported architecture for nuclei: ${ARCH}" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_${NUCLEI_ARCH}.zip" -o /tmp/nuclei.zip && \
+    unzip -q /tmp/nuclei.zip -d /tmp/nuclei_bin && \
+    mv /tmp/nuclei_bin/nuclei /usr/local/bin/nuclei && \
+    chmod +x /usr/local/bin/nuclei && \
+    rm -rf /tmp/nuclei*
+
 # Set working directory for package installation
 WORKDIR /app
 
-# Copy packaging manifests and source code
+# Copy packaging manifests, source code, and bundled wordlist assets
 COPY pyproject.toml requirements.txt ./
 COPY cyguide/ cyguide/
 COPY tools/ tools/
+COPY assets/ assets/
 COPY README.md LICENSE ./
 
 # Install CyGuide in the container

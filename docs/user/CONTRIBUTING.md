@@ -64,34 +64,38 @@ flags = ["-u", "$TARGET", "-w", "/usr/share/wordlists/dirb/common.txt"]
 Adapters inherit from `ToolAdapter` in `cyguide.engine.adapter` and implement three core methods:
 
 ```python
-from typing import List, AsyncGenerator
+import shlex
+import shutil
+from typing import Any, AsyncIterator, Dict, List
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.schemas.base import BaseFinding
-from cyguide.schemas.web import WebEndpointFinding
+from cyguide.schemas.web import WebEndpoint
+
 
 class MyToolAdapter(ToolAdapter):
-    @property
-    def name(self) -> str:
-        return "mytool"
-
     def validate_install(self) -> bool:
         """Check if the external CLI binary is available on PATH."""
-        return self._binary_exists("mytool")
+        return shutil.which("mytool") is not None
 
-    def build_command(self, target: str, flags: List[str]) -> List[str]:
+    def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         """Construct the CLI arguments safely as an argument list (preventing shell injection)."""
-        return ["mytool", "-u", target] + flags
+        raw_flags = params.get("raw_flags", "")
+        flag_args = shlex.split(raw_flags) if raw_flags else []
+        url = target.pik.get("url") or target.data.get("url", "")
+        return ["mytool", "-u", url] + flag_args
 
-    async def parse_output(self, stream: AsyncGenerator[str, None]) -> AsyncGenerator[BaseFinding, None]:
-        """Parse streaming line-by-line stdout into validated BaseFinding schemas."""
-        async for line in stream:
+    async def parse_output(
+        self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
+    ) -> AsyncIterator[BaseFinding]:
+        """Parse raw stdout into validated BaseFinding schemas."""
+        for line in raw_stdout.splitlines():
             cleaned = line.strip()
             if "200 OK" in cleaned:
                 path = cleaned.split()[0]
-                yield WebEndpointFinding(
+                yield WebEndpoint.create(
                     url=path,
+                    host_ip=target.pik.get("host_ip") or target.pik.get("ip"),
                     status_code=200,
-                    source_tool="mytool"
                 )
 ```
 
@@ -99,18 +103,18 @@ class MyToolAdapter(ToolAdapter):
 
 ## 3. Standard Finding Schemas & Primary Identity Keys (PIKs)
 
-To enable tool chaining (e.g. `nmap` discovering a port, triggering `gobuster` on that port), all findings inherit from `BaseFinding` and declare a deterministic **Primary Identity Key (PIK)**.
+To enable tool chaining (e.g. `nmap` discovering a port, triggering `gobuster` or `ffuf` on that port), all findings inherit from `BaseFinding` and declare a deterministic **Primary Identity Key (PIK)**.
 
 | Schema Type | Finding Class | PIK Identifying Fields |
 | :--- | :--- | :--- |
-| `network.host` | `HostFinding` | `{"ip": "<ip_address>"}` |
-| `network.service` | `ServiceFinding` | `{"host_ip": "<ip>", "port": <port>, "protocol": "<proto>"}` |
-| `web.endpoint` | `WebEndpointFinding` | `{"url": "<url>", "method": "<method>"}` |
-| `dns.record` | `DNSRecordFinding` | `{"domain": "<domain>", "record_type": "<type>", "value": "<val>"}` |
-| `vulnerability.found` | `VulnerabilityFinding` | `{"target": "<target>", "vuln_id": "<cve_or_id>"}` |
+| `network.host` | `NetworkHost` | `{"ip": "<ip_address>"}` |
+| `network.service` | `NetworkService` | `{"host_ip": "<ip>", "port": <port>, "protocol": "<proto>"}` |
+| `web.endpoint` | `WebEndpoint` | `{"url": "<url>"}` |
+| `dns.record` | `DnsRecord` | `{"domain": "<domain>", "type": "<type>", "value": "<val>"}` |
+| `vulnerability.found` | `VulnerabilityFound` | `{"host_ip": "<ip>", "vuln_id": "<cve_or_id>"}` |
 
 > [!TIP]
-> Consult [`docs/developer/SCHEMA_REGISTRY.md`](../developer/SCHEMA_REGISTRY.md) for the complete reference of all 15 active schemas.
+> Consult [`docs/developer/SCHEMA_REGISTRY.md`](../developer/SCHEMA_REGISTRY.md) for the complete reference of all 18 active schemas.
 
 ---
 
@@ -125,18 +129,20 @@ from cyguide.engine.store import GraphStore
 from cyguide.engine.executor import SubprocessExecutor
 from tools.mytool.adapter import MyToolAdapter
 
+
 async def test_run():
     store = GraphStore(":memory:")
     await store.initialize()
-    
+
     adapter = MyToolAdapter()
     executor = SubprocessExecutor(store)
-    
+
     # Run against a mock target or local test server
     cmd = adapter.build_command("http://127.0.0.1:8000", [])
     print(f"Executing: {' '.join(cmd)}")
-    
+
     await store.close()
+
 
 if __name__ == "__main__":
     asyncio.run(test_run())
@@ -176,7 +182,7 @@ To protect system determinism and database stability, CyGuide follows a three-ti
 Before submitting a Pull Request, run the automated verification pipeline:
 
 ```bash
-# Execute the full verification suite (170+ tests, schema doc sync, and code style)
+# Execute the full verification suite (unit & integration tests, schema doc sync, and code style)
 ./scripts/verify.sh
 
 # Run fast unit tests directly with pytest
@@ -246,18 +252,25 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 
 | Prefix | Description | Example |
 | :--- | :--- | :--- |
-| `feat:` | A new user-facing capability or command | `feat: add workspace export encryption` |
+| `feat:` | A new user-facing capability or command (triggers minor release) | `feat: add workspace export encryption` |
 | `tool:` | A new or updated security tool adapter | `tool: add ffuf web fuzzer adapter` |
-| `fix:` | A bug fix | `fix: resolve aiosqlite race in event bus` |
-| `docs:` | Documentation changes only | `docs: add Diataxis how-to guide for AI setup` |
+| `fix:` | A bug fix (triggers patch release) | `fix: resolve aiosqlite race in event bus` |
+| `docs(user):` | User-facing documentation changes | `docs(user): add Diataxis how-to guide for AI setup` |
+| `docs(internal):` | Internal developer documentation / architecture updates | `docs(internal): refine engine seam boundaries` |
 | `refactor:` | Code restructuring without behavior changes | `refactor: extract subnet parsing into utils` |
 | `test:` | Adding or improving tests | `test: add unit tests for nmap parser` |
 | `ci:` | Changes to CI workflows or build scripts | `ci: add CodeQL security analysis workflow` |
+| `chore:` | Maintenance, dependencies, or internal tooling | `chore: update dev dependencies` |
 
-### B. Pull Request Guidelines
+> [!TIP]
+> **Release PR Hygiene**: Release Please generates user-facing release notes from `feat:`, `fix:`, and `perf:` commits. Internal developer documentation, test refactoring, and roadmap checklists should use `docs(internal):`, `test:`, or `chore:` so that release PRs remain focused on software deliverables and do not get bloated with internal documentation diffs.
+
+### B. Pull Request & Documentation Guidelines
 
 1. **Use the PR Template**: Fill out all sections of [`.github/PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md), noting the architectural tier of your changes.
 2. **One Feature per PR**: Keep changes focused and atomic to simplify review and rollbacks.
 3. **No Decorative Emojis**: Documentation and code comments must remain clean and readable in standard terminal displays without decorative emojis.
-4. **Code Ownership Approval**: Any modifications touching Tier 1 files (`cyguide/engine/store.py`, `cyguide/schemas/base.py`) automatically assign `@h45sh` as a required reviewer via [`.github/CODEOWNERS`](../../.github/CODEOWNERS).
+4. **No Ephemeral Metrics in Documentation**: Avoid hardcoding transient metrics (such as exact test counts or temporary task numbers) in permanent documentation. Describe architectural invariants, capabilities, and system contracts instead to avoid documentation rot.
+5. **Code Ownership Approval**: Any modifications touching Tier 1 files (`cyguide/engine/store.py`, `cyguide/schemas/base.py`) automatically assign `@h45sh` as a required reviewer via [`.github/CODEOWNERS`](../../.github/CODEOWNERS).
+
 
