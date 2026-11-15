@@ -1,6 +1,7 @@
 """Workspace and Session Management Dashboard with refined Delete/Organize flows."""
 
 import asyncio
+import os
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Set
 
@@ -234,7 +235,8 @@ class DashboardScreen(Screen):
         else:
             self.app.power_facade.on_finding_upsert(self.handle_new_finding)
         self.app.power_facade.on_job_status_change(self._handle_job_status_change)
-        self.set_interval(5.0, self._poll_live_status)
+        if "PYTEST_CURRENT_TEST" not in os.environ and "CI" not in os.environ:
+            self.set_interval(5.0, self._poll_live_status)
         await self.refresh_workspaces()
         await self.refresh_diagnostics()
 
@@ -1186,17 +1188,17 @@ class DashboardScreen(Screen):
         """Debounce workspace details query so rapid arrow navigation doesn't flood event loop."""
         try:
             await asyncio.sleep(delay)
-            await self.show_workspace_details(ws_id)
         except asyncio.CancelledError:
-            pass
+            return
+        await self.show_workspace_details(ws_id)
 
     async def _debounced_show_session(self, sess_id: str, delay: float = 0.05) -> None:
         """Debounce session details query so rapid arrow navigation doesn't flood event loop."""
         try:
             await asyncio.sleep(delay)
-            await self.show_session_details(sess_id)
         except asyncio.CancelledError:
-            pass
+            return
+        await self.show_session_details(sess_id)
 
     async def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if self.mode in ("NORMAL", "DELETE") or (

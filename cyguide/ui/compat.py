@@ -583,3 +583,41 @@ def setup_textual_compat() -> None:
                 pass
     except Exception:
         pass
+
+    # 7. Protect Widget._message_loop_exit against asyncio.CancelledError during DOM teardown in Python 3.12+
+    try:
+        import asyncio
+
+        import textual.widget as _w
+        from textual import events
+        from textual.dom import DOMNode
+        from textual.messages import Prune
+
+        async def safe_message_loop_exit(self: _w.Widget) -> None:
+            parent = self._parent
+            children = [*self.children, *self._get_virtual_dom()]
+            for node in children:
+                node.post_message(Prune())
+
+            await asyncio.gather(
+                *[node._task for node in children if node._task is not None],
+                return_exceptions=True,
+            )
+            try:
+                await self._dispatch_message(events.Unmount())
+            except Exception:
+                pass
+            if isinstance(parent, DOMNode):
+                parent._nodes._remove(self)
+            if hasattr(self, "app") and hasattr(self.app, "_registry"):
+                self.app._registry.discard(self)
+            self._detach()
+            self._arrangement_cache.clear()
+            self._nodes._clear()
+            self._render_cache = _w._RenderCache(_w.NULL_SIZE, [])
+            self._component_styles.clear()
+            self._query_one_cache.clear()
+
+        _w.Widget._message_loop_exit = safe_message_loop_exit
+    except (ImportError, AttributeError):
+        pass

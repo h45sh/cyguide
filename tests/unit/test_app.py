@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from cyguide.app import CyGuideApp
@@ -866,10 +868,22 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
 
         # 6. Enter workspace via Enter key on workspace_list
         await pilot.press("enter")
-        await pilot.pause()
+        await pilot.pause(0.1)
+        if dashboard._ws_debounce_task:
+            try:
+                await dashboard._ws_debounce_task
+            except asyncio.CancelledError:
+                pass
+        if dashboard._sess_debounce_task:
+            try:
+                await dashboard._sess_debounce_task
+            except asyncio.CancelledError:
+                pass
+        await pilot.pause(0.2)
         assert sess_list.has_focus is True
         assert sess_list.index == 0
         assert sess_list.children[0].styles.background.hex == "#282E3A"
+        await pilot.pause(0.1)
 
 
 @pytest.mark.asyncio

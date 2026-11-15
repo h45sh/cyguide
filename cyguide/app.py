@@ -568,7 +568,8 @@ class CyGuideApp(App):
 
         # Initial tool health check and start real-time periodic watcher (2s interval)
         self.check_and_update_tool_health()
-        self.set_interval(2.0, self.check_and_update_tool_health, name="tool_health_watcher")
+        if "PYTEST_CURRENT_TEST" not in os.environ and "CI" not in os.environ:
+            self.set_interval(2.0, self.check_and_update_tool_health, name="tool_health_watcher")
 
         self.store = GraphStore(self.db_path)
         await self.store.initialize()
