@@ -24,7 +24,8 @@ def test_dnspython_build_command(adapter):
     cmd = adapter.build_command(dns_rec, {"raw_flags": "-t MX"})
     assert "-m" in cmd
     assert "tools.dnspython.cli" in cmd
-    assert "example.com" in cmd
+    target_idx = cmd.index("tools.dnspython.cli") + 1
+    assert cmd[target_idx] == "example.com"
     assert "--json" in cmd
     assert "-t" in cmd
     assert "MX" in cmd

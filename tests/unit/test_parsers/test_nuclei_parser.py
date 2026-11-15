@@ -25,7 +25,8 @@ def test_nuclei_build_command(adapter):
     cmd = adapter.build_command(endpoint, {})
     assert cmd[0] == "nuclei"
     assert "-u" in cmd
-    assert "http://example.com" in cmd
+    url_idx = cmd.index("-u") + 1
+    assert cmd[url_idx] == "http://example.com"
     assert "-jsonl" in cmd
     assert "-silent" in cmd
 
