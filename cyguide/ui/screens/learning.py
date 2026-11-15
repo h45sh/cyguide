@@ -696,21 +696,28 @@ class LearningModeScreen(Screen):
             pass
         explanation_scroll.scroll_end(animate=False)
 
+        import time
+
+        last_update = 0.0
         try:
             async for update in self.session.stream_tutor_response(question):
                 self.explanation_buffer = base_buffer + update.accumulated
-                try:
-                    explanation_pane.update(render_markdown(self.explanation_buffer))
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    pass
-                if explanation_scroll.is_vertical_scroll_end or (
-                    explanation_scroll.max_scroll_y - explanation_scroll.scroll_offset.y <= 2
-                ):
-                    explanation_scroll.scroll_end(animate=False)
+                now = time.time()
+                if now - last_update > 0.08:
+                    try:
+                        explanation_pane.update(render_markdown(self.explanation_buffer))
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        pass
+                    if explanation_scroll.is_vertical_scroll_end or (
+                        explanation_scroll.max_scroll_y - explanation_scroll.scroll_offset.y <= 2
+                    ):
+                        explanation_scroll.scroll_end(animate=False)
+                    last_update = now
                 if update.is_error:
                     self.notify("Error getting explanation", severity="error")
+                await asyncio.sleep(0)
         except asyncio.CancelledError:
             pass
         finally:

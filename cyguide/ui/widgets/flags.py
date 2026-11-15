@@ -108,7 +108,3 @@ class FlagEditor(Vertical):
             target=target,
             flags_used=params.get("raw_flags", ""),
         )
-
-
-# Backward-compatible alias for existing imports
-CommandPreviewEditor = FlagEditor

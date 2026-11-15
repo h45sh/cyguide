@@ -4,6 +4,7 @@ Deep module encapsulating wordlist resolution, bundled asset extraction,
 and dynamic template expansion for fuzzing and reconnaissance tools.
 """
 
+import gzip
 import os
 import re
 import shutil
@@ -25,7 +26,8 @@ def seed_bundled_wordlists(target_dir: Optional[str] = None, overwrite: bool = F
     """Extract bundled starter wordlists into user's wordlists directory.
 
     Ensures the target directory exists with secure 0o700 permissions and
-    wordlist files are written with 0o600 permissions.
+    wordlist files are written with 0o600 permissions. Automatically decompresses
+    bundled .txt.gz archives or copies uncompressed .txt files.
     """
     dest_dir = Path(target_dir) if target_dir else Path(paths.get_default_wordlists_dir())
     dest_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -34,15 +36,27 @@ def seed_bundled_wordlists(target_dir: Optional[str] = None, overwrite: bool = F
     if not BUNDLED_WORDLISTS_DIR.exists():
         return seeded
 
-    for src_file in BUNDLED_WORDLISTS_DIR.glob("*.txt"):
-        dest_file = dest_dir / src_file.name
-        if overwrite or not dest_file.exists():
-            shutil.copy2(src_file, dest_file)
-            try:
-                dest_file.chmod(0o600)
-            except OSError:
-                pass
-            seeded.append(str(dest_file.resolve()))
+    for src_file in sorted(BUNDLED_WORDLISTS_DIR.iterdir()):
+        if src_file.name.endswith(".gz"):
+            # Target filename without .gz (e.g. common_dirs.txt)
+            dest_file = dest_dir / src_file.stem
+            if overwrite or not dest_file.exists():
+                with gzip.open(src_file, "rb") as f_in, open(dest_file, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+                try:
+                    dest_file.chmod(0o600)
+                except OSError:
+                    pass
+                seeded.append(str(dest_file.resolve()))
+        elif src_file.suffix == ".txt":
+            dest_file = dest_dir / src_file.name
+            if overwrite or not dest_file.exists():
+                shutil.copy2(src_file, dest_file)
+                try:
+                    dest_file.chmod(0o600)
+                except OSError:
+                    pass
+                seeded.append(str(dest_file.resolve()))
 
     return seeded
 

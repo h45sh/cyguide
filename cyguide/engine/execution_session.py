@@ -253,6 +253,10 @@ class ExecutionSession:
         self.closed_job_ids.add(str(action_id))
         return job
 
+    def mark_job_closed(self, action_id: Any) -> None:
+        """Record an action ID as closed."""
+        self.closed_job_ids.add(str(action_id))
+
     def is_job_closed(self, action_id: Any) -> bool:
         """Check if an action has been marked closed."""
         return str(action_id) in self.closed_job_ids

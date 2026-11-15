@@ -120,33 +120,13 @@ class PowerWorkspaceFacade:
         if hasattr(self, "context_builder"):
             self.context_builder.store = new_store
 
-    @property
-    def _active_jobs(self) -> Dict[UUID, JobStatus]:
-        return self.execution._active_jobs
+    def mark_job_closed(self, job_id: Any) -> None:
+        """Mark a job as closed."""
+        self.execution.mark_job_closed(job_id)
 
-    @property
-    def _job_actions(self) -> Dict[UUID, ActionRequest]:
-        return self.execution._job_actions
-
-    @property
-    def _job_subscribers(self) -> Dict[UUID, set]:
-        return self._output_subscribers
-
-    @property
-    def _job_buffers(self) -> Dict[UUID, List[str]]:
-        return self.execution._job_buffers
-
-    @property
-    def _session_cwd(self) -> Dict[str, str]:
-        return self.execution._session_cwd
-
-    @property
-    def closed_job_ids(self) -> set[str]:
-        return self.execution.closed_job_ids
-
-    @property
-    def _running_tasks(self) -> Dict[UUID, asyncio.Task]:
-        return self.execution._running_tasks
+    def has_job_subscriber(self, job_id: UUID, callback: Callable) -> bool:
+        """Check if an output subscriber is registered for a job."""
+        return callback in self._output_subscribers.get(job_id, set())
 
     def get_running_task(self, job_id: UUID) -> Optional[asyncio.Task]:
         """Retrieve background execution task for a job by UUID."""

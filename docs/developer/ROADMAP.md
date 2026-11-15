@@ -14,12 +14,13 @@ This document is the **single authoritative source of truth** for all completed,
 | **Power Mode Operator Workbench** | **Completed** | 30 | 30 | 0 | 100% |
 | **v1.8.0: Showcase, Textual Resilience & Automated Release** | **Completed** | 4 | 4 | 0 | 100% |
 | **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **Completed** | 22 | 22 | 0 | 100% |
-| **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **In Progress (Fast-Tracked)** | 23 | 7 | 16 | 30% |
+| **v1.9.1: Finding Stream Debouncing & Tree Node Caps** | **Completed** | 2 | 2 | 0 | 100% |
+| **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **In Progress (Active dev)** | 23 | 14 | 9 | 61% |
 | **v1.11.0: Advanced Terminal Capabilities, IPC & Security** | **Planned (Spec Ready)** | 13 | 1 | 12 | 8% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 12 | 0 | 12 | 0% |
 | **Phase 4: Tactical Research Co-Pilot & Offensive Engine** | **Planned (Future)** | 15 | 1 | 14 | 7% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **156** | **96** | **60** | **62%** |
+| **Total Project Tasks** | **In Progress** | **158** | **105** | **53** | **66%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).

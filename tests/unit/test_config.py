@@ -72,6 +72,7 @@ async def test_command_palette_exact_order(tmp_path):
             "Tool Health",
             "Config",
             "Hotkeys",
+            "Dismiss Notification",
             "Screenshot",
             "Quit",
         ]

@@ -51,7 +51,16 @@ class EntityBrowser(Tree):
 
     async def refresh_entities(self, graph_data: Dict[str, Any]):
         """Update the tree based on fresh nodes and edges from the store, preserving branch states."""
+        if (
+            self._last_graph_data is not None
+            and self._last_graph_data == graph_data
+            and getattr(self, "_last_filter_query", None) == self.filter_query
+            and len(self.root.children) > 0
+        ):
+            return
+
         self._last_graph_data = graph_data
+        self._last_filter_query = self.filter_query
         # Capture current expanded states if any
         expanded_keys = set()
 

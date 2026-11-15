@@ -167,7 +167,8 @@ async def test_facade_deletion_cleanup():
         started_at=datetime.datetime.now(datetime.UTC),
     )
     facade.register_job(job)
-    facade.closed_job_ids.add(str(job_uuid))
+    facade.mark_job_closed(job_uuid)
+    assert facade.is_job_closed(job_uuid) is True
 
     # Delete session
     await facade.delete_session(sess_id)
@@ -175,7 +176,7 @@ async def test_facade_deletion_cleanup():
     # Verify executor.stop_task called and facade tracking cleaned up
     executor.stop_task.assert_called_once_with(str(job_uuid))
     assert facade.get_job(job_uuid) is None
-    assert str(job_uuid) not in facade.closed_job_ids
+    assert facade.is_job_closed(job_uuid) is False
 
     await store.close()
 
@@ -214,11 +215,11 @@ async def test_facade_job_output_buffering_and_subscription():
         received.append(chunk)
 
     facade.subscribe_job_output(job_uuid, sub)
-    assert sub in facade._job_subscribers[job_uuid]
+    assert facade.has_job_subscriber(job_uuid, sub) is True
 
     # Unsubscribe
     facade.unsubscribe_job_output(job_uuid, sub)
-    assert sub not in facade._job_subscribers[job_uuid]
+    assert facade.has_job_subscriber(job_uuid, sub) is False
 
     await store.close()
 

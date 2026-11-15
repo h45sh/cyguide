@@ -92,16 +92,10 @@ def test_no_private_state_penetration_of_execution_session():
                     # Ignore internal self._ references inside execution_session
                     if isinstance(node.value, ast.Name) and node.value.id in ("self", "cls"):
                         continue
-                    # Ignore property definitions in power_facade backward compatibility properties
                     violations.append((py_file.name, node.lineno, node.attr))
 
-    # Filtering out backward-compat property getters in power_facade if they only forward
-    filtered_violations = [
-        v for v in violations if not (v[0] == "power_facade.py" and v[2] in banned_private_attrs)
-    ]
-
-    assert not filtered_violations, (
-        f"Components penetrated ExecutionSession private attributes: {filtered_violations}"
+    assert not violations, (
+        f"Components penetrated ExecutionSession private attributes: {violations}"
     )
 
 

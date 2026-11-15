@@ -583,25 +583,3 @@ def setup_textual_compat() -> None:
                 pass
     except Exception:
         pass
-
-    # 5. Harmonize Rich Markdown headings with CyGuide dark theme (replace harsh magenta/red with sky blue)
-    try:
-        from rich.markdown import Heading, Markdown
-
-        class CyGuideHeading(Heading):
-            HEADING_STYLES = {
-                "h1": "bold #38bdf8",
-                "h2": "bold #38bdf8",
-                "h3": "bold #38bdf8",
-                "h4": "bold #7dd3fc",
-                "h5": "bold #94a3b8",
-                "h6": "dim #94a3b8",
-            }
-
-            def __init__(self, tag: str) -> None:
-                super().__init__(tag)
-                self.style_name = self.HEADING_STYLES.get(tag, "bold #38bdf8")
-
-        Markdown.elements["heading_open"] = CyGuideHeading
-    except Exception:
-        pass
