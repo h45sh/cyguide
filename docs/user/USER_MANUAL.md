@@ -105,7 +105,7 @@ Browse all registered security adapters (`nmap`, `gobuster`, `nikto`, `whois`, `
 
 ### 2. Interactive Lesson Screen
 * **Recipe Deck (`RecipeDeck`)**: Choose from curriculum-grade pre-configured recipes (e.g. "Pingless Service Scan", "Full Version & Service Detection") with instant execution (`▶ RUN`), flag loading, and targeted flag breakdown queries (`? ASK`).
-* **Target & Flag Editor (`CommandPreviewEditor`)**: Interactively customize flags, wordlists, and target parameters with live macro substitution (`{target}`, `{url}`, `{domain}`, `{wordlist:...}`).
+* **Target & Flag Editor (`FlagEditor`)**: Interactively customize flags, wordlists, and target parameters with live macro substitution (`{target}`, `{url}`, `{domain}`, `{wordlist:...}`).
 * **Target Execution Modes**:
   * **Single Target**: Enter any target IP, domain, or URL in the target field for focused lesson execution.
   * **Database Entity Sweep (`sweep_targets`)**: Programmatically sweep the selected recipe across all targets stored in the database (`GraphStore` nodes including discovered `network.host` IPs, `dns.record` domains, and `web.endpoint` URLs).
