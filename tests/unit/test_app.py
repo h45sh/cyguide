@@ -1072,7 +1072,6 @@ async def test_screen_pop_cleans_up_all_workers():
             f"Screen unmount leaked active background workers: {active_workers}"
         )
 
-
 @pytest.mark.asyncio
 async def test_dismiss_notification_shortcut():
     """Verify Ctrl+/ (and terminal aliases) dismisses one active notification at a time."""
@@ -1119,5 +1118,4 @@ async def test_dismiss_notification_shortcut():
         await pilot.press("ctrl+slash")
         await pilot.pause(0.1)
         assert len(list(app._notifications)) == 0
-
 

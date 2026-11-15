@@ -47,7 +47,7 @@ Issues = "https://github.com/h45sh/cyguide/issues"
 include = ["cyguide*", "tools*"]
 
 [tool.setuptools.package-data]
-cyguide = ["ui/style.css", "assets/wordlists/*.txt.gz"]
+cyguide = ["ui/style.css"]
 tools = ["*/*.toml", "*/*.txt"]
 
 [project.scripts]

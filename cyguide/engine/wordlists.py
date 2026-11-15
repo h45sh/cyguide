@@ -13,8 +13,8 @@ from typing import Dict, List, Optional, Tuple
 
 from cyguide import paths
 
-# Bundled wordlists packaged inside CyGuide distribution
-BUNDLED_WORDLISTS_DIR = Path(__file__).parent.parent / "assets" / "wordlists"
+# Wordlists located in root assets directory (outside core engine)
+BUNDLED_WORDLISTS_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "wordlists"
 
 # Matches {wordlist} or {wordlist:name}
 WORDLIST_MACRO_REGEX = re.compile(r"\{wordlist(?::([a-zA-Z0-9_\-]+))?\}")

@@ -897,11 +897,6 @@ class CyGuideApp(App):
         yield SystemCommand("Hotkeys", "", self.action_show_hotkeys)
 
         # 5. Utilities
-        yield SystemCommand(
-            "Dismiss Notification  [dim]Ctrl+/[/dim]",
-            "Dismiss one active toast notification",
-            self.action_dismiss_notification,
-        )
         if "screenshot" in base_cmds:
             cmd = base_cmds["screenshot"]
             yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
