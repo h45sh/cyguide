@@ -463,9 +463,18 @@ class CyGuideApp(App):
         returns a copy of os.environ immediately without forking an expensive login subshell.
         """
         current_env = os.environ.copy()
+        if "PYTEST_CURRENT_TEST" in current_env or "CI" in current_env or "GITHUB_ACTIONS" in current_env:
+            return current_env
+
         path = current_env.get("PATH", "")
         home = current_env.get("HOME", "")
-        if home and (home in path or "/usr/local/bin" in path or "/home" in path or "/opt" in path):
+        if home and (
+            home in path
+            or "/Users" in path
+            or "/home" in path
+            or "/opt" in path
+            or "/usr/local/bin" in path
+        ):
             return current_env
 
         shell = self.detect_user_shell()
