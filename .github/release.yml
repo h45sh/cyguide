@@ -11,10 +11,6 @@ changelog:
       labels:
         - "bug"
         - "fix"
-    - title: "Documentation"
-      labels:
-        - "documentation"
-        - "docs"
     - title: "CI/CD & Maintenance"
       labels:
         - "ci"
@@ -23,3 +19,5 @@ changelog:
   exclude:
     labels:
       - "skip-changelog"
+      - "documentation"
+      - "docs"
