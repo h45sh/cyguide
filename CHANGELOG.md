@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.10.0](https://github.com/h45sh/cyguide/compare/v1.9.1...v1.10.0) (2026-11-15)
+
+
+### Features
+
+* **ecosystem:** update tool installer, polish UI layouts, add test fixtures and fix root log creation ([87297db](https://github.com/h45sh/cyguide/commit/87297db805aea5472c203fdbdababa6875cee0e1))
+* implement schema 2.0, wordlists, and 4 new tool adapters with curriculum recipes ([2a4e0cd](https://github.com/h45sh/cyguide/commit/2a4e0cd61457c65edb628e5c99f898d28accd0d7))
+* Schema 2.0 adapters, learning engine deep modules, and startup optimizations ([3b94abe](https://github.com/h45sh/cyguide/commit/3b94abeda93ffeedcff56bbd646f8a7429f56fc6))
+
+
+### Bug Fixes
+
+* **ci:** bypass subshell fork in CI test runners and include .txt.gz package-data ([0295972](https://github.com/h45sh/cyguide/commit/0295972f28d7e55dea3095406329e7da22947b88))
+* **docker:** allow assets/wordlists in docker build context and copy wordlists directory ([8e2c296](https://github.com/h45sh/cyguide/commit/8e2c29615d821ebd100f0be86ac879b139ce2c4c))
+* **ui:** protect widget message loop exit during DOM teardown and settle debounce tasks ([345bae4](https://github.com/h45sh/cyguide/commit/345bae456f674e3f5bde3295f1082c6d99dc1ca7))
+
+
+### Performance Improvements
+
+* **startup:** fast-path shell environment detection and guard unmounted diagnostics ([49ac6bc](https://github.com/h45sh/cyguide/commit/49ac6bc01c891894b91c227dd5df216bfccfee97))
+
 ## [1.9.1](https://github.com/h45sh/cyguide/compare/v1.9.0...v1.9.1) (2026-11-14)
 
 
