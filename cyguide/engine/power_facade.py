@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from cyguide.engine.adapter import ToolAdapter
@@ -82,6 +82,27 @@ class PowerWorkspaceFacade:
 
         # Callback subscribers for output chunks (job_id -> set of callbacks)
         self._output_subscribers: Dict[UUID, set] = {}
+
+        # InvestigationSession seam fields
+        self.session_id: Optional[UUID] = None
+        self.workspace_id: Optional[UUID] = None
+        self.explainer: Optional[Any] = None
+
+    async def extract_structured_findings(
+        self,
+        store: Optional[GraphStore] = None,
+        session_id: Optional[Any] = None,
+    ) -> Tuple[str, str]:
+        """Format discovered graph findings for UI display and AI context."""
+        from cyguide.engine.reporter import SessionReportService
+
+        target_store = store or self.store
+        target_session_id = session_id or self.session_id
+        if not target_store or not target_session_id:
+            return "*No structured findings in current session yet.*", "None"
+        return await SessionReportService(target_store).extract_structured_findings(
+            str(target_session_id)
+        )
 
     @property
     def store(self) -> GraphStore:

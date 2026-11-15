@@ -44,11 +44,10 @@ def test_system_commands_single_config_entry(tmp_path):
     assert not any("Config: Database Path" in t for t in titles)
     assert not any("Config: Tools Directory" in t for t in titles)
 
-    # Verify exact conventional command order
+    # Verify exact conventional command order (6 streamlined items)
     assert any("Toggle Animations" in t for t in titles)
     assert any("Tool Health" in t for t in titles)
     assert "Config" in titles
-    assert "Theme" in titles
     assert "Hotkeys" in titles
     assert "Screenshot" in titles
     assert titles[-1] == "Quit"
@@ -59,7 +58,7 @@ def test_system_commands_single_config_entry(tmp_path):
 
 @pytest.mark.asyncio
 async def test_command_palette_exact_order(tmp_path):
-    """Verify Command Palette displays the streamlined 7-item conventional menu order without Toggle Sidebar."""
+    """Verify Command Palette displays the streamlined 6-item conventional menu order without Theme or Toggle Sidebar."""
     from textual.command import CommandList
 
     db_file = str(tmp_path / "test_palette_order.db")
@@ -72,7 +71,6 @@ async def test_command_palette_exact_order(tmp_path):
             "Toggle Animations",
             "Tool Health",
             "Config",
-            "Theme",
             "Hotkeys",
             "Screenshot",
             "Quit",

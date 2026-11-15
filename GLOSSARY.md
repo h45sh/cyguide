@@ -60,4 +60,24 @@ _Avoid_: Diagnostics runner, health check script, test utility
 The deep module managing persistent operator settings, active AI key profile configuration, and atomic scratchpad note-taking with NIST-compliant filesystem permission controls.
 _Avoid_: Config helper, settings manager, json reader, file utility
 
+**LearningSession**:
+The deep module encapsulating interactive single-tool learning mode workflows: tool context resolution, recipe parameter binding, execution lifecycle orchestration, structured finding extraction, and AI educational tutoring behind an agnostic headless seam.
+_Avoid_: Learning controller, learning screen backend, lesson helper, tutor runner
+
+**RecipeBinding**:
+The deep module resolving tool workflow recipes, flag parameter substitutions, target macros, and wordlist interpolations for security tools.
+_Avoid_: Recipe parser, flag builder, command formatter
+
+**InvestigationSession**:
+The core seam governing investigation runtime environments (Learning & Power), standardizing action dispatch, stop controls, and structured reporting.
+_Avoid_: Session interface, runtime controller, execution wrapper
+
+**RecipeDeck**:
+The deep presentation widget encapsulating tool metadata badges, status states, and interactive workflow recipe cards behind a declarative update interface.
+_Avoid_: Recipe list view, card container, recipe scroller
+
+**CommandPreviewEditor**:
+The deep presentation adapter managing target and flag inputs while delegating real-time command syntax and macro resolution to RecipeBinding.
+_Avoid_: Flag editor, parameter input box, command builder
+
 

@@ -5,6 +5,19 @@ one_line_summary = "discover subdomains passively using OSINT sources and CT log
 category = "Network Reconnaissance"
 categories = ["recon", "dns", "enumeration", "osint"]
 binary = "subfinder"
+theory = """
+### Protocol Theory & Passive Attack Surface Mapping
+Subfinder executes non-intrusive enumeration without transmitting packets to target infrastructure, leaving zero footprint in target IDS/IPS logs.
+
+### Primary Intelligence Channels
+* **Certificate Transparency Logs (RFC 6962)**: Public, append-only Merkle tree logs mandated for public CAs recording every issued TLS certificate.
+* **Passive DNS (pDNS) Aggregation**: Streams historical resolution data from global DNS telemetry sensors.
+* **Search Indices & Threat Feeds**: Collects indexed hostnames from public threat intelligence APIs.
+
+### Defensive Hardening & Hygiene
+* **CT Log Monitoring**: Deploy real-time alerts (e.g. Certstream) to detect unexpected certificate issuance.
+* **DNS Garbage Collection**: De-provision stale CNAME pointers to prevent Subdomain Takeovers.
+"""
 
 [modes]
 learning = true

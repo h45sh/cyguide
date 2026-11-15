@@ -5,6 +5,19 @@ one_line_summary = "high-speed HTTP directory and virtual host fuzzer"
 category = "Web Enumeration"
 categories = ["web", "fuzzing", "recon"]
 binary = "ffuf"
+theory = """
+### Protocol Theory & Request Injection Vectors
+Fuzzing injects dictionary payloads into candidate protocol fields denoted by the `FUZZ` anchor across HTTP requests.
+
+### Multi-Vector Enumeration Mechanics
+* **Virtual Host Enumeration (`Host: FUZZ.domain`)**: Enumerates unannounced internal web apps behind shared reverse proxies.
+* **Parameter Fuzzing (`?FUZZ=1`)**: Discovers undocumented administrative APIs, test keys, and debug toggles.
+* **Heuristic Filtering**: Suppresses noise by matching HTTP status code (`-fc`), response byte length (`-fs`), word count (`-fw`), or regex patterns (`-mr`).
+
+### Defensive Hardening & Routing
+* **Strict Reverse Proxy Rules**: Reject unrecognized or missing `Host` headers with HTTP 421 Misdirected Request.
+* **WAF Anomaly Detection**: Enforce anomaly scoring on high-frequency burst patterns from identical IP subnets.
+"""
 
 [modes]
 learning = true

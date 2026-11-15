@@ -12,6 +12,7 @@ class ToolMeta(BaseModel):
     category: str = "Misc"
     categories: List[str]
     binary: str
+    theory: str = ""
 
 
 class RecipeTheory(BaseModel):

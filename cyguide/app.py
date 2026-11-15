@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 from typing import Any
+from uuid import UUID
 
 from textual import events, work
 from textual.app import App, ComposeResult, SystemCommand
@@ -208,6 +209,12 @@ class CyGuideApp(App):
 
     BINDINGS = [
         Binding("ctrl+p", "command_palette", "Palette", show=False),
+        Binding(
+            "ctrl+/,ctrl+slash,ctrl+underscore",
+            "dismiss_notification",
+            "Dismiss Notification",
+            show=False,
+        ),
     ]
 
     # Register screens so they can be switched by name
@@ -238,6 +245,20 @@ class CyGuideApp(App):
         self.selected_workspace_id: Optional[str] = None
         self.user_env: Dict[str, str] = os.environ.copy()
         self.user_shell: str = "/bin/bash"
+
+        from rich.theme import Theme
+
+        self.console.push_theme(
+            Theme({
+                "markdown.h1": "bold #38bdf8",
+                "markdown.h2": "bold #38bdf8",
+                "markdown.h3": "bold #38bdf8",
+                "markdown.h4": "bold #7dd3fc",
+                "markdown.h5": "bold #94a3b8",
+                "markdown.h6": "dim #94a3b8",
+                "markdown.block_quote": "#38bdf8",
+            })
+        )
         self._cached_tool_health: Dict[str, Dict[str, Any]] = {}
         self.navigating_sub_palette: bool = False
         self.last_palette_highlight: Optional[Any] = None
@@ -251,8 +272,6 @@ class CyGuideApp(App):
         self.preferences = PreferencesStore(data_dir=self.data_dir, db_path=self.db_path)
         self.settings: Dict[str, Any] = self.preferences.all()
         self.animations_enabled: bool = self.settings.get("animations_enabled", True)
-        if "theme" in self.settings:
-            self.theme = self.settings["theme"]
 
         # Apply saved settings when not explicitly overridden by non-default CLI arguments
         if "use_ollama" in self.settings and not use_ollama:
@@ -433,10 +452,6 @@ class CyGuideApp(App):
                 self.settings = {}
             self.settings.update(updates)
 
-    def watch_theme(self, new_theme: str) -> None:
-        if hasattr(self, "save_settings"):
-            self.save_settings({"theme": new_theme})
-
     def detect_user_shell(self) -> str:
         """Find the user's default shell."""
         return os.environ.get("SHELL", "/bin/bash")
@@ -555,6 +570,17 @@ class CyGuideApp(App):
         self.power_facade.user_shell = self.user_shell
         self.workspace_repo = self.power_facade.workspaces
 
+        from cyguide.engine.learning import LearningSession
+
+        self.learning_session = LearningSession(
+            store=self.store,
+            registry=self.registry,
+            execution=self.power_facade.execution,
+            explainer=getattr(self, "explainer", None),
+            session_id=UUID(self.learning_session_id) if self.learning_session_id else None,
+            workspace_id=UUID(self.learning_ws_id) if self.learning_ws_id else None,
+        )
+
         # 2. Setup UI
         self.push_screen("dashboard")
         if not self.animations_enabled:
@@ -597,6 +623,10 @@ class CyGuideApp(App):
         )
 
         self.explainer = self.explainer_backend
+        if hasattr(self, "learning_session") and self.learning_session:
+            self.learning_session.reload_explainer(self.explainer)
+        if hasattr(self, "power_facade") and self.power_facade:
+            self.power_facade.explainer = self.explainer
 
     def reload_registry(self) -> None:
         """Reload the tool registry if tools_dir changed."""
@@ -604,6 +634,8 @@ class CyGuideApp(App):
         self.registry.load_tools()
         if hasattr(self, "power_facade") and self.power_facade is not None:
             self.power_facade.registry = self.registry
+        if hasattr(self, "learning_session") and self.learning_session is not None:
+            self.learning_session.registry = self.registry
         self._async_refresh_tool_health_cache()
 
     async def on_unmount(self) -> None:
@@ -701,6 +733,11 @@ class CyGuideApp(App):
             if hasattr(self, "power_facade") and self.power_facade:
                 self.power_facade.store = self.store
 
+            if hasattr(self, "learning_session") and self.learning_session:
+                self.learning_session.store = self.store
+                self.learning_session.session_id = UUID(new_session_id)
+                self.learning_session.workspace_id = UUID(new_ws_id)
+
             self.save_settings({"db_path": new_db_path})
         except Exception as e:
             if old_store:
@@ -789,20 +826,6 @@ class CyGuideApp(App):
             "Configuration reset to CLI defaults (API keys preserved)", title="Config Reset"
         )
 
-    def search_themes(self) -> None:
-        """Show the theme selection palette with unified left/right arrow navigation."""
-        from textual.theme import ThemeProvider
-
-        self.last_palette_highlight = "Theme"
-        self.push_screen(
-            CyGuideCommandPalette(
-                providers=[ThemeProvider],
-                placeholder="Search for themes…",
-                is_sub_palette=True,
-                id="--command-palette-theme",
-            )
-        )
-
     def action_show_hotkeys(self) -> None:
         """Open the F1 Shortcuts / Help dialog."""
         from cyguide.ui.dialogs import ShortcutsDialog
@@ -850,25 +873,35 @@ class CyGuideApp(App):
             self.action_show_config,
         )
 
-        # 4. Theme
-        if "theme" in base_cmds:
-            cmd = base_cmds["theme"]
-            yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
-
-        # 5. Hotkeys
+        # 4. Hotkeys
         yield SystemCommand("Hotkeys", "", self.action_show_hotkeys)
 
-        # 6. Utilities
+        # 5. Utilities
+        yield SystemCommand(
+            "Dismiss Notification  [dim]Ctrl+/[/dim]",
+            "Dismiss one active toast notification",
+            self.action_dismiss_notification,
+        )
         if "screenshot" in base_cmds:
             cmd = base_cmds["screenshot"]
             yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
 
-        # 7. Exit (Conventional menu order: Quit is always the last option)
+        # 6. Exit (Conventional menu order: Quit is always the last option)
         if "quit" in base_cmds:
             cmd = base_cmds["quit"]
             yield SystemCommand(cmd.title, "", cmd.callback, cmd.discover)
         else:
             yield SystemCommand("Quit", "", self.action_quit)
+
+    def action_dismiss_notification(self) -> None:
+        """Dismiss one active notification at a time across the entire application."""
+        if not hasattr(self, "_notifications") or not self._notifications:
+            return
+        active = list(self._notifications)
+        if not active:
+            return
+        target = active[-1]
+        self._unnotify(target, refresh=True)
 
     def action_quit(self) -> None:
         """Quit the app and restore terminal cursor."""

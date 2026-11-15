@@ -5,6 +5,20 @@ one_line_summary = "offline Exploit-DB and public PoC intelligence lookup"
 category = "Vulnerability Assessment"
 categories = ["exploit", "cve", "recon"]
 binary = "searchsploit"
+theory = """
+### Theory & Vulnerability Lifecycle
+Vulnerability research correlates software version strings identified during reconnaissance against public CVE databases and verified exploit archives.
+
+### Exploit Architecture & Classification
+* **Remote (`remote`)**: Weaponized exploits executable over a network socket without valid credentials.
+* **Privilege Escalation (`local`)**: Requires an unprivileged shell to escalate to root or SYSTEM rights.
+* **Web Applications (`webapps`)**: Exploits targeting SQLi, RCE, LFI, and SSRF in web frameworks.
+* **Offline Verification**: Operates fully disconnected from the internet, ideal for air-gapped environments.
+
+### Defensive Hardening & Governance
+* **Patch Cadence**: Maintain an aggressive patch schedule for internet-facing daemons.
+* **Principle of Least Privilege**: Isolate daemons in unprivileged accounts with SELinux/AppArmor confinement.
+"""
 
 [modes]
 learning = true

@@ -308,25 +308,24 @@ async def test_learning_recipes_tab_and_circular_navigation():
         pane_ids = [pane.id for pane in tabs.query("TabPane")]
         assert "tab_explanation" in pane_ids
         assert "tab_output" in pane_ids
-        assert "tab_recipes" in pane_ids
-        assert tabs.active == "tab_explanation"
+        assert tabs.active == "tab_recipes"
 
-        # 2. Test 3-tab circular navigation
+        # 2. Test 3-tab circular navigation (Recipes -> Raw Output -> Explanation -> Recipes)
         screen.action_next_tab()
         await pilot.pause()
         assert tabs.active == "tab_output"
 
         screen.action_next_tab()
         await pilot.pause()
-        assert tabs.active == "tab_recipes"
+        assert tabs.active == "tab_explanation"
 
         screen.action_next_tab()
         await pilot.pause()
-        assert tabs.active == "tab_explanation"
+        assert tabs.active == "tab_recipes"
 
         screen.action_prev_tab()
         await pilot.pause()
-        assert tabs.active == "tab_recipes"
+        assert tabs.active == "tab_explanation"
 
         screen.action_prev_tab()
         await pilot.pause()
@@ -334,7 +333,7 @@ async def test_learning_recipes_tab_and_circular_navigation():
 
         screen.action_prev_tab()
         await pilot.pause()
-        assert tabs.active == "tab_explanation"
+        assert tabs.active == "tab_recipes"
 
         # 3. Verify sidebar recipe list items are clean and single-line
         recipe_list = screen.query_one("#recipe_list")

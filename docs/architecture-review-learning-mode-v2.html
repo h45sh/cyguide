@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Architecture Review (v2): CyGuide Learning Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 4 4; }
+      .leak { stroke: #dc2626; }
+      .deep-box { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .shallow-box { background: linear-gradient(135deg, #f8fafc, #f1f5f9); }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
+    <main class="max-w-6xl mx-auto px-6 py-12 space-y-12">
+
+      <!-- Header -->
+      <header class="border-b border-stone-200 pb-8">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-slate-500">Architecture Review • Iteration 2</div>
+            <h1 class="text-3xl font-serif font-bold text-slate-900 mt-1">CyGuide: Learning Mode Architecture (v2)</h1>
+            <div class="text-sm text-slate-600 mt-1">Status: Post-Decoupling Assessment &amp; Advanced Deepening Candidates</div>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-mono text-slate-500 bg-white border border-stone-200 px-3 py-1.5 rounded-md shadow-sm">
+            <span>2026-11-15</span>
+            <span>•</span>
+            <span>cyguide/engine/learning.py</span>
+          </div>
+        </div>
+
+        <!-- Compact Legend -->
+        <div class="mt-6 flex flex-wrap items-center gap-6 text-xs text-slate-600 bg-stone-100/80 px-4 py-2.5 rounded-lg border border-stone-200">
+          <span class="font-semibold text-slate-700 uppercase tracking-wider">Vocabulary:</span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded border border-slate-400 bg-white inline-block"></span> Solid box = Module
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded border border-dashed border-slate-500 bg-slate-50 inline-block"></span> Dashed box = Seam
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-3 h-0.5 bg-red-600 inline-block"></span> Red arrow = Leakage across seam
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded bg-slate-900 inline-block"></span> Dark box = Deep module
+          </span>
+        </div>
+      </header>
+
+      <!-- Executive Assessment Banner -->
+      <section class="bg-white rounded-xl border border-stone-200 p-6 md:p-8 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-serif font-bold text-slate-900">Current Architecture Status: Verified Decoupling</h2>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+            299 / 299 Unit Tests Green
+          </span>
+        </div>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          The initial decoupling successfully isolated Learning Mode from Power Mode. The new deep modules 
+          <code class="font-mono text-indigo-700 bg-indigo-50 px-1 rounded">LearningSession</code> and 
+          <code class="font-mono text-indigo-700 bg-indigo-50 px-1 rounded">RecipeBinding</code> now encapsulate tool context resolution, 
+          command macro interpolation, slash command dispatch, and structured finding extraction. 
+          The UI screen (<code class="font-mono text-xs">LearningModeScreen</code>) has been reduced from an imperative coordinator to an adapter.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div class="border border-stone-200 bg-stone-50 rounded-lg p-3">
+            <div class="text-xs font-mono text-slate-500 uppercase">Engine Locality</div>
+            <div class="text-sm font-semibold text-slate-800 mt-1">High</div>
+            <div class="text-xs text-slate-600 mt-0.5">All tool execution lifecycles and briefings reside in engine.</div>
+          </div>
+          <div class="border border-stone-200 bg-stone-50 rounded-lg p-3">
+            <div class="text-xs font-mono text-slate-500 uppercase">Seam Integrity</div>
+            <div class="text-sm font-semibold text-slate-800 mt-1">Strong</div>
+            <div class="text-xs text-slate-600 mt-0.5">UI queries typed LearningSession events; no raw store calls.</div>
+          </div>
+          <div class="border border-stone-200 bg-stone-50 rounded-lg p-3">
+            <div class="text-xs font-mono text-slate-500 uppercase">Testability</div>
+            <div class="text-sm font-semibold text-slate-800 mt-1">Headless</div>
+            <div class="text-xs text-slate-600 mt-0.5">Session logic executes headlessly without active Textual apps.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- System Architecture Diagram (Current State) -->
+      <section class="bg-white rounded-xl border border-stone-200 p-6 md:p-8 shadow-sm space-y-4">
+        <div class="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">System Structural Topology</div>
+        <h2 class="text-xl font-serif font-bold text-slate-900">Current Learning Subsystem Seams</h2>
+        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4 overflow-x-auto">
+          <pre class="mermaid">
+flowchart TD
+  classDef deep fill:#0f172a,color:#fff,stroke:#0f172a,stroke-width:2px;
+  classDef shallow fill:#f8fafc,stroke:#94a3b8;
+  classDef seam fill:#f1f5f9,stroke:#64748b,stroke-dasharray: 4 4;
+  classDef leak stroke:#dc2626,stroke-width:2px;
+
+  subgraph Presentation ["Presentation Layer (Textual Adapter)"]
+    LMS["LearningModeScreen"]:::shallow
+    FE["FlagEditor (UI Widget)"]:::shallow
+    TPS["TerminalStreamPane"]:::shallow
+  end
+
+  subgraph SeamLearning ["Seam: LearningSession Interface"]
+    LS["LearningSession Deep Module<br>• select_tool(name)<br>• run_scan(...) -> AsyncIterator[LearningEvent]<br>• evaluate_slash_command(...)<br>• extract_structured_findings()"]:::deep
+    RB["RecipeBinding Deep Module<br>• resolve(manifest, target, flags, recipe_idx)"]:::deep
+  end
+
+  subgraph EngineCore ["Engine Core Modules"]
+    ES["ExecutionSession"]:::deep
+    ET["ExplanationTutor<br>• generate_scan_briefing()<br>• format_help_menu()<br>• format_model_info()"]:::deep
+    SR["SessionReportService"]:::deep
+    GS["GraphStore (SQLite)"]:::deep
+  end
+
+  LMS -->|Calls Interface| LS
+  LMS -->|Reads Preview| FE
+  FE -.duplication.->|Repeats macro replacements| RB
+  LS -->|Delegates Invocations| RB
+  LS -->|Dispatches Actions| ES
+  LS -->|Requests Briefings| ET
+  LS -->|Formats Structured Data| SR
+  SR -->|Queries Nodes| GS
+          </pre>
+        </div>
+      </section>
+
+      <!-- Candidates Section -->
+      <section id="candidates" class="space-y-12">
+        <h2 class="text-2xl font-serif font-bold text-slate-900 border-b border-stone-200 pb-3">
+          Deepening Candidates (Next Iteration)
+        </h2>
+
+        <!-- Candidate 1 -->
+        <article class="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden p-6 md:p-8 space-y-6" id="candidate-1">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 class="text-xl font-serif font-bold text-slate-900">1. Deepen <code class="font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">FlagEditor</code> into a Reusable Command Preview Adapter</h3>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">High Leverage</span>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono bg-slate-100 text-slate-700 border border-slate-200">locality</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-xs text-slate-500 bg-stone-50 px-3 py-2 rounded border border-stone-200 overflow-x-auto">
+            cyguide/ui/screens/learning.py (FlagEditor lines 50-125) · cyguide/engine/learning.py (RecipeBinding) · cyguide/ui/widgets/flags.py (new)
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Motivation</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              <code class="font-mono text-xs">FlagEditor</code> currently lives inside <code class="font-mono text-xs">cyguide/ui/screens/learning.py</code>. 
+              In lines 101-110, it duplicates macro substitutions (<code class="font-mono text-xs">{url}</code>, <code class="font-mono text-xs">{target}</code>, <code class="font-mono text-xs">{domain}</code>, <code class="font-mono text-xs">{port}</code>, and wordlist substitution). 
+              When macro logic changes, both the widget and <code class="font-mono text-xs">RecipeBinding</code> must be modified. 
+              Furthermore, other screens cannot reuse this editor.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Proposed Interface</h4>
+            <div class="bg-slate-900 text-slate-100 rounded-lg p-4 font-mono text-xs overflow-x-auto">
+<pre>class CommandPreviewEditor(Widget):
+    """Deep UI adapter delegating command construction to RecipeBinding."""
+
+    def __init__(self, tool_name: str, manifest: Optional[Manifest] = None):
+        super().__init__()
+        self.tool_name = tool_name
+        self.manifest = manifest
+
+    def set_target(self, target: str) -> None: ...
+    def set_flags(self, flags_list: Sequence[str]) -> None: ...
+    def get_invocation(self) -> ResolvedInvocation:
+        """Returns fully resolved, validated invocation via RecipeBinding."""
+        return RecipeBinding.resolve(
+            manifest=self.manifest,
+            target=self.target_input.value,
+            flags_used=self.flags_input.value,
+        )</pre>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Depth &amp; Leverage</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              <strong>Depth:</strong> Hides live debounced preview formatting, macro substitution, sudo validation, and wordlist resolution behind two simple methods (<code class="font-mono text-xs">set_flags</code> and <code class="font-mono text-xs">get_invocation</code>).<br>
+              <strong>Leverage:</strong> The entire macro replacement logic lives in one place (<code class="font-mono text-xs">RecipeBinding</code>), eliminating UI string parsing entirely.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Migration Path</h4>
+            <ol class="list-decimal list-inside text-sm text-slate-600 space-y-1">
+              <li>Extract <code class="font-mono text-xs">FlagEditor</code> into <code class="font-mono text-xs">cyguide/ui/widgets/flags.py</code> as <code class="font-mono text-xs">CommandPreviewEditor</code>.</li>
+              <li>Replace internal string substitution in <code class="font-mono text-xs">update_preview()</code> with a call to <code class="font-mono text-xs">RecipeBinding.resolve()</code>.</li>
+              <li>Update <code class="font-mono text-xs">LearningModeScreen</code> to import the deepened widget.</li>
+            </ol>
+          </div>
+        </article>
+
+        <!-- Candidate 2 -->
+        <article class="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden p-6 md:p-8 space-y-6" id="candidate-2">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 class="text-xl font-serif font-bold text-slate-900">2. Encapsulate Imperative Card DOM into a <code class="font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">RecipeDeck</code> Deep Widget</h3>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">Clean Interface</span>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono bg-slate-100 text-slate-700 border border-slate-200">depth</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-xs text-slate-500 bg-stone-50 px-3 py-2 rounded border border-stone-200 overflow-x-auto">
+            cyguide/ui/screens/learning.py (select_tool lines 489-563) · cyguide/ui/widgets/recipe_deck.py (new)
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Motivation</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Inside <code class="font-mono text-xs">LearningModeScreen.update_tool_context()</code>, over 80 lines of code imperatively mount labels, badges, headers, action buttons, and recipe cards into <code class="font-mono text-xs">recipes_scroll</code>. 
+              This clutters the screen with DOM construction and tightens coupling to CSS class hierarchies.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Proposed Interface</h4>
+            <div class="bg-slate-900 text-slate-100 rounded-lg p-4 font-mono text-xs overflow-x-auto">
+<pre>class RecipeDeck(VerticalScroll):
+    """Deep widget presenting structured workflow recipes and tool reference cards."""
+
+    class RecipeSelected(events.Message):
+        """Emitted when user selects a recipe to load or run."""
+        def __init__(self, recipe_idx: int, auto_run: bool = False): ...
+
+    class AskAIRequested(events.Message):
+        """Emitted when user clicks [✦ ASK AI] on a recipe card."""
+        def __init__(self, recipe_idx: int): ...
+
+    async def load_tool_context(self, context: ToolLearningContext) -> None:
+        """Single declarative entrypoint rebuilding reference badge and recipe cards."""
+        ...
+    def set_active_recipe(self, recipe_idx: Optional[int], is_running: bool = False) -> None:
+        """Updates card button states (RUN -> STOP) without clearing the DOM."""
+        ...</pre>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Depth &amp; Leverage</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              <strong>Depth:</strong> Hides 80+ lines of nested widget instantiation, CSS styling classes, empty state handling, and button state transitions behind <code class="font-mono text-xs">load_tool_context()</code>.<br>
+              <strong>Locality:</strong> Isolates recipe presentation completely from the screen coordinator.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Migration Path</h4>
+            <ol class="list-decimal list-inside text-sm text-slate-600 space-y-1">
+              <li>Create <code class="font-mono text-xs">RecipeDeck</code> in <code class="font-mono text-xs">cyguide/ui/widgets/recipe_deck.py</code>.</li>
+              <li>Replace lines 489-563 in <code class="font-mono text-xs">learning.py</code> with <code class="font-mono text-xs">await self.recipe_deck.load_tool_context(context)</code>.</li>
+              <li>Handle <code class="font-mono text-xs">RecipeDeck.RecipeSelected</code> in the screen message handler.</li>
+            </ol>
+          </div>
+        </article>
+
+        <!-- Candidate 3 -->
+        <article class="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden p-6 md:p-8 space-y-6" id="candidate-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 class="text-xl font-serif font-bold text-slate-900">3. Unify Execution Lifecycles Behind an Agnostic <code class="font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">InvestigationSession</code> Seam</h3>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">Architectural Seam</span>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono bg-slate-100 text-slate-700 border border-slate-200">seam</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-xs text-slate-500 bg-stone-50 px-3 py-2 rounded border border-stone-200 overflow-x-auto">
+            cyguide/app.py · cyguide/engine/learning.py · cyguide/engine/power_facade.py · cyguide/engine/session.py (new)
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Motivation</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Currently, <code class="font-mono text-xs">CyGuideApp</code> maintains two separate execution paths:
+              <code class="font-mono text-xs">self.power_facade</code> (for Power Mode) and <code class="font-mono text-xs">self.learning_session</code> (for Learning Mode). 
+              Both sessions talk to <code class="font-mono text-xs">GraphStore</code>, <code class="font-mono text-xs">ToolRegistry</code>, and <code class="font-mono text-xs">ExecutionSession</code>, 
+              yet they maintain disjoint state handling for database resets, explainer reloads, and workspace updates.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Proposed Interface</h4>
+            <div class="bg-slate-900 text-slate-100 rounded-lg p-4 font-mono text-xs overflow-x-auto">
+<pre>class InvestigationSession(Protocol):
+    """Agnostic seam governing both Learning and Power investigation modes."""
+
+    session_id: UUID
+    workspace_id: Optional[UUID]
+
+    async def execute_action(self, action: ActionRequest, on_chunk: Callable[[str], Any]) -> UUID: ...
+    async def stop_execution(self, job_id: Optional[UUID] = None) -> bool: ...
+    async def extract_findings(self) -> Tuple[str, str]: ...
+    def reload_subsystems(self, explainer: Optional[ExplanationTutor] = None, store: Optional[GraphStore] = None) -> None: ...</pre>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Depth &amp; Leverage</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              <strong>Depth:</strong> Eliminates duplicate wiring logic in <code class="font-mono text-xs">CyGuideApp.init_engine()</code>, <code class="font-mono text-xs">reload_explainer()</code>, and <code class="font-mono text-xs">on_database_changed()</code>.<br>
+              <strong>Seam:</strong> Guarantees that future modes (e.g., automated red-team simulations) plug into the same execution and reporting seam without modifying top-level application orchestration.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Migration Path</h4>
+            <ol class="list-decimal list-inside text-sm text-slate-600 space-y-1">
+              <li>Define <code class="font-mono text-xs">InvestigationSession</code> protocol in <code class="font-mono text-xs">cyguide/engine/session.py</code>.</li>
+              <li>Make <code class="font-mono text-xs">LearningSession</code> and <code class="font-mono text-xs">PowerWorkspaceFacade</code> conform to <code class="font-mono text-xs">InvestigationSession</code>.</li>
+              <li>Simplify <code class="font-mono text-xs">CyGuideApp</code> to hold active session references uniformly.</li>
+            </ol>
+          </div>
+        </article>
+
+        <!-- Candidate 4 -->
+        <article class="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden p-6 md:p-8 space-y-6" id="candidate-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 class="text-xl font-serif font-bold text-slate-900">4. Stream Event Decoupling for AI Tutor Queries (<code class="font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">TutorQueryStream</code>)</h3>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">Locality</span>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono bg-slate-100 text-slate-700 border border-slate-200">interface</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-xs text-slate-500 bg-stone-50 px-3 py-2 rounded border border-stone-200 overflow-x-auto">
+            cyguide/ui/screens/learning.py (query_ai_tutor lines 836-926) · cyguide/engine/learning.py
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Motivation</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Currently, <code class="font-mono text-xs">LearningModeScreen.query_ai_tutor()</code> spans 90 lines. 
+              It manually manages a local interval timer (<code class="font-mono text-xs">time.time() - last_chat_update > 0.04</code>), 
+              buffer accumulation, fallback greeting text, and error notifications. 
+              This mixes stream rate-limiting and domain fallbacks directly with Textual widget manipulation.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Proposed Interface</h4>
+            <div class="bg-slate-900 text-slate-100 rounded-lg p-4 font-mono text-xs overflow-x-auto">
+<pre>class TutorQueryChunk(NamedTuple):
+    text: str
+    is_complete: bool
+    is_error: bool = False
+
+class LearningSession:
+    async def stream_tutor_response(
+        self, question: str, fps: float = 25.0
+    ) -> AsyncIterator[TutorQueryChunk]:
+        """Deep method: handles rate-limiting, error fallbacks, and yields display-ready chunks."""
+        ...</pre>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Depth &amp; Leverage</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              <strong>Depth:</strong> Absorbs stream pacing, fallback formatting, cancellation safety, and error encapsulation away from the UI screen.<br>
+              <strong>Locality:</strong> The screen becomes a 10-line consumer that merely receives text chunks and posts them to the markdown renderer.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-700">Migration Path</h4>
+            <ol class="list-decimal list-inside text-sm text-slate-600 space-y-1">
+              <li>Add <code class="font-mono text-xs">stream_tutor_response()</code> to <code class="font-mono text-xs">LearningSession</code>.</li>
+              <li>Refactor <code class="font-mono text-xs">LearningModeScreen.query_ai_tutor()</code> into a concise consumer loop.</li>
+              <li>Add unit tests in <code class="font-mono text-xs">tests/unit/test_learning_session.py</code> verifying rate limiting and fallback text.</li>
+            </ol>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- Review Summary Table -->
+      <section class="bg-white rounded-xl border border-stone-200 p-6 md:p-8 shadow-sm space-y-4">
+        <h2 class="text-xl font-serif font-bold text-slate-900">Candidate Prioritization Matrix</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono border-collapse">
+            <thead>
+              <tr class="border-b border-stone-300 text-slate-500 uppercase">
+                <th class="py-2.5 px-3">Candidate</th>
+                <th class="py-2.5 px-3">Vocabulary Dimension</th>
+                <th class="py-2.5 px-3">Impact</th>
+                <th class="py-2.5 px-3">Risk</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-stone-200 text-slate-700">
+              <tr>
+                <td class="py-2.5 px-3 font-semibold">1. Deepen FlagEditor Adapter</td>
+                <td class="py-2.5 px-3">Leverage &amp; Locality</td>
+                <td class="py-2.5 px-3 text-emerald-600 font-bold">High (Eliminates duplication)</td>
+                <td class="py-2.5 px-3 text-slate-500">Very Low</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3 font-semibold">2. RecipeDeck Deep Widget</td>
+                <td class="py-2.5 px-3">Depth &amp; Clean Interface</td>
+                <td class="py-2.5 px-3 text-emerald-600 font-bold">High (Cuts 80+ lines DOM code)</td>
+                <td class="py-2.5 px-3 text-slate-500">Low</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3 font-semibold">3. InvestigationSession Seam</td>
+                <td class="py-2.5 px-3">Seam &amp; Module Unification</td>
+                <td class="py-2.5 px-3 text-amber-600 font-bold">Medium-High (Unifies Power &amp; Learning)</td>
+                <td class="py-2.5 px-3 text-amber-600">Moderate</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3 font-semibold">4. TutorQueryStream Decoupling</td>
+                <td class="py-2.5 px-3">Interface &amp; Locality</td>
+                <td class="py-2.5 px-3 text-emerald-600 font-bold">Medium (Cuts 70 lines polling loop)</td>
+                <td class="py-2.5 px-3 text-slate-500">Low</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="border-t border-stone-200 pt-6 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div>Generated by Antigravity codebase-design auditor</div>
+        <div class="font-mono">cyguide · branch: main · 2026-11-15</div>
+      </footer>
+
+    </main>
+  </body>
+</html>

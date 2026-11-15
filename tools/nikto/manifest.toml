@@ -5,6 +5,19 @@ one_line_summary = "scan web servers for security misconfigurations and obsolete
 category = "Vulnerability Assessment"
 categories = ["vuln", "web", "scanner"]
 binary = "nikto"
+theory = """
+### Protocol Theory & Heuristic Vulnerability Auditing
+Nikto queries over 6,700 known vulnerabilities, dangerous scripts, and software configuration weaknesses across web servers (RFC 2616).
+
+### Primary Audit Vectors
+* **Dangerous HTTP Methods**: Probes for insecure WebDAV and legacy methods (`PUT`, `DELETE`, `TRACE`). Detects Cross-Site Tracing (XST).
+* **Defensive Header Auditing**: Audits missing security headers: `Strict-Transport-Security` (HSTS), `Content-Security-Policy` (CSP), and `X-Frame-Options`.
+* **Outdated Server Fingerprints**: Matches `Server` and `X-Powered-By` version strings against CVE registries.
+
+### Defensive Hardening & Remediation
+* **Banner Suppression**: Obfuscate daemon banners (`ServerTokens Prod`, `server_tokens off`).
+* **Enforce Security Headers**: Implement modern headers to block client-side injection and clickjacking.
+"""
 
 [modes]
 learning = true

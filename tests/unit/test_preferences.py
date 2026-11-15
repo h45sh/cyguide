@@ -12,9 +12,9 @@ def test_preferences_store_memory_mode():
     prefs = PreferencesStore(db_path=":memory:")
     assert prefs.get("nonexistent", "default") == "default"
 
-    prefs.set("theme", "cyberpunk")
-    assert prefs.get("theme") == "cyberpunk"
-    assert prefs.all()["theme"] == "cyberpunk"
+    prefs.set("editor_mode", "vim")
+    assert prefs.get("editor_mode") == "vim"
+    assert prefs.all()["editor_mode"] == "vim"
 
     # Scratchpad in-memory
     assert prefs.read_scratchpad() == ""
@@ -35,7 +35,7 @@ def test_preferences_store_disk_atomic_and_permissions():
         )
 
         # 1. Test settings persistence
-        prefs.update({"animations_enabled": False, "theme": "dracula"})
+        prefs.update({"animations_enabled": False, "editor_mode": "emacs"})
         assert os.path.exists(settings_path)
 
         # Check permissions: 0o600 (-rw-------)
@@ -49,7 +49,7 @@ def test_preferences_store_disk_atomic_and_permissions():
             scratchpad_path=scratchpad_path,
         )
         assert prefs2.get("animations_enabled") is False
-        assert prefs2.get("theme") == "dracula"
+        assert prefs2.get("editor_mode") == "emacs"
 
         # 2. Test scratchpad persistence
         prefs.write_scratchpad("# Operator Notes\nDiscovered open port 8080.")

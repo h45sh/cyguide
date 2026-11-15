@@ -5,6 +5,19 @@ one_line_summary = "brute-force hidden directories, files, and endpoints on web 
 category = "Web Enumeration"
 categories = ["recon", "web", "brute-force"]
 binary = "gobuster"
+theory = """
+### Protocol Theory & RFC 7230/7231 URI Traversal
+Web servers route incoming HTTP request URIs to disk files or routing handlers. Gobuster executes deterministic dictionary traversal over concurrent worker routines.
+
+### Response Classification & Attack Vectors
+* **Status Triage**: Identifies live paths (`200 OK`), redirects (`301/302`), restricted portals (`401/403`), and unhandled application crashes (`500`).
+* **Unlinked Assets**: Discovers administrative consoles (`/admin`), leaked VCS files (`/.git`), and environment configurations (`/.env`).
+* **Extension Permutations**: Appends specific server extensions (`.php`, `.bak`, `.sql`, `.json`) to find exposed backups.
+
+### Defensive Hardening & Mitigation
+* **Directory Indexing**: Explicitly disable `Options -Indexes` and default file directory listings.
+* **WAF Rate Limiting**: Deploy IP request rate throttles (e.g. Nginx `limit_req`) to block high-frequency scans.
+"""
 
 [modes]
 learning = true

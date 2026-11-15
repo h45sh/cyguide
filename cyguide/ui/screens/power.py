@@ -69,7 +69,6 @@ class PowerModeScreen(Screen):
         Binding("ctrl+g", "toggle_global_graph", "Toggle Global Graph"),
         Binding("ctrl+pageup", "prev_tab", "Prev Tab"),
         Binding("ctrl+pagedown", "next_tab", "Next Tab"),
-        Binding("ctrl+f", "focus_search", "Filter Targets"),
         Binding("f2", "rename_entity", "Set Alias / Name"),
         Binding("alt+[", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True),
         Binding(
@@ -143,7 +142,7 @@ class PowerModeScreen(Screen):
             # Sidebar: Browser + Jobs - Now extends to the full height of the app
             with Vertical(id="power_sidebar"):
                 yield Label("◆ SESSION: -", id="session_label")
-                yield Input(placeholder="Filter targets (Ctrl+F)...", id="entity_search_input")
+                yield Input(placeholder="Filter targets...", id="entity_search_input")
                 yield EntityBrowser(id="entity_browser")
                 yield JobQueue(id="job_queue")
 
@@ -531,7 +530,6 @@ class PowerModeScreen(Screen):
                 "* **`Ctrl+B`**: Toggle sidebar visibility (Entity Browser and Job Queue).\n"
                 "* **`Ctrl+T` / `Ctrl+W`**: Open a new terminal tab / Close active terminal tab.\n"
                 "* **`Ctrl+Left` / `Ctrl+Right` (or `Ctrl+PageUp` / `PageDown`)**: Switch between active terminal tabs.\n"
-                "* **`Ctrl+F`**: Jump focus to the Target Filter box in the Entity Browser.\n"
                 "* **`!` prefix or `Ctrl+L`**: Execute raw shell commands (`!ls -la` or lock into shell mode with tab completion).\n"
                 "* **`Shift+Enter` / `Alt+Enter` / `Ctrl+J`**: Launch command into a new terminal tab.\n"
                 "* **`Ctrl+K`**: Kill / terminate the currently running tool job (`SIGTERM`).\n"

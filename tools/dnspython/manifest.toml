@@ -5,6 +5,22 @@ one_line_summary = "zero-binary DNS query and zone auditing engine"
 category = "Network Reconnaissance"
 categories = ["recon", "dns", "osint"]
 binary = "python3"
+theory = """
+### Protocol Theory & RFC 1034/1035 Architecture
+The Domain Name System (DNS) is a distributed hierarchical database operating over UDP/TCP port 53. dnspython constructs raw socket queries for deep protocol verification.
+
+### Core Record Auditing Mechanics
+* **Resource Records (A, AAAA, PTR)**: Resolves hostnames and validates reverse pointer trees under `in-addr.arpa`.
+* **Mail & Anti-Spoofing (MX, TXT)**:
+  - `MX`: Prioritized SMTP mail exchanger routing.
+  - `SPF (RFC 7208)`: Defines authorized sender CIDR blocks in TXT records.
+  - `DMARC (RFC 7489)`: Enforces policy rules (`p=reject`) against SPF/DKIM validation failures.
+* **Zone Transfers (AXFR - RFC 5936)**: TCP zone replication query that dumps the entire DNS database if nameservers lack transfer ACLs.
+
+### Defensive Hardening & DNSSEC
+* **Strict AXFR ACLs**: Enforce `allow-transfer { none; };` on public nameservers.
+* **DNSSEC (RFC 4033-4035)**: Deploy cryptographic `RRSIG` validation against cache poisoning.
+"""
 
 [modes]
 learning = true

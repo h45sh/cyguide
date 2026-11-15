@@ -5,6 +5,19 @@ one_line_summary = "ownership, registrar, and IP netblock intelligence"
 category = "Network Reconnaissance"
 categories = ["recon", "osint"]
 binary = "whois"
+theory = """
+### Protocol Theory & RFC 3912 Architecture
+The WHOIS protocol (RFC 3912) queries hierarchical registries over TCP port 43 to retrieve domain ownership and routing data.
+
+### Core Architecture & RIRs
+* **Regional Registries (RIRs)**: Five global entities (ARIN, RIPE, APNIC, LACNIC, AFRINIC) govern CIDR netblock ownership.
+* **Autonomous System Numbers (ASNs)**: Resolves BGP routing origin networks attributed to carriers and cloud providers.
+* **Domain Attribution**: Identifies registrar authority, registration dates, and upstream DNS delegation points.
+
+### Defensive Hardening & Privacy
+* **Privacy Proxy Services**: Obfuscate administrative PII behind accredited registrar proxies.
+* **RDAP Migration (RFC 7480-7484)**: Move to RESTful JSON directory protocol with role-based authenticated access.
+"""
 
 [modes]
 learning = true

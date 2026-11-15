@@ -5,6 +5,19 @@ one_line_summary = "discover hosts, open ports, and running services across a ne
 category = "Network Reconnaissance"
 categories = ["recon", "enumeration", "network"]
 binary = "nmap"
+theory = """
+### Protocol Theory & RFC 793 Standards
+Network enumeration interrogates the remote operating system's transport-layer stack (RFC 793) to deduce listening socket states.
+
+### Core Mechanics & Wire-Level Probing
+* **TCP SYN Half-Open (`-sS`)**: Injects raw `SYN` frames. If listening, server replies `SYN/ACK`. Nmap terminates immediately with `RST` to evade application connection logging.
+* **Service Versioning (`-sV`)**: Matches welcome banners against `nmap-service-probes` database (SSH, HTTP Server, FTP).
+* **OS Fingerprinting (`-O`)**: Probes window scale, initial sequence number (ISN) drift, and IP ID predictability.
+
+### Defensive Hardening & Detection
+* **Stateful Firewalls**: Drop unsolicited packets (`DROP` vs `REJECT/RST`) to induce timeouts.
+* **IDS/IPS Rules**: Monitor high-frequency SYN flag sequences across non-contiguous destination ports.
+"""
 
 [modes]
 learning = true

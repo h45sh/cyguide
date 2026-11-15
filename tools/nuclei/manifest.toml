@@ -5,6 +5,19 @@ one_line_summary = "template-based vulnerability scanner and misconfiguration au
 category = "Vulnerability Assessment"
 categories = ["vulnerability", "scanner", "cve", "dast"]
 binary = "nuclei"
+theory = """
+### Theory & Declarative Vulnerability Verification
+Nuclei verifies vulnerabilities using declarative YAML templates. Rather than brute-force fuzzing, templates model the exact network interaction required to confirm a vulnerability.
+
+### Multi-Protocol Architecture & Mechanics
+* **Declarative DSL**: Combines raw request frames, payload substitutions, and extraction variables.
+* **Multi-Protocol Coverage**: Audits HTTP/S, DNS, SSL/TLS, TCP raw sockets, Websockets, and headless browsers.
+* **Cryptographic Matchers**: Requires exact reflection strings, status codes, or hash matches to guarantee zero false positives.
+
+### Defensive Remediation & CI/CD
+* **Deterministic Root Cause Patching**: Remediates the root vulnerability pinpointed by template IDs.
+* **DevSecOps Integration**: Embeds Nuclei in CI/CD pipelines to block builds containing known CVEs.
+"""
 
 [modes]
 learning = true

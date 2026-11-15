@@ -224,6 +224,43 @@ sequenceDiagram
 
 ---
 
+### 4.3. Guided Investigation Pipeline (Learning Mode)
+
+Learning Mode provides an isolated, curriculum-driven execution environment backed by the polymorphic `InvestigationSession` seam. It allows security students and operators to explore tools interactively without affecting active client workspace engagements.
+
+```text
+[ LearningModeScreen (Textual TUI) ]
+       │ Delegates flag layout & live preview to CommandPreviewEditor / FlagEditor
+       │ Delegates recipe presentation & execution cards to RecipeDeck
+       ▼
+[ LearningSession (Deep Module) ]
+       │ Conforms to InvestigationSession seam
+       ├─► RecipeBinding: Resolves {target}, {url}, and {wordlist:...} macros
+       ├─► Database Sweep: Queries GraphStore nodes (network.host, dns.record, web.endpoint)
+       ├─► ExecutionSession: Dispatches subprocesses via sanitizing Async Executor
+       ├─► SessionReportService: Auto-extracts discovered findings into structured tables
+       └─► ExplanationTutor: Streams real-time AI briefings (TutorStreamChunk)
+```
+
+#### 1. The `InvestigationSession` Core Seam ([`cyguide/engine/session.py`](../../cyguide/engine/session.py))
+* Polymorphic protocol unifying runtime lifecycle requirements across both **Power Mode** (`PowerWorkspaceFacade`) and **Learning Mode** (`LearningSession`).
+* Declares standard access to `session_id`, `workspace_id`, `store`, `registry`, `execution`, `explainer`, and `extract_structured_findings`.
+* Allows application controllers and background reloading routines to manage either investigation mode through a single interface.
+
+#### 2. `LearningSession` Deep Module ([`cyguide/engine/learning.py`](../../cyguide/engine/learning.py))
+* **Tool Context Resolution**: Resolves tool metadata, installation binary paths, capabilities, and pre-configured curriculum recipes from manifest files via `select_tool`.
+* **Recipe Binding (`RecipeBinding`)**: Encapsulates command line macro substitution (`{target}`, `{url}`, `{domain}`, `{port}`, `{wordlist:...}`) and recipe index matching.
+* **Database Target Resolution & Sweeping**:
+  * `get_database_targets()`: Queries SQLite `GraphStore` nodes across the workspace or session to extract all unique network hosts, domains, and web endpoints.
+  * `sweep_targets()`: Sequentially iterates through database targets, executing the chosen tool recipe against each entity while yielding typed stream events (`ScanStartedEvent`, `ScanCompletedEvent`).
+* **AI Tutor Decoupling (`stream_tutor_response`)**: Handles token pacing, throttling, greeting fallbacks, and typed stream emission (`TutorStreamChunk`), keeping TUI screens completely free of polling loops.
+
+#### 3. Presentation Seams
+* **`RecipeDeck`** ([`cyguide/ui/widgets/recipe_deck.py`](../../cyguide/ui/widgets/recipe_deck.py)): Encapsulates DOM construction of recipe cards, action buttons (`▶ RUN`, `? ASK`), and dynamic run/stop button state transitions.
+* **`CommandPreviewEditor` / `FlagEditor`** ([`cyguide/ui/widgets/flags.py`](../../cyguide/ui/widgets/flags.py)): Encapsulates input parameters, wordlist path selectors, and real-time command syntax previews.
+
+---
+
 ## 5. Universal Variable Substitution Engine
 
 To enable an identical command interface for human operators and automated agents, variable substitution is handled centrally in [`WorkspaceContextBuilder`](../../cyguide/engine/context_builder.py) and exposed through `PowerWorkspaceFacade.get_context()`.
