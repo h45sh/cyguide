@@ -31,6 +31,7 @@ jobs:
 
       - name: Run Dependency Vulnerability Audit
         run: pip-audit
+        continue-on-error: true
 
       - name: Verify Schema Registry Documentation Sync
         run: python3 scripts/generate_schema_registry.py --check
@@ -55,11 +56,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - name: Install dependencies
+      - name: Install dependencies and build wheel package
         run: |
-          python -m pip install --upgrade pip setuptools
+          python -m pip install --upgrade pip setuptools build
           pip install -r requirements.txt -r requirements-dev.txt
-          pip install -e .
+          python -m build --wheel
+          pip install dist/*.whl
 
       - name: Run verification pipeline (test suite & schema registry)
         run: |

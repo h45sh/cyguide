@@ -1,3 +1,5 @@
+recursive-include cyguide/assets/wordlists *.txt.gz *.txt
+recursive-include tools *.toml *.txt
 # Exclude heavy media assets and repository documentation from PyPI distribution
 prune assets
 prune docs

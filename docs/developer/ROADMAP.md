@@ -20,7 +20,8 @@ This document is the **single authoritative source of truth** for all completed,
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 12 | 0 | 12 | 0% |
 | **Phase 4: Tactical Research Co-Pilot & Offensive Engine** | **Planned (Future)** | 15 | 1 | 14 | 7% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **158** | **105** | **53** | **66%** |
+| **Job-First Engineering & Market Mastery Track** | **Active Focus** | 9 | 3 | 6 | 33% |
+| **Total Project Tasks** | **In Progress** | **167** | **108** | **59** | **65%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -476,6 +477,43 @@ Evolves CyGuide into an **Augmented Security Research Cockpit** engineered for h
 - [ ] **Cross-Session Knowledge Sharing & Workspace Graph Rollups**:
   - *Priority*: **P3** | *Complexity*: Medium | *Track*: Intelligence
   - Correlate discoveries across multiple engagements to detect shared infrastructure, identical SSL certificates, and enterprise-wide vulnerabilities.
+
+---
+
+## Job-First Engineering & Market Mastery Track
+
+An applied, portfolio-anchored curriculum translating CyGuide's real production architecture into interview-ready software engineering, DevSecOps, and backend systems competencies.
+
+```text
+Track 1: Async Storage & DB Architecture  ➜  Track 2: CI/CD & DevSecOps Pipeline  ➜  Track 3: System Design & APIs
+ (aiosqlite, Pydantic, Transactions)           (GitHub Actions, Docker, Security)      (httpx, Caching, Rate Limiting)
+                                                ▲
+                           [ Ongoing: Target DSA (NeetCode 75 Core) ]
+```
+
+### Track 1: Database & Storage Architecture (In `cyguide`)
+*Job Skills:* **SQL, Schema Design, Concurrency, Async I/O, Pydantic Data Modeling**
+- [x] **Relational Graph Modeling & Canonical Identity Hashing**: Implemented deterministic SHA-256 Primary Identity Key (PIK) algorithms preventing duplication across independent tool sources ([`cyguide/engine/store.py`](../../cyguide/engine/store.py)).
+- [ ] **Async I/O Concurrency & Connection Pooling**: Master non-blocking event-loop I/O with `aiosqlite`, write-ahead logging (WAL), and evaluate async connection pool lifecycles under heavy concurrent load.
+  - *Interview Competency:* Explaining how asynchronous event loops schedule file/socket I/O without blocking worker threads, and preventing SQLite `busy` locks under concurrency.
+- [ ] **Schema Migrations & Transactional Integrity**: Implement declarative schema versioning and transactional rollback semantics for multi-table graph mutations.
+  - *Interview Competency:* Designing normalized schemas, foreign-key cascades, atomic transactions, and handling schema migrations without downtime.
+
+### Track 2: DevSecOps, CI/CD & Packaging (In `cyguide`)
+*Job Skills:* **GitHub Actions, Docker, Static Analysis (SAST), Supply Chain Security**
+- [x] **Hermetic CI/CD & Security Pipelines**: Configured end-to-end multi-platform test matrices, CodeQL SAST scanning, and Release Please semantic changelog tagging ([`.github/workflows/`](../../.github/workflows)).
+- [ ] **Container Hardening & Multi-Stage Builds**: Review and optimize [`Dockerfile`](../../Dockerfile) for minimal image footprint (`python:3.11-slim`), non-root execution permissions, and layer cache reuse.
+  - *Interview Competency:* Explaining container isolation, Linux namespaces/cgroups, non-root runtime defense, and attack surface reduction.
+- [ ] **Automated Supply Chain & Dependency CVE Gate**: Enforce strict pre-merge gates using `pip-audit` to block vulnerabilities in upstream dependencies and lockfiles.
+  - *Interview Competency:* Explaining software supply chain security, SBOM generation, and automated vulnerability triage in modern CI pipelines.
+
+### Track 3: System Design & Network Integrations (In `cyguide`)
+*Job Skills:* **API Design, HTTP/REST, Caching, Resilience & Error Handling**
+- [x] **Unified Multi-Provider Async Client**: Streamed completions from Ollama and cloud providers with fallback cooldowns ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)).
+- [ ] **Network Resilience, Retries & Exponential Backoff**: Implement jittered exponential backoff and circuit-breaker patterns for external LLM API endpoints and web fetchers using `httpx`.
+  - *Interview Competency:* Designing distributed systems for graceful degradation under third-party outages, rate limits (HTTP 429), and network partitions.
+- [ ] **Analytical In-Memory Caching & Telemetry**: Integrate structured contextual logging and query response caching to minimize latency across repeated graph lookups.
+  - *Interview Competency:* Demonstrating end-to-end observability, distributed tracing concepts, and latency optimization via caching layers.
 
 ---
 

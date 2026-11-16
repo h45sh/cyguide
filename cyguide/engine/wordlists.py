@@ -13,8 +13,10 @@ from typing import Dict, List, Optional, Tuple
 
 from cyguide import paths
 
-# Wordlists located in root assets directory (outside core engine)
-BUNDLED_WORDLISTS_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "wordlists"
+# Wordlists located in packaged assets directory (with fallback to repo root)
+_PKG_WORDLISTS_DIR = Path(__file__).resolve().parent.parent / "assets" / "wordlists"
+_ROOT_WORDLISTS_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "wordlists"
+BUNDLED_WORDLISTS_DIR = _PKG_WORDLISTS_DIR if _PKG_WORDLISTS_DIR.exists() else _ROOT_WORDLISTS_DIR
 
 # Matches {wordlist} or {wordlist:name}
 WORDLIST_MACRO_REGEX = re.compile(r"\{wordlist(?::([a-zA-Z0-9_\-]+))?\}")

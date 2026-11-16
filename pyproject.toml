@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cyguide"
-version = "1.10.0"
+version = "1.10.1"
 authors = [
   { name="Harshwardhan Patil" },
   { name="CyGuide Contributors" },
@@ -47,7 +47,7 @@ Issues = "https://github.com/h45sh/cyguide/issues"
 include = ["cyguide*", "tools*"]
 
 [tool.setuptools.package-data]
-cyguide = ["ui/style.css"]
+cyguide = ["ui/style.css", "assets/wordlists/*.gz", "assets/wordlists/*.txt"]
 tools = ["*/*.toml", "*/*.txt"]
 
 [project.scripts]
