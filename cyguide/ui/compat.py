@@ -28,7 +28,9 @@ runtime crash during mouse event dispatch and text selection on Markdown tables.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
+from textual.app import App, ScreenStackError
 from textual.events import Event
 from textual.screen import Screen
 
@@ -619,5 +621,54 @@ def setup_textual_compat() -> None:
             self._query_one_cache.clear()
 
         _w.Widget._message_loop_exit = safe_message_loop_exit
+    except (ImportError, AttributeError):
+        pass
+
+    # 8. Protect Screen.dismiss and App.pop_screen against double-dismissal and ScreenStackError.
+    # When keys (like F1, Escape, or Q) repeat rapidly or are held down, multiple Key events can be
+    # processed before a modal unmounts. Without idempotency guards, repeated dismiss() calls pop
+    # underlying screens (e.g. DashboardScreen) and crash the app with ScreenStackError.
+    try:
+        orig_screen_dismiss = Screen.dismiss
+
+        def safe_screen_dismiss(self: Screen, result: Any = None) -> Any:
+            if getattr(self, "_screen_dismissed", False):
+                return None
+
+            app = getattr(self, "app", None)
+            if app is None:
+                self._screen_dismissed = True
+                return None
+
+            stack = getattr(app, "_screen_stack", None)
+            if not stack or len(stack) <= 1 or self not in stack:
+                self._screen_dismissed = True
+                return None
+
+            # Only pop if this screen is the topmost active screen
+            if stack[-1] is not self:
+                self._screen_dismissed = True
+                return None
+
+            self._screen_dismissed = True
+            try:
+                return orig_screen_dismiss(self, result)
+            except ScreenStackError:
+                return None
+
+        Screen.dismiss = safe_screen_dismiss
+
+        orig_app_pop_screen = App.pop_screen
+
+        def safe_app_pop_screen(self: App) -> Any:
+            stack = getattr(self, "_screen_stack", [])
+            if len(stack) <= 1:
+                return None
+            try:
+                return orig_app_pop_screen(self)
+            except ScreenStackError:
+                return None
+
+        App.pop_screen = safe_app_pop_screen
     except (ImportError, AttributeError):
         pass

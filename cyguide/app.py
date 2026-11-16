@@ -22,7 +22,7 @@ from textual.message import Message
 from textual.system_commands import SystemCommandsProvider
 from textual.widgets import Button, LoadingIndicator
 
-from cyguide.engine.explainer import is_placeholder_key
+from cyguide.common.keys import is_placeholder_key
 
 # Replace default emoji search icon with clean terminal glyph
 SearchIcon.icon = "›"
@@ -192,11 +192,13 @@ from cyguide.paths import (
     get_default_scratchpad_path,
     get_default_settings_path,
 )
-from cyguide.ui.screens.config_modal import ConfigModal
 from cyguide.ui.screens.home import DashboardScreen
-from cyguide.ui.screens.learning import LearningModeScreen
-from cyguide.ui.screens.power import PowerModeScreen
-from cyguide.ui.screens.tool_browser import ToolBrowserScreen
+from cyguide.ui.screens.lazy import (
+    load_config_modal,
+    load_learning_mode,
+    load_power_mode,
+    load_tool_browser,
+)
 
 
 class CyGuideApp(App):
@@ -217,13 +219,14 @@ class CyGuideApp(App):
         ),
     ]
 
-    # Register screens so they can be switched by name
+    # Register screens so they can be switched by name.
+    # Dashboard is loaded immediately, non-initial screens are loaded on first switch.
     SCREENS = {
         "dashboard": DashboardScreen,
-        "tool_browser": ToolBrowserScreen,
-        "learning_mode": LearningModeScreen,
-        "power_mode": PowerModeScreen,
-        "config_modal": ConfigModal,
+        "tool_browser": load_tool_browser,
+        "learning_mode": load_learning_mode,
+        "power_mode": load_power_mode,
+        "config_modal": load_config_modal,
     }
 
     def __init__(
@@ -250,13 +253,21 @@ class CyGuideApp(App):
 
         self.console.push_theme(
             Theme({
-                "markdown.h1": "bold #38bdf8",
-                "markdown.h2": "bold #38bdf8",
-                "markdown.h3": "bold #38bdf8",
-                "markdown.h4": "bold #7dd3fc",
+                "markdown.h1": "bold #34d399",
+                "markdown.h2": "bold #34d399",
+                "markdown.h3": "bold #6ee7b7",
+                "markdown.h4": "bold #a7f3d0",
                 "markdown.h5": "bold #94a3b8",
                 "markdown.h6": "dim #94a3b8",
-                "markdown.block_quote": "#38bdf8",
+                "markdown.block_quote": "#34d399",
+                "markdown.code": "bold #6ee7b7 on #132e27",
+                "markdown.code_block": "#6ee7b7 on #0f1715",
+                "markdown.list": "#34d399",
+                "markdown.item.number": "#34d399",
+                "markdown.table.header": "bold #34d399",
+                "markdown.table.border": "#059669",
+                "markdown.link": "underline #34d399",
+                "markdown.link_url": "underline #059669",
             })
         )
         self._cached_tool_health: Dict[str, Dict[str, Any]] = {}
@@ -850,6 +861,8 @@ class CyGuideApp(App):
         """Open the F1 Shortcuts / Help dialog."""
         from cyguide.ui.dialogs import ShortcutsDialog
 
+        if any(isinstance(s, ShortcutsDialog) for s in self._screen_stack):
+            return
         self.push_screen(ShortcutsDialog())
 
     def action_show_help_panel(self) -> None:

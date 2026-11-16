@@ -1,6 +1,5 @@
-"""Reusable modal dialogs for CyGuide screens."""
+from typing import Any
 
-from rich.markdown import Markdown as RichMarkdown
 from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -156,6 +155,12 @@ class RenameDialog(ModalScreen[str]):
                 else:
                     btn_save.focus()
 
+    def dismiss(self, result: Any = None) -> Any:
+        if getattr(self, "_dismissed", False):
+            return None
+        self._dismissed = True
+        return super().dismiss(result)
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         val = event.value.strip()
         if val:
@@ -175,26 +180,37 @@ from cyguide.ui.compat import setup_textual_compat
 
 setup_textual_compat()
 
-_RICH_SHORTCUTS = RichMarkdown(SHORTCUTS_MD.strip(), justify="left", code_theme="monokai")
+_RICH_SHORTCUTS = None
+
+
+def get_rich_shortcuts():
+    global _RICH_SHORTCUTS
+    if _RICH_SHORTCUTS is None:
+        from rich.markdown import Markdown as RichMarkdown
+
+        _RICH_SHORTCUTS = RichMarkdown(SHORTCUTS_MD.strip(), justify="left", code_theme="monokai")
+    return _RICH_SHORTCUTS
 
 
 class ShortcutsDialog(ModalScreen):
     """Modal displaying keyboard shortcuts and help."""
 
     BINDINGS = [
-        ("escape", "app.pop_screen", "Close"),
-        ("f1", "app.pop_screen", "Close"),
-        ("q", "app.pop_screen", "Close"),
+        ("escape", "dismiss", "Close"),
+        ("f1", "dismiss", "Close"),
+        ("q", "dismiss", "Close"),
     ]
 
     def compose(self) -> ComposeResult:
         with Vertical(id="shortcuts_dialog"):
             with VerticalScroll(id="shortcuts_scroll"):
-                yield Static(_RICH_SHORTCUTS, id="shortcuts_content")
+                yield Static(get_rich_shortcuts(), id="shortcuts_content")
             with Horizontal(classes="dialog_buttons"):
                 yield Button("Close", variant="primary", id="close_shortcuts")
 
     def on_mount(self) -> None:
+        self._dismissed = False
+
         def focus_scroll():
             try:
                 self.query_one("#shortcuts_scroll", VerticalScroll).focus()
@@ -202,6 +218,12 @@ class ShortcutsDialog(ModalScreen):
                 pass
 
         self.call_after_refresh(focus_scroll)
+
+    def dismiss(self, result: Any = None) -> Any:
+        if getattr(self, "_dismissed", False):
+            return None
+        self._dismissed = True
+        return super().dismiss(result)
 
     def on_key(self, event: events.Key) -> None:
         if event.key in ("escape", "q", "f1"):

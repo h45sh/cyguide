@@ -807,13 +807,15 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         await app.power_facade.create_session(ws3, "Session 3.2")
 
         await dashboard.refresh_workspaces()
+        await dashboard.show_workspace_details(ws1)
         await pilot.pause()
 
         ws_list = dashboard.query_one("#workspace_list")
         sess_list = dashboard.query_one("#session_list")
 
         async def settle():
-            for _ in range(20):
+            await pilot.pause(0.05)
+            for _ in range(30):
                 if dashboard._ws_debounce_task and not dashboard._ws_debounce_task.done():
                     try:
                         await dashboard._ws_debounce_task
@@ -825,7 +827,11 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
                     except asyncio.CancelledError:
                         pass
                 await pilot.pause(0.05)
-                if sess_list.index is not None and len(sess_list.children) > 0:
+                tasks_done = (
+                    (dashboard._ws_debounce_task is None or dashboard._ws_debounce_task.done())
+                    and (dashboard._sess_debounce_task is None or dashboard._sess_debounce_task.done())
+                )
+                if tasks_done and sess_list.index is not None and len(sess_list.children) > 0:
                     break
 
         # 1. Start at index 0 and navigate down to index 1

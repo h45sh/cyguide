@@ -12,7 +12,7 @@ if [ -f ".venv/bin/python" ]; then
     PYTHON_BIN=".venv/bin/python"
 fi
 
-echo -e "\n[1/5] Code Style & Lint (ruff)..."
+echo -e "\n[1/6] Code Style & Lint (ruff)..."
 if command -v ruff &> /dev/null; then
     ruff check .
 elif [ -f ".venv/bin/ruff" ]; then
@@ -21,18 +21,21 @@ else
     echo "Ruff not found, skipping lint."
 fi
 
-echo -e "\n[2/5] Test Suite (pytest)..."
+echo -e "\n[2/6] Test Suite (pytest)..."
 $PYTHON_BIN -m pytest tests/
 
-echo -e "\n[3/5] Schema Documentation Sync..."
+echo -e "\n[3/6] Schema Documentation Sync..."
 $PYTHON_BIN scripts/generate_schema_registry.py --check
 
-echo -e "\n[4/5] Package Build (sdist & wheel)..."
+echo -e "\n[4/6] Performance Limits & Benchmark Regression Guard..."
+$PYTHON_BIN scripts/generate_benchmark_report.py --check
+
+echo -e "\n[5/6] Package Build (sdist & wheel)..."
 rm -rf dist/ build/ *.egg-info
 $PYTHON_BIN -m pip install --quiet build
 $PYTHON_BIN -m build
 
-echo -e "\n[5/5] Package Integrity & Bundled Asset Verification..."
+echo -e "\n[6/6] Package Integrity & Bundled Asset Verification..."
 $PYTHON_BIN -c "
 import zipfile, glob, sys
 

@@ -955,9 +955,7 @@ class LearningModeScreen(Screen):
             self.reset_ui_after_run()
 
     def action_show_shortcuts(self) -> None:
-        from cyguide.ui.dialogs import ShortcutsDialog
-
-        self.app.push_screen(ShortcutsDialog())
+        self.app.action_show_hotkeys()
 
     def action_nav_tool_browser(self) -> None:
         if self.active_tool:

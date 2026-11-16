@@ -97,6 +97,51 @@ async def test_legacy_help_panel_replaced_by_shortcuts_dialog(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_shortcuts_dialog_f1_toggle_and_holding_resilience(tmp_path):
+    """Verify F1 toggles ShortcutsDialog open and closed, and holding F1 does not cause ScreenStackError."""
+    from textual import events
+
+    db_file = str(tmp_path / "test_f1_toggle.db")
+    app = CyGuideApp(db_path=db_file)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # 1. Press F1 to open
+        await pilot.press("f1")
+        assert type(app.screen).__name__ == "ShortcutsDialog"
+
+        # 2. Press F1 again to close (fast toggle)
+        await pilot.press("f1")
+        assert type(app.screen).__name__ == "DashboardScreen"
+
+        # 3. Press F1 to reopen
+        await pilot.press("f1")
+        assert type(app.screen).__name__ == "ShortcutsDialog"
+
+        # 4. Simulate rapid key repeat from holding F1
+        for _ in range(25):
+            app.screen.post_message(events.Key("f1", None))
+        await pilot.pause(0.05)
+        assert len(app._screen_stack) >= 2
+
+        # 5. Simulate rapid key repeat from holding Escape
+        if type(app.screen).__name__ == "ShortcutsDialog":
+            for _ in range(20):
+                app.screen.post_message(events.Key("escape", None))
+            await pilot.pause(0.05)
+        assert type(app.screen).__name__ == "DashboardScreen"
+        assert len(app._screen_stack) == 2
+
+
+def test_markdown_emerald_mint_theme():
+    """Verify console markdown theme uses Emerald Mint palette instead of conflicting sky blue."""
+    app = CyGuideApp(db_path=":memory:")
+    assert "34d399" in str(app.console.get_style("markdown.h1").color)
+    assert "34d399" in str(app.console.get_style("markdown.h2").color)
+    assert "6ee7b7" in str(app.console.get_style("markdown.h3").color)
+    assert "6ee7b7" in str(app.console.get_style("markdown.code").color)
+
+
+@pytest.mark.asyncio
 async def test_config_provider_hierarchy(tmp_path):
     """Verify ConfigProvider discover presents clean top-level categories without clutter."""
     db_file = str(tmp_path / "test.db")
