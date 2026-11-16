@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.11.0](https://github.com/h45sh/cyguide/compare/v1.10.1...v1.11.0) (2026-11-16)
+
+
+### Features
+
+* add demo mode dummy IP support and enrich documentation showcase ([1d45844](https://github.com/h45sh/cyguide/commit/1d458442d796f051f872ff41930e75dfb2ac7ea8))
+* **cli:** enhance argument parser with rich boxed styling and flexible option ordering ([76a55f6](https://github.com/h45sh/cyguide/commit/76a55f6cada0f0cb122b8db1b6d373248b6aa469))
+* **core:** add live Power mode observability and configurable export paths ([3499808](https://github.com/h45sh/cyguide/commit/349980826de104233689bfdbf55915f0e6242362))
+* **core:** enhance session persistence, live job observability, LHOST discovery, and dev CI triggers ([6b62c54](https://github.com/h45sh/cyguide/commit/6b62c54cbba6215dc8cfce20c6fec167d6cdd5b3))
+* **docs:** embed terminal demo video and revert recording dummy IP logic ([a61d0d3](https://github.com/h45sh/cyguide/commit/a61d0d3674f81dd10eef88977e20f5f80ecf3d00))
+* **ecosystem:** update tool installer, polish UI layouts, add test fixtures and fix root log creation ([87297db](https://github.com/h45sh/cyguide/commit/87297db805aea5472c203fdbdababa6875cee0e1))
+* harden learning mode, canonicalize schemas, optimize store, and refine UI docks ([60a4860](https://github.com/h45sh/cyguide/commit/60a4860308410b37f38e1ae8901197545cc680a5))
+* implement schema 2.0, wordlists, and 4 new tool adapters with curriculum recipes ([2a4e0cd](https://github.com/h45sh/cyguide/commit/2a4e0cd61457c65edb628e5c99f898d28accd0d7))
+* **power-mode:** implement power mode architecture and UI ([3dd7891](https://github.com/h45sh/cyguide/commit/3dd789199e2190001269b8043c33e0b6e32cd921))
+* release v1.0.0 - tool adapters, diagnostics, reporting, and documentation ([48e9446](https://github.com/h45sh/cyguide/commit/48e94465dc2c123a9f19580d5fb411413c5ba75e))
+* **release:** v1.5.0 major UI overhaul, interactive workspace resizer, and security hardening ([2b55bde](https://github.com/h45sh/cyguide/commit/2b55bde963a96104fafd37bcd2314675bfe9076d))
+* **release:** v1.6.0 UI polish, real-time command palette reactivity, CI/CD standardization, and documentation overhaul ([57c7060](https://github.com/h45sh/cyguide/commit/57c706049600a1c80ce66927cd073d9610d6d22f))
+* **release:** v1.6.1 PyPI distribution resilience and Docker CI fixes ([a1c0cac](https://github.com/h45sh/cyguide/commit/a1c0cac4cdd7022e8e3b3d16477da10cd38224cf))
+* **release:** v1.9.0 Engine, Dataflow & Concurrency Hardening ([ecb9293](https://github.com/h45sh/cyguide/commit/ecb9293c667923720fb889729d900597913db92b))
+* removed outdated files ([4b8dc0f](https://github.com/h45sh/cyguide/commit/4b8dc0f188729101f350670c111db9e716d8cb11))
+* Schema 2.0 adapters, learning engine deep modules, and startup optimizations ([3b94abe](https://github.com/h45sh/cyguide/commit/3b94abeda93ffeedcff56bbd646f8a7429f56fc6))
+* update user manual ([ca2f460](https://github.com/h45sh/cyguide/commit/ca2f46035e650508a280144e8612e71e56c81ea5))
+* Updated DATABASE and ARCHITECTURE docs ([9803200](https://github.com/h45sh/cyguide/commit/9803200c0bb7151f17ca6df43d5b94c7da14a460))
+* Updated DATABASE and ARCHITECTURE docs ([cb4d41f](https://github.com/h45sh/cyguide/commit/cb4d41f309a126aac290542b5bbd33b513d38ea0))
+
+
+### Bug Fixes
+
+* **ci:** bypass subshell fork in CI test runners and include .txt.gz package-data ([0295972](https://github.com/h45sh/cyguide/commit/0295972f28d7e55dea3095406329e7da22947b88))
+* **ci:** hermetic tool health mock and async worker sync in config modal tests ([fd3c949](https://github.com/h45sh/cyguide/commit/fd3c949dacc22a7ac9ad0bee61fd5f15f9436766))
+* **ci:** resolve Dockerfile Debian nikto package lookup and verify script formatting gate ([64e3d5d](https://github.com/h45sh/cyguide/commit/64e3d5df8a29a79f821edd5e38fbc4c0f13c8e98))
+* **ci:** upgrade setuptools to resolve runner vulnerability in pip audit ([b7fa94c](https://github.com/h45sh/cyguide/commit/b7fa94cb1db0e1a99e27cbbdd91c683c263082d2))
+* **docker:** allow assets/wordlists in docker build context and copy wordlists directory ([8e2c296](https://github.com/h45sh/cyguide/commit/8e2c29615d821ebd100f0be86ac879b139ce2c4c))
+* import AsyncIterator in power_facade ([947a105](https://github.com/h45sh/cyguide/commit/947a10559dece1adaf32227360d2daa3c25a6194))
+* **lint:** import Coroutine and Callable to resolve F821 undefined name in CI ([94ae747](https://github.com/h45sh/cyguide/commit/94ae74750ccc13c506ae7fcc9343bd380f38fe03))
+* **paths:** enforce centralized ~/.cyguide fallback for exports and reports in power mode ([2ddf66c](https://github.com/h45sh/cyguide/commit/2ddf66ca6f27bd5aeec913f0d84496baa42ba932))
+* resolve ruff lint violations and typing imports for CI compliance ([b0d6005](https://github.com/h45sh/cyguide/commit/b0d60055d4d360304629ceeb143535223c83993b))
+* **security:** resolve audit vulnerabilities and configure release workflows ([4b9fa87](https://github.com/h45sh/cyguide/commit/4b9fa8791d5c927dd033dd9f576b6a7ca5ec6776))
+* **security:** resolve CodeQL file descriptor leaks, redundant checks, and streamline queries ([456315c](https://github.com/h45sh/cyguide/commit/456315c1552faf02822431dc3797b5e250711d5b))
+* **tests:** avoid WaitForScreenTimeout by using pilot.pause with delay in workspace switch test ([9673d3e](https://github.com/h45sh/cyguide/commit/9673d3eccac64b25d48a59a6752a9ad37f00bda3))
+* **test:** stabilize workspace and session list highlight debounce in unit tests ([766fca2](https://github.com/h45sh/cyguide/commit/766fca2daaa357a9a463b66c4afa9a1ece1437eb))
+* **ui:** await session list items mount and prevent transient None index in dashboard ([1d4cc00](https://github.com/h45sh/cyguide/commit/1d4cc00fbe870ed21158242b660247ba4474f8a8))
+* **ui:** prevent DuplicateIds race condition in JobQueue ([6d0e1e2](https://github.com/h45sh/cyguide/commit/6d0e1e2cf5e065c154e03ec75b73f100d6db318d))
+* **ui:** protect against Textual NoneType region crash and throttle Markdown updates ([2124980](https://github.com/h45sh/cyguide/commit/212498067e11f7d9de3f71426e39b98ac5643ee5))
+* **ui:** protect widget message loop exit during DOM teardown and settle debounce tasks ([345bae4](https://github.com/h45sh/cyguide/commit/345bae456f674e3f5bde3295f1082c6d99dc1ca7))
+* **ui:** stabilize Textual updates and automate releases ([3b002be](https://github.com/h45sh/cyguide/commit/3b002becdf0539356b6dec17e54b04a305f4e4ab))
+* **ui:** synchronize session details mount with mutex lock and atomic batch mounting ([207a024](https://github.com/h45sh/cyguide/commit/207a0242a5a7530b62b6e452a60cf43467636566))
+* **ui:** synchronize show_workspace_details DOM updates with _refresh_lock ([9fb9315](https://github.com/h45sh/cyguide/commit/9fb9315f02b5c5c574cc24ed94acbf510f2cea8e))
+* **ui:** use await remove_children() for ws_list and empty sess_list to eliminate all DuplicateIds race conditions ([6e6b06d](https://github.com/h45sh/cyguide/commit/6e6b06dbdcffa0b062dfef78aa85fb21d4253da4))
+* **ui:** use remove_children() for session list to prevent DuplicateIds race condition in CI ([f5cc556](https://github.com/h45sh/cyguide/commit/f5cc55603b2ae20cc39667f6837a7862b21a17f3))
+
+
+### Performance Improvements
+
+* **cli:** lazy-import CyGuideApp to make cyg --version instantaneous ([ae42d35](https://github.com/h45sh/cyguide/commit/ae42d350a083c699a281691a7b5d4d8966a12aea))
+* **startup:** fast-path shell environment detection and guard unmounted diagnostics ([49ac6bc](https://github.com/h45sh/cyguide/commit/49ac6bc01c891894b91c227dd5df216bfccfee97))
+* **ui:** debounce live updates and cap tree nodes to prevent freeze on large finding streams ([f171f6f](https://github.com/h45sh/cyguide/commit/f171f6f0ec579f3adde0cc86baa1b28d9f623c1a))
+* **ui:** debounce live updates and cap tree nodes to prevent freezing on large finding streams ([2ac8d57](https://github.com/h45sh/cyguide/commit/2ac8d5713f3f7f6a1f725344b6bb08c54f5caca6))
+
 ## [1.10.1](https://github.com/h45sh/cyguide/compare/v1.10.0...v1.10.1) (2026-11-16)
 
 
