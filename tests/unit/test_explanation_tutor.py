@@ -526,6 +526,7 @@ async def test_multikey_fallback_to_ollama_when_all_cloud_keys_fail():
 @pytest.mark.asyncio
 async def test_no_fallback_to_ollama_when_fallback_disabled():
     """Verify that when fallback_to_ollama is False and cloud has no keys, Ollama is NOT contacted."""
+
     class MockOllama(OllamaBackend):
         def __init__(self):
             super().__init__(model="gemma")
@@ -556,6 +557,7 @@ async def test_no_fallback_to_ollama_when_fallback_disabled():
 
 def test_clean_scanner_output_ansi_and_adapter():
     """Verify ANSI color codes are stripped and custom adapter sanitization hook is executed."""
+
     class MockAdapter:
         def sanitize_output(self, raw_text: str) -> str:
             return raw_text.replace("REMOVE_ME", "")
@@ -623,9 +625,12 @@ async def test_openai_adapter_includes_max_tokens():
         async def __aenter__(self):
             class Resp:
                 status_code = 200
+
                 async def aiter_lines(self):
                     yield "data: [DONE]"
+
             return Resp()
+
         async def __aexit__(self, *args):
             pass
 
@@ -634,7 +639,9 @@ async def test_openai_adapter_includes_max_tokens():
         captured_payload = kwargs.get("json", {})
         return MockContext()
 
-    adapter = OpenAIProviderAdapter(api_base="https://api.openai.com/v1", api_key="sk-test", model="gpt-4o", max_tokens=1500)
+    adapter = OpenAIProviderAdapter(
+        api_base="https://api.openai.com/v1", api_key="sk-test", model="gpt-4o", max_tokens=1500
+    )
     with patch("httpx.AsyncClient.stream", side_effect=mock_stream):
         async for _ in adapter.stream("prompt"):
             pass
@@ -646,6 +653,7 @@ async def test_openai_adapter_includes_max_tokens():
 async def test_retry_after_and_moderation_handling():
     """Verify Retry-After header sets cooldown and 400 moderation violations emit helpful notices."""
     import time
+
     from cyguide.engine.explainer import ProviderResponseError
 
     k1 = CloudKeyProfile(id="k1", name="Key 1", provider="openai", api_key="sk-1")
@@ -688,5 +696,3 @@ async def test_retry_after_and_moderation_handling():
     errors = [e for e in events2 if isinstance(e, TutorError)]
     assert len(errors) == 1
     assert "Safety filter triggered" in errors[0].error
-
-

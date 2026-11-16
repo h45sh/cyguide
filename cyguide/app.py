@@ -252,23 +252,25 @@ class CyGuideApp(App):
         from rich.theme import Theme
 
         self.console.push_theme(
-            Theme({
-                "markdown.h1": "bold #c89b3c",
-                "markdown.h2": "bold #c89b3c",
-                "markdown.h3": "bold #b4832e",
-                "markdown.h4": "bold #9e7427",
-                "markdown.h5": "bold #94a3b8",
-                "markdown.h6": "dim #94a3b8",
-                "markdown.block_quote": "#b4832e",
-                "markdown.code": "bold #d5c4a1",
-                "markdown.code_block": "#d5c4a1 on #181a1f",
-                "markdown.list": "#b4832e",
-                "markdown.item.number": "#b4832e",
-                "markdown.table.header": "bold #c89b3c",
-                "markdown.table.border": "#78521a",
-                "markdown.link": "underline #c89b3c",
-                "markdown.link_url": "underline #78521a",
-            })
+            Theme(
+                {
+                    "markdown.h1": "bold #c89b3c",
+                    "markdown.h2": "bold #c89b3c",
+                    "markdown.h3": "bold #b4832e",
+                    "markdown.h4": "bold #9e7427",
+                    "markdown.h5": "bold #94a3b8",
+                    "markdown.h6": "dim #94a3b8",
+                    "markdown.block_quote": "#b4832e",
+                    "markdown.code": "bold #d5c4a1",
+                    "markdown.code_block": "#d5c4a1 on #181a1f",
+                    "markdown.list": "#b4832e",
+                    "markdown.item.number": "#b4832e",
+                    "markdown.table.header": "bold #c89b3c",
+                    "markdown.table.border": "#78521a",
+                    "markdown.link": "underline #c89b3c",
+                    "markdown.link_url": "underline #78521a",
+                }
+            )
         )
         self._cached_tool_health: Dict[str, Dict[str, Any]] = {}
         self.navigating_sub_palette: bool = False
@@ -476,7 +478,11 @@ class CyGuideApp(App):
         returns a copy of os.environ immediately without forking an expensive login subshell.
         """
         current_env = os.environ.copy()
-        if "PYTEST_CURRENT_TEST" in current_env or "CI" in current_env or "GITHUB_ACTIONS" in current_env:
+        if (
+            "PYTEST_CURRENT_TEST" in current_env
+            or "CI" in current_env
+            or "GITHUB_ACTIONS" in current_env
+        ):
             return current_env
 
         path = current_env.get("PATH", "")
@@ -863,28 +869,18 @@ class CyGuideApp(App):
             "Configuration reset to CLI defaults (API keys preserved)", title="Config Reset"
         )
 
-    def can_toggle_shortcuts(self) -> bool:
-        """Rate-limit and debounce F1 key repeat bursts to prevent churn when holding F1."""
-        import time
-
-        now = time.monotonic()
-        is_repeat = (now - getattr(self, "_last_f1_time", 0.0)) < 0.05
-        self._last_f1_time = now
-        if is_repeat:
-            return False
-        return True
-
     def action_show_hotkeys(self) -> None:
         """Open the F1 Shortcuts / Help dialog."""
         import time
 
         from cyguide.ui.dialogs import ShortcutsDialog
 
-        if not self.can_toggle_shortcuts():
-            return
+        now = time.monotonic()
         if any(isinstance(s, ShortcutsDialog) for s in self._screen_stack):
             return
-        self._last_shortcuts_toggle_time = time.monotonic()
+        if (now - getattr(self, "_last_shortcuts_toggle_time", 0.0)) < 0.25:
+            return
+        self._last_shortcuts_toggle_time = now
         self.push_screen(ShortcutsDialog())
 
     def action_show_help_panel(self) -> None:
@@ -915,9 +911,7 @@ class CyGuideApp(App):
         elif not issues:
             health_badge = f"[bold #34d399]● Healthy ({ok_count}/{total})[/bold #34d399]"
         else:
-            health_badge = (
-                f"[bold #f87171]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold #f87171]"
-            )
+            health_badge = f"[bold #f87171]▲ {len(issues)} Issue{'s' if len(issues) > 1 else ''}[/bold #f87171]"
 
         yield SystemCommand(f"Tool Health  {health_badge}", "", self.action_show_tool_health)
 

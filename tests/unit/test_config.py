@@ -110,11 +110,15 @@ async def test_shortcuts_dialog_f1_toggle_and_holding_resilience(tmp_path):
         assert type(app.screen).__name__ == "ShortcutsDialog"
 
         # 2. Press F1 again to close (fast toggle)
+        await pilot.pause(0.3)
         await pilot.press("f1")
+        await pilot.pause(0.1)
         assert type(app.screen).__name__ == "DashboardScreen"
 
         # 3. Press F1 to reopen
+        await pilot.pause(0.3)
         await pilot.press("f1")
+        await pilot.pause(0.1)
         assert type(app.screen).__name__ == "ShortcutsDialog"
 
         # 4. Simulate rapid key repeat from holding F1
@@ -133,12 +137,12 @@ async def test_shortcuts_dialog_f1_toggle_and_holding_resilience(tmp_path):
 
 
 def test_markdown_amber_warm_gold_theme():
-    """Verify console markdown theme uses Amber / Warm Gold palette instead of conflicting sky blue."""
+    """Verify console markdown theme uses Matte Warm Gold / Amber palette instead of conflicting sky blue."""
     app = CyGuideApp(db_path=":memory:")
-    assert "fbbf24" in str(app.console.get_style("markdown.h1").color)
-    assert "fbbf24" in str(app.console.get_style("markdown.h2").color)
-    assert "fde68a" in str(app.console.get_style("markdown.h3").color)
-    assert "fde68a" in str(app.console.get_style("markdown.code").color)
+    assert "c89b3c" in str(app.console.get_style("markdown.h1").color)
+    assert "c89b3c" in str(app.console.get_style("markdown.h2").color)
+    assert "b4832e" in str(app.console.get_style("markdown.h3").color)
+    assert "d5c4a1" in str(app.console.get_style("markdown.code").color)
 
 
 @pytest.mark.asyncio

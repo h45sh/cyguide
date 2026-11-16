@@ -198,7 +198,6 @@ class ShortcutsDialog(ModalScreen):
 
     BINDINGS = [
         ("escape", "dismiss", "Close"),
-        ("f1", "dismiss", "Close"),
         ("q", "dismiss", "Close"),
     ]
 
@@ -206,6 +205,9 @@ class ShortcutsDialog(ModalScreen):
         super().__init__()
         self._opened_at = time.monotonic()
         self._dismissed = False
+        self._last_f1_time = 0.0
+        self._pending_dismiss_timer = None
+        self._is_holding_f1 = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="shortcuts_dialog"):
@@ -225,13 +227,31 @@ class ShortcutsDialog(ModalScreen):
 
         self.call_after_refresh(focus_scroll)
 
+    def on_unmount(self) -> None:
+        if self._pending_dismiss_timer is not None:
+            try:
+                self._pending_dismiss_timer.stop()
+            except Exception:
+                pass
+            self._pending_dismiss_timer = None
+
     def dismiss(self, result: Any = None) -> Any:
         if getattr(self, "_dismissed", False):
             return None
         self._dismissed = True
+        if self._pending_dismiss_timer is not None:
+            try:
+                self._pending_dismiss_timer.stop()
+            except Exception:
+                pass
+            self._pending_dismiss_timer = None
         if hasattr(self, "app") and self.app is not None:
             self.app._last_shortcuts_toggle_time = time.monotonic()
         return super().dismiss(result)
+
+    def _do_f1_dismiss(self) -> None:
+        self._pending_dismiss_timer = None
+        self.dismiss()
 
     def on_key(self, event: events.Key) -> None:
         if event.key in ("escape", "q"):
@@ -241,14 +261,32 @@ class ShortcutsDialog(ModalScreen):
         if event.key == "f1":
             event.stop()
             now = time.monotonic()
-            app = getattr(self, "app", None)
-            is_repeat = (now - getattr(app, "_last_f1_time", 0.0)) < 0.05 if app else False
-            if app:
-                app._last_f1_time = now
-            # Ignore auto-repeats from holding F1 or early repeats within 50ms of open
-            if is_repeat or (now - getattr(self, "_opened_at", 0.0) < 0.05):
+            dt = now - self._last_f1_time
+            self._last_f1_time = now
+
+            # If an F1 repeat arrives quickly (< 100ms), it's part of an active key hold
+            if dt < 0.10:
+                self._is_holding_f1 = True
+                if self._pending_dismiss_timer is not None:
+                    self._pending_dismiss_timer.stop()
+                    self._pending_dismiss_timer = None
                 return
-            self.dismiss()
+
+            # If user was actively holding F1 and events just paused slightly, don't dismiss
+            if self._is_holding_f1 and dt < 0.25:
+                return
+            self._is_holding_f1 = False
+
+            # If the dialog just opened within the last 200ms, don't dismiss (protect initial press hold)
+            if (now - self._opened_at) < 0.20:
+                return
+
+            # Cancel any existing pending timer
+            if self._pending_dismiss_timer is not None:
+                self._pending_dismiss_timer.stop()
+
+            # Schedule a short 60ms timer to confirm it's a tap and not the start of a repeat burst
+            self._pending_dismiss_timer = self.set_timer(0.06, self._do_f1_dismiss)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "close_shortcuts":
