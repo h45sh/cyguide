@@ -126,6 +126,7 @@ async def test_shortcuts_dialog_f1_toggle_and_holding_resilience(tmp_path):
             app.screen.post_message(events.Key("f1", None))
         await pilot.pause(0.05)
         assert len(app._screen_stack) >= 2
+        assert type(app.screen).__name__ == "ShortcutsDialog"
 
         # 5. Simulate rapid key repeat from holding Escape
         if type(app.screen).__name__ == "ShortcutsDialog":
