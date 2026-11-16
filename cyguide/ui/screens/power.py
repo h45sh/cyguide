@@ -35,7 +35,7 @@ from textual.widgets import (
 
 from cyguide.paths import get_default_exports_dir, get_default_reports_dir
 from cyguide.schemas.power import ActionRequest, ActionSource, JobStatus, JobStatusEnum
-from cyguide.ui.dialogs import RenameDialog, ShortcutsDialog
+from cyguide.ui.dialogs import RenameDialog
 from cyguide.ui.widgets.power import CommandPalette, EntityBrowser, JobQueue
 from cyguide.ui.widgets.resizer import ResizeHandle
 
@@ -1224,9 +1224,7 @@ class PowerModeScreen(Screen):
 
     def action_show_shortcuts(self) -> None:
         """Open the keyboard shortcuts help dialog."""
-        if any(isinstance(s, ShortcutsDialog) for s in self.app._screen_stack):
-            return
-        self.app.push_screen(ShortcutsDialog())
+        self.app.action_show_hotkeys()
 
     async def on_command_palette_show_shortcuts_request(
         self, event: CommandPalette.ShowShortcutsRequest

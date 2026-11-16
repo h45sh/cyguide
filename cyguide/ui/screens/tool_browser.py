@@ -499,11 +499,7 @@ class ToolBrowserScreen(Screen):
         self.app.switch_screen("learning_mode")
 
     def action_show_shortcuts(self) -> None:
-        from cyguide.ui.dialogs import ShortcutsDialog
-
-        if any(isinstance(s, ShortcutsDialog) for s in self.app._screen_stack):
-            return
-        self.app.push_screen(ShortcutsDialog())
+        self.app.action_show_hotkeys()
 
     def action_nav_dashboard(self) -> None:
         """Single escape directly to the dashboard."""

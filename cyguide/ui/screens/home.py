@@ -17,7 +17,7 @@ from cyguide.schemas.presentation import (
     SCHEMA_DISPLAY_MAP,
     format_activity_entry,
 )
-from cyguide.ui.dialogs import RenameDialog, ShortcutsDialog
+from cyguide.ui.dialogs import RenameDialog
 
 
 def format_activity(
@@ -1669,9 +1669,7 @@ class DashboardScreen(Screen):
             await self.show_workspace_details(self.selected_ws_id)
 
     def action_show_shortcuts(self) -> None:
-        if any(isinstance(s, ShortcutsDialog) for s in self.app._screen_stack):
-            return
-        self.app.push_screen(ShortcutsDialog())
+        self.app.action_show_hotkeys()
 
     def action_nav_learning(self) -> None:
         self.app.switch_screen("tool_browser")
