@@ -22,7 +22,7 @@ from textual.message import Message
 from textual.system_commands import SystemCommandsProvider
 from textual.widgets import Button, LoadingIndicator
 
-from cyguide.engine.explainer import is_placeholder_key
+from cyguide.common.keys import is_placeholder_key
 
 # Replace default emoji search icon with clean terminal glyph
 SearchIcon.icon = "›"
@@ -192,11 +192,13 @@ from cyguide.paths import (
     get_default_scratchpad_path,
     get_default_settings_path,
 )
-from cyguide.ui.screens.config_modal import ConfigModal
 from cyguide.ui.screens.home import DashboardScreen
-from cyguide.ui.screens.learning import LearningModeScreen
-from cyguide.ui.screens.power import PowerModeScreen
-from cyguide.ui.screens.tool_browser import ToolBrowserScreen
+from cyguide.ui.screens.lazy import (
+    load_config_modal,
+    load_learning_mode,
+    load_power_mode,
+    load_tool_browser,
+)
 
 
 class CyGuideApp(App):
@@ -217,13 +219,14 @@ class CyGuideApp(App):
         ),
     ]
 
-    # Register screens so they can be switched by name
+    # Register screens so they can be switched by name.
+    # Dashboard is loaded immediately, non-initial screens are loaded on first switch.
     SCREENS = {
         "dashboard": DashboardScreen,
-        "tool_browser": ToolBrowserScreen,
-        "learning_mode": LearningModeScreen,
-        "power_mode": PowerModeScreen,
-        "config_modal": ConfigModal,
+        "tool_browser": load_tool_browser,
+        "learning_mode": load_learning_mode,
+        "power_mode": load_power_mode,
+        "config_modal": load_config_modal,
     }
 
     def __init__(

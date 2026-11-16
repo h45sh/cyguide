@@ -32,6 +32,10 @@ data/
 exports/
 reports/
 
+# Benchmark temporary previews and historical runs
+docs/benchmarks/*.html
+docs/benchmarks/.history/
+
 # Environment configurations and secrets
 .env
 .env.local

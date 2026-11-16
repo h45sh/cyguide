@@ -8,6 +8,10 @@ from cyguide.engine.adapter import ToolAdapter
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.network import NetworkHost, NetworkService
 
+_REPORT_PATTERN = re.compile(r"Nmap scan report for (?:[^\s(]+\s+)?\(?([^\s)]+)\)?")
+_PORT_PATTERN = re.compile(r"(\d+)/(tcp|udp)\s+open\s+(\S+)")
+_IP_PATTERN = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})")
+
 
 class NmapAdapter(ToolAdapter):
     """Adapter for the nmap port scanner."""
@@ -46,16 +50,9 @@ class NmapAdapter(ToolAdapter):
         """
         context = context or {}
 
-        # 1. Check if we just discovered a host report line (Nmap scan report for 127.0.0.1)
-        # This is critical for manual shell scans where the target finding is dummy.
-        report_pattern = re.compile(r"Nmap scan report for (?:[^\s(]+\s+)?\(?([^\s)]+)\)?")
-
-        # 2. Regex to match: PORT/PROTO STATE SERVICE
-        port_pattern = re.compile(r"(\d+)/(tcp|udp)\s+open\s+(\S+)")
-
         for line in raw_stdout.splitlines():
             # Host discovery
-            host_match = report_pattern.search(line)
+            host_match = _REPORT_PATTERN.search(line)
             if host_match:
                 host_ip = host_match.group(1)
                 context["current_host_ip"] = host_ip
@@ -63,7 +60,7 @@ class NmapAdapter(ToolAdapter):
                 continue
 
             # Port discovery
-            port_match = port_pattern.search(line)
+            port_match = _PORT_PATTERN.search(line)
             if port_match:
                 # Priority: 1. Host from output context, 2. Host from target PIK, 3. Host from raw flags
                 host_ip = context.get("current_host_ip") or target.pik.get("ip")
@@ -71,7 +68,7 @@ class NmapAdapter(ToolAdapter):
                 if not host_ip:
                     # Fallback: Try to find IP in raw flags if it is a manual scan
                     raw_flags = context.get("params", {}).get("raw_flags", "")
-                    ip_match = re.search(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})", raw_flags)
+                    ip_match = _IP_PATTERN.search(raw_flags)
                     if ip_match:
                         host_ip = ip_match.group(1)
                         context["current_host_ip"] = host_ip

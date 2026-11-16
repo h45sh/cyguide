@@ -816,6 +816,7 @@ class GraphStore:
                     "SELECT * FROM src.nodes WHERE session_id = ?", (src_session_id,)
                 )
                 nodes = await cursor_nodes.fetchall()
+                nodes_to_insert = []
                 for n in nodes:
                     schema_type = n["schema_type"]
                     if (
@@ -834,8 +835,7 @@ class GraphStore:
                             f"Corrupt JSON payload in imported node {n['id']}."
                         ) from None
 
-                    await db.execute(
-                        "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    nodes_to_insert.append(
                         (
                             src_session_id,
                             n["id"],
@@ -844,26 +844,35 @@ class GraphStore:
                             json.dumps(data_val),
                             n["status"],
                             n["updated_at"],
-                        ),
+                        )
+                    )
+
+                if nodes_to_insert:
+                    await db.executemany(
+                        "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        nodes_to_insert,
                     )
 
                 cursor_edges = await db.execute(
                     "SELECT * FROM src.edges WHERE session_id = ?", (src_session_id,)
                 )
                 edges = await cursor_edges.fetchall()
-                for e in edges:
-                    await db.execute(
+                if edges:
+                    edges_to_insert = [
+                        (src_session_id, e["source_id"], e["target_id"], e["relation_type"])
+                        for e in edges
+                    ]
+                    await db.executemany(
                         "INSERT INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
-                        (src_session_id, e["source_id"], e["target_id"], e["relation_type"]),
+                        edges_to_insert,
                     )
 
                 cursor_events = await db.execute(
                     "SELECT * FROM src.event_log WHERE session_id = ?", (src_session_id,)
                 )
                 events = await cursor_events.fetchall()
-                for ev in events:
-                    await db.execute(
-                        "INSERT INTO event_log (session_id, timestamp, action_payload, result_payload, human_readable, schema_type, finding_json, closed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                if events:
+                    events_to_insert = [
                         (
                             src_session_id,
                             ev["timestamp"],
@@ -873,7 +882,12 @@ class GraphStore:
                             ev["schema_type"],
                             ev["finding_json"],
                             ev["closed"],
-                        ),
+                        )
+                        for ev in events
+                    ]
+                    await db.executemany(
+                        "INSERT INTO event_log (session_id, timestamp, action_payload, result_payload, human_readable, schema_type, finding_json, closed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        events_to_insert,
                     )
 
                 await db.commit()
