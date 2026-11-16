@@ -501,6 +501,8 @@ class ToolBrowserScreen(Screen):
     def action_show_shortcuts(self) -> None:
         from cyguide.ui.dialogs import ShortcutsDialog
 
+        if any(isinstance(s, ShortcutsDialog) for s in self.app._screen_stack):
+            return
         self.app.push_screen(ShortcutsDialog())
 
     def action_nav_dashboard(self) -> None:

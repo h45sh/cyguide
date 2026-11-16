@@ -830,7 +830,7 @@ class PowerModeScreen(Screen):
         is_builtin = tool_name in ["cd", "clear", "?", "help"]
 
         if tool_name in ["?", "help"]:
-            self.app.push_screen(ShortcutsDialog())
+            self.action_show_shortcuts()
             return
         elif tool_name == "clear":
             tabs = self.query_one("#job_tabs", TabbedContent)
@@ -1224,6 +1224,8 @@ class PowerModeScreen(Screen):
 
     def action_show_shortcuts(self) -> None:
         """Open the keyboard shortcuts help dialog."""
+        if any(isinstance(s, ShortcutsDialog) for s in self.app._screen_stack):
+            return
         self.app.push_screen(ShortcutsDialog())
 
     async def on_command_palette_show_shortcuts_request(

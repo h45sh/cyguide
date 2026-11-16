@@ -250,13 +250,21 @@ class CyGuideApp(App):
 
         self.console.push_theme(
             Theme({
-                "markdown.h1": "bold #38bdf8",
-                "markdown.h2": "bold #38bdf8",
-                "markdown.h3": "bold #38bdf8",
-                "markdown.h4": "bold #7dd3fc",
+                "markdown.h1": "bold #34d399",
+                "markdown.h2": "bold #34d399",
+                "markdown.h3": "bold #6ee7b7",
+                "markdown.h4": "bold #a7f3d0",
                 "markdown.h5": "bold #94a3b8",
                 "markdown.h6": "dim #94a3b8",
-                "markdown.block_quote": "#38bdf8",
+                "markdown.block_quote": "#34d399",
+                "markdown.code": "bold #6ee7b7 on #132e27",
+                "markdown.code_block": "#6ee7b7 on #0f1715",
+                "markdown.list": "#34d399",
+                "markdown.item.number": "#34d399",
+                "markdown.table.header": "bold #34d399",
+                "markdown.table.border": "#059669",
+                "markdown.link": "underline #34d399",
+                "markdown.link_url": "underline #059669",
             })
         )
         self._cached_tool_health: Dict[str, Dict[str, Any]] = {}
@@ -850,6 +858,8 @@ class CyGuideApp(App):
         """Open the F1 Shortcuts / Help dialog."""
         from cyguide.ui.dialogs import ShortcutsDialog
 
+        if any(isinstance(s, ShortcutsDialog) for s in self._screen_stack):
+            return
         self.push_screen(ShortcutsDialog())
 
     def action_show_help_panel(self) -> None:

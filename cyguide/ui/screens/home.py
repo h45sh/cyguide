@@ -127,6 +127,12 @@ class ConfirmationDialog(ModalScreen[bool]):
             event.stop()
             self.dismiss(False)
 
+    def dismiss(self, result: bool = False) -> Any:
+        if getattr(self, "_dismissed", False):
+            return None
+        self._dismissed = True
+        return super().dismiss(result)
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "confirm":
             self.dismiss(True)
@@ -1663,6 +1669,8 @@ class DashboardScreen(Screen):
             await self.show_workspace_details(self.selected_ws_id)
 
     def action_show_shortcuts(self) -> None:
+        if any(isinstance(s, ShortcutsDialog) for s in self.app._screen_stack):
+            return
         self.app.push_screen(ShortcutsDialog())
 
     def action_nav_learning(self) -> None:
