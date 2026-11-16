@@ -132,13 +132,13 @@ async def test_shortcuts_dialog_f1_toggle_and_holding_resilience(tmp_path):
         assert len(app._screen_stack) == 2
 
 
-def test_markdown_emerald_mint_theme():
-    """Verify console markdown theme uses Emerald Mint palette instead of conflicting sky blue."""
+def test_markdown_amber_warm_gold_theme():
+    """Verify console markdown theme uses Amber / Warm Gold palette instead of conflicting sky blue."""
     app = CyGuideApp(db_path=":memory:")
-    assert "34d399" in str(app.console.get_style("markdown.h1").color)
-    assert "34d399" in str(app.console.get_style("markdown.h2").color)
-    assert "6ee7b7" in str(app.console.get_style("markdown.h3").color)
-    assert "6ee7b7" in str(app.console.get_style("markdown.code").color)
+    assert "fbbf24" in str(app.console.get_style("markdown.h1").color)
+    assert "fbbf24" in str(app.console.get_style("markdown.h2").color)
+    assert "fde68a" in str(app.console.get_style("markdown.h3").color)
+    assert "fde68a" in str(app.console.get_style("markdown.code").color)
 
 
 @pytest.mark.asyncio

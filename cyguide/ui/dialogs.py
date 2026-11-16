@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from textual import events
@@ -201,6 +202,11 @@ class ShortcutsDialog(ModalScreen):
         ("q", "dismiss", "Close"),
     ]
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._opened_at = time.monotonic()
+        self._dismissed = False
+
     def compose(self) -> ComposeResult:
         with Vertical(id="shortcuts_dialog"):
             with VerticalScroll(id="shortcuts_scroll"):
@@ -209,7 +215,7 @@ class ShortcutsDialog(ModalScreen):
                 yield Button("Close", variant="primary", id="close_shortcuts")
 
     def on_mount(self) -> None:
-        self._dismissed = False
+        self._mounted_at = time.monotonic()
 
         def focus_scroll():
             try:
@@ -223,11 +229,25 @@ class ShortcutsDialog(ModalScreen):
         if getattr(self, "_dismissed", False):
             return None
         self._dismissed = True
+        if hasattr(self, "app") and self.app is not None:
+            self.app._last_shortcuts_toggle_time = time.monotonic()
         return super().dismiss(result)
 
     def on_key(self, event: events.Key) -> None:
-        if event.key in ("escape", "q", "f1"):
+        if event.key in ("escape", "q"):
             event.stop()
+            self.dismiss()
+            return
+        if event.key == "f1":
+            event.stop()
+            now = time.monotonic()
+            app = getattr(self, "app", None)
+            is_repeat = (now - getattr(app, "_last_f1_time", 0.0)) < 0.05 if app else False
+            if app:
+                app._last_f1_time = now
+            # Ignore auto-repeats from holding F1 or early repeats within 50ms of open
+            if is_repeat or (now - getattr(self, "_opened_at", 0.0) < 0.05):
+                return
             self.dismiss()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

@@ -18,6 +18,25 @@ class NucleiAdapter(ToolAdapter):
         """Verify nuclei binary is available on system PATH."""
         return shutil.which("nuclei") is not None
 
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Filter verbose nuclei loading stats, update notices, and template clusters."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if any(
+                s.startswith(p)
+                for p in (
+                    "[INF] Current nuclei version",
+                    "[INF] New templates",
+                    "[INF] Loading templates",
+                    "[INF] Templates cluster",
+                    "[INF] Using",
+                )
+            ):
+                continue
+            lines.append(line)
+        return "\n".join(lines)
+
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         """Construct nuclei execution command with streaming JSONL output."""
         url = self._extract_url(target)
@@ -143,3 +162,19 @@ class NucleiAdapter(ToolAdapter):
                     else "info",
                     description=description or None,
                 )
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip verbose banner and template loading stats from nuclei output."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if not s:
+                continue
+            if s.startswith("[INF]") and any(
+                k in s for k in ("Templates", "projectdiscovery.io", "Configured", "Using")
+            ):
+                continue
+            if any(banner in s for banner in ("__     __", "   __  _")):
+                continue
+            lines.append(line)
+        return "\n".join(lines)

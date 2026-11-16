@@ -253,26 +253,28 @@ class CyGuideApp(App):
 
         self.console.push_theme(
             Theme({
-                "markdown.h1": "bold #34d399",
-                "markdown.h2": "bold #34d399",
-                "markdown.h3": "bold #6ee7b7",
-                "markdown.h4": "bold #a7f3d0",
+                "markdown.h1": "bold #c89b3c",
+                "markdown.h2": "bold #c89b3c",
+                "markdown.h3": "bold #b4832e",
+                "markdown.h4": "bold #9e7427",
                 "markdown.h5": "bold #94a3b8",
                 "markdown.h6": "dim #94a3b8",
-                "markdown.block_quote": "#34d399",
-                "markdown.code": "bold #6ee7b7 on #132e27",
-                "markdown.code_block": "#6ee7b7 on #0f1715",
-                "markdown.list": "#34d399",
-                "markdown.item.number": "#34d399",
-                "markdown.table.header": "bold #34d399",
-                "markdown.table.border": "#059669",
-                "markdown.link": "underline #34d399",
-                "markdown.link_url": "underline #059669",
+                "markdown.block_quote": "#b4832e",
+                "markdown.code": "bold #d5c4a1",
+                "markdown.code_block": "#d5c4a1 on #181a1f",
+                "markdown.list": "#b4832e",
+                "markdown.item.number": "#b4832e",
+                "markdown.table.header": "bold #c89b3c",
+                "markdown.table.border": "#78521a",
+                "markdown.link": "underline #c89b3c",
+                "markdown.link_url": "underline #78521a",
             })
         )
         self._cached_tool_health: Dict[str, Dict[str, Any]] = {}
         self.navigating_sub_palette: bool = False
         self.last_palette_highlight: Optional[Any] = None
+        self._last_f1_time: float = 0.0
+        self._last_shortcuts_toggle_time: float = 0.0
 
         # Ensure the directory for the database exists
         if self.db_path != ":memory:":
@@ -643,11 +645,15 @@ class CyGuideApp(App):
                 if raw_k and not is_placeholder_key(raw_k):
                     profiles.append(CloudKeyProfile.from_dict(k))
 
-        ollama_fallback = OllamaBackend(model=self.ollama_model, base_url=ollama_base_url)
+        ollama_fallback = (
+            OllamaBackend(model=self.ollama_model, base_url=ollama_base_url)
+            if self.use_ollama
+            else None
+        )
         self.explainer_backend = ExplanationTutor(
             profiles=profiles,
             active_key_id=getattr(self, "active_key_id", None),
-            fallback_to_ollama=True,
+            fallback_to_ollama=self.use_ollama,
             ollama_backend=ollama_fallback,
             prefer_ollama=self.use_ollama,
             cloud_enabled=getattr(self, "use_cloud_api", True),
@@ -857,12 +863,28 @@ class CyGuideApp(App):
             "Configuration reset to CLI defaults (API keys preserved)", title="Config Reset"
         )
 
+    def can_toggle_shortcuts(self) -> bool:
+        """Rate-limit and debounce F1 key repeat bursts to prevent churn when holding F1."""
+        import time
+
+        now = time.monotonic()
+        is_repeat = (now - getattr(self, "_last_f1_time", 0.0)) < 0.05
+        self._last_f1_time = now
+        if is_repeat:
+            return False
+        return True
+
     def action_show_hotkeys(self) -> None:
         """Open the F1 Shortcuts / Help dialog."""
+        import time
+
         from cyguide.ui.dialogs import ShortcutsDialog
 
+        if not self.can_toggle_shortcuts():
+            return
         if any(isinstance(s, ShortcutsDialog) for s in self._screen_stack):
             return
+        self._last_shortcuts_toggle_time = time.monotonic()
         self.push_screen(ShortcutsDialog())
 
     def action_show_help_panel(self) -> None:

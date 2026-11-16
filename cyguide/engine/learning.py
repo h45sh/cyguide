@@ -250,6 +250,27 @@ class LearningSession:
         self.scan_in_progress: bool = False
         self.current_job_id: Optional[UUID] = None
 
+    def _resolve_tool_context(
+        self, tool_name: Optional[str] = None
+    ) -> Tuple[Optional[str], Optional[Any]]:
+        """Resolve tool category and adapter from registry."""
+        target_name = tool_name or self.active_tool
+        if not target_name or not self.registry:
+            return None, None
+        tool_data = self.registry.get_tool(target_name)
+        if not tool_data:
+            return None, None
+        manifest = tool_data.get("manifest")
+        adapter = tool_data.get("adapter")
+        category = None
+        if manifest and hasattr(manifest, "meta"):
+            category = getattr(manifest.meta, "category", None) or (
+                manifest.meta.categories[0]
+                if getattr(manifest.meta, "categories", None)
+                else None
+            )
+        return category, adapter
+
     def select_tool(self, tool_name: str) -> Optional[ToolLearningContext]:
         """Select a tool and return its resolved learning context."""
         self.active_tool = tool_name
@@ -426,11 +447,16 @@ class LearningSession:
 
                 raw_output = "".join(self.log_buffer[-80:])
                 briefing_buffer = ""
+                active_tool_name = self.active_tool or invocation.tool_name
+                tool_category, tool_adapter = self._resolve_tool_context(active_tool_name)
+
                 async for chunk in self.explainer.generate_scan_briefing(
-                    tool_name=self.active_tool or invocation.tool_name,
+                    tool_name=active_tool_name,
                     cmd_str=invocation.cmd_str,
                     scan_output=raw_output,
                     structured_findings=structured_llm,
+                    tool_category=tool_category,
+                    tool_adapter=tool_adapter,
                 ):
                     briefing_buffer += chunk
                     yield BriefingChunkEvent(chunk=chunk)
@@ -613,6 +639,23 @@ class LearningSession:
         unknown_msg = f"> [!] Unknown command: `{cmd}`. Type `/help` to see available slash commands."
         return TutorCommandResult(handled=True, command=cmd, message=unknown_msg)
 
+    def _resolve_tool_context(
+        self, tool_name: Optional[str]
+    ) -> Tuple[Optional[str], Optional[Any]]:
+        """Resolve category and ToolAdapter instance for a tool name from the registry."""
+        if not tool_name or not self.registry:
+            return None, None
+        try:
+            tool_data = self.registry.get_tool(tool_name)
+            if not tool_data:
+                return None, None
+            manifest = tool_data.get("manifest")
+            adapter = tool_data.get("adapter")
+            category = getattr(manifest.meta, "category", None) if manifest and hasattr(manifest, "meta") else None
+            return (category.lower() if category else None, adapter)
+        except Exception:
+            return None, None
+
     async def query_tutor(
         self,
         question: str,
@@ -623,6 +666,7 @@ class LearningSession:
 
         scan_output = "".join(self.log_buffer[-60:]) if self.log_buffer else None
         tool_tag = self.active_tool or "General Security"
+        tool_category, tool_adapter = self._resolve_tool_context(self.active_tool)
 
         if not self.explainer:
             yield (
@@ -636,6 +680,8 @@ class LearningSession:
             question=question,
             scan_output=scan_output,
             tool_name=tool_tag,
+            tool_category=tool_category,
+            tool_adapter=tool_adapter,
         ):
             yield chunk
 
@@ -651,6 +697,7 @@ class LearningSession:
         accumulated = ""
         last_emit = time.time()
         tool_tag = self.active_tool or "General Security"
+        tool_category, tool_adapter = self._resolve_tool_context(self.active_tool)
 
         if not self.explainer:
             fallback = (
@@ -667,6 +714,8 @@ class LearningSession:
                 question=question,
                 scan_output=scan_output,
                 tool_name=tool_tag,
+                tool_category=tool_category,
+                tool_adapter=tool_adapter,
             ):
                 accumulated += chunk
                 now = time.time()

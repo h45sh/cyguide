@@ -25,6 +25,16 @@ class FfufAdapter(ToolAdapter):
         """Check if ffuf binary is available in PATH."""
         return shutil.which("ffuf") is not None
 
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip ffuf ASCII art, progress lines, and metadata blocks."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if s.startswith("::") or "Progress: [" in s or s.startswith("____"):
+                continue
+            lines.append(line)
+        return "\n".join(lines)
+
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         """Construct the ffuf command line execution."""
         # 1. Resolve target URL
@@ -169,3 +179,17 @@ class FfufAdapter(ToolAdapter):
                 except json.JSONDecodeError:
                     return None
             return None
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip ASCII banner and noisy progress lines from ffuf output."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if not s:
+                continue
+            if s.startswith("::") or s.startswith("Progress: [") or "Progress: [" in s:
+                continue
+            if any(banner_fragment in line for banner_fragment in ("/'___\\", "'___/ \\ \\ \\__/")):
+                continue
+            lines.append(line)
+        return "\n".join(lines)

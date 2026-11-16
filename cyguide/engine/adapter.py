@@ -41,3 +41,11 @@ class ToolAdapter(ABC):
             context: Optional dictionary for tracking state across lines (e.g. current host)
         """
         pass
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """
+        Optional tool-specific output sanitization before LLM prompting.
+        Strip tool-specific ASCII banners, progress bars, or noisy separator lines.
+        Default implementation returns raw_stdout untouched.
+        """
+        return raw_stdout

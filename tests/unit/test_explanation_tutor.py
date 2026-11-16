@@ -521,3 +521,172 @@ async def test_multikey_fallback_to_ollama_when_all_cloud_keys_fail():
         full = "".join(chunks)
         assert "Falling back to Local Ollama" in full
         assert "Ollama fallback content" in full
+
+
+@pytest.mark.asyncio
+async def test_no_fallback_to_ollama_when_fallback_disabled():
+    """Verify that when fallback_to_ollama is False and cloud has no keys, Ollama is NOT contacted."""
+    class MockOllama(OllamaBackend):
+        def __init__(self):
+            super().__init__(model="gemma")
+            self.called = False
+
+        async def explain(self, prompt: str):
+            self.called = True
+            yield "Ollama should not be called"
+
+    mock_ollama = MockOllama()
+    tutor = ExplanationTutor(
+        profiles=[],
+        fallback_to_ollama=False,
+        ollama_backend=mock_ollama,
+        prefer_ollama=False,
+        cloud_enabled=True,
+    )
+
+    chunks = []
+    async for chunk in tutor.explain("Scan question"):
+        chunks.append(chunk)
+
+    full = "".join(chunks)
+    assert not mock_ollama.called
+    assert "No cloud API keys are configured" in full
+    assert "Local Ollama is turned OFF" in full
+
+
+def test_clean_scanner_output_ansi_and_adapter():
+    """Verify ANSI color codes are stripped and custom adapter sanitization hook is executed."""
+    class MockAdapter:
+        def sanitize_output(self, raw_text: str) -> str:
+            return raw_text.replace("REMOVE_ME", "")
+
+    raw_output = "\x1b[32m[+] Starting Nmap\x1b[0m\n80/tcp open http\nREMOVE_MEInteresting line\nProgress: 50%"
+    cleaned = ExplanationTutor.clean_scanner_output(raw_output, tool_adapter=MockAdapter())
+    assert "\x1b[" not in cleaned
+    assert "Starting Nmap" not in cleaned
+    assert "Progress:" not in cleaned
+    assert "REMOVE_ME" not in cleaned
+    assert "80/tcp open http" in cleaned
+    assert "Interesting line" in cleaned
+
+
+@pytest.mark.asyncio
+async def test_build_scan_system_prompt_category_and_local_model():
+    """Verify category analysis directives and local model format constraints are injected."""
+    prompt_web_local = ExplanationTutor.build_scan_system_prompt(
+        scan_output="200 OK /admin",
+        tool_name="ffuf",
+        tool_category="web",
+        is_local_model=True,
+    )
+    assert "TOOL ANALYSIS FOCUS:" in prompt_web_local
+    assert "HTTP response codes" in prompt_web_local
+    assert "INTERACTION & OUTPUT CONSTRAINTS (LOCAL MODEL):" in prompt_web_local
+
+    prompt_net_cloud = ExplanationTutor.build_scan_system_prompt(
+        scan_output="22/tcp open ssh",
+        tool_name="nmap",
+        tool_category="network",
+        is_local_model=False,
+    )
+    assert "TOOL ANALYSIS FOCUS:" in prompt_net_cloud
+    assert "Open port exposure" in prompt_net_cloud
+    assert "INTERACTION & OUTPUT GUIDELINES:" in prompt_net_cloud
+
+
+def test_redact_sensitive_artifacts():
+    """Verify credentials, tokens, and private keys are redacted before LLM prompting."""
+    raw = (
+        "Found password: SuperSecretPassword123\n"
+        "api_key=sk-1234567890abcdef\n"
+        "Authorization: Bearer my_jwt_token_1234567890abcdef\n"
+        "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0\n-----END RSA PRIVATE KEY-----"
+    )
+    redacted = ExplanationTutor.redact_sensitive_artifacts(raw)
+    assert "SuperSecretPassword123" not in redacted
+    assert "sk-1234567890abcdef" not in redacted
+    assert "my_jwt_token_1234567890abcdef" not in redacted
+    assert "MIIEowIBAAKCAQEA0" not in redacted
+    assert "[REDACTED_SECRET]" in redacted
+    assert "[REDACTED_TOKEN]" in redacted
+    assert "[REDACTED_PRIVATE_KEY]" in redacted
+
+
+@pytest.mark.asyncio
+async def test_openai_adapter_includes_max_tokens():
+    """Verify that OpenAIProviderAdapter sends max_tokens in payload to cap billing spend."""
+    from cyguide.engine.explainer import OpenAIProviderAdapter
+
+    captured_payload = {}
+
+    class MockContext:
+        async def __aenter__(self):
+            class Resp:
+                status_code = 200
+                async def aiter_lines(self):
+                    yield "data: [DONE]"
+            return Resp()
+        async def __aexit__(self, *args):
+            pass
+
+    def mock_stream(method, url, **kwargs):
+        nonlocal captured_payload
+        captured_payload = kwargs.get("json", {})
+        return MockContext()
+
+    adapter = OpenAIProviderAdapter(api_base="https://api.openai.com/v1", api_key="sk-test", model="gpt-4o", max_tokens=1500)
+    with patch("httpx.AsyncClient.stream", side_effect=mock_stream):
+        async for _ in adapter.stream("prompt"):
+            pass
+
+    assert captured_payload.get("max_tokens") == 1500
+
+
+@pytest.mark.asyncio
+async def test_retry_after_and_moderation_handling():
+    """Verify Retry-After header sets cooldown and 400 moderation violations emit helpful notices."""
+    import time
+    from cyguide.engine.explainer import ProviderResponseError
+
+    k1 = CloudKeyProfile(id="k1", name="Key 1", provider="openai", api_key="sk-1")
+    tutor = ExplanationTutor(profiles=[k1], active_key_id="k1")
+
+    # 1. Test 429 with Retry-After: 45
+    class MockAdapter429:
+        async def stream(self, prompt, system=None):
+            if False:
+                yield ""
+            raise ProviderResponseError(status_code=429, message="Rate limit", retry_after=45.0)
+
+    tutor._custom_adapters["k1"] = MockAdapter429()
+    events = []
+    async for ev in tutor.stream("test"):
+        events.append(ev)
+
+    assert k1.is_in_cooldown()
+    assert k1.cooldown_until - time.time() > 40.0
+
+    # 2. Test 400 with Content Policy Violation
+    k2 = CloudKeyProfile(id="k2", name="Key 2", provider="openai", api_key="sk-2")
+    tutor2 = ExplanationTutor(profiles=[k2], active_key_id="k2")
+
+    class MockAdapterPolicy:
+        async def stream(self, prompt, system=None):
+            if False:
+                yield ""
+            raise ProviderResponseError(
+                status_code=400,
+                message="Bad Request",
+                body='{"error": {"message": "Content policy violation detected"}}',
+            )
+
+    tutor2._custom_adapters["k2"] = MockAdapterPolicy()
+    events2 = []
+    async for ev in tutor2.stream("test"):
+        events2.append(ev)
+
+    errors = [e for e in events2 if isinstance(e, TutorError)]
+    assert len(errors) == 1
+    assert "Safety filter triggered" in errors[0].error
+
+
