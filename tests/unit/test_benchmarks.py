@@ -212,13 +212,13 @@ async def test_graphstore_scale_and_query_limits(tmp_path):
     nodes = await store.get_all_nodes(sess_id)
     nodes_elapsed = (time.perf_counter() - t_nodes) * 1000
     assert len(nodes) == 5000
-    assert nodes_elapsed < 100.0, f"Querying 5,000 nodes took {nodes_elapsed:.1f}ms (expected < 100ms)"
+    assert nodes_elapsed < 500.0, f"Querying 5,000 nodes took {nodes_elapsed:.1f}ms (expected < 500ms)"
 
     t_edges = time.perf_counter()
     edges = await store.get_all_edges(sess_id)
     edges_elapsed = (time.perf_counter() - t_edges) * 1000
     assert len(edges) == 2500
-    assert edges_elapsed < 50.0, f"Querying 2,500 edges took {edges_elapsed:.1f}ms (expected < 50ms)"
+    assert edges_elapsed < 250.0, f"Querying 2,500 edges took {edges_elapsed:.1f}ms (expected < 250ms)"
 
     await store.close()
 

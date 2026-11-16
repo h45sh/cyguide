@@ -1016,7 +1016,8 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
 
         async def settle_d():
-            for _ in range(20):
+            await pilot.pause(0.05)
+            for _ in range(30):
                 if d._ws_debounce_task and not d._ws_debounce_task.done():
                     try:
                         await d._ws_debounce_task
@@ -1028,13 +1029,21 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
                     except asyncio.CancelledError:
                         pass
                 await pilot.pause(0.05)
+                tasks_done = (
+                    (d._ws_debounce_task is None or d._ws_debounce_task.done())
+                    and (d._sess_debounce_task is None or d._sess_debounce_task.done())
+                )
+                if tasks_done:
+                    details = d.query_one("#session_details_content")
+                    if details.query(".session_id_card"):
+                        break
 
         # 1. Start at index 0 with corresponding selected_ws_id
-        await pilot.pause(0.1)
+        await pilot.pause(0.05)
         d.selected_ws_id = ws_items[0]["id"]
         ws_list.index = 0
         ws_list.focus()
-        await pilot.pause(0.1)
+        await pilot.pause(0.05)
         assert ws_list.index == 0
         assert ws_list.has_focus is True
 
