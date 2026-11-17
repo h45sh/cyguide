@@ -1,6 +1,7 @@
 """Learning Mode screen with redesigned Phase 2 lesson layout."""
 
 import asyncio
+from datetime import datetime
 from typing import Any, List, Optional
 
 from rich.markdown import Markdown as RichMarkdown
@@ -671,10 +672,12 @@ class LearningModeScreen(Screen):
         explanation_scroll = self.query_one("#explanation_scroll", VerticalScroll)
 
         display_prompt = user_display or question
+        now_ts = datetime.now().strftime("%H:%M:%S")
+        card_header = f"### 💬 Question · `{now_ts}`\n> **{display_prompt}**\n\n"
         base_buffer = (
-            self.explanation_buffer + f"\n\n---\n\n### ❯ You: {display_prompt}\n\n"
+            self.explanation_buffer + f"\n\n---\n\n{card_header}"
             if self.explanation_buffer
-            else f"### ❯ You: {display_prompt}\n\n"
+            else card_header
         )
 
         if not getattr(self, "ai_explanations_enabled", True):
@@ -866,9 +869,9 @@ class LearningModeScreen(Screen):
                     output_terminal.flush()
                     if getattr(self, "ai_explanations_enabled", True):
                         expl_header = (
-                            f"\n\n---\n\n# Run #{event.run_count}: `{event.cmd_str}` *({event.timestamp})*\n\n"
+                            f"\n\n---\n\n## ⚡ Run #{event.run_count} · `{event.timestamp}`\n> `{event.cmd_str}`\n\n"
                             if self.explanation_buffer
-                            else f"# Run #{event.run_count}: `{event.cmd_str}` *({event.timestamp})*\n\n"
+                            else f"## ⚡ Run #{event.run_count} · `{event.timestamp}`\n> `{event.cmd_str}`\n\n"
                         )
                         self.explanation_buffer += expl_header
                         try:

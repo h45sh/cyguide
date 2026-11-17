@@ -168,6 +168,7 @@ class ScanStartedEvent(LearningEvent):
     run_count: int = 0
     cmd_str: str = ""
     header_text: str = ""
+    timestamp: str = ""
 
 
 @dataclass
@@ -384,11 +385,13 @@ class LearningSession:
         t_start = time.time()
         timestamp = datetime.now().strftime("%H:%M:%S")
 
-        # Format header
+        # Format terminal prompt header: clean prompt box with colorful command on next line
+        prompt_top = f"\x1b[90m┌─[\x1b[0m\x1b[1;36mrun #{self.run_count}\x1b[0m\x1b[90m]─[\x1b[0m\x1b[33m{timestamp}\x1b[0m\x1b[90m]\x1b[0m"
+        prompt_cmd = f"\x1b[90m└─\x1b[0m\x1b[1;32m>\x1b[0m \x1b[1;37m{invocation.cmd_str}\x1b[0m"
         log_header = (
-            f"\n\n{'═' * 65}\n▶ RUN #{self.run_count} [{timestamp}]  $ {invocation.cmd_str}\n{'═' * 65}\n\n"
+            f"\n\n{prompt_top}\n{prompt_cmd}\n\n"
             if self.log_buffer
-            else f"{'═' * 65}\n▶ RUN #{self.run_count} [{timestamp}]  $ {invocation.cmd_str}\n{'═' * 65}\n\n"
+            else f"{prompt_top}\n{prompt_cmd}\n\n"
         )
         self.log_buffer.append(log_header)
 
@@ -396,6 +399,7 @@ class LearningSession:
             run_count=self.run_count,
             cmd_str=invocation.cmd_str,
             header_text=log_header,
+            timestamp=timestamp,
         )
 
         async def _handle_chunk(text: str) -> None:
@@ -428,7 +432,7 @@ class LearningSession:
                 await _handle_chunk(f"Simulated execution for {action.tool_name}\n")
 
             elapsed = time.time() - t_start
-            footer = f"\n{'─' * 65}\n✔ Scan completed in {elapsed:.1f}s\n"
+            footer = f"\n\x1b[90m✔ Process finished in {elapsed:.1f}s\x1b[0m\n"
             self.log_buffer.append(footer)
 
             yield ScanCompletedEvent(
