@@ -340,6 +340,16 @@ Contributions are warmly welcomed! Please read our **[Contributing Guide](docs/u
 
 ---
 
+## Author & Maintainer
+
+**CyGuide** was conceived, architected, and built from scratch by **Harshwardhan Patil ([@h45sh](https://github.com/h45sh))**.
+
+* **Website**: [h45sh.com/portfolio/cyguide](https://h45sh.com/portfolio/cyguide/)
+* **GitHub**: [@h45sh](https://github.com/h45sh)
+* **Email**: [harshwardhan@h45sh.com](mailto:harshwardhan@h45sh.com)
+
+---
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

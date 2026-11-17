@@ -93,8 +93,18 @@ In-depth discussions of system architecture, design decisions, and threat models
 3. Use `Ctrl+G` to merge findings across multiple subnets and targets into a unified workspace-wide attack graph.
 4. Press `Ctrl+E` to generate instant technical and executive Markdown reports.
 
-### For Tool Developers & Core Contributors
+### For Tool Developers & Plugin Authors
 1. Read **[Contributing Guide](user/CONTRIBUTING.md)** and understand the Smart Adapter contract.
 2. Inspect the **[Schema Registry](developer/SCHEMA_REGISTRY.md)** to select the right finding models for your tool.
 3. Review **[System Architecture](developer/ARCHITECTURE.md)** and **[Database Specification](developer/DATABASE.md)**.
 4. Verify changes locally by running `./scripts/verify.sh`.
+
+---
+
+## Author & Project Ownership
+
+**CyGuide** is an open-source cybersecurity platform created, architected, and maintained by **Harshwardhan Patil ([@h45sh](https://github.com/h45sh))**.
+
+* **Website**: [h45sh.com/portfolio/cyguide](https://h45sh.com/portfolio/cyguide/)
+* **Maintainer Inquiries**: [harshwardhan@h45sh.com](mailto:harshwardhan@h45sh.com)
+
