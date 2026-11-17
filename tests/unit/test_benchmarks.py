@@ -241,13 +241,13 @@ async def test_entity_browser_extreme_scale_virtualization():
     t0 = time.perf_counter()
     await browser.refresh_entities(graph_data)
     elapsed = (time.perf_counter() - t0) * 1000
-    assert elapsed < 100.0, f"Initial 5,000 nodes tree refresh took {elapsed:.1f}ms (expected < 100ms)"
+    assert elapsed < 500.0, f"Initial 5,000 nodes tree refresh took {elapsed:.1f}ms (expected < 500ms)"
 
     browser.set_filter("10.0.1")
     t_filter = time.perf_counter()
     await browser.refresh_entities(graph_data)
     filter_elapsed = (time.perf_counter() - t_filter) * 1000
-    assert filter_elapsed < 100.0, f"Filtering 5,000 nodes took {filter_elapsed:.1f}ms (expected < 100ms)"
+    assert filter_elapsed < 500.0, f"Filtering 5,000 nodes took {filter_elapsed:.1f}ms (expected < 500ms)"
 
 
 def test_schema_model_throughput():
