@@ -27,10 +27,25 @@ from textual.widgets import (
 
 
 class CyGuideHorizontalRule(RichHorizontalRule):
-    """Custom electric blue double-line separator (═)."""
+    """Adaptive horizontal separator:
+    - Electric blue double-line (═) between distinct runs/questions (***)
+    - Subtle dim single-line (─) for internal markdown section breaks (---)
+    """
+
+    def __init__(self, is_major_break: bool = False):
+        super().__init__()
+        self.is_major_break = is_major_break
+
+    @classmethod
+    def create(cls, markdown: RichMarkdown, token) -> "CyGuideHorizontalRule":
+        is_major = getattr(token, "markup", "").startswith("*")
+        return cls(is_major_break=is_major)
 
     def __rich_console__(self, console, options):
-        yield RichRule(style="bold #38bdf8", characters="═")
+        if self.is_major_break:
+            yield RichRule(style="bold #38bdf8", characters="═")
+        else:
+            yield RichRule(style="dim #334155", characters="─")
         yield RichText()
 
 
@@ -669,7 +684,7 @@ class LearningModeScreen(Screen):
 
             if cmd_result.message:
                 self.explanation_buffer = (
-                    self.explanation_buffer + f"\n\n---\n\n{cmd_result.message}\n"
+                    self.explanation_buffer + f"\n\n***\n\n{cmd_result.message}\n"
                     if self.explanation_buffer
                     else f"{cmd_result.message}\n"
                 )
@@ -696,7 +711,7 @@ class LearningModeScreen(Screen):
         now_ts = datetime.now().strftime("%H:%M:%S")
         card_header = f"### 💬 Question · `{now_ts}`\n> **{display_prompt}**\n\n"
         base_buffer = (
-            self.explanation_buffer + f"\n\n---\n\n{card_header}"
+            self.explanation_buffer + f"\n\n***\n\n{card_header}"
             if self.explanation_buffer
             else card_header
         )
@@ -890,7 +905,7 @@ class LearningModeScreen(Screen):
                     output_terminal.flush()
                     if getattr(self, "ai_explanations_enabled", True):
                         expl_header = (
-                            f"\n\n---\n\n## ⚡ Run #{event.run_count} · `{event.timestamp}`\n> `{event.cmd_str}`\n\n"
+                            f"\n\n***\n\n## ⚡ Run #{event.run_count} · `{event.timestamp}`\n> `{event.cmd_str}`\n\n"
                             if self.explanation_buffer
                             else f"## ⚡ Run #{event.run_count} · `{event.timestamp}`\n> `{event.cmd_str}`\n\n"
                         )
