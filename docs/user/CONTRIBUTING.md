@@ -28,7 +28,7 @@ tools/<tool_name>/
 ```
 
 > [!TIP]
-> **Automated Scaffolding & Validation**: You can automatically bootstrap a new adapter and validate existing plugins using the official **[CyGuide DevKit (`cyguide-devkit`)](https://github.com/h45sh/cyguide-devkit)** or the repository Agent Skill at [`.agents/skills/cyguide-devkit/SKILL.md`](../../.agents/skills/cyguide-devkit/SKILL.md):
+> **Automated Scaffolding & Validation**: You can automatically bootstrap a new adapter and validate existing plugins using the official **[CyGuide DevKit & Agent Skill (`cyguide-devkit`)](https://github.com/h45sh/cyguide-devkit)**:
 > ```bash
 > pip install cyguide-devkit
 > cyguide-devkit new mytool --target-dir . --category "Web Application Analysis"

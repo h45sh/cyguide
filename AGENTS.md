@@ -54,6 +54,7 @@ CyGuide strictly adheres to John Ousterhout’s philosophy of software design (*
    - The core framework is completely tool-agnostic: it understands only normalized Pydantic `BaseFinding` schemas, SQLite graph storage, process lifecycles, and pub/sub streams.
    - Pluggable tool adapters (`tools/<name>/adapter.py`) encapsulate all CLI argument construction, binary discovery, and line-by-line stdout/stderr parsing.
    - Adding or modifying a security tool is **strictly additive**: create or edit `tools/<name>/manifest.toml` and `adapter.py`. Never edit core engine, database, or UI code to support a new tool.
+   - **DevKit & Adapter Authoring Skill**: When authoring, scaffolding, or validating tool plugins, consult the official standalone toolkit and skill at [`h45sh/cyguide-devkit`](https://github.com/h45sh/cyguide-devkit). It provides automated scaffolding (`cyguide-devkit new`), AST validation (`cyguide-devkit validate`), and curriculum recipe schemas.
 5. **Polymorphic Seam Encapsulation**:
    - Adhere to established seams:
      - `InvestigationSession` (`cyguide/engine/session.py`): Unifies runtime lifecycle requirements across Power Mode (`PowerWorkspaceFacade`) and Learning Mode (`LearningSession`).
