@@ -1007,14 +1007,6 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         ws2 = await app.power_facade.create_workspace("Beta Project")
         await app.power_facade.create_session(ws2, "Beta Session")
 
-        await d.refresh_workspaces()
-        ws_items = [
-            w for w in (await app.power_facade.list_workspaces()) if w.get("status") != "SYSTEM"
-        ]
-        first_ws_name = ws_items[0]["name"]
-        first_sess_name = "Alpha Session" if first_ws_name == "Default Project" else "Beta Session"
-        second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
-
         async def settle_d():
             await pilot.pause(0.05)
             for _ in range(30):
@@ -1038,12 +1030,21 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
                     if details.query(".session_id_card"):
                         break
 
+        await d.refresh_workspaces()
+        await settle_d()
+        ws_items = [
+            w for w in (await app.power_facade.list_workspaces()) if w.get("status") != "SYSTEM"
+        ]
+        first_ws_name = ws_items[0]["name"]
+        first_sess_name = "Alpha Session" if first_ws_name == "Default Project" else "Beta Session"
+        second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
+
         # 1. Start at index 0 with corresponding selected_ws_id
-        await pilot.pause(0.05)
         d.selected_ws_id = ws_items[0]["id"]
         ws_list.index = 0
         ws_list.focus()
         await pilot.pause(0.05)
+        await settle_d()
         assert ws_list.index == 0
         assert ws_list.has_focus is True
 

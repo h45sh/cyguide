@@ -545,8 +545,14 @@ Learning Mode and AI explainers feature a multi-tiered fallback architecture man
 
 * **`CloudKeyProfile`**: Tracks individual key configurations, active/standby states, rate-limit cooldown timers (`cooldown_until`), and health indicators.
 * **Automatic Placeholder Rejection**: `is_placeholder_key()` filters out default documentation tokens (`your_api_key_here`, `sk-...`, `changeme`) without sending bogus network requests.
+* **Strict Token Budgets (`max_tokens: 1500`)**: Adapters explicitly cap completion length to prevent runaway generation bills on pay-per-token cloud models.
+* **Header-Aware Rate-Limit Backoff (HTTP 429)**: The engine extracts `Retry-After` HTTP response headers, applying bounded dynamic cooldowns (`[1.0s, 300.0s]`) before auto-failing over to the next configured key profile or local Ollama.
+* **Content Policy & Safety Alert Detection (HTTP 400)**: Detects provider safety filter keywords (`policy`, `content_filter`, `safety`, `moderation`) when raw security payloads trigger cloud moderation filters, warning the operator rather than failing silently.
+* **Pre-Prompt Secret Redaction**: Private keys (`-----BEGIN PRIVATE KEY-----`), Bearer tokens, and credential patterns are stripped before LLM prompting to protect operator secrets and avoid provider policy blocks.
+* **Tool-Category Prompt Directives**: Categorized security directives (`network`, `recon`, `web`, `vulnerability`, `osint`, `dns`, `exploit`) tailor the tutor's analysis focus. Small local models (Ollama Gemma/Llama) receive concise, direct bullet-point schemas, while frontier cloud models receive full pedagogical breakdowns.
 
 ---
+
 
 ## 14. Interactive Configuration & UI Subsystem
 

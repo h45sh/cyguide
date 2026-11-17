@@ -1,6 +1,7 @@
 """Learning Mode screen with redesigned Phase 2 lesson layout."""
 
 import asyncio
+import re
 from datetime import datetime
 from typing import Any, List, Optional
 
@@ -24,6 +25,8 @@ from textual.widgets import (
 
 def render_markdown(text: str) -> RichMarkdown:
     """Render markdown using Rich renderables without DOM widget hierarchy churn."""
+    if "**#" in text:
+        text = re.sub(r"^\s*\*\*(#{1,6}\s+.*?)\*\*\s*$", r"\1", text, flags=re.MULTILINE)
     return RichMarkdown(text, justify="left", code_theme="monokai")
 
 

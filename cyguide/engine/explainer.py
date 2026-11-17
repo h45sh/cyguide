@@ -659,10 +659,11 @@ class ExplanationTutor(ExplainerBackend):
                 )
                 return
 
+            err_summary = "connection failed" if "connection" in (ollama_pre_err or "").lower() else (ollama_pre_err or "connection error")
             fallback_msg = (
                 "Ollama connection dropped mid-stream. Falling back to Cloud AI..."
                 if not first
-                else f"Local Ollama unavailable ({ollama_pre_err or 'connection error'}). Falling back to Cloud AI..."
+                else f"Local Ollama unavailable ({err_summary}). Falling back to Cloud AI..."
             )
             yield TutorStatus(message=fallback_msg, is_warning=True)
         else:
@@ -1047,7 +1048,7 @@ class ExplanationTutor(ExplainerBackend):
             if isinstance(event, TutorToken):
                 yield event.text
             elif isinstance(event, TutorStatus):
-                yield f"[Notice: {event.message}]\n\n"
+                yield f"> 💡 Notice: {event.message}\n\n"
             elif isinstance(event, TutorError):
                 if event.error.startswith("[Error:") or event.error.startswith("\n> [!]"):
                     yield event.error

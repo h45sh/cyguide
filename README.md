@@ -1,21 +1,26 @@
-# CyGuide
+<p align="center">
+  <h1 align="center">CyGuide</h1>
+  <p align="center"><b>The deterministic terminal workstation & pedagogical lab for cybersecurity tools.</b></p>
+  <p align="center">
+    <a href="https://pypi.org/project/cyguide/">PyPI</a> ·
+    <a href="docs/README.md">Documentation Hub</a> ·
+    <a href="docs/developer/ROADMAP.md">Roadmap</a> ·
+    <a href=".github/SECURITY.md">Security Policy</a> ·
+    <a href="assets/demo.mp4">Video Walkthrough</a> ·
+    <a href="https://h45sh.com/portfolio/cyguide/">Website</a>
+  </p>
+</p>
 
-[![CI](https://github.com/h45sh/cyguide/actions/workflows/ci.yml/badge.svg)](https://github.com/h45sh/cyguide/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/h45sh/cyguide/actions/workflows/codeql.yml/badge.svg)](https://github.com/h45sh/cyguide/actions/workflows/codeql.yml)
-[![PyPI](https://img.shields.io/pypi/v/cyguide.svg)](https://pypi.org/project/cyguide/)
-[![Python](https://img.shields.io/pypi/pyversions/cyguide.svg)](https://pypi.org/project/cyguide/)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/h45sh/cyguide/pkgs/container/cyguide)
-[![Website](https://img.shields.io/badge/website-h45sh.com-blue.svg)](https://h45sh.com/portfolio/cyguide/)
-[![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](.github/SECURITY.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/h45sh/cyguide/actions/workflows/ci.yml"><img src="https://github.com/h45sh/cyguide/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/h45sh/cyguide/actions/workflows/codeql.yml"><img src="https://github.com/h45sh/cyguide/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+  <a href="https://pypi.org/project/cyguide/"><img src="https://img.shields.io/pypi/v/cyguide.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/cyguide/"><img src="https://img.shields.io/pypi/pyversions/cyguide.svg" alt="Python"></a>
+  <a href="https://github.com/h45sh/cyguide/pkgs/container/cyguide"><img src="https://img.shields.io/badge/docker-ghcr.io-blue.svg" alt="Docker"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
+</p>
 
-
-
-**TUI-Based Guided Cybersecurity Learning and Terminal Tool Orchestration Platform.**
-
-CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models.
-
-For an interactive overview and project showcase, visit the official webpage at [https://h45sh.com/portfolio/cyguide/](https://h45sh.com/portfolio/cyguide/).
+CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models—backed by strict subprocess isolation, SSRF gating, and token spend guardrails.
 
 <p align="center">
   <a href="assets/demo.mp4">
@@ -32,7 +37,8 @@ For an interactive overview and project showcase, visit the official webpage at 
 * **No More Terminal Tab Chaos**: Run multiple reconnaissance tools concurrently with dedicated tabs, active job monitoring, and instant output review.
 * **Stateful Entity Graph**: Discoveries (hosts, open ports, endpoints, DNS records, vulnerabilities) automatically link together in a deterministic graph using SHA-256 Primary Identity Keys (PIKs).
 * **Universal Variable Injection**: Click any node in your target tree to bind variables (`$TARGET`, `$PORT`, `$SERVICE`) into subsequent commands without retyping IP addresses.
-* **Offline-First AI Tutor**: Get immediate, structured breakdowns of scan results and security recommendations powered by local Ollama models or cloud APIs.
+* **Deterministic Execution & Safety Guardrails**: Non-shell subprocess execution vectors (`asyncio.create_subprocess_exec`), Link-Local/cloud metadata SSRF gating (`169.254.0.0/16`), and child environment secret scrubbing protect operator credentials.
+* **Offline-First AI Tutor with Token Guardrails**: Get immediate, structured breakdowns of scan results and security recommendations powered by local Ollama models or cloud APIs, guarded by token spend caps (`max_tokens: 1500`), automatic 429 rate-limit backoff, and sensitive artifact redaction.
 * **Portable Engagement Archives**: Export investigations into standalone `.db` archives and Markdown reports (`cyg export`). Instructors can import (`cyg import`) and replay a student's exact methodology step-by-step.
 
 ---

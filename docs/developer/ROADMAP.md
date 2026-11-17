@@ -15,13 +15,13 @@ This document is the **single authoritative source of truth** for all completed,
 | **v1.8.0: Showcase, Textual Resilience & Automated Release** | **Completed** | 4 | 4 | 0 | 100% |
 | **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **Completed** | 22 | 22 | 0 | 100% |
 | **v1.9.1: Finding Stream Debouncing & Tree Node Caps** | **Completed** | 2 | 2 | 0 | 100% |
-| **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **In Progress (Active dev)** | 23 | 14 | 9 | 61% |
+| **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **In Progress (Active dev)** | 26 | 17 | 9 | 65% |
 | **v1.11.0: Advanced Terminal Capabilities, IPC & Security** | **Planned (Spec Ready)** | 13 | 1 | 12 | 8% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 12 | 0 | 12 | 0% |
 | **Phase 4: Tactical Research Co-Pilot & Offensive Engine** | **Planned (Future)** | 15 | 1 | 14 | 7% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
 | **Job-First Engineering & Market Mastery Track** | **Active Focus** | 9 | 3 | 6 | 33% |
-| **Total Project Tasks** | **In Progress** | **167** | **108** | **59** | **65%** |
+| **Total Project Tasks** | **In Progress** | **170** | **111** | **59** | **65%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -268,6 +268,15 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **Interactive Theory & Protocol Deep Dive Tab**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode
   - Add a dedicated third tab in Learning Mode (`Theory & Deep Dive`) displaying OSI layer packet flows, protocol state machines (TCP 3-way handshake vs SYN teardown, DNS recursion vs AXFR, HTTP header injection), and RFC briefings before execution.
+- [x] **API Cost Guardrails & Rate-Limit Cooldown Engine**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: AI Safety & Billing
+  - Cap output generation tokens with explicit `max_tokens: 1500` on cloud inference adapters (`OpenAIProviderAdapter`, `AnthropicProviderAdapter`). Parse `Retry-After` HTTP headers on 429 rate limits, enforcing bounded cooldown timers (1s–300s) and automatic failover across multi-key profiles. Detect HTTP 400 moderation violations with helpful policy alerts ([`cyguide/engine/explainer.py:157`](../../cyguide/engine/explainer.py#L157)).
+- [x] **Tool-Category Prompt Directives & Schema Specialization**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode / AI
+  - Dynamically inject category-aware pedagogical directives (`network`, `recon`, `web`, `vulnerability`, `osint`, `dns`, `exploit`) and adapt briefing schemas based on model capacity (`is_active_model_local()`), giving small local models direct schemas and frontier cloud models comprehensive analyses ([`cyguide/engine/explainer.py:12`](../../cyguide/engine/explainer.py#L12), [`cyguide/engine/learning.py:639`](../../cyguide/engine/learning.py#L639)).
+- [x] **Tool Output Sanitization Hooks (`ToolAdapter.sanitize_output`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Tool Plugins / Token Efficiency
+  - Add `sanitize_output()` interface to `ToolAdapter`, with implementations in `FfufAdapter` and `NucleiAdapter` stripping ASCII banners, progress bars, and verbose diagnostic logs before passing stdout to LLMs.
 - [ ] **Socratic AI Tutor & Guided Exploration**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode / AI
   - Implement toggleable "Socratic Tutor" persona in the AI Explainer pane that prompts students with analytical questions about findings (e.g., assessing version risk, HTTP redirect chains) and guides next steps rather than just dumping static summaries.

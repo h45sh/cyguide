@@ -43,6 +43,7 @@ Practical recipes for accomplishing specific operational goals:
 * **[Configuring Local AI with Ollama](user/USER_MANUAL.md#the-command-palette-ctrlp--in-app-configuration)**: Connect CyGuide to local, privacy-preserving LLMs (e.g., Llama 3, Gemma, Mistral).
 * **[Multi-Provider Cloud AI Setup](user/USER_MANUAL.md#the-command-palette-ctrlp--in-app-configuration)**: Configure OpenAI, Anthropic, Gemini, DeepSeek, or Groq with automatic failover.
 * **[Exporting & Importing Investigations](user/USER_MANUAL.md#session-portability--reporting)**: Archive standalone `.db` graphs for CTF assignment submissions or peer reviews.
+* **[Academic & Classroom Lab Guide](user/ACADEMIC_LAB_GUIDE.md)**: Verifiable methodology grading, student assignment workflows, and privacy-preserving local AI tutoring for university professors.
 * **[Writing a Custom Security Tool Adapter](user/CONTRIBUTING.md#1-tool-structure)**: Create a new pluggable adapter using the Smart Adapter / Stupid Framework pattern.
 * **[Developer Standards & Pre-Commit Setup](user/CONTRIBUTING.md#7-code-standards--developer-ergonomics)**: Ruff linting, pre-commit git hooks, and Conventional Commits workflow.
 
@@ -51,6 +52,7 @@ Practical recipes for accomplishing specific operational goals:
 ### 3. Reference (Information-Oriented)
 Authoritative technical specifications and catalogues:
 
+* **[Architecture & Domain Glossary](GLOSSARY.md)**: Comprehensive definitions of core platform terms (PIK, Smart Adapter, Entity Graph, Action Gateway, Forensic Archiving).
 * **[Master Keyboard Shortcuts & Hotkeys](user/USER_MANUAL.md#master-keyboard-shortcuts--hotkeys-quick-reference)**: Comprehensive lookup table for all global, dashboard, learning mode, and operator hotkeys.
 * **[CLI Commands & Diagnostics](user/USER_MANUAL.md#4-cli-subcommands--diagnostics)**: Complete reference for `cyg check`, `cyg export`, and `cyg import`.
 * **[Standard Schema Registry](developer/SCHEMA_REGISTRY.md)**: Specifications for the standardized finding schemas (hosts, services, endpoints, credentials, vulnerabilities) and Primary Identity Keys (PIKs).
