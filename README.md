@@ -5,6 +5,7 @@
     <a href="https://pypi.org/project/cyguide/">PyPI</a> ·
     <a href="docs/README.md">Documentation Hub</a> ·
     <a href="docs/developer/ROADMAP.md">Roadmap</a> ·
+    <a href="CONTRIBUTING.md">Contributing</a> ·
     <a href=".github/SECURITY.md">Security Policy</a> ·
     <a href="assets/demo.mp4">Video Walkthrough</a> ·
     <a href="https://h45sh.com/portfolio/cyguide/">Website</a>
