@@ -27,6 +27,14 @@ tools/<tool_name>/
 └── adapter.py       # Command generation and stdout parsing logic
 ```
 
+> [!TIP]
+> **Automated Scaffolding & Validation**: You can automatically bootstrap a new adapter and validate existing plugins using the official **[CyGuide DevKit (`cyguide-devkit`)](https://github.com/h45sh/cyguide-devkit)** or the repository Agent Skill at [`.agents/skills/cyguide-devkit/SKILL.md`](../../.agents/skills/cyguide-devkit/SKILL.md):
+> ```bash
+> pip install cyguide-devkit
+> cyguide-devkit new mytool --target-dir . --category "Web Application Analysis"
+> cyguide-devkit validate tools/mytool
+> ```
+
 ### A. The Declarative Manifest (`manifest.toml`)
 
 The manifest informs CyGuide's registry about tool capabilities, inputs, and outputs:
