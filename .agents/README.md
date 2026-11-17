@@ -10,8 +10,7 @@ This directory houses CyGuide's internal agent intelligence system. It acts as a
 .agents/
 ├── README.md               # Directory overview & agent navigation guide
 ├── skills/
-│   ├── adapter-authoring/      # Specialized skill for authoring CyGuide tool plugins
-│   └── engineering-aggregate/  # Skill driving the self-evolving closed-loop intelligence system
+│   └── adapter-authoring/  # Specialized skill for authoring CyGuide tool plugins
 ├── threads/                # Staging area for per-thread raw retrospectives
 │   └── TEMPLATE.md         # 4-pillar retrospective template used by threads
 └── knowledge/              # (Created on aggregation sweep) Compact domain knowledge bases
