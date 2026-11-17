@@ -8,8 +8,8 @@
 
 | Specification | Value |
 | :--- | :--- |
-| **Report Date** | `2026-11-16 10:35:47 UTC` |
-| **Git Commit / Branch** | `e9b90b9` (`perf/benchmarks-and-startup-optimization`) |
+| **Report Date** | `2026-11-17 01:01:16 UTC` |
+| **Git Commit / Branch** | `434759a` (`feat/api-guardrails-and-tool-intelligence`) |
 | **Platform / OS** | `Linux` (`Linux-7.2.15-1-omarchy-x86_64-with-glibc2.44`) |
 | **CPU Architecture** | `x86_64` |
 | **Python Version** | `3.15.2` (`/home/harsh/Documents/cyguide/.venv/bin/python`) |
@@ -18,10 +18,10 @@
 
 | Subsystem | Metric Measured | Current Result | Guard Threshold | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **App Cold Launch** | Full import latency | **580.8 ms** | `< 950 ms` | 🟢 PASS |
-| **Terminal Stream** | Ingestion rate (500k lines) | **91,231 lines/s** | `> 60,000 lines/s` | 🟢 PASS |
-| **SQLite GraphStore** | Batch ingestion (10k entities) | **2,238 entities/s** | `> 1,500 entities/s` | 🟢 PASS |
-| **DOM Virtualization** | EntityBrowser rebuild (10k) | **51.9 ms** | `< 120 ms` | 🟢 PASS |
+| **App Cold Launch** | Full import latency | **507.8 ms** | `< 950 ms` | 🟢 PASS |
+| **Terminal Stream** | Ingestion rate (500k lines) | **96,570 lines/s** | `> 60,000 lines/s` | 🟢 PASS |
+| **SQLite GraphStore** | Batch ingestion (10k entities) | **2,428 entities/s** | `> 1,500 entities/s` | 🟢 PASS |
+| **DOM Virtualization** | EntityBrowser rebuild (10k) | **45.6 ms** | `< 120 ms` | 🟢 PASS |
 
 ## 3. Startup & Import Breakdown
 
@@ -29,18 +29,18 @@ Subsystem import latencies measured in isolated fresh Python processes:
 
 | Module / Layer | Import Latency | Description |
 | :--- | :--- | :--- |
-| `pydantic` | **91.7 ms** | Dependency / Subsystem |
-| `rich` | **36.7 ms** | Dependency / Subsystem |
-| `textual` | **196.6 ms** | Dependency / Subsystem |
-| `aiosqlite` | **111.0 ms** | Dependency / Subsystem |
-| `httpx` | **149.3 ms** | Dependency / Subsystem |
-| `dnspython` | **160.0 ms** | Dependency / Subsystem |
-| `cyguide.paths` | **38.3 ms** | Dependency / Subsystem |
-| `cyguide.schemas` | **215.9 ms** | Dependency / Subsystem |
-| `cyguide.engine.store` | **266.9 ms** | Dependency / Subsystem |
-| `cyguide.ui.widgets.power` | **461.3 ms** | Dependency / Subsystem |
-| `cyguide.app (FULL APP)` | **580.8 ms** | Full Application Entrypoint |
-| `cyg --version` (CLI Check) | **139.9 ms** | Fast CLI parser path |
+| `pydantic` | **83.6 ms** | Dependency / Subsystem |
+| `rich` | **34.7 ms** | Dependency / Subsystem |
+| `textual` | **166.9 ms** | Dependency / Subsystem |
+| `aiosqlite` | **91.6 ms** | Dependency / Subsystem |
+| `httpx` | **121.7 ms** | Dependency / Subsystem |
+| `dnspython` | **140.2 ms** | Dependency / Subsystem |
+| `cyguide.paths` | **32.1 ms** | Dependency / Subsystem |
+| `cyguide.schemas` | **184.1 ms** | Dependency / Subsystem |
+| `cyguide.engine.store` | **233.3 ms** | Dependency / Subsystem |
+| `cyguide.ui.widgets.power` | **394.8 ms** | Dependency / Subsystem |
+| `cyguide.app (FULL APP)` | **507.8 ms** | Full Application Entrypoint |
+| `cyg --version` (CLI Check) | **126.4 ms** | Fast CLI parser path |
 
 ## 4. Subprocess Terminal Stream Bombardment
 
@@ -48,10 +48,10 @@ Simulates rapid subprocess output stream chunks flushed to `TerminalStreamPane` 
 
 | Stream Lines | Elapsed Time | Throughput | Peak Memory | Ring Buffer Size | Memory Bound |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **50,000** | 0.52 s | **95,385 lines/s** | 8.50 MB | 5000 lines | $O(1)$ Strictly Capped |
-| **100,000** | 1.12 s | **88,894 lines/s** | 16.84 MB | 5000 lines | $O(1)$ Strictly Capped |
-| **250,000** | 2.69 s | **92,957 lines/s** | 42.05 MB | 5000 lines | $O(1)$ Strictly Capped |
-| **500,000** | 5.48 s | **91,231 lines/s** | 84.07 MB | 5000 lines | $O(1)$ Strictly Capped |
+| **50,000** | 0.50 s | **100,808 lines/s** | 8.50 MB | 5000 lines | $O(1)$ Strictly Capped |
+| **100,000** | 1.04 s | **96,268 lines/s** | 16.84 MB | 5000 lines | $O(1)$ Strictly Capped |
+| **250,000** | 2.57 s | **97,375 lines/s** | 42.05 MB | 5000 lines | $O(1)$ Strictly Capped |
+| **500,000** | 5.18 s | **96,570 lines/s** | 84.07 MB | 5000 lines | $O(1)$ Strictly Capped |
 
 > [!TIP]
 > Throughput comfortably exceeds 90,000 lines/second while strictly limiting resident memory to 5,000 lines.
@@ -62,21 +62,21 @@ Evaluates atomic batch ingestion, query performance, and database serialization:
 
 | Entity Count | Batch Ingest (100) | Ingest Rate | Query Nodes | Query Edges | Export DB | Import DB | SQLite Size |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | 0.38 s | **2,603/s** | 4.9 ms | 1.5 ms | 58.2 ms | **73.5 ms** | 1.36 MB |
-| **5,000** | 2.12 s | **2,358/s** | 24.4 ms | 7.6 ms | 147.2 ms | **330.6 ms** | 6.50 MB |
-| **10,000** | 4.47 s | **2,238/s** | 55.4 ms | 68.5 ms | 232.5 ms | **729.0 ms** | 12.92 MB |
+| **1,000** | 0.32 s | **3,142/s** | 4.6 ms | 1.4 ms | 52.0 ms | **64.5 ms** | 1.35 MB |
+| **5,000** | 1.86 s | **2,688/s** | 22.7 ms | 7.2 ms | 130.8 ms | **325.7 ms** | 6.50 MB |
+| **10,000** | 4.12 s | **2,428/s** | 47.2 ms | 54.3 ms | 222.0 ms | **664.1 ms** | 12.92 MB |
 
 ### Single Transaction vs. Atomic Micro-Batching (250 findings)
-- **Individual `upsert_finding` calls**: 0.14 s (1,772 findings/s) — Contention & per-row transaction commits.
-- **Batch `upsert_findings_batch`**: 0.067 s (3,705 findings/s) — **2.1x Faster**.
+- **Individual `upsert_finding` calls**: 0.12 s (2,052 findings/s) — Contention & per-row transaction commits.
+- **Batch `upsert_findings_batch`**: 0.069 s (3,606 findings/s) — **1.8x Faster**.
 
 ## 6. Schema Model Validation & Tool Parsing
 
 | Operation | Count | Elapsed Time | Throughput |
 | :--- | :--- | :--- | :--- |
-| `NetworkHost.create` | 50,000 | 0.50 s | **99,943 models/s** |
-| `WebEndpoint.create` | 50,000 | 1.22 s | **40,838 models/s** |
-| Pre-compiled Regex Line Parsing | 50,000 | 0.023 s | **2,154,752 lines/s** |
+| `NetworkHost.create` | 50,000 | 0.47 s | **105,314 models/s** |
+| `WebEndpoint.create` | 50,000 | 1.19 s | **42,070 models/s** |
+| Pre-compiled Regex Line Parsing | 50,000 | 0.022 s | **2,234,031 lines/s** |
 
 ## 7. EntityBrowser DOM Virtualization & Search
 
@@ -84,10 +84,10 @@ Tests category capping (`MAX_DISPLAY_PER_CATEGORY=200`) and live search performa
 
 | Graph Entities | Initial Tree Render | Filter Query (`10.0.1`) | Fast-Path (Identical Data) | Root Branches |
 | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | 16.9 ms | 8.1 ms | 0.01 ms | Capped (201 items) |
-| **5,000** | 30.5 ms | 39.3 ms | 0.01 ms | Capped (201 items) |
-| **10,000** | 51.9 ms | 78.6 ms | 0.01 ms | Capped (201 items) |
-| **25,000** | 111.3 ms | 216.4 ms | 0.01 ms | Capped (201 items) |
+| **1,000** | 13.6 ms | 7.7 ms | 0.01 ms | Capped (201 items) |
+| **5,000** | 26.1 ms | 36.1 ms | 0.01 ms | Capped (201 items) |
+| **10,000** | 45.6 ms | 73.3 ms | 0.01 ms | Capped (201 items) |
+| **25,000** | 99.6 ms | 196.8 ms | 0.01 ms | Capped (201 items) |
 
 ---
 *Report generated automatically for CyGuide.*

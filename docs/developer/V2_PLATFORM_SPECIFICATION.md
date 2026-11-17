@@ -1,6 +1,6 @@
 # CyGuide v2.0.0: The Mature Platform Specification
 
-This document provides the exhaustive technical specification, engineering contracts, security boundaries, and community distribution strategies for the milestone progression from **v1.9.0** through **v2.0.0 (The Mature Flagship Platform)** (following the **v1.8.0** release which delivered the terminal video showcase, upstream Textual 0.89+ resilience, and Release Please CI/CD automation).
+This document provides the exhaustive technical specification, engineering contracts, security boundaries, and community distribution strategies for the milestone progression leading through **v2.0.0 (The Mature Flagship Platform)**.
 
 It serves as the deep-dive architectural companion to [`docs/developer/ROADMAP.md`](ROADMAP.md) and [`docs/developer/ARCHITECTURE.md`](ARCHITECTURE.md).
 
@@ -8,40 +8,33 @@ It serves as the deep-dive architectural companion to [`docs/developer/ROADMAP.m
 
 ## 1. Executive Architecture & Progression Philosophy
 
-To reach enterprise-grade maturity without destabilizing the application or compromising responsive TUI rendering, development follows a strict four-milestone sequence:
+To reach enterprise-grade maturity without destabilizing the application or compromising responsive TUI rendering, development follows a strict milestone progression:
 
 ```mermaid
 flowchart LR
-    M1["v1.9.0: Dataflow & DB<br><i>Micro-Batching, Disk Logs, WAL</i>"] --> M2["v1.10.0: Terminal & Security<br><i>PTY Shell, Decoupled IPC, AES Vault</i>"]
-    M2 --> M3["v1.10.5: Ecosystem & Scaffolding<br><i>Adapter Scaffolder, Nuclei, FFUF, SQLMap</i>"]
-    M3 --> M4["v2.0.0: Mature Flagship<br><i>Standalone Binary, Headless CLI, Public Launch</i>"]
+    M1["v1.9.0: Dataflow & DB<br><i>Micro-Batching, Disk Logs, WAL</i><br><b>[SHIPPED]</b>"] --> M2["v1.10.0: Ecosystem & Benchmarks<br><i>Nuclei, FFUF, Scaffolder, Benchmarks</i><br><b>[SHIPPED]</b>"]
+    M2 --> M3["v1.10.1: API Guardrails & Safety<br><i>Token Caps, 429 Backoff, Secret Redaction</i><br><b>[SHIPPED]</b>"]
+    M3 --> M4["v1.11.0: Terminal & Security<br><i>Interactive PTY, Decoupled IPC, AES-256 Vault</i><br><b>[NEXT]</b>"]
+    M4 --> M5["v2.0.0: Mature Flagship<br><i>Standalone Binary, Headless CLI, Public Launch</i><br><b>[FINAL]</b>"]
 ```
 
 ### Core Invariants
-1. **Never Render Raw High-Throughput Streams Synchronously**: The UI must never directly sink raw subprocess stdout. All streams pass through an asynchronous producer-consumer ring buffer micro-batched at 20–30 FPS.
-2. **Zero In-Memory Log Bloat**: Subprocess outputs must spill directly to append-only disk files; memory retains only a capped 5,000-line viewport ring buffer.
-3. **Deterministic Separation of PTY and Structured Tools**: Structured adapters run through standard non-interactive pipelines with finding parsers; interactive shells and prompt-driven tools run through an explicit pseudo-terminal (PTY) channel.
-4. **Defense-in-Depth Cryptographic Isolation**: Session archives must support authenticated encryption (AES-256-GCM), and untrusted terminal text passed to LLMs must be strictly sandboxed by cryptographically randomized boundary tokens.
+1. **Never Render Raw High-Throughput Streams Synchronously**: The UI must never directly sink raw subprocess stdout. All streams pass through an asynchronous producer-consumer ring buffer micro-batched at 20–30 FPS. *(Shipped in v1.9.0 / v1.10.0)*
+2. **Zero In-Memory Log Bloat**: Subprocess outputs must spill directly to append-only disk files; memory retains only a capped 5,000-line viewport ring buffer. *(Shipped in v1.9.0)*
+3. **Deterministic Separation of PTY and Structured Tools**: Structured adapters run through standard non-interactive pipelines with finding parsers; interactive shells and prompt-driven tools run through an explicit pseudo-terminal (PTY) channel. *(Target: v1.11.0)*
+4. **Defense-in-Depth Cryptographic Isolation**: Session archives must support authenticated encryption (AES-256-GCM), and untrusted terminal text passed to LLMs must be strictly sandboxed by cryptographically randomized boundary tokens and strict token limits. *(Boundaries & caps shipped in v1.10.1; AES-256 Vault in v1.11.0)*
 
-### 1.1 Architectural Deepening & Seam Discipline
+### 1.1 Delivered Architectural Foundations (v1.9.0 – v1.10.1)
 
-Following the formal codebase architecture review, the platform enforces strict module depth and seam locality across all upcoming phases:
-
-#### 1. Pure Subprocess Executor (v1.9.0 - Track 1 & 4)
-* **Problem**: In v1.7.0, `Executor` directly invokes `self.store.upsert_finding()` inside low-level OS pipe-draining loops, creating teardown race conditions and coupling process lifecycle to database transactions.
-* **Contract**: `Executor` becomes a pure process execution engine yielding `AsyncIterator[BaseFinding]`. Interface parameters shrink from 12 down to 4. Persistence moves to the coordination layer (`PowerWorkspaceFacade`), where findings are buffered into atomic micro-batches (flush every 250ms or 50 items).
-
-#### 2. Unified Action Seam & Deletion of Shallow Engines (v1.9.0 - Track 5)
-* **Problem**: `LearningModeEngine` is a 49-line pass-through module that bypassed `ActionGateway`, creating a critical security loophole where learning scans skipped link-local SSRF validation and live job tracking. `LearningExplainer` was similarly an empty 10-line alias renaming `explain()` to `ask()`.
-* **Contract**: Delete `LearningModeEngine` and `LearningExplainer`. All tool executions route through `ActionGateway` / `PowerWorkspaceFacade.submit_action()`, giving Learning Mode identical SSRF safeguards, job buffers, and desktop notifications without duplicated code.
-
-#### 3. Cohesive Workspace & Session Repository Seam (v1.10.0 - Track 3)
-* **Problem**: Dashboard screens currently juggle two parallel interfaces (`GraphStore` for reads, `PowerWorkspaceFacade` for mutations and forensic audits).
-* **Contract**: Consolidate workspace/session queries and lifecycle rules behind a single deep repository interface, engineered to support both the Textual UI and the headless Unix domain socket IPC daemon (`~/.cyguide/run/cyguide.sock`).
+The platform has already delivered its primary dataflow refactors:
+* **Pure Subprocess Executor (`Executor`)**: Streamlined process execution engine yielding `AsyncIterator[BaseFinding]` with findings buffered into atomic micro-batches (flush every 250ms or 50 items).
+* **Unified Action Seam (`ActionGateway`)**: Direct routing through `ActionGateway` / `PowerWorkspaceFacade.submit_action()` providing SSRF safeguards, job buffers, and desktop notifications.
+* **Unified Workspace & Session Repository Seam**: Consolidated workspace/session queries and lifecycle rules behind a deep repository interface.
+* **API Cost & Safety Guardrails**: Hard token budgets (`max_tokens: 1500`), exponential backoff on HTTP 429 (`Retry-After`), AI prompt delimiter sandboxing, and upstream API secret redaction.
 
 ---
 
-## 2. Full Terminal Capabilities & Interactive PTY Architecture
+## 2. Full Terminal Capabilities & Interactive PTY Architecture (v1.11.0)
 
 ### 2.1 The Current Limitation
 Currently, [`cyguide/engine/executor.py`](../../cyguide/engine/executor.py) spawns subprocesses with `stdin=asyncio.subprocess.DEVNULL` and standard asynchronous OS pipes (`PIPE`) for `stdout`/`stderr`. This design prevents interactive execution:
@@ -50,7 +43,7 @@ Currently, [`cyguide/engine/executor.py`](../../cyguide/engine/executor.py) spaw
 * Programs do not receive terminal geometry changes (`SIGWINCH`), resulting in broken ANSI cursor positioning and formatting artifacts.
 
 ### 2.2 PTY Architecture Specification
-The v1.10.0 executor introduces a dual-path execution strategy in `Executor`:
+The v1.11.0 executor introduces a dual-path execution strategy in `Executor`:
 1. **Structured Mode (Default)**: Uses standard `PIPE` streams for tools with structured output parsers (`nmap`, `gobuster`, `nikto`).
 2. **Interactive PTY Mode**: Uses an OS pseudo-terminal pair (`master_fd`, `slave_fd`) via Python's standard `pty` and `os.openpty()` (or `ptyprocess` on POSIX systems).
 
@@ -200,13 +193,13 @@ tools/<name>/
 ```
 
 ### 5.2 Key Tool Adapters
-
-| Tool | Category | Primary Output Schemas | Key Capabilities |
-| :--- | :--- | :--- | :--- |
-| **`nuclei`** | Vulnerability Scanner | `vulnerability.found`, `web.vulnerability` | High-speed template scanning for CVEs, misconfigurations, and credential exposures. |
-| **`ffuf`** | Web Fuzzer | `web.endpoint`, `web.parameter` | Multi-threaded HTTP directory/parameter discovery with match/filter controls. |
-| **`sqlmap`** | Exploitation | `vulnerability.found` (SQLi), `credential.found` | Automated SQL injection testing, DB fingerprinting, and table extraction. |
-| **`amass`** | Attack Surface | `network.host`, `network.domain` | In-depth DNS enumeration, passive ASN reconnaissance, and network mapping. |
+ 
+| Tool | Category | Status | Primary Output Schemas | Key Capabilities |
+| :--- | :--- | :--- | :--- | :--- |
+| **`nuclei`** | Vulnerability Scanner | **Delivered (v1.10.0)** | `vulnerability.found`, `web.vulnerability` | High-speed template scanning for CVEs, misconfigurations, and credential exposures. |
+| **`ffuf`** | Web Fuzzer | **Delivered (v1.10.0)** | `web.endpoint`, `web.parameter` | Multi-threaded HTTP directory/parameter discovery with match/filter controls. |
+| **`sqlmap`** | Exploitation | *Planned (v1.11.0)* | `vulnerability.found` (SQLi), `credential.found` | Automated SQL injection testing, DB fingerprinting, and table extraction. |
+| **`amass`** | Attack Surface | *Planned (v2.0.0)* | `network.host`, `network.domain` | In-depth DNS enumeration, passive ASN reconnaissance, and network mapping. |
 
 ---
 

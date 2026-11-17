@@ -16,12 +16,12 @@ This document is the **single authoritative source of truth** for all completed,
 | **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **Completed** | 22 | 22 | 0 | 100% |
 | **v1.9.1: Finding Stream Debouncing & Tree Node Caps** | **Completed** | 2 | 2 | 0 | 100% |
 | **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **In Progress (Active dev)** | 26 | 17 | 9 | 65% |
-| **v1.11.0: Advanced Terminal Capabilities, IPC & Security** | **Planned (Spec Ready)** | 13 | 1 | 12 | 8% |
+| **v1.11.0: Advanced Terminal Capabilities, IPC & Security** | **Planned (Spec Ready)** | 16 | 1 | 15 | 6% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 12 | 0 | 12 | 0% |
 | **Phase 4: Tactical Research Co-Pilot & Offensive Engine** | **Planned (Future)** | 15 | 1 | 14 | 7% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
 | **Job-First Engineering & Market Mastery Track** | **Active Focus** | 9 | 3 | 6 | 33% |
-| **Total Project Tasks** | **In Progress** | **170** | **111** | **59** | **65%** |
+| **Total Project Tasks** | **In Progress** | **173** | **111** | **62** | **64%** |
 
 > [!NOTE]
 > For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
@@ -346,6 +346,15 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **Encrypted Archive Integrity & Tamper Fuzzing**:
   - *Priority*: **P2** | *Complexity*: Medium | *Track*: Security / Reliability
   - Automated test suite verifying cryptographic rejection of truncated, bit-flipped, or maliciously crafted session archives (Argon2id + AES-256-GCM auth tag failures).
+- [ ] **Automated CI Performance Regression Gate (`scripts/generate_benchmark_report.py --check`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Benchmarking / Quality Gate
+  - Integrate benchmark checks into GitHub Actions PR workflow to automatically block merges on critical regressions across cold start, streaming ingestion, or SQLite batching.
+- [ ] **Continuous Memory RSS & Heap Profiling**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Performance / Reliability
+  - Profile sustained resident memory (RSS) and Python heap allocation over 50,000+ line scanner runs, verifying zero leak accumulation under long-running daemon workloads.
+- [ ] **Multi-Session Concurrent Background Benchmark**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Concurrency / Performance
+  - Benchmark SQLite WAL lock contention and CPU utilization when executing 5+ parallel tool adapters simultaneously across multiple tabs.
 
 ---
 
