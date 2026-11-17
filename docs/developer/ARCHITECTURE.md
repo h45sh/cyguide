@@ -262,6 +262,7 @@ Learning Mode provides an isolated, curriculum-driven execution environment back
   * `get_database_targets()`: Queries SQLite `GraphStore` nodes across the workspace or session to extract all unique network hosts, domains, and web endpoints.
   * `sweep_targets()`: Sequentially iterates through database targets, executing the chosen tool recipe against each entity while yielding typed stream events (`ScanStartedEvent`, `ScanCompletedEvent`).
 * **AI Tutor Decoupling (`stream_tutor_response`)**: Handles token pacing, throttling, greeting fallbacks, and typed stream emission (`TutorStreamChunk`), keeping TUI screens completely free of polling loops.
+* **Lab Checkpoints & Quicksave (`.cyglab`)**: Serializes full session state (discovered graph nodes/edges, terminal output buffers, tutor Q&A markdown, active tool/recipe state, and student notes) via SQLite zero-copy attachments, enabling students and educators to save, resume, or export completed lab exercises.
 
 #### 3. Presentation Seams
 * **`RecipeDeck`** ([`cyguide/ui/widgets/recipe_deck.py`](../../cyguide/ui/widgets/recipe_deck.py)): Encapsulates DOM construction of recipe cards, action buttons (`▶ RUN`, `? ASK`), and dynamic run/stop button state transitions.
