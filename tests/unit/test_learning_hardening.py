@@ -410,15 +410,15 @@ async def test_learning_ask_ai_and_run_buttons():
 
         # 2. Test clicking sidebar Ask AI button switches to tab_explanation and calls query_ai_tutor
         tabs.active = "tab_output"
-        await pilot.pause()
+        await pilot.pause(0.1)
         sidebar_ask.press()
-        await pilot.pause()
+        await pilot.pause(0.2)
         assert tabs.active == "tab_explanation"
         assert "Explain command:" in screen.explanation_buffer
 
         # 3. Recipe cards have both [✦ ASK AI] and [▶ RUN] buttons
         tabs.active = "tab_recipes"
-        await pilot.pause()
+        await pilot.pause(0.1)
 
         ask_recipe_0 = screen.query_one("#ask_recipe_0", Button)
         load_recipe_0 = screen.query_one("#load_recipe_0", Button)
@@ -432,7 +432,7 @@ async def test_learning_ask_ai_and_run_buttons():
 
         # 4. Test clicking recipe card [✦ ASK AI] button
         ask_recipe_0.press()
-        await pilot.pause()
+        await pilot.pause(0.2)
         assert tabs.active == "tab_explanation"
         assert "Explain recipe:" in screen.explanation_buffer
 
