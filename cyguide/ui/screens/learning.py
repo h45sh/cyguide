@@ -5,7 +5,10 @@ import re
 from datetime import datetime
 from typing import Any, List, Optional
 
+from rich.markdown import HorizontalRule as RichHorizontalRule
 from rich.markdown import Markdown as RichMarkdown
+from rich.rule import Rule as RichRule
+from rich.text import Text as RichText
 from textual import events, work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -23,11 +26,26 @@ from textual.widgets import (
 )
 
 
-def render_markdown(text: str) -> RichMarkdown:
+class CyGuideHorizontalRule(RichHorizontalRule):
+    """Custom electric blue double-line separator (═)."""
+
+    def __rich_console__(self, console, options):
+        yield RichRule(style="bold #38bdf8", characters="═")
+        yield RichText()
+
+
+class CyGuideMarkdown(RichMarkdown):
+    """Markdown renderer with customized CyGuide visual elements."""
+
+    elements = dict(RichMarkdown.elements)
+    elements["hr"] = CyGuideHorizontalRule
+
+
+def render_markdown(text: str) -> CyGuideMarkdown:
     """Render markdown using Rich renderables without DOM widget hierarchy churn."""
     if "**#" in text:
         text = re.sub(r"^\s*\*\*(#{1,6}\s+.*?)\*\*\s*$", r"\1", text, flags=re.MULTILINE)
-    return RichMarkdown(text, justify="left", code_theme="monokai")
+    return CyGuideMarkdown(text, justify="left", code_theme="monokai")
 
 
 from cyguide.ui.widgets import ResizeHandle, TerminalStreamPane
