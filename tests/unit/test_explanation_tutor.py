@@ -696,3 +696,22 @@ async def test_retry_after_and_moderation_handling():
     errors = [e for e in events2 if isinstance(e, TutorError)]
     assert len(errors) == 1
     assert "Safety filter triggered" in errors[0].error
+
+
+@pytest.mark.asyncio
+async def test_ollama_backend_fast_connect_timeout():
+    """Verify OllamaBackend configures a fast connection timeout and fails gracefully when offline."""
+    backend = OllamaBackend(
+        base_url="http://127.0.0.1:54321", connect_timeout=0.2
+    )
+    assert backend.connect_timeout == 0.2
+
+    chunks = []
+    async for chunk in backend.explain("ping"):
+        chunks.append(chunk)
+
+    assert len(chunks) == 1
+    assert "Ollama connection failed" in chunks[0]
+    assert backend.last_error is not None
+    assert "Ollama connection failed" in backend.last_error
+

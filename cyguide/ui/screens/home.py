@@ -1054,7 +1054,7 @@ class DashboardScreen(Screen):
                     except Exception:
                         pass
             else:
-                await sess_list.remove_children()
+                await sess_list.clear()
                 sess_items = [
                     ListItem(Static(get_session_display(s)), id=f"sess_{s['id']}")
                     for s in display_sessions

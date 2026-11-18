@@ -32,6 +32,7 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "hypothesis>=6.100.0",
     "ruff>=0.4.0",
     "pre-commit>=3.7.0",
     "pip-audit>=2.7.0",
@@ -57,7 +58,14 @@ testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
-norecursedirs = [".venv", "venv", ".git", "__pycache__"]
+norecursedirs = [".venv", "venv", ".git", "__pycache__", ".hypothesis"]
+markers = [
+    "tier0: Microsecond AST invariants and property-based mathematical tests",
+    "fast: Fast in-memory engine and domain logic tests (< 5s)",
+    "fuzz: Hostile stream and adapter parser fuzzing tests",
+    "proof: Empirical headless TUI operator workflow proofs",
+    "slow: Heavy interactive UI widget layout and render tests",
+]
 
 [tool.ruff]
 target-version = "py311"

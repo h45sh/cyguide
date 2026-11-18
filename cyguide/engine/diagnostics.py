@@ -158,9 +158,10 @@ class DiagnosticEngine:
         try:
             store = GraphStore(self.db_path)
             await store.initialize()
-
-            integrity_status, tables = await store.check_integrity()
-            await store.close()
+            try:
+                integrity_status, tables = await store.check_integrity()
+            finally:
+                await store.close()
 
             if integrity_status == "ok":
                 report.checks.append(

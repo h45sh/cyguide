@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "domains": {
+    "engine": {
+      "path": ".agents/knowledge/engine.md",
+      "keywords": [
+        "core",
+        "worker",
+        "process",
+        "async",
+        "event",
+        "loop",
+        "state",
+        "facade",
+        "launch",
+        "benchmark"
+      ],
+      "file_patterns": [
+        "cyguide/engine/**",
+        "cyguide/common/**",
+        "cyguide/app.py",
+        "cyguide/main.py",
+        "src/engine/**"
+      ]
+    },
+    "storage": {
+      "path": ".agents/knowledge/storage.md",
+      "keywords": [
+        "database",
+        "sqlite",
+        "query",
+        "migration",
+        "wal",
+        "disk",
+        "store",
+        "graph",
+        "checkpoint",
+        "batch"
+      ],
+      "file_patterns": [
+        "cyguide/engine/store.py",
+        "cyguide/engine/workspace_repository.py",
+        "src/storage/**",
+        "src/db/**"
+      ]
+    },
+    "ui": {
+      "path": ".agents/knowledge/ui.md",
+      "keywords": [
+        "terminal",
+        "textual",
+        "cli",
+        "render",
+        "widget",
+        "screen",
+        "modal",
+        "debounce",
+        "table",
+        "layout"
+      ],
+      "file_patterns": [
+        "cyguide/ui/**",
+        "cyguide/cli_format.py",
+        "src/ui/**"
+      ]
+    },
+    "security": {
+      "path": ".agents/knowledge/security.md",
+      "keywords": [
+        "auth",
+        "token",
+        "ssrf",
+        "credential",
+        "secret",
+        "permission",
+        "gateway",
+        "sanitize",
+        "oidc"
+      ],
+      "file_patterns": [
+        "cyguide/engine/gateway.py",
+        "cyguide/engine/executor.py",
+        "src/security/**",
+        "src/auth/**"
+      ]
+    },
+    "tooling": {
+      "path": ".agents/knowledge/tooling.md",
+      "keywords": [
+        "adapter",
+        "manifest",
+        "recipe",
+        "parser",
+        "plugin",
+        "cli",
+        "tool"
+      ],
+      "file_patterns": [
+        "tools/**",
+        ".agents/skills/adapter-authoring/**"
+      ]
+    },
+    "testing": {
+      "path": ".agents/knowledge/testing.md",
+      "keywords": [
+        "testing"
+      ],
+      "file_patterns": [
+        "src/testing/**",
+        "**/testing/**"
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "title": "Unbounded Markdown Streaming",
+      "domain": "ui",
+      "keywords": [
+        "stream",
+        "markdown",
+        "textual",
+        "buffer",
+        "crash"
+      ],
+      "why_failed": "Passing raw stream chunks directly to Markdown render triggers NoneType region calculation exceptions.",
+      "replacement": "Buffer incoming tokens with a 50ms coalesce debounce before updating widget."
+    },
+    {
+      "title": "Direct DB Calls in Event Loop",
+      "domain": "storage",
+      "keywords": [
+        "blocking",
+        "sqlite",
+        "sync",
+        "freeze",
+        "event_loop"
+      ],
+      "why_failed": "Synchronous SQLite calls on the main thread block UI event dispatching and cause UI freezing.",
+      "replacement": "Execute all disk queries inside an async threadpool or use a dedicated database worker."
+    },
+    {
+      "title": "Shell String Interpolation & Missing Subprocess Sanitization",
+      "domain": "security",
+      "keywords": [
+        "shell",
+        "subprocess",
+        "exec",
+        "injection",
+        "environ",
+        "secrets"
+      ],
+      "why_failed": "Arbitrary string formatting (shell=True) invites command injection, and unsanitized child processes inherit host API keys and tokens.",
+      "replacement": "Pass argument vectors List[str] to asyncio.create_subprocess_exec and filter env through sanitize_subprocess_env()."
+    },
+    {
+      "title": "Modal Push Without Deduplication",
+      "domain": "ui",
+      "keywords": [
+        "modal",
+        "dialog",
+        "screen",
+        "stack",
+        "key_repeat"
+      ],
+      "why_failed": "Rapid hardware key repeats push identical modal screens concurrently, corrupting Textual screen stack.",
+      "replacement": "Check 'if not any(isinstance(s, DialogClass) for s in self.app._screen_stack)' before push_screen()."
+    },
+    {
+      "title": "Textual Timer Cancellation (.cancel() vs .stop())",
+      "domain": "ui",
+      "keywords": [
+        "timer",
+        "cancel",
+        "stop",
+        "textual",
+        "crash"
+      ],
+      "why_failed": "Textual timers are not asyncio tasks; calling timer.cancel() raises AttributeError or crashes the worker.",
+      "replacement": "Always call timer.stop() on Textual Timer instances."
+    },
+    {
+      "title": "Editable Installs in CI Packaging Tests",
+      "domain": "engine",
+      "keywords": [
+        "packaging",
+        "wheel",
+        "pip",
+        "editable",
+        "install",
+        "ci"
+      ],
+      "why_failed": "pip install -e . hides missing package assets, uncommitted manifests, and broken entry points.",
+      "replacement": "Build distribution wheel (python -m build --wheel) and test against isolated installed wheel."
+    },
+    {
+      "title": "Static Sleeps in Asynchronous UI Tests",
+      "domain": "ui",
+      "keywords": [
+        "sleep",
+        "pause",
+        "settle",
+        "debounce",
+        "flaky",
+        "ci"
+      ],
+      "why_failed": "Static sleeps fail under shared virtualized CI loads due to hypervisor CPU scheduling jitter.",
+      "replacement": "Use an active settle loop that awaits in-flight debounce tasks and checks DOM readiness."
+    },
+    {
+      "title": "PyPI OIDC Publishing via workflow_call",
+      "domain": "security",
+      "keywords": [
+        "oidc",
+        "pypi",
+        "workflow_call",
+        "reusable",
+        "token",
+        "release"
+      ],
+      "why_failed": "PyPI Trusted Publisher rejects tokens from reusable workflows because job_workflow_ref mismatches.",
+      "replacement": "Trigger publishing directly from top-level release: [published] or workflow_dispatch events."
+    },
+    {
+      "title": "Raw Scanner Output in LLM Prompts",
+      "domain": "security",
+      "keywords": [
+        "prompt_injection",
+        "untrusted",
+        "scanner",
+        "llm",
+        "escape"
+      ],
+      "why_failed": "Untrusted tool outputs can contain prompt injection attacks that hijack tutor reasoning.",
+      "replacement": "Wrap scan output in <untrusted_scan_output> tags and escape closing tag breakouts."
+    },
+    {
+      "title": "Hardcoded Terminal Separator Multiplication",
+      "domain": "ui",
+      "keywords": [
+        "separator",
+        "rule",
+        "wrap",
+        "width",
+        "resize"
+      ],
+      "why_failed": "Multiplying character strings ('=' * 80) causes catastrophic line wrapping when terminal panes are resized.",
+      "replacement": "Yield dynamic rich.rule.Rule instances inside custom Markdown elements."
+    }
+  ]
+}

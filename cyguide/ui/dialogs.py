@@ -246,7 +246,8 @@ class ShortcutsDialog(ModalScreen):
                 pass
             self._pending_dismiss_timer = None
         if hasattr(self, "app") and self.app is not None:
-            self.app._last_shortcuts_toggle_time = time.monotonic()
+            if hasattr(self.app, "record_shortcuts_toggle"):
+                self.app.record_shortcuts_toggle()
         return super().dismiss(result)
 
     def _do_f1_dismiss(self) -> None:

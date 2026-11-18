@@ -297,7 +297,17 @@ class LearningSession:
             if manifest
             else summary
         )
-        category = manifest.meta.category if manifest else "tool"
+        category = "tool"
+        if manifest and hasattr(manifest, "meta"):
+            category = (
+                getattr(manifest.meta, "category", None)
+                or (
+                    manifest.meta.categories[0]
+                    if getattr(manifest.meta, "categories", None)
+                    else None
+                )
+                or "tool"
+            )
         produces = (
             manifest.output.get("produces", [])
             if manifest and hasattr(manifest, "output") and manifest.output

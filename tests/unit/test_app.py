@@ -103,35 +103,6 @@ async def test_learning_screen_resume_preserves_buffer():
         active_app.reset(token)
 
 
-@pytest.mark.asyncio
-async def test_learning_screen_clear_buttons(tmp_path):
-    """Verify that clearing explanation (via method/slash command) and raw output button clears content."""
-    db_file = str(tmp_path / "test_app_clear.db")
-    app = CyGuideApp(db_path=db_file)
-    async with app.run_test() as pilot:
-        app.learning_mode_tool = "nmap"
-        app.switch_screen("learning_mode")
-        await pilot.pause()
-
-        screen = app.screen
-        assert screen.query_one("#clear_output_btn") is not None
-
-        # Populate buffers
-        screen.explanation_buffer = "Some explanation text"
-        screen.log_buffer = ["Log entry 1\n", "Log entry 2\n"]
-
-        # Clear explanation via clear_explanation (matching /clear slash command)
-        screen.clear_explanation()
-        await pilot.pause()
-        assert screen.explanation_buffer == ""
-
-        # Switch to raw output tab and click clear output button
-        screen.query_one("#learning_tabs").active = "tab_output"
-        await pilot.pause()
-        await pilot.click("#clear_output_btn")
-        await pilot.pause()
-        assert screen.log_buffer == []
-
 
 def test_css_stylesheet_syntax():
     """Verify that the Textual CSS stylesheet contains zero parsing or property errors."""
@@ -142,17 +113,6 @@ def test_css_stylesheet_syntax():
     ss.parse()
     assert len(ss.rules) > 0
 
-
-@pytest.mark.asyncio
-async def test_app_headless_mount_and_screens(tmp_path):
-    """Verify that the app mounts and compiles CSS across all screens without crashing."""
-    db_file = str(tmp_path / "test_app.db")
-    app = CyGuideApp(db_path=db_file)
-    async with app.run_test() as pilot:
-        for screen_name in ["dashboard", "power_mode", "tool_browser"]:
-            app.switch_screen(screen_name)
-            await pilot.pause()
-            assert app.screen is not None
 
 
 @pytest.mark.asyncio
@@ -270,9 +230,14 @@ async def test_tool_health_in_command_palette():
 
         # Trigger tool health action to verify all tools are listed under it in the modal
         app.action_show_tool_health()
-        await pilot.pause(0.1)
+        modal_items = []
+        for _ in range(10):
+            await pilot.pause(0.1)
+            if isinstance(app.screen, ToolHealthModal):
+                modal_items = list(app.screen.query_one("#tool_health_items").children)
+                if len(modal_items) >= 5:
+                    break
         assert isinstance(app.screen, ToolHealthModal)
-        modal_items = list(app.screen.query_one("#tool_health_items").children)
         assert len(modal_items) >= 5  # gobuster, nikto, nmap, subfinder, whois
         assert any("nmap" in str(item.children[0].render()) for item in modal_items)
 
@@ -895,12 +860,9 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
 
 
 @pytest.mark.asyncio
-async def test_sidebar_resize_alt_brackets(tmp_path):
+async def test_sidebar_resize_alt_brackets():
     """Verify that Alt+[ and Alt+] shrink and expand sidebars in Learning and Power modes."""
-    import uuid
-
-    db_path = str(tmp_path / f"test_resize_{uuid.uuid4().hex}.db")
-    app = CyGuideApp(db_path=db_path)
+    app = CyGuideApp(db_path=":memory:")
     async with app.run_test(size=(120, 45)) as pilot:
         # 1. Learning Mode
         app.switch_screen("learning_mode")

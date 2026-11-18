@@ -1,8 +1,12 @@
 # Thread Retrospective: <Feature / Bugfix / Refactor Name>
 
 - **Branch / PR**: `<branch-name>` (Commit `<sha>`)
-- **Primary Domain**: `[UI | Engine | Storage | Benchmarks | AI / LLM | Security | Tooling | CLI]`
+- **Primary Domain**: `[UI | Engine | Storage | Benchmarks | AI / LLM | Security | Tooling | CLI | Testing]`
 - **Author / Contributor**: `@h45sh`
+- **Summary**: <1-line summary of task execution and outcome>
+- **Touched Files**:
+  - `path/to/file_a.py`
+  - `path/to/file_b.py`
 
 ---
 
@@ -44,9 +48,9 @@
 ---
 
 ## Pillar 4: Invariants & Performance Contracts to Preserve
-*Document quantitative bounds, algorithmic complexities, and security boundaries proven in this thread:*
+*Document quantitative bounds, algorithmic complexities, and security boundaries proven in this thread (Lauren Tan 70/30 Verification Law):*
 
-| Contract / Invariant | Threshold / Guarantee | Verification Command |
-| :--- | :--- | :--- |
-| *e.g., Terminal Stream Memory* | $\le 5\text{ MB}$ resident heap | `pytest tests/unit/test_benchmarks.py -k test_terminal_stream` |
-| *e.g., SSRF IMDSv2 Blocking* | 100% rejection of link-local IP | `pytest tests/unit/test_gateway.py` |
+| Contract / Invariant | Threshold / Guarantee | Verification Command | Gate Status |
+| :--- | :--- | :--- | :--- |
+| *e.g., Fast Pre-Flight Tier 0* | $< 4.0\text{s}$ execution | `pytest -m tier0 -q` | **PASSED (exit code 0)** |
+| *e.g., SSRF IMDSv2 Blocking* | 100% rejection of link-local IP | `pytest tests/unit/test_gateway.py` | **PASSED (exit code 0)** |

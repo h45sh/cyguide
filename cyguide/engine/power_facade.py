@@ -417,11 +417,6 @@ class PowerWorkspaceFacade:
         """Fetch JobStatus by UUID from active job registry."""
         return self.execution.get_job(job_id)
 
-    def register_job(self, job: JobStatus) -> None:
-        """Register or update a JobStatus in the active job registry."""
-        self.execution.register_job(job)
-        self._notify_job_change(job)
-
     def is_job_closed(self, job_id: str) -> bool:
         """Check if a job has been marked closed by the operator."""
         return self.execution.is_job_closed(job_id)

@@ -9,10 +9,6 @@ def adapter():
     return SubfinderAdapter()
 
 
-def test_subfinder_validate_install(adapter):
-    assert isinstance(adapter.validate_install(), bool)
-
-
 def test_subfinder_build_command(adapter):
     # 1. Target is domain.info
     domain_info = DomainInfo.create(domain="example.com")

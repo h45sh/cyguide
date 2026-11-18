@@ -869,6 +869,14 @@ class CyGuideApp(App):
             "Configuration reset to CLI defaults (API keys preserved)", title="Config Reset"
         )
 
+    def record_shortcuts_toggle(self, timestamp: Optional[float] = None) -> None:
+        """Record the timestamp when the shortcuts modal was opened or dismissed for debounce."""
+        import time
+
+        self._last_shortcuts_toggle_time = (
+            timestamp if timestamp is not None else time.monotonic()
+        )
+
     def action_show_hotkeys(self) -> None:
         """Open the F1 Shortcuts / Help dialog."""
         import time
@@ -880,7 +888,7 @@ class CyGuideApp(App):
             return
         if (now - getattr(self, "_last_shortcuts_toggle_time", 0.0)) < 0.25:
             return
-        self._last_shortcuts_toggle_time = now
+        self.record_shortcuts_toggle(now)
         self.push_screen(ShortcutsDialog())
 
     def action_show_help_panel(self) -> None:

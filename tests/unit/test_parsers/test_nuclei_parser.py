@@ -15,10 +15,6 @@ def adapter():
     return NucleiAdapter()
 
 
-def test_nuclei_validate_install(adapter):
-    assert isinstance(adapter.validate_install(), bool)
-
-
 def test_nuclei_build_command(adapter):
     # 1. Target is web.endpoint
     endpoint = WebEndpoint.create(url="http://example.com")
@@ -75,14 +71,3 @@ async def test_nuclei_parse_jsonl_output(adapter):
     assert m.data["severity"] == "medium"
     assert m.data["remediation"] == "Remove .git directory from public webroot."
 
-
-@pytest.mark.asyncio
-async def test_nuclei_parse_empty_or_malformed(adapter):
-    target = WebEndpoint.create(url="http://example.com")
-    findings = [f async for f in adapter.parse_output("", target)]
-    assert len(findings) == 0
-
-    findings = [
-        f async for f in adapter.parse_output("random error message\n{invalid json\n", target)
-    ]
-    assert len(findings) == 0

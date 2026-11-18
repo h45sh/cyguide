@@ -50,3 +50,7 @@ docs/benchmarks/.history/
 .DS_Store
 .codex
 .t3*
+
+# Agent thread retrospectives (raw retrospectives aggregated into .agents/knowledge/)
+.agents/threads/*.md
+!.agents/threads/TEMPLATE.md

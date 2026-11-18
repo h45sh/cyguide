@@ -10,10 +10,6 @@ def adapter():
     return NiktoAdapter()
 
 
-def test_nikto_validate_install(adapter):
-    assert isinstance(adapter.validate_install(), bool)
-
-
 def test_nikto_build_command(adapter):
     # 1. Target is web.endpoint
     endpoint = WebEndpoint.create(url="http://192.168.1.1:8080/test")

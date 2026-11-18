@@ -11,6 +11,10 @@ import ast
 from pathlib import Path
 from typing import List, Tuple
 
+import pytest
+
+pytestmark = pytest.mark.tier0
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CYGUIDE_DIR = REPO_ROOT / "cyguide"
 
@@ -206,3 +210,129 @@ def test_no_external_penetration_of_execution_session_private_state_in_tests():
     assert not violations, (
         f"Tests bypassed public seams to penetrate private ExecutionSession state: {violations}"
     )
+
+
+def test_ui_layer_never_imports_subprocess():
+    """Rule: cyguide/ui must never import subprocess directly (must route via engine/facades)."""
+    violations: List[Tuple[str, int, str]] = []
+    ui_dir = CYGUIDE_DIR / "ui"
+
+    for py_file in _get_python_files(ui_dir):
+        tree = _parse_ast(py_file)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "subprocess" or alias.name.startswith("subprocess."):
+                        violations.append((py_file.name, node.lineno, alias.name))
+            elif isinstance(node, ast.ImportFrom):
+                if node.module and (
+                    node.module == "subprocess" or node.module.startswith("subprocess.")
+                ):
+                    violations.append((py_file.name, node.lineno, node.module))
+
+    assert not violations, f"UI layer directly imported subprocess: {violations}"
+
+
+def test_ui_never_penetrates_app_private_state():
+    """Rule: cyguide/ui must never penetrate private attributes of CyGuideApp (e.g. _last_shortcuts_toggle_time)."""
+    banned_app_private_attrs = {"_last_shortcuts_toggle_time"}
+    violations: List[Tuple[str, int, str]] = []
+    ui_dir = CYGUIDE_DIR / "ui"
+
+    for py_file in _get_python_files(ui_dir):
+        tree = _parse_ast(py_file)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute):
+                if node.attr in banned_app_private_attrs:
+                    violations.append((py_file.name, node.lineno, node.attr))
+
+    assert not violations, f"UI penetrated CyGuideApp private attributes: {violations}"
+
+
+def test_ban_shell_true_and_os_system_across_codebase():
+    """Rule (Trust Pyramid): Mechanically ban shell=True and os.system across cyguide and tools."""
+    violations: List[Tuple[str, int, str]] = []
+    scan_dirs = [CYGUIDE_DIR, REPO_ROOT / "tools"]
+
+    for directory in scan_dirs:
+        for py_file in _get_python_files(directory):
+            tree = _parse_ast(py_file)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call):
+                    # Check for shell=True keyword argument
+                    for kw in node.keywords:
+                        if kw.arg == "shell":
+                            if isinstance(kw.value, ast.Constant) and bool(kw.value.value):
+                                violations.append((py_file.name, node.lineno, "shell=True"))
+                    # Check for os.system(...)
+                    if (
+                        isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "system"
+                        and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == "os"
+                    ):
+                        violations.append((py_file.name, node.lineno, "os.system()"))
+
+    assert not violations, f"Forbidden command injection vectors found: {violations}"
+
+
+def test_tool_adapters_never_import_subprocess_directly():
+    """Rule (Trust Pyramid): Pluggable tool adapters must never spawn processes directly.
+
+    Process lifecycles, environment scrubbing, and stream parsing are mediated exclusively by the engine.
+    """
+    violations: List[Tuple[str, int, str]] = []
+    tools_dir = REPO_ROOT / "tools"
+
+    for py_file in _get_python_files(tools_dir):
+        tree = _parse_ast(py_file)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name in ("subprocess", "asyncio.subprocess"):
+                        violations.append((py_file.name, node.lineno, alias.name))
+            elif isinstance(node, ast.ImportFrom):
+                if node.module and (
+                    node.module == "subprocess"
+                    or node.module.startswith("subprocess.")
+                    or "asyncio.subprocess" in node.module
+                ):
+                    violations.append((py_file.name, node.lineno, node.module))
+
+    assert not violations, f"Tool adapters directly imported subprocess: {violations}"
+
+
+def test_sql_execution_never_uses_formatted_strings():
+    """Rule (Trust Pyramid): Ban raw SQL string interpolation (f-strings, %, .format()) in database execute calls.
+
+    All SQL statements must use parameterized queries with SQLite placeholders (?).
+    """
+    violations: List[Tuple[str, int, str]] = []
+    for py_file in _get_python_files(CYGUIDE_DIR):
+        tree = _parse_ast(py_file)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Attribute) and node.func.attr in (
+                    "execute",
+                    "executemany",
+                ):
+                    if node.args:
+                        first_arg = node.args[0]
+                        if isinstance(first_arg, ast.JoinedStr):  # f-string
+                            violations.append(
+                                (py_file.name, node.lineno, "f-string in sql execute")
+                            )
+                        elif isinstance(first_arg, ast.BinOp) and isinstance(first_arg.op, ast.Mod):
+                            violations.append(
+                                (py_file.name, node.lineno, "% formatting in sql execute")
+                            )
+                        elif (
+                            isinstance(first_arg, ast.Call)
+                            and isinstance(first_arg.func, ast.Attribute)
+                            and first_arg.func.attr == "format"
+                        ):
+                            violations.append(
+                                (py_file.name, node.lineno, ".format() in sql execute")
+                            )
+
+    assert not violations, f"Found unparameterized SQL execution calls: {violations}"

@@ -186,6 +186,92 @@ async def check_ollama_status(base_url: str, model: str) -> Tuple[bool, str]:
         return False, f"▲ Ollama Offline (Cannot connect to {clean_url})"
 
 
+class KeyProfileManager:
+    """Pure domain controller managing AI cloud key profiles independently of Textual DOM."""
+
+    def __init__(
+        self,
+        cloud_keys: Optional[List[Dict[str, Any]]] = None,
+        active_key_id: Optional[str] = None,
+        editing_profile_id: Optional[str] = None,
+    ):
+        self.cloud_keys: List[Dict[str, Any]] = list(cloud_keys or [])
+        self.active_key_id: Optional[str] = active_key_id
+        self.editing_profile_id: Optional[str] = editing_profile_id
+
+    def add_key_profile(
+        self,
+        name: Optional[str] = None,
+        provider: str = "",
+        api_key: str = "",
+        model: str = "",
+        base_url: str = "",
+    ) -> Dict[str, Any]:
+        import time
+
+        new_id = f"key_{len(self.cloud_keys) + 1}_{int(time.time() * 1000) % 10000}"
+        new_name = name or f"Key {len(self.cloud_keys) + 1}"
+        new_prof = {
+            "id": new_id,
+            "name": new_name,
+            "provider": provider,
+            "api_key": api_key,
+            "model": model,
+            "base_url": base_url,
+        }
+        self.cloud_keys.append(new_prof)
+        if not self.active_key_id:
+            self.active_key_id = new_id
+        self.editing_profile_id = new_id
+        return new_prof
+
+    def delete_key_profile(self, kid: str) -> Optional[Dict[str, Any]]:
+        target = None
+        for k in self.cloud_keys:
+            if k.get("id") == kid:
+                target = k
+                break
+        self.cloud_keys = [k for k in self.cloud_keys if k.get("id") != kid]
+        if self.active_key_id == kid:
+            self.active_key_id = self.cloud_keys[0]["id"] if self.cloud_keys else None
+        if self.editing_profile_id == kid:
+            self.editing_profile_id = self.active_key_id or (
+                self.cloud_keys[0]["id"] if self.cloud_keys else None
+            )
+        return target
+
+    def set_active_key(self, kid: str) -> None:
+        self.active_key_id = kid
+
+    def get_active_profile(self) -> Optional[Dict[str, Any]]:
+        if not self.cloud_keys:
+            return None
+        return next(
+            (k for k in self.cloud_keys if k.get("id") == self.active_key_id),
+            self.cloud_keys[0],
+        )
+
+    def get_editing_profile(self) -> Optional[Dict[str, Any]]:
+        return next(
+            (k for k in self.cloud_keys if k.get("id") == self.editing_profile_id),
+            None,
+        )
+
+    def validate_key_uniqueness(
+        self, candidate_key: str, exclude_id: Optional[str] = None
+    ) -> bool:
+        clean = (candidate_key or "").strip().strip("\"'")
+        if not clean or is_placeholder_key(clean):
+            return True
+        for k in self.cloud_keys:
+            if exclude_id and k.get("id") == exclude_id:
+                continue
+            existing = (k.get("api_key") or "").strip().strip("\"'")
+            if existing and existing == clean:
+                return False
+        return True
+
+
 class ConfigProvider(Provider):
     """Command Palette provider for CyGuide Configuration.
 
@@ -282,7 +368,26 @@ class ConfigProvider(Provider):
                 yield Hit(match, matcher.highlight(name), callback)
 
 
-class OllamaConfigProvider(Provider):
+class BaseConfigCommandProvider(Provider):
+    """Deep base provider encapsulating discover and fuzzy-search command dispatch."""
+
+    @property
+    def commands(self) -> List[Tuple[str, Callable[[], None]]]:
+        """Subclasses declare their (name, action) command list."""
+        return []
+
+    async def discover(self) -> Hits:
+        for name, callback in self.commands:
+            yield DiscoveryHit(name, callback)
+
+    async def search(self, query: str) -> Hits:
+        matcher = self.matcher(query)
+        for name, callback in self.commands:
+            if (match := matcher.match(name)) > 0:
+                yield Hit(match, matcher.highlight(name), callback)
+
+
+class OllamaConfigProvider(BaseConfigCommandProvider):
     """Sub-palette provider for local Ollama configuration."""
 
     @property
@@ -313,18 +418,8 @@ class OllamaConfigProvider(Provider):
             ),
         ]
 
-    async def discover(self) -> Hits:
-        for name, callback in self.commands:
-            yield DiscoveryHit(name, callback)
 
-    async def search(self, query: str) -> Hits:
-        matcher = self.matcher(query)
-        for name, callback in self.commands:
-            if (match := matcher.match(name)) > 0:
-                yield Hit(match, matcher.highlight(name), callback)
-
-
-class CloudAPIConfigProvider(Provider):
+class CloudAPIConfigProvider(BaseConfigCommandProvider):
     """Sub-palette provider for Cloud AI and API key configuration."""
 
     @property
@@ -404,18 +499,8 @@ class CloudAPIConfigProvider(Provider):
         )
         return cmds
 
-    async def discover(self) -> Hits:
-        for name, callback in self.commands:
-            yield DiscoveryHit(name, callback)
 
-    async def search(self, query: str) -> Hits:
-        matcher = self.matcher(query)
-        for name, callback in self.commands:
-            if (match := matcher.match(name)) > 0:
-                yield Hit(match, matcher.highlight(name), callback)
-
-
-class DatabaseConfigProvider(Provider):
+class DatabaseConfigProvider(BaseConfigCommandProvider):
     """Sub-palette provider for Database configuration."""
 
     @property
@@ -448,18 +533,8 @@ class DatabaseConfigProvider(Provider):
             ),
         ]
 
-    async def discover(self) -> Hits:
-        for name, callback in self.commands:
-            yield DiscoveryHit(name, callback)
 
-    async def search(self, query: str) -> Hits:
-        matcher = self.matcher(query)
-        for name, callback in self.commands:
-            if (match := matcher.match(name)) > 0:
-                yield Hit(match, matcher.highlight(name), callback)
-
-
-class ToolsConfigProvider(Provider):
+class ToolsConfigProvider(BaseConfigCommandProvider):
     """Sub-palette provider for Tools directory configuration."""
 
     @property
@@ -477,16 +552,6 @@ class ToolsConfigProvider(Provider):
                 lambda: app.action_show_config(focus_target="tools_dir"),
             ),
         ]
-
-    async def discover(self) -> Hits:
-        for name, callback in self.commands:
-            yield DiscoveryHit(name, callback)
-
-    async def search(self, query: str) -> Hits:
-        matcher = self.matcher(query)
-        for name, callback in self.commands:
-            if (match := matcher.match(name)) > 0:
-                yield Hit(match, matcher.highlight(name), callback)
 
 
 class ConfigModal(ModalScreen[None]):

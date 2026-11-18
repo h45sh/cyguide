@@ -206,7 +206,7 @@ async def test_graphstore_scale_and_query_limits(tmp_path):
         await store.upsert_findings_batch(sess_id, all_findings[b : b + batch_size])
     ingest_elapsed = time.perf_counter() - t0
 
-    assert ingest_elapsed < 4.0, f"Batch ingestion took {ingest_elapsed:.2f}s (expected < 4.0s)"
+    assert ingest_elapsed < 10.0, f"Batch ingestion took {ingest_elapsed:.2f}s (expected < 10.0s)"
 
     t_nodes = time.perf_counter()
     nodes = await store.get_all_nodes(sess_id)

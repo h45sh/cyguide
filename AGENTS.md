@@ -170,15 +170,34 @@ Follow these lessons learned to ensure terminal rendering remains responsive at 
 
 ---
 
-## 7. Testing Standards & Canonical Fixtures
+## 7. Testing Standards, Proofs & The Trust Pyramid
 
-1. **Test Runner & Concurrency**:
-   - Run tests: `.venv/bin/pytest tests/unit`
-   - Configuration: `asyncio_mode = "strict"`, fixture loop scope: `function`.
-2. **Hermetic Test Isolation**:
+CyGuide adheres to Lauren Tan’s **Trust Pyramid** and **"Review Proof, Not Code"** engineering model:
+
+1. **The Trust Pyramid (Mechanical Gates over Prose Prompts)**:
+   - **Translate Mistakes to AST Linters & Tests, Not Prompts**: Prose instructions degrade over time and cause prompt fatigue. Whenever an agent violates an architectural invariant, security boundary, or layer rule, convert it into an automated AST check in `tests/unit/test_architecture.py` rather than adding more negative prose rules to `AGENTS.md`. Structural and mechanical constraints are permanent, deterministic, and zero-cost.
+   - **Mathematical Properties over Point Examples**: Core logic (PIK generation, canonicalization idempotence, SSRF IP/DNS blocking, GraphStore commutativity/idempotence) must be verified via property-based testing with **Hypothesis** (`tests/unit/test_properties.py`).
+2. **Review Proof, Not Code (Headless User Flow Proofs)**:
+   - Builds and isolated unit tests do not prove that an operator flow works.
+   - When modifying TUI screens (`cyguide/ui/`), widget layouts, event streams, or command lifecycles, you must provide empirical execution proofs using Textual's headless pilot (`tests/integration/test_tui_workflow_proof.py`).
+   - Verify full screen transitions, event handling, and graph rendering rather than relying on manual human inspection of raw diffs.
+3. **Universal Adapter Fuzzing & Auto-Registration**:
+   - Every tool adapter implementing `ToolAdapter` is automatically tested via `tests/unit/test_parsers/test_fuzz_all_adapters.py`.
+   - Adapters are subjected to 4 adversarial streams (broken ANSI codes, 20,000-token strings, truncated JSON, and null bytes) and installation checks without requiring boilerplate unit tests per adapter.
+   - Do NOT write repetitive `test_validate_install` or shallow wrapper tests for individual adapters.
+4. **The Codebase Is Memory (Zero Tolerance for Slop & Layered Mess)**:
+   - LLMs imitate whatever is in the repository. Maintain zero tolerance for dead code, unused parameters, temporary backward-compatibility shims, or shallow wrapper slop. Reference adapters (`tools/nmap/`) and core engines must remain immaculate templates.
+   - **Prune Superseded Tests**: When introducing universal property tests, AST architectural checks, or workflow proofs, actively prune redundant point-value legacy tests to prevent "layered mess" and keep test execution lean.
+5. **Tiered Test Execution Matrix**:
+   - `pytest -m tier0`: AST architectural rules & mathematical invariants (<3s, zero external dependencies, run before every push).
+   - `pytest -m fast`: Fast unit logic, state machines, and bounded stream stress tests (`tests/unit/test_engine_stress.py`).
+   - `pytest -m fuzz`: Universal security tool adapter fuzzing suite (`tests/unit/test_parsers/test_fuzz_all_adapters.py`).
+   - `pytest -m proof`: Headless TUI pilot workflows (`tests/integration/test_tui_workflow_proof.py`).
+   - `pytest -m slow`: Long-running multi-stage benchmarks or soak tests.
+6. **Hermetic Test Isolation**:
    - `isolate_cyguide_data_dir` autouse fixture isolates `CYGUIDE_DATA_DIR` to a temporary directory. Never read or write to `~/.cyguide` during test execution.
-   - `in_memory_store`: Use `GraphStore(":memory:")` for fast in-memory SQLite testing.
-   - `fake_command_runner`: Use `FakeCommandRunner` subclass of `CommandRunner` for execution testing; never spawn real network tools (`nmap`, `gobuster`, etc.) in automated unit tests.
+   - `in_memory_store`: Use `GraphStore(":memory:")` for fast in-memory SQLite testing. Always ensure stores are closed in test teardown (`await store.close()`).
+   - `fake_command_runner`: Use `FakeCommandRunner` or `HighVolumeStressRunner` subclass of `CommandRunner` for execution testing; never spawn real network tools (`nmap`, `gobuster`, etc.) in automated unit tests.
    - `mock_explainer`: Use `FastMockExplainer` subclass of `ExplainerBackend` for AI testing; never make live network calls to Ollama or cloud LLMs during testing.
 
 ---

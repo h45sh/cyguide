@@ -9,11 +9,6 @@ def adapter():
     return NmapAdapter()
 
 
-def test_nmap_validate_install(adapter):
-    # validate_install should return a boolean based on whether nmap is in PATH
-    assert isinstance(adapter.validate_install(), bool)
-
-
 def test_nmap_build_command(adapter):
     target = NetworkHost.create(ip="192.168.1.10")
 
@@ -88,15 +83,3 @@ Nmap done: 2 IP addresses (2 hosts up) scanned in 1.23 seconds
     assert s4.pik["host_ip"] == "10.0.0.5"
     assert s4.data["service_name"] == "http-proxy"
 
-
-@pytest.mark.asyncio
-async def test_nmap_parse_empty_or_malformed(adapter):
-    target = NetworkHost.create(ip="127.0.0.1")
-    findings = [f async for f in adapter.parse_output("", target)]
-    assert findings == []
-
-    noisy_output = (
-        "No open ports found.\nAll 1000 scanned ports on 127.0.0.1 are in ignored states."
-    )
-    findings = [f async for f in adapter.parse_output(noisy_output, target)]
-    assert findings == []

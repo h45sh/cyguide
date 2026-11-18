@@ -14,10 +14,6 @@ def adapter():
     return DnsPythonAdapter()
 
 
-def test_dnspython_validate_install(adapter):
-    assert adapter.validate_install() is True
-
-
 def test_dnspython_build_command(adapter):
     # 1. Target is dns.record
     dns_rec = DnsRecord.create(domain="example.com", record_type="A", value="93.184.216.34")
@@ -74,14 +70,3 @@ async def test_dnspython_parse_output(adapter):
     mx_rec = next(f for f in findings if f.pik["type"] == "MX")
     assert mx_rec.data["value"] == "10 mail.example.com"
 
-
-@pytest.mark.asyncio
-async def test_dnspython_parse_empty_or_malformed(adapter):
-    target = DnsRecord.create(domain="example.com", record_type="A", value="93.184.216.34")
-    # Empty string
-    findings = [f async for f in adapter.parse_output("", target)]
-    assert len(findings) == 0
-
-    # Malformed JSON
-    findings = [f async for f in adapter.parse_output("random error message", target)]
-    assert len(findings) == 0

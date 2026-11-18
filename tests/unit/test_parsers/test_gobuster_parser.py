@@ -10,10 +10,6 @@ def adapter():
     return GobusterAdapter()
 
 
-def test_gobuster_validate_install(adapter):
-    assert isinstance(adapter.validate_install(), bool)
-
-
 def test_gobuster_build_command(adapter):
     # 1. Target is web.endpoint
     endpoint = WebEndpoint.create(url="http://10.10.10.5/app")

@@ -100,3 +100,46 @@ def get_wordlist_path(name: str, data_dir: Optional[str] = None) -> str:
     wordlists_dir = get_default_wordlists_dir(data_dir)
     filename = name if name.endswith(".txt") else f"{name}.txt"
     return os.path.join(wordlists_dir, filename)
+
+
+def get_git_branch(target_dir: Optional[str] = None) -> str:
+    """Resolve the active git branch purely from filesystem metadata without spawning child subprocesses."""
+    cur = os.path.abspath(target_dir or os.getcwd())
+    while True:
+        git_candidate = os.path.join(cur, ".git")
+        if os.path.isdir(git_candidate):
+            head_path = os.path.join(git_candidate, "HEAD")
+            try:
+                with open(head_path, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content.startswith("ref: refs/heads/"):
+                        return content.split("ref: refs/heads/", 1)[1].strip()
+                    elif content:
+                        # Detached HEAD - return short SHA
+                        return content[:7]
+            except Exception:
+                return ""
+        elif os.path.isfile(git_candidate):
+            # Git worktree or submodule reference: "gitdir: /path/to/.git/worktrees/name"
+            try:
+                with open(git_candidate, "r", encoding="utf-8") as f:
+                    line = f.readline().strip()
+                    if line.startswith("gitdir:"):
+                        git_dir = line.split("gitdir:", 1)[1].strip()
+                        if not os.path.isabs(git_dir):
+                            git_dir = os.path.abspath(os.path.join(cur, git_dir))
+                        head_path = os.path.join(git_dir, "HEAD")
+                        if os.path.exists(head_path):
+                            with open(head_path, "r", encoding="utf-8") as hf:
+                                content = hf.read().strip()
+                                if content.startswith("ref: refs/heads/"):
+                                    return content.split("ref: refs/heads/", 1)[1].strip()
+                                elif content:
+                                    return content[:7]
+            except Exception:
+                return ""
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    return ""

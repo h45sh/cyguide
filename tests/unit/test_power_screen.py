@@ -325,3 +325,86 @@ async def test_power_mode_welcome_guide_lifecycle():
 
         await screen.action_close_terminal_tab()
         assert any(p.id == "tab_guide" for p in tabs.query(TabPane))
+
+
+@pytest.mark.asyncio
+async def test_power_mode_scratchpad_debounced_save(tmp_path):
+    """Verify that scratchpad saves are debounced and persisted off the main UI thread."""
+    from textual.widgets import TextArea
+
+    class ScratchpadApp(App):
+        def compose(self) -> ComposeResult:
+            yield PowerModeScreen()
+
+    app = ScratchpadApp()
+    app.preferences = MagicMock()
+    app.preferences.write_scratchpad = MagicMock()
+
+    async with app.run_test() as pilot:
+        screen = app.query_one(PowerModeScreen)
+        text_area = screen.query_one("#scratchpad_textarea", TextArea)
+
+        # Trigger rapid changes
+        text_area.text = "Note 1"
+        screen.on_text_area_changed(TextArea.Changed(text_area))
+        text_area.text = "Note 2"
+        screen.on_text_area_changed(TextArea.Changed(text_area))
+        text_area.text = "Final Note"
+        screen.on_text_area_changed(TextArea.Changed(text_area))
+
+        # Immediately, preferences.write_scratchpad should not have been called yet (debounced)
+        assert app.preferences.write_scratchpad.call_count == 0
+
+        # Wait past the debounce duration (300ms)
+        await pilot.pause(0.35)
+
+        # Now it should have been called with the latest content
+        assert app.preferences.write_scratchpad.call_count >= 1
+        app.preferences.write_scratchpad.assert_called_with("Final Note")
+
+
+@pytest.mark.asyncio
+async def test_command_palette_lhost_badge_offloading():
+    """Verify that get_lhost_info is offloaded to a worker thread via asyncio.to_thread."""
+    class PaletteApp(App):
+        def compose(self) -> ComposeResult:
+            yield CommandPalette()
+
+    app = PaletteApp()
+    with patch("cyguide.engine.network.get_lhost_info", return_value=("10.10.14.8", "tun0")) as mock_lhost:
+        async with app.run_test() as pilot:
+            palette = app.query_one(CommandPalette)
+            palette._update_lhost_badge()
+            await pilot.pause(0.1)
+
+            assert mock_lhost.called
+            badge = palette.query_one("#lhost_badge")
+            assert "tun0: 10.10.14.8" in str(badge.render())
+            assert badge.has_class("vpn")
+
+
+@pytest.mark.asyncio
+async def test_tool_health_modal_offloaded():
+    """Verify that ToolHealthModal.refresh_health uses asyncio.to_thread for check_and_update_tool_health."""
+    from cyguide.ui.screens.tool_health_modal import ToolHealthModal
+
+    class HealthApp(App):
+        def __init__(self):
+            super().__init__()
+            self.check_and_update_tool_health = MagicMock(return_value={
+                "nmap": {"status": "ok", "healthy": True, "binary": "/usr/bin/nmap"}
+            })
+
+        def compose(self) -> ComposeResult:
+            yield Static("test")
+
+    app = HealthApp()
+    modal = ToolHealthModal()
+    async with app.run_test() as pilot:
+        app.push_screen(modal)
+        await pilot.pause(0.1)
+
+        assert app.check_and_update_tool_health.called
+        summary = modal.query_one("#tool_health_summary_label")
+        assert "All 1 registered tools are operational" in str(summary.render())
+

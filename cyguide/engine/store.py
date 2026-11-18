@@ -716,7 +716,10 @@ class GraphStore:
                 await db.rollback()
                 raise
             finally:
-                await db.execute("DETACH DATABASE dest")
+                try:
+                    await db.execute("DETACH DATABASE dest")
+                except Exception:
+                    pass
 
     async def import_session(
         self, src_db_path: str, target_workspace_id: Optional[str] = None
@@ -896,4 +899,7 @@ class GraphStore:
                 await db.rollback()
                 raise
             finally:
-                await db.execute("DETACH DATABASE src")
+                try:
+                    await db.execute("DETACH DATABASE src")
+                except Exception:
+                    pass

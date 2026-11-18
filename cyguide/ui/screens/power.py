@@ -17,7 +17,7 @@ def render_markdown(text: str) -> RichMarkdown:
     return RichMarkdown(text, code_theme="monokai")
 
 
-from textual import events
+from textual import events, work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -1306,24 +1306,32 @@ class PowerModeScreen(Screen):
         except Exception:
             pass
 
-    def _load_scratchpad(self) -> None:
+    def _read_scratchpad_from_disk(self) -> str:
         try:
             if hasattr(self.app, "preferences"):
-                content = self.app.preferences.read_scratchpad()
-                self.query_one("#scratchpad_textarea", TextArea).load_text(content)
-                return
+                return self.app.preferences.read_scratchpad()
             if self.scratchpad_file == ":memory:":
-                return
+                return ""
             if os.path.exists(self.scratchpad_file):
-                with open(self.scratchpad_file, "r") as f:
-                    content = f.read()
-                self.query_one("#scratchpad_textarea", TextArea).load_text(content)
+                with open(self.scratchpad_file, "r", encoding="utf-8") as f:
+                    return f.read()
+            return ""
+        except Exception:
+            return ""
+
+    @work(exclusive=True, group="scratchpad_load")
+    async def _async_load_scratchpad(self) -> None:
+        content = await asyncio.to_thread(self._read_scratchpad_from_disk)
+        try:
+            self.query_one("#scratchpad_textarea", TextArea).load_text(content)
         except Exception:
             pass
 
-    def _save_scratchpad(self) -> None:
+    def _load_scratchpad(self) -> None:
+        self._async_load_scratchpad()
+
+    def _write_scratchpad_to_disk(self, content: str) -> None:
         try:
-            content = self.query_one("#scratchpad_textarea", TextArea).text
             if hasattr(self.app, "preferences"):
                 self.app.preferences.write_scratchpad(content)
                 return
@@ -1344,6 +1352,31 @@ class PowerModeScreen(Screen):
                 pass
         except Exception:
             pass
+
+    @work(exclusive=True, group="scratchpad_save")
+    async def _async_save_scratchpad(self, content: str) -> None:
+        await asyncio.to_thread(self._write_scratchpad_to_disk, content)
+
+    def _save_scratchpad(self, immediate: bool = False) -> None:
+        try:
+            content = self.query_one("#scratchpad_textarea", TextArea).text
+        except Exception:
+            return
+
+        timer = getattr(self, "_scratchpad_debounce_timer", None)
+        if timer is not None:
+            timer.cancel()
+            self._scratchpad_debounce_timer = None
+
+        if immediate:
+            # Immediate write without timer (e.g. toggling pane or exiting)
+            self._write_scratchpad_to_disk(content)
+        else:
+            # Debounce rapid typing by 300ms and execute write off the UI thread
+            loop = asyncio.get_event_loop()
+            self._scratchpad_debounce_timer = loop.call_later(
+                0.3, lambda: self._async_save_scratchpad(content)
+            )
 
     def action_focus_search(self) -> None:
         try:
@@ -1501,7 +1534,7 @@ class PowerModeScreen(Screen):
                 resizer.display = True
             self.query_one("#scratchpad_textarea", TextArea).focus()
         else:
-            self._save_scratchpad()
+            self._save_scratchpad(immediate=True)
             pane.add_class("hidden")
             pane.display = False
             if resizer:
@@ -1511,14 +1544,16 @@ class PowerModeScreen(Screen):
 
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
         if event.text_area.id == "scratchpad_textarea":
-            self._save_scratchpad()
+            self._save_scratchpad(immediate=False)
 
+    @work(exclusive=True, group="export_session")
     async def action_export_session(self) -> None:
         """Export the current session's findings to a Markdown report and database archive."""
         if not self.active_session_id:
             self.notify("No active session to export.", severity="error")
             return
 
+        self.notify("Exporting session report and database...", timeout=3.0)
         try:
             exports_dir = (
                 self.app.get_exports_dir()
@@ -1530,8 +1565,8 @@ class PowerModeScreen(Screen):
                 if hasattr(self.app, "get_reports_dir")
                 else get_default_reports_dir()
             )
-            os.makedirs(reports_dir, exist_ok=True)
-            os.makedirs(exports_dir, exist_ok=True)
+            await asyncio.to_thread(os.makedirs, reports_dir, exist_ok=True)
+            await asyncio.to_thread(os.makedirs, exports_dir, exist_ok=True)
 
             session = await self.app.power_facade.get_session(self.active_session_id)
             if not session:
@@ -1553,8 +1588,8 @@ class PowerModeScreen(Screen):
             # Export DB
             await self.app.power_facade.export_session(self.active_session_id, db_path)
 
-            self.notify(f"Report: {report_path}")
-            self.notify(f"Database: {db_path}")
+            self.notify(f"Report: {report_path}", timeout=6.0)
+            self.notify(f"Database: {db_path}", timeout=6.0)
         except Exception as e:
             self.notify(f"Export failed: {str(e)}", severity="error")
 

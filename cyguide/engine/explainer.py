@@ -309,9 +309,15 @@ class MockProviderAdapter:
 class OllamaBackend(ExplainerBackend):
     """Backend that uses a local Ollama instance for LLM explanations."""
 
-    def __init__(self, model: str = "gemma", base_url: str = "http://localhost:11434"):
+    def __init__(
+        self,
+        model: str = "gemma",
+        base_url: str = "http://localhost:11434",
+        connect_timeout: float = 1.5,
+    ):
         self.model = (model or "gemma").strip()
         self.base_url = (base_url or "http://localhost:11434").rstrip("/")
+        self.connect_timeout = float(connect_timeout)
         self.last_error: Optional[str] = None
 
     async def explain(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
@@ -327,7 +333,9 @@ class OllamaBackend(ExplainerBackend):
             payload["system"] = system
 
         try:
-            timeout_config = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+            timeout_config = httpx.Timeout(
+                connect=self.connect_timeout, read=60.0, write=10.0, pool=5.0
+            )
             async with httpx.AsyncClient(timeout=timeout_config) as client:
                 async with client.stream("POST", url, json=payload) as response:
                     if response.status_code != 200:
