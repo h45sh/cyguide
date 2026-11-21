@@ -15,12 +15,13 @@ This document is the **single authoritative source of truth** for all completed,
 | **v1.8.0: Showcase, Textual Resilience & Automated Release** | **Completed** | 4 | 4 | 0 | 100% |
 | **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **Completed** | 22 | 22 | 0 | 100% |
 | **v1.9.1: Finding Stream Debouncing & Tree Node Caps** | **Completed** | 2 | 2 | 0 | 100% |
-| **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **Completed (Remaining on hold for v1.11+)** | 32 | 28 | 4 | 88% |
-| **v1.11.0: Advanced Terminal Capabilities, IPC & Security** | **Active Next Phase** | 22 | 11 | 11 | 50% |
+| **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **Completed** | 32 | 32 | 0 | 100% |
+| **v1.11.0: Algorithmic Core, Diagnostics & Graph Intelligence** | **Completed (Release Ready)** | 16 | 16 | 0 | 100% |
+| **v1.12.0: Interactive Terminal PTY, IPC Daemon & Vault** | **Active Next Phase** | 11 | 0 | 11 | 0% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 12 | 0 | 12 | 0% |
 | **Phase 4: Tactical Research Co-Pilot & Offensive Engine** | **Planned (Future)** | 15 | 1 | 14 | 7% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Total Project Tasks** | **In Progress** | **176** | **125** | **51** | **71%** |
+| **Total Project Tasks** | **In Progress** | **181** | **138** | **43** | **76%** |
 
 ---
 
@@ -39,7 +40,9 @@ This document is the **single authoritative source of truth** for all completed,
               │
 [ v1.10.0: Mega-Course & Tools ] ── 6+ Adapters (dnspython, searchsploit, ffuf, nuclei), Schema 2.0, Theory Tabs, Wordlists, Local Lab
               │
-[ v1.11.0: Terminal & Security ] ── Interactive PTY (pyte), AES Vault (cryptography), IPC Daemon, Graph (networkx)
+[ v1.11.0: Algorithmic Core & Logs ] ─ Radix Trie, Knapsack, Graph Intelligence, Crash Traps, Lab Checkpoints, VHS Preview
+              │
+[ v1.12.0: Terminal & Security ] ── Interactive PTY (pyte), AES Vault (cryptography), IPC Daemon
               │
 [ v2.0.0: Flagship Launch ] ────── Standalone Binaries, Jinja2/WeasyPrint Reports, Dulwich Git Diffs, DuckDB, Playwright
               │
@@ -59,28 +62,30 @@ All baseline architectural foundations across the engine, dataflow, security, an
 * **Asynchronous Process Execution Engine**: Pure subprocess execution engine with real-time stream draining, output ring-buffering, and zero memory leaks ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)).
 * **Dual-Mode Textual TUI**: Advanced Operator Workbench (Power Mode) and Guided Curriculum (Learning Mode) with 60 FPS fluid edge resizing and split panes ([`cyguide/ui/`](../../cyguide/ui)).
 * **Security Tool Ecosystem**: 11 production adapters with typed finding parsers, structured manifests, and curriculum recipes: `nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `nuclei`, `ffuf`, `searchsploit`, `sqlmap`, `netexec`, and `dnspython` ([`tools/`](../../tools)).
-* **Unified Headless CLI 2.0**: Decoupled POSIX command architecture with domain modules (`cyg workspace`, `cyg session`, `cyg tool`, `cyg lab`, `cyg doctor`) and universal `--json` serialization ([`cyguide/cli/`](../../cyguide/cli)).
+* **Unified Headless CLI 2.0**: Decoupled POSIX command architecture with domain modules (`cyg workspace`, `cyg session`, `cyg tool`, `cyg lab`, `cyg logs`, `cyg doctor`) and universal `--json` serialization ([`cyguide/cli/`](../../cyguide/cli)).
+* **Centralized Diagnostic Logger & System Crash Trapping**: Atomic `0o600` rotating log handler with secret scrubbing, in-memory UI breadcrumb flight recorder, triple exception trap, and `cyg logs` inspection ([`cyguide/common/logging.py`](../../cyguide/common/logging.py), [`cyguide/cli/commands/logs.py`](../../cyguide/cli/commands/logs.py)).
+* **Universal Lab Checkpoints & Practice Sandbox**: Standalone `.cyglab` checkpoint archive export/import with `0o600` permissions and offline practice target server on `127.0.0.1:8888` via `cyg lab start` ([`cyguide/engine/lab_server.py`](../../cyguide/engine/lab_server.py), [`cyguide/cli/commands/lab.py`](../../cyguide/cli/commands/lab.py)).
 * **Algorithmic Deep Module**: Bitwise Patricia Radix Trie (`IPRadixTrie`), Disjoint-Set Union (`DisjointSet`), MinHash similarity, 0/1 Knapsack token optimizer (`knapsack_01`), and counting Bloom filter (`BloomFilter`) consolidated in [`cyguide/common/algorithms.py`](../../cyguide/common/algorithms.py).
 * **Graph Intelligence Engine**: In-memory `GraphAnalyticsEngine` providing Brandes betweenness centrality, Tarjan strongly connected components (SCC), shortest attack paths, and blast radius calculation ([`cyguide/engine/graph_analytics.py`](../../cyguide/engine/graph_analytics.py)).
 * **Preflight Verification**: Pure validation engine with one-click remediation cards for missing packages, unseeded wordlists, or syntax issues ([`cyguide/engine/preflight.py`](../../cyguide/engine/preflight.py)).
 * **Defense-in-Depth Security**: Subprocess environment scrubbing stripping cloud and API credentials, strict link-local and cloud metadata IP/DNS blocking, and declarative CIDR scope enforcement ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py)).
 * **Session Portability & Universal Checkpoints**: Atomic zero-copy session export/import via SQLite `ATTACH DATABASE`, standalone `.cyglab` archives, and automated Markdown report generation ([`cyguide/engine/reporter.py`](../../cyguide/engine/reporter.py)).
 * **Multi-Provider AI Fallback Engine**: Local offline Ollama integration alongside cloud AI providers (OpenAI, Anthropic, Gemini, DeepSeek, Groq) with prompt boundary sanitization and token budget caps ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)).
+* **Autonomous Agent Collective Memory Engine**: Monotonically compounding knowledge distillation system (`.agents/knowledge/`) enforcing line budget invariants and automated reference audits ([`scripts/agg.py`](../../scripts/agg.py)).
+* **Automated Regression Guard & Visual Assets Pipeline**: Continuous CI benchmark regression barrier ([`scripts/generate_benchmark_report.py`](../../scripts/generate_benchmark_report.py)) and Charm VHS recording automation ([`assets/cli.tape`](../../assets/cli.tape)).
 
 ---
 
-### Milestone: v1.11.0 — Advanced Terminal Capabilities, IPC & Security/Encryption (Planned)
+### Milestone: v1.11.0 — Algorithmic Core, Diagnostics, Graph Intelligence & Checkpoints (Completed / Release Ready)
 
-- [ ] **Dual-Path Interactive PTY Architecture (`pyte` + `ptyprocess`)**:
-  - *Priority*: **P1** | *Complexity*: High | *Track*: Terminal
-  - Implement OS pseudo-terminal pair (`master_fd`/`slave_fd`) via `os.openpty()` / `ptyprocess` in `Executor` for interactive commands, replacing `stdin=DEVNULL`.
-  - Use `pyte` in-memory VT102/xterm screen emulator to maintain ANSI escape codes, cursor positions, and color buffers for interactive prompts (`sudo`, `ssh`, `[y/N]` confirmations, and live bash shells) inside workbench tabs.
-- [ ] **Terminal Window Resize Signals (`SIGWINCH`)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Terminal
-  - Forward terminal geometry adjustments to the active PTY via `fcntl.ioctl` with `termios.TIOCSWINSZ` on UI pane resize.
-- [ ] **In-TUI Syntax Highlighting for Loot & Exploits (`pygments`)**:
-  - *Priority*: **P2** | *Complexity*: Low | *Track*: UI / Detail Dock
-  - Integrate `pygments` lexers to provide rich syntax highlighting for captured credentials, extracted `.env`/config files, and exploit code snippets within the TUI detail and scratchpad views.
+- [x] **Centralized Diagnostic Logger & System Crash Trapping (`cyg logs`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Reliability / Diagnostics
+  - Implemented `SecureRotatingFileHandler` with atomic `0o600` permissions (TOCTOU race prevention), 5MB cap, and 3 backups in [`cyguide/common/logging.py`](../../cyguide/common/logging.py).
+  - Built regex-based credential/bearer token scrubbing (`SanitizingLogFormatter`), in-memory UI breadcrumb flight recorder (`collections.deque(maxlen=200)`), and triple exception trap (`sys.excepthook`, `loop.set_exception_handler`, Textual `App.panic`/`App._handle_exception`).
+  - Added operator CLI surface `cyg logs` (`-n`, `--crashes`, `--clear`, `--json`) and automated diagnostics audit in `cyg doctor` (`DiagnosticEngine._check_logs`).
+- [x] **Universal Lab Checkpoints & Practice Sandbox (`cyg lab`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning / Portability
+  - Implemented `.cyglab` checkpoint serialization, modal UI flows (`SaveCheckpointModal`, `LoadCheckpointModal`), and mock target HTTP server on `127.0.0.1:8888` via `cyg lab start` ([`cyguide/engine/lab_server.py`](../../cyguide/engine/lab_server.py), [`cyguide/cli/commands/lab.py`](../../cyguide/cli/commands/lab.py)).
 - [x] **Attack Path & Blast-Radius Engine (`networkx`)**:
   - *Priority*: **P1** | *Complexity*: Low | *Track*: Graph Analytics
   - Built an in-memory directed graph intelligence engine (`GraphAnalyticsEngine`) over SQLite nodes and edges to compute shortest attack paths (`find_shortest_attack_path`) from perimeter entrypoints to critical assets, calculate compromise blast radiuses (`calculate_blast_radius`), and integrate seamlessly with `PowerWorkspaceFacade` and optional `networkx` ([`cyguide/engine/graph_analytics.py`](../../cyguide/engine/graph_analytics.py), [`tests/unit/test_graph_analytics.py`](../../tests/unit/test_graph_analytics.py)).
@@ -102,6 +107,42 @@ All baseline architectural foundations across the engine, dataflow, security, an
 - [x] **Fluid Sidebar Geometry, Debounced Persistence & Layout Containment**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: UI/UX / Performance
   - Implemented 400ms trailing write-behind settings debounce in [`cyguide/app.py`](../../cyguide/app.py), deadband column filtering in [`cyguide/ui/widgets/resizer.py`](../../cyguide/ui/widgets/resizer.py), transition decoupling (`-resizing`, `-fast-stepping`), and breakpoint tier memoization in [`cyguide/ui/screens/learning.py`](../../cyguide/ui/screens/learning.py) and [`cyguide/ui/screens/power.py`](../../cyguide/ui/screens/power.py) achieving 60 FPS buttery-smooth pane transitions.
+- [x] **Unify Split Workspace & Session Management (Deepening Candidate 4)**:
+  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Architecture / IPC
+  - Consolidate parallel entity operations currently split across `GraphStore` and `PowerWorkspaceFacade` in dashboard views into a single deep Workspace/Session repository seam, designed to serve both the local TUI and the Unix domain socket IPC daemon ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py), [`tests/unit/test_workspace_repository.py`](../../tests/unit/test_workspace_repository.py)).
+- [x] **Declarative CIDR Scope Enforcement**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Security
+  - Added explicit CIDR boundary validation in `ActionGateway` (`allowed_cidrs: ["10.0.0.0/8"]`) rejecting out-of-scope targets and entity IPs before subprocess dispatch ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py), [`tests/unit/test_gateway.py`](../../tests/unit/test_gateway.py)).
+- [x] **LLM Prompt Boundary Sandboxing**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: AI Safety
+  - Enclose untrusted terminal output in ephemeral cryptographically randomized tokens (`<<<UNTRUSTED_SCAN_OUTPUT_{UUID}>>>`) with XML escaping to neutralize prompt injections.
+- [x] **Automated CI Performance Regression Gate (`scripts/generate_benchmark_report.py --check`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Benchmarking / Quality Gate
+  - Integrate benchmark checks into GitHub Actions PR workflow to automatically block merges on critical regressions across cold start, streaming ingestion, or SQLite batching ([`scripts/generate_benchmark_report.py`](../../scripts/generate_benchmark_report.py), [`.github/workflows/ci.yml:109`](../../.github/workflows/ci.yml#L109)).
+- [x] **Automated VHS Terminal Assets Pipeline (`assets/cli.tape`)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: Visual Assets / Community
+  - Author automated Charm VHS recording tape (`assets/cli.tape`) and regenerate high-resolution, uncropped [assets/cli.png](../../assets/cli.png) with Catppuccin Mocha theme, colorful window decorations, and full CLI subcommand documentation.
+- [x] **Autonomous Agent Collective Memory Engine (`.agents/`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Architecture / Agent System
+  - Embed self-evolving memory architecture with strict line budgets (Tier 1 $\le 250$ lines, Tier 2 $\le 150$ lines), automated AST reference audits, and zero dead links ([`scripts/agg.py`](../../scripts/agg.py), [`.agents/knowledge/`](../../.agents/knowledge)).
+- [x] **Preflight Verification & Remediation Engine**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Engine / User Experience
+  - Implement comprehensive dependency, parameter, and target preflight verification with one-click automated remedy guidance across all 11 supported tool adapters ([`cyguide/engine/preflight.py`](../../cyguide/engine/preflight.py)).
+
+---
+
+### Milestone: v1.12.0 — Advanced Terminal Capabilities, IPC & Security/Encryption (Active Next Phase)
+
+- [ ] **Dual-Path Interactive PTY Architecture (`pyte` + `ptyprocess`)**:
+  - *Priority*: **P1** | *Complexity*: High | *Track*: Terminal
+  - Implement OS pseudo-terminal pair (`master_fd`/`slave_fd`) via `os.openpty()` / `ptyprocess` in `Executor` for interactive commands, replacing `stdin=DEVNULL`.
+  - Use `pyte` in-memory VT102/xterm screen emulator to maintain ANSI escape codes, cursor positions, and color buffers for interactive prompts (`sudo`, `ssh`, `[y/N]` confirmations, and live bash shells) inside workbench tabs.
+- [ ] **Terminal Window Resize Signals (`SIGWINCH`)**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Terminal
+  - Forward terminal geometry adjustments to the active PTY via `fcntl.ioctl` with `termios.TIOCSWINSZ` on UI pane resize.
+- [ ] **In-TUI Syntax Highlighting for Loot & Exploits (`pygments`)**:
+  - *Priority*: **P2** | *Complexity*: Low | *Track*: UI / Detail Dock
+  - Integrate `pygments` lexers to provide rich syntax highlighting for captured credentials, extracted `.env`/config files, and exploit code snippets within the TUI detail and scratchpad views.
 - [ ] **Native TLS/SSL Certificate Inspector (`cryptography`)**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: Zero-Binary Probes
   - Pure-Python TLS certificate inspection for HTTPS services extracting Subject Alternative Names (SANs), issuer information, and validity periods without external CLI dependencies.
@@ -109,30 +150,18 @@ All baseline architectural foundations across the engine, dataflow, security, an
   - *Priority*: **P1** | *Complexity*: High | *Track*: Architecture
   - Decouple background command execution from the Textual UI loop via an internal event bus and optional Unix domain socket (`~/.cyguide/run/cyguide.sock`).
   - Allows background scans to continue across UI reloads and enables headless external triggers.
-- [x] **Unify Split Workspace & Session Management (Deepening Candidate 4)**:
-  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Architecture / IPC
-  - Consolidate parallel entity operations currently split across `GraphStore` and `PowerWorkspaceFacade` in dashboard views into a single deep Workspace/Session repository seam, designed to serve both the local TUI and the Unix domain socket IPC daemon ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py), [`tests/unit/test_workspace_repository.py`](../../tests/unit/test_workspace_repository.py)).
 - [ ] **Encrypted Session Archives (`cyg session export --encrypt` via `cryptography`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Security
   - Add AES-256-GCM authenticated encryption for exported session databases with Argon2id passphrase key derivation using Python's `cryptography` package.
 - [ ] **Zero-Leakage In-Memory Credential Scrubbing**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: Security
   - Scrub transient credentials, secret tokens, and API keys from memory upon task completion.
-- [x] **Declarative CIDR Scope Enforcement**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Security
-  - Added explicit CIDR boundary validation in `ActionGateway` (`allowed_cidrs: ["10.0.0.0/8"]`) rejecting out-of-scope targets and entity IPs before subprocess dispatch ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py), [`tests/unit/test_gateway.py`](../../tests/unit/test_gateway.py)).
-- [x] **LLM Prompt Boundary Sandboxing**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: AI Safety
-  - Enclose untrusted terminal output in ephemeral cryptographically randomized tokens (`<<<UNTRUSTED_SCAN_OUTPUT_{UUID}>>>`) with XML escaping to neutralize prompt injections.
 - [ ] **Cross-Session Approval Context Swapping**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: UI/UX
   - Automatically swap the active TUI session context when approving suggestions originated from another session in the global graph.
 - [ ] **Encrypted Archive Integrity & Tamper Fuzzing**:
   - *Priority*: **P2** | *Complexity*: Medium | *Track*: Security / Reliability
   - Automated test suite verifying cryptographic rejection of truncated, bit-flipped, or maliciously crafted session archives (Argon2id + AES-256-GCM auth tag failures).
-- [x] **Automated CI Performance Regression Gate (`scripts/generate_benchmark_report.py --check`)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Benchmarking / Quality Gate
-  - Integrate benchmark checks into GitHub Actions PR workflow to automatically block merges on critical regressions across cold start, streaming ingestion, or SQLite batching ([`scripts/generate_benchmark_report.py`](../../scripts/generate_benchmark_report.py), [`.github/workflows/ci.yml:109`](../../.github/workflows/ci.yml#L109)).
 - [ ] **Continuous Memory RSS & Heap Profiling**:
   - *Priority*: **P2** | *Complexity*: Medium | *Track*: Performance / Reliability
   - Profile sustained resident memory (RSS) and Python heap allocation over 50,000+ line scanner runs, verifying zero leak accumulation under long-running daemon workloads.
