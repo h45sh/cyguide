@@ -314,12 +314,14 @@ async def test_learning_ui_checkpoint_flow(tmp_path):
 
         # 3. Click Save Checkpoint button -> Opens SaveCheckpointModal
         save_btn.press()
-        await pilot.pause(0.2)
+        await pilot.pause(0.3)
 
         save_modal = app.screen
         assert isinstance(save_modal, SaveCheckpointModal)
         assert "nmap" in save_modal.tool_name
         assert save_modal.styles.align == ("center", "middle")
+        save_modal.refresh(layout=True)
+        await pilot.pause()
         save_card = save_modal.query_one("#checkpoint_modal_card")
         assert save_card.region.width >= 70
         assert save_modal.query_one("#checkpoint_confirm_btn").visible is True
@@ -350,6 +352,8 @@ async def test_learning_ui_checkpoint_flow(tmp_path):
         load_modal = app.screen
         assert isinstance(load_modal, LoadCheckpointModal)
         assert load_modal.styles.align == ("center", "middle")
+        load_modal.refresh(layout=True)
+        await pilot.pause()
         load_card = load_modal.query_one("#checkpoint_modal_card")
         assert load_card.region.x > 0
         assert load_card.region.y > 0
