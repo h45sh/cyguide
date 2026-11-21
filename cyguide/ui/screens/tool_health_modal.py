@@ -1,5 +1,6 @@
 """Modal dialog for viewing system and security tool health status."""
 
+import asyncio
 from typing import Any
 
 from textual import events, work
@@ -32,6 +33,9 @@ class ToolHealthModal(ModalScreen[None]):
                 yield Button("Close [Esc]", variant="primary", id="close_btn")
 
     def on_mount(self) -> None:
+        cached = getattr(self.app, "_cached_tool_health", None)
+        if cached:
+            self.run_worker(self.apply_health(cached))
         self.refresh_health()
 
         def focus_items():
@@ -76,7 +80,7 @@ class ToolHealthModal(ModalScreen[None]):
 
     @work(exclusive=True, group="tool_health_modal")
     async def refresh_health(self) -> None:
-        health = self.app.check_and_update_tool_health()
+        health = await asyncio.to_thread(self.app.check_and_update_tool_health)
         await self.apply_health(health)
 
     async def apply_health(self, health: dict) -> None:

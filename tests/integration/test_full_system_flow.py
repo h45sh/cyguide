@@ -1,11 +1,11 @@
 # codeguard: ignore-file[DEBUG_PYTHON_PRINT, TEST_FLAKY_SLEEP]
 import asyncio
 import os
-import stat
 from unittest.mock import patch
 
 import pytest
 
+from cyguide.engine.adapter import clear_binary_cache
 from cyguide.engine.executor import Executor
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost
@@ -39,6 +39,13 @@ print("Finished long task.", flush=True)
 """
 
 
+@pytest.fixture(autouse=True)
+def _clear_binary_lookup_cache():
+    clear_binary_cache()
+    yield
+    clear_binary_cache()
+
+
 @pytest.mark.asyncio
 async def test_full_executor_nmap_flow(tmp_path):
     """
@@ -48,7 +55,7 @@ async def test_full_executor_nmap_flow(tmp_path):
     bin_dir.mkdir()
     mock_nmap = bin_dir / "nmap"
     mock_nmap.write_text(MOCK_NMAP_CONTENT)
-    mock_nmap.chmod(mock_nmap.stat().st_mode | stat.S_IEXEC)
+    mock_nmap.chmod(0o755)
 
     env = os.environ.copy()
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
@@ -67,7 +74,9 @@ async def test_full_executor_nmap_flow(tmp_path):
     async def on_output(line: str):
         received_lines.append(line)
 
+    clear_binary_cache()
     with patch.dict(os.environ, env):
+        clear_binary_cache()
         findings = []
         async for finding in executor.run_tool(
             adapter, target, params={}, session_id=session_id, on_output=on_output
@@ -97,7 +106,7 @@ async def test_executor_stderr_streaming(tmp_path):
     bin_dir.mkdir()
     mock_tool = bin_dir / "nmap"
     mock_tool.write_text(MOCK_STDERR_TOOL_CONTENT)
-    mock_tool.chmod(mock_tool.stat().st_mode | stat.S_IEXEC)
+    mock_tool.chmod(0o755)
 
     env = os.environ.copy()
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
@@ -118,7 +127,9 @@ async def test_executor_stderr_streaming(tmp_path):
     async def on_stderr(chunk: str):
         stderr_chunks.append(chunk)
 
+    clear_binary_cache()
     with patch.dict(os.environ, env):
+        clear_binary_cache()
         findings = []
         async for f in executor.run_tool(
             adapter,
@@ -145,7 +156,7 @@ async def test_executor_stop_task_cancellation(tmp_path):
     bin_dir.mkdir()
     mock_long = bin_dir / "nmap"
     mock_long.write_text(MOCK_LONG_RUNNING_CONTENT)
-    mock_long.chmod(mock_long.stat().st_mode | stat.S_IEXEC)
+    mock_long.chmod(0o755)
 
     env = os.environ.copy()
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
@@ -161,7 +172,9 @@ async def test_executor_stop_task_cancellation(tmp_path):
 
     async def run_in_bg():
         findings = []
+        clear_binary_cache()
         with patch.dict(os.environ, env):
+            clear_binary_cache()
             async for f in executor.run_tool(
                 adapter, target, {}, task_id=task_id, session_id=session_id
             ):
@@ -169,7 +182,10 @@ async def test_executor_stop_task_cancellation(tmp_path):
         return findings
 
     bg_task = asyncio.create_task(run_in_bg())
-    await asyncio.sleep(0.1)  # Let process start
+    for _ in range(50):
+        if task_id in executor._active_processes:
+            break
+        await asyncio.sleep(0.04)
 
     # Stop task
     assert task_id in executor._active_processes

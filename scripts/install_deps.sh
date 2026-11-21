@@ -122,7 +122,7 @@ verify_tools() {
     echo ""
     log_header "--- Installed Security Tools Status ---"
     local all_good=true
-    local tools=("nmap" "gobuster" "nikto" "whois" "subfinder" "ffuf" "nuclei" "searchsploit")
+    local tools=("nmap" "gobuster" "nikto" "whois" "subfinder" "ffuf" "nuclei" "searchsploit" "sqlmap")
 
     for tool in "${tools[@]}"; do
         if command -v "$tool" >/dev/null 2>&1; then
@@ -135,6 +135,20 @@ verify_tools() {
         fi
     done
 
+    # Check NetExec / nxc
+    if command -v nxc >/dev/null 2>&1; then
+        local nxc_path
+        nxc_path="$(command -v nxc)"
+        log_success "${BOLD}netexec (nxc)${RESET} -> $nxc_path"
+    elif command -v netexec >/dev/null 2>&1; then
+        local netexec_path
+        netexec_path="$(command -v netexec)"
+        log_success "${BOLD}netexec${RESET} -> $netexec_path"
+    else
+        log_warn "${BOLD}netexec (nxc)${RESET} -> NOT FOUND (install via 'pipx install netexec')"
+        all_good=false
+    fi
+
     # Check Pure-Python dnspython dependency
     if python3 -c "import dns.resolver" >/dev/null 2>&1; then
         log_success "${BOLD}dnspython${RESET} -> python3 module available"
@@ -145,8 +159,8 @@ verify_tools() {
 
     echo ""
     if [ "$all_good" = true ]; then
-        log_success "All 9 security tools and adapters are installed and ready!"
-        log_info "Run ${BOLD}cyg check${RESET} to perform an end-to-end environment validation."
+        log_success "All 11 security tools and adapters are installed and ready!"
+        log_info "Run ${BOLD}cyg doctor${RESET} to perform an end-to-end environment validation."
     else
         log_warn "Some tools are missing. Run ${BOLD}./scripts/install_deps.sh${RESET} to install them."
     fi
@@ -394,14 +408,17 @@ if command -v apt-get >/dev/null 2>&1; then
         install_searchsploit || true
     fi
 
+    # SQLMap
+    $SUDO apt-get install -y sqlmap 2>/dev/null || true
+
     install_python_deps
 
 elif command -v pacman >/dev/null 2>&1; then
     log_info "Using Pacman package manager (Arch Linux / Manjaro / EndeavourOS / BlackArch)..."
     $SUDO pacman -Sy --noconfirm --needed nmap whois perl-xml-writer curl ca-certificates unzip tar git
 
-    # Gobuster, Nikto, FFUF
-    $SUDO pacman -S --noconfirm --needed gobuster nikto ffuf 2>/dev/null || true
+    # Gobuster, Nikto, FFUF, SQLMap
+    $SUDO pacman -S --noconfirm --needed gobuster nikto ffuf sqlmap 2>/dev/null || true
 
     # Subfinder
     if ! $SUDO pacman -S --noconfirm --needed subfinder 2>/dev/null; then
@@ -489,7 +506,7 @@ elif command -v xbps-install >/dev/null 2>&1; then
 
 elif command -v brew >/dev/null 2>&1; then
     log_info "Using Homebrew (macOS / Linuxbrew)..."
-    brew install nmap gobuster nikto whois subfinder ffuf nuclei exploitdb
+    brew install nmap gobuster nikto whois subfinder ffuf nuclei exploitdb sqlmap
     install_python_deps
 
 else

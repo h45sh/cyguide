@@ -2,7 +2,6 @@
 
 import re
 import shlex
-import shutil
 from typing import Any, AsyncIterator, Dict, List
 
 from cyguide.engine.adapter import ToolAdapter
@@ -14,24 +13,42 @@ from cyguide.schemas.web import WebVulnerability
 class NiktoAdapter(ToolAdapter):
     """Adapter for the nikto web scanner."""
 
+    FINDING_PATTERN = re.compile(r"^\+ (.*)", re.MULTILINE)
+    PATH_PATTERN = re.compile(r"^(/[\w\-\.\/]+):\s+(.*)")
+    OSVDB_PATTERN = re.compile(r"^(OSVDB-\d+):\s+(.*)")
+
     def validate_install(self) -> bool:
-        return shutil.which("nikto") is not None
+        return self.is_binary_available("nikto")
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip Nikto banners, informational headers, and run trailers."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if (
+                s.startswith("- Nikto v")
+                or s.startswith("+ Target IP:")
+                or s.startswith("+ Target Hostname:")
+                or s.startswith("+ Target Port:")
+                or s.startswith("+ Start Time:")
+                or s.startswith("+ End Time:")
+                or "host(s) tested" in s
+            ):
+                continue
+            lines.append(line)
+        return "\n".join(lines)
 
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         args = ["nikto"]
 
         raw_flags = params.get("raw_flags", "")
         if raw_flags:
-            target_str = ""
-            port_str = ""
-
             if target.schema_type == "web.endpoint":
                 target_str = target.pik.get("url", "")
-            elif target.schema_type == "network.service":
-                target_str = target.pik.get("host_ip", "")
-                port_str = str(target.pik.get("port", ""))
-            elif target.schema_type == "network.host":
-                target_str = target.pik.get("ip", "")
+            else:
+                target_str = self.extract_host(target) or ""
+            port_val = self.extract_port(target)
+            port_str = str(port_val) if port_val else ""
 
             # Tokenize first to prevent argument injection from target_str or port_str
             tokens = shlex.split(raw_flags)
@@ -58,35 +75,17 @@ class NiktoAdapter(ToolAdapter):
     async def parse_output(
         self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
     ) -> AsyncIterator[BaseFinding]:
-        """
-        Regex parser for nikto output.
+        """Regex parser for nikto output.
+
         Example line: + /admin/: Directory indexing found.
         Example line: + Server: Apache/2.4.41 (Ubuntu)
         Example line: + OSVDB-112004: /cgi-bin/test.cgi: Site appears vulnerable to the 'Shellshock' vulnerability.
         """
         # Try to extract base host/url from target or command
-        base_host = ""
-        base_url = ""
+        base_host = self.extract_host(target) or ""
+        base_url = (self.extract_url(target) or "").rstrip("/")
 
-        if target:
-            if target.schema_type == "web.endpoint":
-                base_url = target.pik.get("url", "").rstrip("/")
-            elif target.schema_type == "network.service":
-                base_host = target.pik.get("host_ip", "")
-                port = target.pik.get("port", "")
-                scheme = "https" if port in (443, 8443) else "http"
-                base_url = f"{scheme}://{base_host}:{port}"
-            elif target.schema_type == "network.host":
-                base_host = target.pik.get("ip", "")
-
-        # Regex to match finding lines starting with '+ '
-        pattern = re.compile(r"^\+ (.*)", re.MULTILINE)
-
-        # Identify path-based vs generic issues
-        path_pattern = re.compile(r"^(/[\w\-\.\/]+):\s+(.*)")
-        osvdb_pattern = re.compile(r"^(OSVDB-\d+):\s+(.*)")
-
-        for match in pattern.finditer(raw_stdout):
+        for match in self.FINDING_PATTERN.finditer(raw_stdout):
             line = match.group(1).strip()
 
             # Skip informational headers
@@ -101,13 +100,13 @@ class NiktoAdapter(ToolAdapter):
             ):
                 continue
 
-            osvdb_match = osvdb_pattern.search(line)
+            osvdb_match = self.OSVDB_PATTERN.search(line)
             if osvdb_match:
                 vuln_id = osvdb_match.group(1)
                 desc = osvdb_match.group(2)
 
                 # Check if it has a path
-                path_match = path_pattern.search(desc)
+                path_match = self.PATH_PATTERN.search(desc)
                 if path_match and base_url:
                     path = path_match.group(1)
                     finding = path_match.group(2)
@@ -119,7 +118,7 @@ class NiktoAdapter(ToolAdapter):
                         host_ip=base_host, vuln_id=vuln_id, severity="unknown", description=desc
                     )
             else:
-                path_match = path_pattern.search(line)
+                path_match = self.PATH_PATTERN.search(line)
                 if path_match and base_url:
                     path = path_match.group(1)
                     desc = path_match.group(2)

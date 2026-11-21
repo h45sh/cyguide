@@ -135,7 +135,7 @@ class ToolRegistry:
 
     def check_health(self) -> Dict[str, Dict[str, Any]]:
         """Return comprehensive health and installation diagnostics for all registered tools."""
-        from cyguide.engine.diagnostics import check_tool_health
+        from cyguide.engine.diagnostics import DiagnosticEngine
 
         self.refresh_if_changed()
-        return check_tool_health(self)
+        return DiagnosticEngine.check_tool_health(self)

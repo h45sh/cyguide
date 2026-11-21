@@ -94,3 +94,43 @@ def test_app_memory_db_handling(tmp_path):
     assert app._get_settings_path() is None
     assert app.get_exports_dir() == str(tmp_path / "exports")
     assert app.get_reports_dir() == str(tmp_path / "reports")
+
+
+def test_get_git_branch_standard_repo(tmp_path):
+    """Verify get_git_branch resolves branch name from .git/HEAD."""
+    from cyguide.paths import get_git_branch
+
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    head_file = git_dir / "HEAD"
+    head_file.write_text("ref: refs/heads/feat/test-branch\n")
+
+    branch = get_git_branch(str(tmp_path))
+    assert branch == "feat/test-branch"
+
+
+def test_get_git_branch_worktree(tmp_path):
+    """Verify get_git_branch resolves branch name from worktree gitdir pointer."""
+    from cyguide.paths import get_git_branch
+
+    worktree_dir = tmp_path / "worktree"
+    worktree_dir.mkdir()
+    actual_git_dir = tmp_path / "main_repo" / ".git" / "worktrees" / "wt1"
+    actual_git_dir.mkdir(parents=True)
+    (actual_git_dir / "HEAD").write_text("ref: refs/heads/worktree-branch\n")
+
+    (worktree_dir / ".git").write_text(f"gitdir: {actual_git_dir}\n")
+
+    branch = get_git_branch(str(worktree_dir))
+    assert branch == "worktree-branch"
+
+
+def test_get_git_branch_no_repo(tmp_path):
+    """Verify get_git_branch returns empty string when not in a git repo."""
+    from cyguide.paths import get_git_branch
+
+    empty_dir = tmp_path / "no_git"
+    empty_dir.mkdir()
+
+    branch = get_git_branch(str(empty_dir))
+    assert branch == ""

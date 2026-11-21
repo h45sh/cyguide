@@ -1,36 +1,43 @@
 """Whois tool adapter."""
 
 import re
-import shutil
+import shlex
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from cyguide.engine.adapter import ToolAdapter
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.dns import DomainInfo
-from cyguide.schemas.netblock import NetworkNetblock
-from cyguide.schemas.network import NetworkHost
+from cyguide.schemas.network import NetworkHost, NetworkNetblock
 
 
 class WhoisAdapter(ToolAdapter):
     """Adapter for the whois client."""
 
+    REGISTRAR_PATTERN = re.compile(r"Registrar:\s*(.*)", re.IGNORECASE)
+    ORG_PATTERN = re.compile(r"(?:Organization|Registrant Organization):\s*(.*)", re.IGNORECASE)
+    CIDR_PATTERN = re.compile(r"(?:CIDR|NetRange):\s*(.*)", re.IGNORECASE)
+
     def validate_install(self) -> bool:
-        return shutil.which("whois") is not None
+        return self.is_binary_available("whois")
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip whois legal disclaimers, boilerplate, and comment blocks."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if s.startswith("%") or s.startswith("#") or "TERMS OF USE" in s.upper():
+                continue
+            lines.append(line)
+        return "\n".join(lines)
 
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         # target can be dns.record (use domain) or network.host (use ip)
-        query = None
-        if target.schema_type == "dns.record":
-            query = target.pik.get("domain")
-        elif target.schema_type == "network.host":
-            query = target.pik.get("ip")
+        query = self.extract_domain(target) or self.extract_host(target)
 
         args = ["whois"]
 
         raw_flags = params.get("raw_flags", "")
         if raw_flags:
-            import shlex
-
             args.extend(shlex.split(raw_flags))
 
         if query:
@@ -47,9 +54,9 @@ class WhoisAdapter(ToolAdapter):
     ) -> AsyncIterator[BaseFinding]:
         """Parse whois output for registrar, organization, and IP info."""
 
-        registrar = self._extract(raw_stdout, r"Registrar:\s*(.*)")
-        org = self._extract(raw_stdout, r"(?:Organization|Registrant Organization):\s*(.*)")
-        cidr = self._extract(raw_stdout, r"(?:CIDR|NetRange):\s*(.*)")
+        registrar = self._extract(raw_stdout, self.REGISTRAR_PATTERN)
+        org = self._extract(raw_stdout, self.ORG_PATTERN)
+        cidr = self._extract(raw_stdout, self.CIDR_PATTERN)
 
         # 1. If we queried a domain, emit DomainInfo
         if target.schema_type == "dns.record":
@@ -65,6 +72,9 @@ class WhoisAdapter(ToolAdapter):
             ip = target.pik.get("ip")
             yield NetworkHost.create(ip=ip)
 
-    def _extract(self, text: str, pattern: str) -> Optional[str]:
-        match = re.search(pattern, text, re.IGNORECASE)
+    def _extract(self, text: str, pattern: Any) -> Optional[str]:
+        if isinstance(pattern, str):
+            match = re.search(pattern, text, re.IGNORECASE)
+        else:
+            match = pattern.search(text)
         return match.group(1).strip() if match else None

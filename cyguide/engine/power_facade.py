@@ -2,10 +2,10 @@
 
 import asyncio
 import os
-from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Tuple
+import shutil
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from cyguide.engine.adapter import ToolAdapter
 from cyguide.engine.context_builder import WorkspaceContextBuilder
 from cyguide.engine.execution_session import (
     CommandRunner,
@@ -15,33 +15,34 @@ from cyguide.engine.execution_session import (
 )
 from cyguide.engine.executor import Executor, sanitize_subprocess_env
 from cyguide.engine.gateway import ActionGateway
+from cyguide.engine.graph_analytics import GraphAnalyticsEngine
 from cyguide.engine.network import get_lhost_info
+from cyguide.engine.preflight import PreflightReport, PreflightVerifier
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
 from cyguide.engine.workspace_repository import WorkspaceRepository
 from cyguide.paths import get_action_log_path
-from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.power import ActionRequest, JobStatus, JobStatusEnum, WorkspaceContext
 
-__all__ = ["PowerWorkspaceFacade", "ShellAdapter", "get_lhost_info"]
+__all__ = ["PowerWorkspaceFacade", "get_lhost_info", "send_desktop_notification"]
 
 
-class ShellAdapter(ToolAdapter):
-    """Adapter for explicit shell commands (prefix '!')."""
-
-    def validate_install(self) -> bool:
-        return True
-
-    def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
-        import shlex
-
-        return shlex.split(params.get("raw_flags", ""))
-
-    async def parse_output(
-        self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
-    ) -> AsyncIterator[BaseFinding]:
-        return
-        yield
+async def send_desktop_notification(title: str, message: str) -> None:
+    """Send an OS desktop notification using notify-send if available."""
+    try:
+        if shutil.which("notify-send"):
+            proc = await asyncio.create_subprocess_exec(
+                "notify-send",
+                "-a",
+                "CyGuide",
+                title,
+                message,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await proc.wait()
+    except Exception:
+        pass
 
 
 class PowerWorkspaceFacade:
@@ -50,6 +51,11 @@ class PowerWorkspaceFacade:
     This is the primary API for the TUI and future agents. It orchestrates
     sessions, validates actions, manages tool execution, and builds workspace context.
     """
+
+    @staticmethod
+    async def send_desktop_notification(title: str, message: str) -> None:
+        """Send an OS desktop notification using notify-send if available."""
+        await send_desktop_notification(title, message)
 
     def __init__(
         self,
@@ -87,6 +93,22 @@ class PowerWorkspaceFacade:
         self.session_id: Optional[UUID] = None
         self.workspace_id: Optional[UUID] = None
         self.explainer: Optional[Any] = None
+        self.preflight_verifier = PreflightVerifier(registry=self.registry)
+
+    def verify_preflight(
+        self,
+        tool_name: str,
+        target: str,
+        flags: str = "",
+        recipe_idx: Optional[int] = None,
+    ) -> PreflightReport:
+        """Validate execution dependencies, target variables, and security parameters."""
+        return self.preflight_verifier.verify(
+            tool_name=tool_name,
+            target=target,
+            flags=flags,
+            recipe_idx=recipe_idx,
+        )
 
     async def extract_structured_findings(
         self,
@@ -136,105 +158,18 @@ class PowerWorkspaceFacade:
         """Register an asynchronous task under session lifecycle management."""
         self.execution.track_task(job_id, task)
 
-    async def create_workspace(self, name: str) -> str:
-        """Create a new workspace, ensuring its name is unique (case-insensitive)."""
-        return await self.workspaces.create_workspace(name)
+    async def get_notes(self, session_id: Optional[str] = None) -> str:
+        """Fetch persistent notes for an investigation session from SQLite."""
+        target_id = session_id or (str(self.session_id) if self.session_id else None)
+        if not target_id:
+            return ""
+        return await self.workspaces.get_session_notes(target_id)
 
-    async def rename_workspace(self, workspace_id: str, new_name: str) -> None:
-        """Rename a workspace, ensuring the new name is unique."""
-        await self.workspaces.rename_workspace(workspace_id, new_name)
-
-    async def create_session(self, workspace_id: str, name: Optional[str] = None) -> str:
-        """Create a new session, ensuring its name is unique in this workspace."""
-        return await self.workspaces.create_session(workspace_id, name)
-
-    async def rename_session(self, session_id: str, new_name: str) -> None:
-        """Rename a session, ensuring its new name is unique in its workspace."""
-        await self.workspaces.rename_session(session_id, new_name)
-
-    async def set_entity_alias(self, session_id: str, node_id: str, alias: str) -> None:
-        """Set a user-defined friendly name or alias for an entity node."""
-        await self.workspaces.set_entity_alias(session_id, node_id, alias)
-
-    async def move_session(self, session_id: str, target_workspace_id: str) -> None:
-        """Move a session to another workspace, ensuring no name collision."""
-        await self.workspaces.move_session(session_id, target_workspace_id)
-
-    async def move_sessions(
-        self, session_ids: List[str], target_workspace_id: str
-    ) -> Dict[str, Any]:
-        """Move multiple sessions to another workspace."""
-        return await self.workspaces.move_sessions(session_ids, target_workspace_id)
-
-    async def delete_session(self, session_id: str) -> None:
-        """Clean up active jobs for the session, then delete it."""
-        await self.workspaces.delete_session(session_id)
-
-    async def delete_workspace(self, workspace_id: str) -> None:
-        """Clean up active jobs for all sessions in the workspace, then delete it."""
-        await self.workspaces.delete_workspace(workspace_id)
-
-    async def batch_delete(
-        self, workspace_ids: List[str], session_ids: List[str]
-    ) -> Dict[str, Any]:
-        """Atomically delete multiple workspaces and sessions, safeguarding SYSTEM workspaces."""
-        return await self.workspaces.batch_delete(workspace_ids, session_ids)
-
-    async def close_session(self, session_id: str) -> None:
-        """Archive a session and log the closure."""
-        await self.workspaces.close_session(session_id)
-
-    async def reopen_session(self, session_id: str) -> None:
-        """Reopen an archived session back to ACTIVE."""
-        await self.workspaces.reopen_session(session_id)
-
-    async def close_workspace(self, workspace_id: str) -> None:
-        """Close all sessions in the workspace and close the workspace."""
-        await self.workspaces.close_workspace(workspace_id)
-
-    async def reopen_workspace(self, workspace_id: str) -> None:
-        """Reopen a closed workspace."""
-        await self.workspaces.reopen_workspace(workspace_id)
-
-    async def list_workspaces(self, status_filter: Optional[str] = None) -> List[Dict]:
-        """List all workspaces, optionally filtered by status ('ACTIVE' or 'CLOSED')."""
-        return await self.workspaces.list_workspaces(status_filter=status_filter)
-
-    async def get_workspace(self, workspace_id: str) -> Optional[Dict]:
-        """Fetch workspace metadata by ID."""
-        return await self.workspaces.get_workspace(workspace_id)
-
-    async def list_sessions(
-        self, workspace_id: str, status_filter: Optional[str] = None
-    ) -> List[Dict]:
-        """List sessions within a workspace, optionally filtered by status."""
-        return await self.workspaces.list_sessions(workspace_id, status_filter=status_filter)
-
-    async def get_session(self, session_id: str) -> Optional[Dict]:
-        """Fetch session metadata by ID."""
-        return await self.workspaces.get_session(session_id)
-
-    async def get_node(self, session_id: str, node_id: str) -> Optional[Dict]:
-        """Fetch a specific node by ID."""
-        return await self.workspaces.get_node(session_id, node_id)
-
-    async def get_all_nodes(self, session_id: str) -> List[Dict]:
-        """Fetch all nodes for a session."""
-        return await self.workspaces.get_all_nodes(session_id)
-
-    async def get_all_edges(self, session_id: str) -> List[Dict]:
-        """Fetch all edges for a session."""
-        return await self.workspaces.get_all_edges(session_id)
-
-    async def get_stats(
-        self, session_id: Optional[str] = None, workspace_id: Optional[str] = None
-    ) -> Dict[str, int]:
-        """Get aggregate node and vulnerability counts."""
-        return await self.workspaces.get_stats(session_id=session_id, workspace_id=workspace_id)
-
-    async def get_recent_activity(self, workspace_id: str, limit: int = 5) -> List[Dict]:
-        """Get recent activity audit events for a workspace."""
-        return await self.workspaces.get_recent_activity(workspace_id, limit=limit)
+    async def save_notes(self, content: str, session_id: Optional[str] = None) -> None:
+        """Atomically persist notes for an investigation session into SQLite."""
+        target_id = session_id or (str(self.session_id) if self.session_id else None)
+        if target_id:
+            await self.workspaces.save_session_notes(target_id, content)
 
     async def get_closed_events_count(self, session_id: str) -> int:
         """Count closed tool execution events for a session."""
@@ -250,9 +185,9 @@ class PowerWorkspaceFacade:
 
     async def generate_markdown_report(self, session_id: str) -> str:
         """Generate markdown report string for a session."""
-        from cyguide.engine.reporter import generate_markdown_report
+        from cyguide.engine.reporter import SessionReportService
 
-        return await generate_markdown_report(self.store, session_id)
+        return await SessionReportService(self.store).generate_markdown_report(session_id)
 
     async def submit_action(
         self,
@@ -287,6 +222,9 @@ class PowerWorkspaceFacade:
             on_complete=on_complete,
         )
 
+    # Alias for InvestigationSession polymorphic interface
+    execute = submit_action
+
     async def shutdown(self) -> None:
         """Cancel and drain all running action tasks before store closes."""
         await self.execution.shutdown()
@@ -304,12 +242,45 @@ class PowerWorkspaceFacade:
     async def get_session_events(self, session_id: str) -> List[Dict]:
         return await self.store.get_event_log(session_id)
 
-    async def get_graph_snapshot(self, session_id: str) -> Dict[str, List[Dict]]:
+    async def get_graph_snapshot(self, session_id: Optional[str] = None) -> Dict[str, List[Dict]]:
         """Returns all confirmed nodes and edges for the session."""
-        nodes = await self.store.get_all_nodes(session_id)
-        edges = await self.store.get_all_edges(session_id)
+        target_id = session_id or (str(self.session_id) if self.session_id else None)
+        if not target_id:
+            return {"nodes": [], "edges": []}
+        nodes = await self.store.get_all_nodes(target_id)
+        edges = await self.store.get_all_edges(target_id)
         confirmed_nodes = [n for n in nodes if n.get("status") == "confirmed"]
         return {"nodes": confirmed_nodes, "edges": edges}
+
+    async def get_graph_analytics(self, session_id: Optional[str] = None) -> GraphAnalyticsEngine:
+        """Instantiate a GraphAnalyticsEngine over the session's confirmed graph snapshot."""
+        snapshot = await self.get_graph_snapshot(session_id)
+        return GraphAnalyticsEngine(snapshot["nodes"], snapshot["edges"])
+
+    async def get_critical_pivot_nodes(
+        self, session_id: Optional[str] = None, top_k: int = 5
+    ) -> List[Tuple[Dict[str, Any], float]]:
+        """Identify top-k critical choke points and dual-homed pivot nodes via betweenness centrality."""
+        analytics = await self.get_graph_analytics(session_id)
+        centrality = analytics.calculate_betweenness_centrality()
+        sorted_nodes = sorted(centrality.items(), key=lambda x: x[1], reverse=True)
+        results: List[Tuple[Dict[str, Any], float]] = []
+        for n_id, score in sorted_nodes[:top_k]:
+            if score > 0.0 and n_id in analytics.nodes_by_id:
+                results.append((analytics.nodes_by_id[n_id], score))
+        return results
+
+    async def get_cyclic_attack_chains(
+        self, session_id: Optional[str] = None
+    ) -> List[List[Dict[str, Any]]]:
+        """Detect circular exploit and lateral movement paths across session entities."""
+        analytics = await self.get_graph_analytics(session_id)
+        sccs = analytics.find_strongly_connected_components()
+        cycles = [comp for comp in sccs if len(comp) >= 2]
+        return [
+            [analytics.nodes_by_id[nid] for nid in comp if nid in analytics.nodes_by_id]
+            for comp in cycles
+        ]
 
     async def get_workspace_graph_snapshot(self, workspace_id: str) -> Dict[str, List[Dict]]:
         """Returns all confirmed nodes and edges across the workspace, deduplicated."""
@@ -417,11 +388,6 @@ class PowerWorkspaceFacade:
         """Fetch JobStatus by UUID from active job registry."""
         return self.execution.get_job(job_id)
 
-    def register_job(self, job: JobStatus) -> None:
-        """Register or update a JobStatus in the active job registry."""
-        self.execution.register_job(job)
-        self._notify_job_change(job)
-
     def is_job_closed(self, job_id: str) -> bool:
         """Check if a job has been marked closed by the operator."""
         return self.execution.is_job_closed(job_id)
@@ -437,17 +403,3 @@ class PowerWorkspaceFacade:
     def get_job_action(self, job_id: UUID) -> Optional[ActionRequest]:
         """Get the original ActionRequest for a job."""
         return self.execution.get_job_action(job_id)
-
-    async def export_session(self, session_id: str, dest_db_path: str) -> None:
-        """Export a session's database rows to a portable database."""
-        await self.workspaces.export_session(session_id, dest_db_path)
-
-    async def export_markdown_report(self, session_id: str, dest_path: str) -> None:
-        """Export a session's finding summary and logs to a hardened Markdown report file."""
-        await self.workspaces.export_markdown_report(session_id, dest_path)
-
-    async def import_session(
-        self, src_db_path: str, target_workspace_id: Optional[str] = None
-    ) -> str:
-        """Import a session from an exported database."""
-        return await self.workspaces.import_session(src_db_path, target_workspace_id)

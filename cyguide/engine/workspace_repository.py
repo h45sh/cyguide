@@ -72,6 +72,10 @@ class WorkspaceRepository:
 
     async def create_session(self, workspace_id: str, name: Optional[str] = None) -> str:
         """Create a new session, ensuring its name is unique in this workspace."""
+        ws = await self.store.get_workspace(workspace_id)
+        if ws and ws.get("name") == "Learning Sandbox":
+            raise ValueError("Cannot create custom sessions inside the protected Learning Sandbox.")
+
         final_name = (name or "New Investigation").strip()
         existing = await self.store.list_sessions(workspace_id)
         if any(s["name"].strip().lower() == final_name.lower() for s in existing):
@@ -198,6 +202,14 @@ class WorkspaceRepository:
         """Fetch session metadata by ID."""
         return await self.store.get_session(session_id)
 
+    async def get_session_notes(self, session_id: str) -> str:
+        """Fetch persistent operator notes for a session from SQLite."""
+        return await self.store.get_notes("session", str(session_id))
+
+    async def save_session_notes(self, session_id: str, content: str) -> None:
+        """Atomically persist operator notes for a session into SQLite."""
+        await self.store.save_notes("session", str(session_id), content)
+
     # --- Entity & Graph Data Queries ---
 
     async def set_entity_alias(self, session_id: str, node_id: str, alias: str) -> None:
@@ -234,9 +246,9 @@ class WorkspaceRepository:
 
     async def export_markdown_report(self, session_id: str, dest_path: str) -> None:
         """Export a session's finding summary and logs to a hardened Markdown report file."""
-        from cyguide.engine.reporter import export_markdown_report
+        from cyguide.engine.reporter import SessionReportService
 
-        await export_markdown_report(self.store, session_id, dest_path)
+        await SessionReportService(self.store).export_markdown_report(session_id, dest_path)
 
     async def import_session(
         self, src_db_path: str, target_workspace_id: Optional[str] = None

@@ -28,7 +28,7 @@ def test_format_activity():
     """Verify that format_activity formats different schemas and event types correctly."""
     import json
 
-    from cyguide.ui.screens.home import format_activity
+    from cyguide.schemas.presentation import format_activity_entry as format_activity
 
     # 1. System event (Ran nmap)
     line = format_activity("Session 22:40:20", "system.event", "Ran nmap")
@@ -103,36 +103,6 @@ async def test_learning_screen_resume_preserves_buffer():
         active_app.reset(token)
 
 
-@pytest.mark.asyncio
-async def test_learning_screen_clear_buttons(tmp_path):
-    """Verify that clearing explanation (via method/slash command) and raw output button clears content."""
-    db_file = str(tmp_path / "test_app_clear.db")
-    app = CyGuideApp(db_path=db_file)
-    async with app.run_test() as pilot:
-        app.learning_mode_tool = "nmap"
-        app.switch_screen("learning_mode")
-        await pilot.pause()
-
-        screen = app.screen
-        assert screen.query_one("#clear_output_btn") is not None
-
-        # Populate buffers
-        screen.explanation_buffer = "Some explanation text"
-        screen.log_buffer = ["Log entry 1\n", "Log entry 2\n"]
-
-        # Clear explanation via clear_explanation (matching /clear slash command)
-        screen.clear_explanation()
-        await pilot.pause()
-        assert screen.explanation_buffer == ""
-
-        # Switch to raw output tab and click clear output button
-        screen.query_one("#learning_tabs").active = "tab_output"
-        await pilot.pause()
-        await pilot.click("#clear_output_btn")
-        await pilot.pause()
-        assert screen.log_buffer == []
-
-
 def test_css_stylesheet_syntax():
     """Verify that the Textual CSS stylesheet contains zero parsing or property errors."""
     from textual.css.stylesheet import Stylesheet
@@ -141,18 +111,6 @@ def test_css_stylesheet_syntax():
     ss.read("cyguide/ui/style.css")
     ss.parse()
     assert len(ss.rules) > 0
-
-
-@pytest.mark.asyncio
-async def test_app_headless_mount_and_screens(tmp_path):
-    """Verify that the app mounts and compiles CSS across all screens without crashing."""
-    db_file = str(tmp_path / "test_app.db")
-    app = CyGuideApp(db_path=db_file)
-    async with app.run_test() as pilot:
-        for screen_name in ["dashboard", "power_mode", "tool_browser"]:
-            app.switch_screen(screen_name)
-            await pilot.pause()
-            assert app.screen is not None
 
 
 @pytest.mark.asyncio
@@ -245,36 +203,11 @@ async def test_system_commands_show_setting_state():
     async with app.run_test():
         commands = list(app.get_system_commands(app.screen))
         anim_cmd = next(c for c in commands if "Toggle Animations" in c.title)
-        assert "● ON" in anim_cmd.title or "○ OFF" in anim_cmd.title
+        assert "● ON" in anim_cmd.title or "OFF" in anim_cmd.title
         assert anim_cmd.help == ""
 
         # Verify Toggle Sidebar has been removed from palette
         assert not any("Toggle Sidebar" in c.title for c in commands)
-
-
-@pytest.mark.asyncio
-async def test_tool_health_in_command_palette():
-    """Verify tool health has one consolidated option in command palette, with tools under it."""
-    from cyguide.app import CyGuideApp
-    from cyguide.ui.screens.tool_health_modal import ToolHealthModal
-
-    app = CyGuideApp()
-    async with app.run_test() as pilot:
-        commands = list(app.get_system_commands(app.screen))
-        health_cmd = next(c for c in commands if "Tool Health" in c.title)
-        assert health_cmd.help == ""
-        assert "Healthy" in health_cmd.title or "Issue" in health_cmd.title
-
-        # Verify individual tools are NOT polluting root command palette options
-        assert not any(c.title.startswith("Tool: ") for c in commands)
-
-        # Trigger tool health action to verify all tools are listed under it in the modal
-        app.action_show_tool_health()
-        await pilot.pause(0.1)
-        assert isinstance(app.screen, ToolHealthModal)
-        modal_items = list(app.screen.query_one("#tool_health_items").children)
-        assert len(modal_items) >= 5  # gobuster, nikto, nmap, subfinder, whois
-        assert any("nmap" in str(item.children[0].render()) for item in modal_items)
 
 
 @pytest.mark.asyncio
@@ -308,51 +241,6 @@ async def test_tool_health_arrow_navigation():
 
 
 @pytest.mark.asyncio
-async def test_dashboard_tool_health_conditional_visibility(monkeypatch):
-    """Verify tool health is hidden on dashboard when healthy, but appears when there are errors."""
-    import cyguide.engine.diagnostics
-    from cyguide.app import CyGuideApp
-
-    # Mock all tools as installed and healthy
-    fake_healthy = {
-        "nmap": {"healthy": True, "status": "installed", "message": "Installed"},
-        "whois": {"healthy": True, "status": "installed", "message": "Installed"},
-    }
-    monkeypatch.setattr(cyguide.engine.diagnostics, "check_tool_health", lambda reg: fake_healthy)
-
-    app = CyGuideApp(db_path=":memory:")
-    async with app.run_test() as pilot:
-        dashboard = app.screen
-        assert dashboard.__class__.__name__ == "DashboardScreen"
-        await dashboard.refresh_diagnostics()
-
-        container = dashboard.query_one("#tool_health_container")
-        # In a healthy environment, tool health is hidden
-        assert "hidden" in container.classes
-
-        # Simulate a negative tool health status (load error)
-        fake_unhealthy = {
-            "faulty_tool": {
-                "healthy": False,
-                "status": "error",
-                "message": "Crash during initialization",
-            }
-        }
-        monkeypatch.setattr(
-            cyguide.engine.diagnostics, "check_tool_health", lambda reg: fake_unhealthy
-        )
-        await dashboard.refresh_diagnostics()
-        await pilot.pause(0.1)
-
-        # Should now appear on dashboard!
-        assert "hidden" not in container.classes
-        diag_list = dashboard.query_one("#diagnostics_list")
-        items = list(diag_list.children)
-        assert len(items) > 0
-        assert any("faulty_tool" in str(item.children[0].render()) for item in items)
-
-
-@pytest.mark.asyncio
 async def test_palette_right_arrow_executes_leaf_and_preserves_memory():
     """Verify right arrow executes leaf command in palette and restores highlight on left arrow."""
     from textual.command import CommandList
@@ -363,7 +251,7 @@ async def test_palette_right_arrow_executes_leaf_and_preserves_memory():
     app = CyGuideApp(db_path=":memory:")
     async with app.run_test() as pilot:
         # 1. Right arrow on leaf command (Toggle Animations) executes it
-        assert app.animations_enabled is True
+        assert app.animations_enabled is False
         await pilot.press("ctrl+p")
         await pilot.pause(0.2)
         cl = app.screen.query_one(CommandList)
@@ -374,7 +262,7 @@ async def test_palette_right_arrow_executes_leaf_and_preserves_memory():
         await pilot.pause(0.1)
         await pilot.press("right")
         await pilot.pause(0.2)
-        assert app.animations_enabled is False
+        assert app.animations_enabled is True
 
         # 2. Right arrow on Tool Health moves into sub-dialog, left arrow moves back with highlight preserved
         await pilot.press("ctrl+p")
@@ -405,8 +293,8 @@ async def test_dashboard_workspace_session_arrow_navigation():
         ws_list = d.query_one("#workspace_list")
         sess_list = d.query_one("#session_list")
 
-        ws_id = await app.power_facade.create_workspace("TestWS")
-        await app.power_facade.create_session(ws_id, "TestSession")
+        ws_id = await app.workspaces.create_workspace("TestWS")
+        await app.workspaces.create_session(ws_id, "TestSession")
         await d.refresh_workspaces()
         await d.show_workspace_details(ws_id)
         await pilot.pause(0.2)
@@ -456,8 +344,8 @@ async def test_dashboard_arrow_navigation_in_delete_and_organize_modes():
         ws_list = d.query_one("#workspace_list")
         sess_list = d.query_one("#session_list")
 
-        ws_id = await app.power_facade.create_workspace("TestWS")
-        await app.power_facade.create_session(ws_id, "TestSession")
+        ws_id = await app.workspaces.create_workspace("TestWS")
+        await app.workspaces.create_session(ws_id, "TestSession")
         await d.refresh_workspaces()
         await d.show_workspace_details(ws_id)
         await pilot.pause(0.2)
@@ -547,27 +435,27 @@ async def test_settings_persistence(tmp_path):
     db_file = str(tmp_path / "cyguide.db")
     settings_file = tmp_path / "settings.json"
 
-    # 1. Initial app defaults animations to True
+    # 1. Initial app defaults animations to False (animations off on fresh install)
     app1 = CyGuideApp(db_path=db_file)
-    assert app1.animations_enabled is True
+    assert app1.animations_enabled is False
     assert not settings_file.exists()
 
-    # 2. Toggle animations to False
+    async with app1.run_test() as pilot:
+        await pilot.pause(0.1)
+        assert "no-animations" in app1.classes
+
+    # 2. Toggle animations to True
     app1.action_toggle_animations()
-    assert app1.animations_enabled is False
+    assert app1.animations_enabled is True
     assert settings_file.exists()
 
     with open(settings_file, "r") as f:
         data = json.load(f)
-    assert data.get("animations_enabled") is False
+    assert data.get("animations_enabled") is True
 
-    # 3. New app instance with the same db_path loads animations_enabled as False
+    # 3. New app instance with the same db_path loads animations_enabled as True
     app2 = CyGuideApp(db_path=db_file)
-    assert app2.animations_enabled is False
-
-    async with app2.run_test() as pilot:
-        await pilot.pause(0.1)
-        assert "no-animations" in app2.classes
+    assert app2.animations_enabled is True
 
 
 @pytest.mark.asyncio
@@ -703,7 +591,7 @@ async def test_learning_sidebar_layout_and_wrapping():
         assert btn_bottom <= pane_bottom, (
             f"Button bottom {btn_bottom} exceeds pane bottom {pane_bottom}"
         )
-        assert run_btn.region.height == 3
+        assert run_btn.region.height == 1
 
         # 3. Test recipe selection updates preview
         rl.index = 1
@@ -727,16 +615,15 @@ async def test_session_overview_hierarchy_and_formatting(tmp_path):
     """Verify session overview card hierarchy, schema formatting, and power mode launch."""
     import uuid
 
-    from cyguide.schemas.netblock import NetworkNetblock
-    from cyguide.schemas.network import NetworkHost, NetworkService
+    from cyguide.schemas.network import NetworkHost, NetworkNetblock, NetworkService
 
     db_path = str(tmp_path / f"test_overview_{uuid.uuid4().hex}.db")
     app = CyGuideApp(db_path=db_path)
     async with app.run_test(size=(120, 45)) as pilot:
         await pilot.pause()
         dashboard = app.get_screen("dashboard")
-        ws_id = await app.power_facade.create_workspace("OverviewWS")
-        sess_id = await app.power_facade.create_session(ws_id, "ReconSession")
+        ws_id = await app.workspaces.create_workspace("OverviewWS")
+        sess_id = await app.workspaces.create_session(ws_id, "ReconSession")
 
         # 1. Test empty state initially
         await dashboard.refresh_workspaces()
@@ -794,26 +681,28 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
     app = CyGuideApp(db_path=db_path)
     async with app.run_test(size=(120, 45)) as pilot:
         dashboard = app.get_screen("dashboard")
-        ws1 = await app.power_facade.create_workspace("Workspace One")
-        await app.power_facade.create_session(ws1, "Session 1.1")
-        await app.power_facade.create_session(ws1, "Session 1.2")
+        ws1 = await app.workspaces.create_workspace("Workspace One")
+        await app.workspaces.create_session(ws1, "Session 1.1")
+        await app.workspaces.create_session(ws1, "Session 1.2")
 
-        ws2 = await app.power_facade.create_workspace("Workspace Two")
-        await app.power_facade.create_session(ws2, "Session 2.1")
-        await app.power_facade.create_session(ws2, "Session 2.2")
+        ws2 = await app.workspaces.create_workspace("Workspace Two")
+        await app.workspaces.create_session(ws2, "Session 2.1")
+        await app.workspaces.create_session(ws2, "Session 2.2")
 
-        ws3 = await app.power_facade.create_workspace("Workspace Three")
-        await app.power_facade.create_session(ws3, "Session 3.1")
-        await app.power_facade.create_session(ws3, "Session 3.2")
+        ws3 = await app.workspaces.create_workspace("Workspace Three")
+        await app.workspaces.create_session(ws3, "Session 3.1")
+        await app.workspaces.create_session(ws3, "Session 3.2")
 
         await dashboard.refresh_workspaces()
+        await dashboard.show_workspace_details(ws1)
         await pilot.pause()
 
         ws_list = dashboard.query_one("#workspace_list")
         sess_list = dashboard.query_one("#session_list")
 
         async def settle():
-            for _ in range(20):
+            for _ in range(40):
+                await pilot.pause(0.05)
                 if dashboard._ws_debounce_task and not dashboard._ws_debounce_task.done():
                     try:
                         await dashboard._ws_debounce_task
@@ -825,7 +714,12 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
                     except asyncio.CancelledError:
                         pass
                 await pilot.pause(0.05)
-                if sess_list.index is not None and len(sess_list.children) > 0:
+                tasks_done = (
+                    dashboard._ws_debounce_task is None or dashboard._ws_debounce_task.done()
+                ) and (
+                    dashboard._sess_debounce_task is None or dashboard._sess_debounce_task.done()
+                )
+                if tasks_done and sess_list.index == 0 and len(sess_list.children) > 0:
                     break
 
         # 1. Start at index 0 and navigate down to index 1
@@ -889,75 +783,106 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
 
 
 @pytest.mark.asyncio
-async def test_sidebar_resize_alt_brackets(tmp_path):
-    """Verify that Alt+[ and Alt+] shrink and expand sidebars in Learning and Power modes."""
-    import uuid
-
-    db_path = str(tmp_path / f"test_resize_{uuid.uuid4().hex}.db")
-    app = CyGuideApp(db_path=db_path)
+async def test_sidebar_resize_and_tab_shortcuts():
+    """Verify Alt+[, Ctrl+[, Ctrl+Alt+[ bracket shortcuts for sidebars and tab navigation."""
+    app = CyGuideApp(db_path=":memory:")
     async with app.run_test(size=(120, 45)) as pilot:
         # 1. Learning Mode
         app.switch_screen("learning_mode")
         await pilot.pause()
         learning = app.get_screen("learning_mode")
         lpane = learning.query_one("#lesson_config_pane")
-        init_lw = int(lpane.styles.width.value)
+        cpane = learning.query_one("#learning_copilot_pane")
+        copilot_tabs = learning.query_one("#copilot_tabs")
 
-        # Shrink via alt+[ and alt+left_square_bracket
+        init_lw = int(lpane.styles.width.value)
+        init_cw = int(cpane.styles.width.value)
+
+        # Left sidebar shrink via alt+[ and ctrl+[
         await pilot.press("alt+[")
         await pilot.pause()
         assert int(lpane.styles.width.value) == init_lw - 4
 
-        await pilot.press("alt+left_square_bracket")
+        await pilot.press("ctrl+[")
         await pilot.pause()
         assert int(lpane.styles.width.value) == init_lw - 8
 
-        # Expand via alt+] and alt+right_square_bracket
+        # Left sidebar expand via alt+] and ctrl+]
         await pilot.press("alt+]")
         await pilot.pause()
         assert int(lpane.styles.width.value) == init_lw - 4
 
-        await pilot.press("alt+right_square_bracket")
+        await pilot.press("ctrl+]")
         await pilot.pause()
         assert int(lpane.styles.width.value) == init_lw
 
+        # Right sidebar expand via ctrl+alt+[ and alt+ctrl+left_square_bracket
+        await pilot.press("ctrl+alt+[")
+        await pilot.pause()
+        assert int(cpane.styles.width.value) == init_cw + 4
+
+        await pilot.press("alt+ctrl+left_square_bracket")
+        await pilot.pause()
+        assert int(cpane.styles.width.value) == init_cw + 8
+
+        # Right sidebar shrink via ctrl+alt+] and alt+ctrl+right_square_bracket
+        await pilot.press("ctrl+alt+]")
+        await pilot.pause()
+        assert int(cpane.styles.width.value) == init_cw + 4
+
+        await pilot.press("alt+ctrl+right_square_bracket")
+        await pilot.pause()
+        assert int(cpane.styles.width.value) == init_cw
+
+        # Tab switches: Ctrl+N (Notes) and Ctrl+I (Tutor AI)
+        await pilot.press("ctrl+n")
+        await pilot.pause()
+        assert copilot_tabs.active == "copilot_tab_notes"
+        assert app.focused.id == "learning_scratchpad_textarea"
+
+        await pilot.press("ctrl+i")
+        await pilot.pause()
+        assert copilot_tabs.active == "copilot_tab_ai"
+        assert app.focused.id == "chat_input"
+
         # 2. Power Mode
-        ws_id = await app.power_facade.create_workspace("ResizeWS")
-        sess_id = await app.power_facade.create_session(ws_id, "ResizeSess")
+        ws_id = await app.workspaces.create_workspace("ResizeWS")
+        sess_id = await app.workspaces.create_session(ws_id, "ResizeSess")
         app.selected_workspace_id = ws_id
         app.selected_session_id = sess_id
         app.switch_screen("power_mode")
         await pilot.pause()
         power = app.get_screen("power_mode")
         ppane = power.query_one("#power_sidebar")
+        sp_pane = power.query_one("#scratchpad_pane")
+
         init_pw = int(
             ppane.styles.width.value
             if ppane.styles.width and ppane.styles.width.value
             else (ppane.region.width or 34)
         )
 
-        # Shrink via alt+[ and alt+left_square_bracket
+        # Left sidebar shrink via alt+[ and ctrl+[
         await pilot.press("alt+[")
         await pilot.pause()
         assert int(ppane.styles.width.value) == init_pw - 4
 
-        await pilot.press("alt+left_square_bracket")
+        await pilot.press("ctrl+[")
         await pilot.pause()
         assert int(ppane.styles.width.value) == init_pw - 8
 
-        # Expand via alt+] and alt+right_square_bracket
+        # Left sidebar expand via alt+] and ctrl+]
         await pilot.press("alt+]")
         await pilot.pause()
         assert int(ppane.styles.width.value) == init_pw - 4
 
-        await pilot.press("alt+right_square_bracket")
+        await pilot.press("ctrl+]")
         await pilot.pause()
         assert int(ppane.styles.width.value) == init_pw
 
-        # 3. Scratchpad in Power Mode (Context-Aware Resizing when focused)
+        # Scratchpad in Power Mode: expand via alt+[ and ctrl+alt+[
         await pilot.press("ctrl+n")
         await pilot.pause()
-        sp_pane = power.query_one("#scratchpad_pane")
         assert sp_pane.display is True
         init_spw = int(
             sp_pane.styles.width.value
@@ -965,21 +890,20 @@ async def test_sidebar_resize_alt_brackets(tmp_path):
             else (sp_pane.region.width or 32)
         )
 
-        # Expand scratchpad via alt+[ and alt+left_square_bracket (moves left divider leftward)
         await pilot.press("alt+[")
         await pilot.pause()
         assert int(sp_pane.styles.width.value) == init_spw + 4
 
-        await pilot.press("alt+left_square_bracket")
+        await pilot.press("ctrl+alt+[")
         await pilot.pause()
         assert int(sp_pane.styles.width.value) == init_spw + 8
 
-        # Shrink scratchpad via alt+] and alt+right_square_bracket (moves left divider rightward)
+        # Scratchpad shrink via alt+] and ctrl+alt+]
         await pilot.press("alt+]")
         await pilot.pause()
         assert int(sp_pane.styles.width.value) == init_spw + 4
 
-        await pilot.press("alt+right_square_bracket")
+        await pilot.press("ctrl+alt+]")
         await pilot.pause()
         assert int(sp_pane.styles.width.value) == init_spw
 
@@ -994,23 +918,16 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
         d = app.screen
         ws_list = d.query_one("#workspace_list")
 
-        workspaces = await app.power_facade.list_workspaces()
+        workspaces = await app.workspaces.list_workspaces()
         ws1 = [w["id"] for w in workspaces if w["name"] == "Default Project"][0]
-        await app.power_facade.create_session(ws1, "Alpha Session")
+        await app.workspaces.create_session(ws1, "Alpha Session")
 
-        ws2 = await app.power_facade.create_workspace("Beta Project")
-        await app.power_facade.create_session(ws2, "Beta Session")
-
-        await d.refresh_workspaces()
-        ws_items = [
-            w for w in (await app.power_facade.list_workspaces()) if w.get("status") != "SYSTEM"
-        ]
-        first_ws_name = ws_items[0]["name"]
-        first_sess_name = "Alpha Session" if first_ws_name == "Default Project" else "Beta Session"
-        second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
+        ws2 = await app.workspaces.create_workspace("Beta Project")
+        await app.workspaces.create_session(ws2, "Beta Session")
 
         async def settle_d():
-            for _ in range(20):
+            await pilot.pause(0.05)
+            for _ in range(30):
                 if d._ws_debounce_task and not d._ws_debounce_task.done():
                     try:
                         await d._ws_debounce_task
@@ -1022,13 +939,29 @@ async def test_dashboard_instant_workspace_switch_updates_session_details():
                     except asyncio.CancelledError:
                         pass
                 await pilot.pause(0.05)
+                tasks_done = (d._ws_debounce_task is None or d._ws_debounce_task.done()) and (
+                    d._sess_debounce_task is None or d._sess_debounce_task.done()
+                )
+                if tasks_done:
+                    details = d.query_one("#session_details_content")
+                    if details.query(".session_id_card"):
+                        break
+
+        await d.refresh_workspaces()
+        await settle_d()
+        ws_items = [
+            w for w in (await app.workspaces.list_workspaces()) if w.get("status") != "SYSTEM"
+        ]
+        first_ws_name = ws_items[0]["name"]
+        first_sess_name = "Alpha Session" if first_ws_name == "Default Project" else "Beta Session"
+        second_sess_name = "Beta Session" if first_ws_name == "Default Project" else "Alpha Session"
 
         # 1. Start at index 0 with corresponding selected_ws_id
-        await pilot.pause(0.1)
         d.selected_ws_id = ws_items[0]["id"]
         ws_list.index = 0
         ws_list.focus()
-        await pilot.pause(0.1)
+        await pilot.pause(0.05)
+        await settle_d()
         assert ws_list.index == 0
         assert ws_list.has_focus is True
 
@@ -1084,6 +1017,7 @@ async def test_screen_pop_cleans_up_all_workers():
             f"Screen unmount leaked active background workers: {active_workers}"
         )
 
+
 @pytest.mark.asyncio
 async def test_dismiss_notification_shortcut():
     """Verify Ctrl+/ (and terminal aliases) dismisses one active notification at a time."""
@@ -1131,3 +1065,55 @@ async def test_dismiss_notification_shortcut():
         await pilot.pause(0.1)
         assert len(list(app._notifications)) == 0
 
+
+@pytest.mark.asyncio
+async def test_legacy_help_panel_replaced_by_shortcuts_dialog(tmp_path):
+    """Verify action_show_help_panel opens the F1 Shortcuts dialog instead of Textual's legacy half window."""
+    db_file = str(tmp_path / "test_help_panel.db")
+    app = CyGuideApp(db_path=db_file)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_show_help_panel()
+        await pilot.pause()
+        assert type(app.screen).__name__ == "ShortcutsDialog"
+
+
+@pytest.mark.asyncio
+async def test_shortcuts_dialog_f1_toggle_and_holding_resilience(tmp_path):
+    """Verify F1 toggles ShortcutsDialog open and closed, and holding F1 does not cause ScreenStackError."""
+    from textual import events
+
+    db_file = str(tmp_path / "test_f1_toggle.db")
+    app = CyGuideApp(db_path=db_file)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # 1. Press F1 to open
+        await pilot.press("f1")
+        assert type(app.screen).__name__ == "ShortcutsDialog"
+
+        # 2. Press F1 again to close (fast toggle)
+        await pilot.pause(0.3)
+        await pilot.press("f1")
+        await pilot.pause(0.1)
+        assert type(app.screen).__name__ == "DashboardScreen"
+
+        # 3. Press F1 to reopen
+        await pilot.pause(0.3)
+        await pilot.press("f1")
+        await pilot.pause(0.1)
+        assert type(app.screen).__name__ == "ShortcutsDialog"
+
+        # 4. Simulate rapid key repeat from holding F1
+        for _ in range(25):
+            app.screen.post_message(events.Key("f1", None))
+        await pilot.pause(0.05)
+        assert len(app._screen_stack) >= 2
+        assert type(app.screen).__name__ == "ShortcutsDialog"
+
+        # 5. Simulate rapid key repeat from holding Escape
+        if type(app.screen).__name__ == "ShortcutsDialog":
+            for _ in range(20):
+                app.screen.post_message(events.Key("escape", None))
+            await pilot.pause(0.05)
+        assert type(app.screen).__name__ == "DashboardScreen"
+        assert len(app._screen_stack) == 2

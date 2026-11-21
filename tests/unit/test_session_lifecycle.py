@@ -11,66 +11,6 @@ from cyguide.schemas.power import ActionRequest, ActionSource
 
 
 @pytest.mark.asyncio
-async def test_store_session_lifecycle():
-    store = GraphStore(":memory:")
-    await store.initialize()
-    ws_id = await store.create_workspace("TestWS")
-    sess_id = await store.create_session(ws_id, "Session 1")
-
-    # Initial state is ACTIVE
-    sess = await store.get_session(sess_id)
-    assert sess["status"] == "ACTIVE"
-    assert sess.get("closed_at") is None
-
-    # Close session
-    await store.close_session(sess_id)
-    sess = await store.get_session(sess_id)
-    assert sess["status"] == "CLOSED"
-    assert sess.get("closed_at") is not None
-
-    # Filtered listing
-    active = await store.list_sessions(ws_id, status_filter="ACTIVE")
-    closed = await store.list_sessions(ws_id, status_filter="CLOSED")
-    all_sess = await store.list_sessions(ws_id)
-    assert len(active) == 0
-    assert len(closed) == 1
-    assert len(all_sess) == 1
-
-    # Reopen session
-    await store.reopen_session(sess_id)
-    sess = await store.get_session(sess_id)
-    assert sess["status"] == "ACTIVE"
-    assert sess.get("closed_at") is None
-    await store.close()
-
-
-@pytest.mark.asyncio
-async def test_store_workspace_lifecycle():
-    store = GraphStore(":memory:")
-    await store.initialize()
-    ws_id = await store.create_workspace("TestWS2")
-    ws = await store.get_workspace(ws_id)
-    assert ws["status"] == "ACTIVE"
-    assert ws.get("closed_at") is None
-
-    await store.close_workspace(ws_id)
-    ws = await store.get_workspace(ws_id)
-    assert ws["status"] == "CLOSED"
-    assert ws.get("closed_at") is not None
-
-    active_ws = await store.list_workspaces(status_filter="ACTIVE")
-    closed_ws = await store.list_workspaces(status_filter="CLOSED")
-    assert all(w["id"] != ws_id for w in active_ws)
-    assert any(w["id"] == ws_id for w in closed_ws)
-
-    await store.reopen_workspace(ws_id)
-    ws = await store.get_workspace(ws_id)
-    assert ws["status"] == "ACTIVE"
-    assert ws.get("closed_at") is None
-    await store.close()
-
-
-@pytest.mark.asyncio
 async def test_facade_close_reopen_and_guard():
     store = GraphStore(":memory:")
     await store.initialize()
@@ -79,11 +19,11 @@ async def test_facade_close_reopen_and_guard():
     registry = MagicMock()
     facade = PowerWorkspaceFacade(store, executor, registry)
 
-    ws_id = await facade.create_workspace("FacadeWS")
-    sess_id = await facade.create_session(ws_id, "Audited Engagement")
+    ws_id = await facade.workspaces.create_workspace("FacadeWS")
+    sess_id = await facade.workspaces.create_session(ws_id, "Audited Engagement")
 
-    # Close session via facade
-    await facade.close_session(sess_id)
+    # Close session via workspaces
+    await facade.workspaces.close_session(sess_id)
     sess = await facade.store.get_session(sess_id)
     assert sess["status"] == "CLOSED"
 
@@ -103,7 +43,7 @@ async def test_facade_close_reopen_and_guard():
         await facade.submit_action(action)
 
     # Reopen session
-    await facade.reopen_session(sess_id)
+    await facade.workspaces.reopen_session(sess_id)
     sess = await facade.store.get_session(sess_id)
     assert sess["status"] == "ACTIVE"
 

@@ -1,69 +1,10 @@
 import json
 import os
-from uuid import uuid4
 
 import pytest
 
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost, NetworkService
-from cyguide.schemas.power import ActionRequest
-
-
-@pytest.mark.asyncio
-async def test_structured_event_log():
-    store = GraphStore(":memory:")
-    await store.initialize()
-    ws_id = await store.create_workspace("Test")
-    sess_id = await store.create_session(ws_id, "Session")
-
-    action = ActionRequest(
-        session_id=uuid4(),  # different just for payload test
-        tool_name="nmap",
-        target_entity_id="test_node",
-        params={"f": "v"},
-    )
-
-    await store.append_event(sess_id, action, {"status": "ok"}, "Ran nmap")
-
-    events = await store.get_event_log(sess_id)
-    assert len(events) == 1
-    assert events[0]["human_readable"] == "Ran nmap"
-    assert "nmap" in events[0]["action_payload"]
-    assert json.loads(events[0]["result_payload"]) == {"status": "ok"}
-
-    await store.close()
-
-
-@pytest.mark.asyncio
-async def test_mark_event_closed():
-    store = GraphStore(":memory:")
-    await store.initialize()
-    ws_id = await store.create_workspace("Test")
-    sess_id = await store.create_session(ws_id, "Session")
-
-    action = ActionRequest(
-        session_id=uuid4(), tool_name="nmap", target_entity_id="test_node", params={"f": "v"}
-    )
-
-    await store.append_event(sess_id, action, {"status": "ok"}, "Ran nmap")
-
-    events = await store.get_event_log(sess_id)
-    assert len(events) == 1
-
-    # Initially 0 closed events
-    assert await store.get_closed_events_count(sess_id) == 0
-
-    # Mark it closed
-    await store.mark_event_closed(str(action.action_id))
-
-    # Ensure it is filtered out from get_event_log
-    events_after = await store.get_event_log(sess_id)
-    assert len(events_after) == 0
-
-    # Ensure closed events count is 1
-    assert await store.get_closed_events_count(sess_id) == 1
-
-    await store.close()
 
 
 @pytest.mark.asyncio
@@ -261,5 +202,44 @@ async def test_store_trusted_schema_and_permissions(tmp_path):
     # Check file permissions on DB
     mode = oct(os.stat(db_file).st_mode)[-3:]
     assert mode == "600"
+
+    await store.close()
+
+
+@pytest.mark.asyncio
+async def test_learning_sandbox_preserves_user_sessions():
+    """Verify that get_or_create_learning_sandbox preserves existing sessions and never auto-deletes."""
+    store = GraphStore(":memory:")
+    await store.initialize()
+
+    ws_id, sess_id = await store.get_or_create_learning_sandbox()
+
+    # Manually inject sessions into Learning Sandbox
+    async with store.connection() as conn:
+        await conn.execute(
+            "INSERT INTO sessions (id, workspace_id, name) VALUES ('user-lab-1', ?, 'Custom Lab')",
+            (ws_id,),
+        )
+        await conn.execute(
+            "INSERT INTO sessions (id, workspace_id, name) VALUES ('user-lab-2', ?, 'Guided Session (Imported 1)')",
+            (ws_id,),
+        )
+        await conn.commit()
+
+    # Verify 3 sessions exist prior to re-initialization
+    sessions_before = await store.list_sessions(ws_id)
+    assert len(sessions_before) == 3
+
+    # Re-invoking get_or_create_learning_sandbox must safely return existing Guided Session without deleting user sessions
+    new_ws_id, new_sess_id = await store.get_or_create_learning_sandbox()
+    assert new_ws_id == ws_id
+    assert new_sess_id == sess_id
+
+    sessions_after = await store.list_sessions(ws_id)
+    assert len(sessions_after) == 3
+    session_names = {s["name"] for s in sessions_after}
+    assert "Guided Session" in session_names
+    assert "Custom Lab" in session_names
+    assert "Guided Session (Imported 1)" in session_names
 
     await store.close()

@@ -14,11 +14,14 @@ if [ -f ".venv/bin/pytest" ]; then
     PYTEST_BIN=".venv/bin/pytest"
 fi
 
-echo "--- 1. Running Logic Tests (pytest) ---"
+echo "--- 1. Running Fast Pre-Flight Invariants (pytest -m tier0) ---"
 export PYTHONPATH=.
+$PYTEST_BIN -m tier0 -q
+
+echo -e "\n--- 2. Running Complete Test Suite (pytest) ---"
 $PYTEST_BIN
 
-echo -e "\n--- 2. Validating & Generating Schema Registry ---"
+echo -e "\n--- 3. Validating & Generating Schema Registry ---"
 $PYTHON_BIN scripts/generate_schema_registry.py
 $PYTHON_BIN scripts/generate_schema_registry.py --check
 
@@ -42,7 +45,7 @@ else
     echo -e "\n--- 4. Dependency Audit Skipped (pip-audit not found) ---"
 fi
 
-echo -e "\n--- 5. Running Environment Diagnostics (cyg check) ---"
-$PYTHON_BIN -m cyguide.main check --json > /dev/null
+echo -e "\n--- 5. Running Environment Diagnostics (cyg doctor) ---"
+$PYTHON_BIN -m cyguide doctor --json > /dev/null
 
 echo -e "\n[SUCCESS] All checks passed! The codebase is stable and documentation is in sync."

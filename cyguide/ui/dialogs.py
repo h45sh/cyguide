@@ -1,6 +1,6 @@
-"""Reusable modal dialogs for CyGuide screens."""
+import time
+from typing import Any
 
-from rich.markdown import Markdown as RichMarkdown
 from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -54,13 +54,21 @@ SHORTCUTS_MD = """
 
 ## Learning Mode (Guided Lesson Screen)
 * **`F1`**: Show Shortcuts / Help dialog
-* **`Ctrl+Left` / `Ctrl+Right`**: Cycle Tabs (*Recipes* ➔ *Raw Output* ➔ *Explanation*)
+* **`Ctrl+Left` / `Ctrl+Right`**: Cycle Workbench Tabs (*Recipes* ➔ *Raw Output* ➔ *Theory*)
+* **`Ctrl+I`**: Focus AI Copilot Tutor Tab & chat input
+* **`Ctrl+N`**: Focus Student Notes Scratchpad
+* **`Ctrl+Alt+E`**: Export Student Notes to Markdown file
 * **`Ctrl+B`**: Toggle Lesson Sidebar (show / collapse)
-* **`Alt+[` / `Alt+]` (or `Alt+{` / `Alt+}`)**: Shrink / Expand Sidebar width
+* **`Ctrl+Alt+B`**: Toggle AI Copilot Panel (show / collapse)
+* **`Ctrl+[` / `Ctrl+]` (or `Alt+[` / `Alt+]`)**: Shrink / Expand Left Sidebar width
+* **`Ctrl+Alt+[` / `Ctrl+Alt+]`**: Expand / Shrink Right Copilot width
+* **`Ctrl+S` / `Ctrl+O`**: Save / Load Lab Checkpoint (.cyglab)
+* **`Ctrl+Alt+R`**: Reset Lab Session (clears active scan & notes)
+* **`Ctrl+G`**: Toggle Sidebar Graph View / Recipes View
 * **`Enter` / `▶ RUN SCAN`**: Execute configured tool command
 * **`■ STOP SCAN`**: Stop currently running tool scan
 * **`✦ ASK AI`**: Ask AI Tutor to explain active command or workflow recipe
-* **`● AI: ON / OFF`**: Toggle live automated AI explanations in toolbar
+* **`● AI: ON / OFF`**: Toggle live automated AI explanations in copilot header
 * **`COPY` / `Ctrl+Y`**: Copy explanations or raw terminal output to clipboard
 * **AI Tutor Chat (`/` commands)**:
   - `/summary` — Summarize scan findings and risk profile
@@ -83,7 +91,8 @@ SHORTCUTS_MD = """
 * **`Ctrl+Tab / Ctrl+Shift+Tab`**: Switch Sessions
 * **`Ctrl+Right / Ctrl+Left`**: Switch Sessions (Alt)
 * **`Ctrl+B`**: Toggle Sidebar (Hide Browser & Job Queue)
-* **`Alt+[` / `Alt+]`**: Shrink / Expand Sidebar Width (or Scratchpad when focused)
+* **`Ctrl+[` / `Ctrl+]` (or `Alt+[` / `Alt+]`)**: Shrink / Expand Left Sidebar Width
+* **`Ctrl+Alt+[` / `Ctrl+Alt+]`**: Expand / Shrink Right Scratchpad Width
 * **`Ctrl+N`**: Toggle Note Taking Scratchpad
 * **`Ctrl+G`**: Toggle Global Entity Graph (Workspace-wide view)
 * **`Ctrl+E`**: Export Session Report & Database Archive
@@ -99,6 +108,64 @@ SHORTCUTS_MD = """
 * **`F2`**: Rename / Set Custom Alias for Selected Entity
 * **`Type in Search Box`**: Real-time filtering of hosts, ports, services, domains, and aliases
 """
+
+
+class ConfirmationDialog(ModalScreen[bool]):
+    """A generic centered confirmation dialog."""
+
+    def __init__(
+        self,
+        message: str,
+        confirm_label: str = "Confirm",
+        cancel_label: str = "Cancel",
+        is_destructive: bool = True,
+    ):
+        super().__init__()
+        self.message = message
+        self.confirm_label = confirm_label
+        self.cancel_label = cancel_label
+        self.is_destructive = is_destructive
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm_dialog_card"):
+            yield Label(self.message, id="dialog_message")
+            with Horizontal(classes="dialog_buttons"):
+                variant = "error" if self.is_destructive else "primary"
+                yield Button(self.confirm_label, variant=variant, id="confirm")
+                yield Button(self.cancel_label, variant="default", id="cancel")
+
+    def on_mount(self) -> None:
+        def focus_default():
+            try:
+                target_id = "#cancel" if self.is_destructive else "#confirm"
+                self.query_one(target_id, Button).focus()
+            except Exception:
+                pass
+
+        self.call_after_refresh(focus_default)
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key in ("left", "right", "up", "down"):
+            event.stop()
+            if self.query_one("#confirm", Button).has_focus:
+                self.query_one("#cancel", Button).focus()
+            else:
+                self.query_one("#confirm", Button).focus()
+        elif event.key == "escape":
+            event.stop()
+            self.dismiss(False)
+
+    def dismiss(self, result: bool = False) -> Any:
+        if getattr(self, "_dismissed", False):
+            return None
+        self._dismissed = True
+        return super().dismiss(result)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "confirm":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
 
 
 class RenameDialog(ModalScreen[str]):
@@ -156,6 +223,12 @@ class RenameDialog(ModalScreen[str]):
                 else:
                     btn_save.focus()
 
+    def dismiss(self, result: Any = None) -> Any:
+        if getattr(self, "_dismissed", False):
+            return None
+        self._dismissed = True
+        return super().dismiss(result)
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         val = event.value.strip()
         if val:
@@ -175,26 +248,44 @@ from cyguide.ui.compat import setup_textual_compat
 
 setup_textual_compat()
 
-_RICH_SHORTCUTS = RichMarkdown(SHORTCUTS_MD.strip(), justify="left", code_theme="monokai")
+_RICH_SHORTCUTS = None
+
+
+def get_rich_shortcuts():
+    global _RICH_SHORTCUTS
+    if _RICH_SHORTCUTS is None:
+        from cyguide.ui.widgets.markdown import render_markdown
+
+        _RICH_SHORTCUTS = render_markdown(SHORTCUTS_MD.strip(), code_theme="monokai")
+    return _RICH_SHORTCUTS
 
 
 class ShortcutsDialog(ModalScreen):
     """Modal displaying keyboard shortcuts and help."""
 
     BINDINGS = [
-        ("escape", "app.pop_screen", "Close"),
-        ("f1", "app.pop_screen", "Close"),
-        ("q", "app.pop_screen", "Close"),
+        ("escape", "dismiss", "Close"),
+        ("q", "dismiss", "Close"),
     ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._opened_at = time.monotonic()
+        self._dismissed = False
+        self._last_f1_time = 0.0
+        self._pending_dismiss_timer = None
+        self._is_holding_f1 = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="shortcuts_dialog"):
             with VerticalScroll(id="shortcuts_scroll"):
-                yield Static(_RICH_SHORTCUTS, id="shortcuts_content")
+                yield Static(get_rich_shortcuts(), id="shortcuts_content")
             with Horizontal(classes="dialog_buttons"):
                 yield Button("Close", variant="primary", id="close_shortcuts")
 
     def on_mount(self) -> None:
+        self._mounted_at = time.monotonic()
+
         def focus_scroll():
             try:
                 self.query_one("#shortcuts_scroll", VerticalScroll).focus()
@@ -203,10 +294,67 @@ class ShortcutsDialog(ModalScreen):
 
         self.call_after_refresh(focus_scroll)
 
+    def on_unmount(self) -> None:
+        if self._pending_dismiss_timer is not None:
+            try:
+                self._pending_dismiss_timer.stop()
+            except Exception:
+                pass
+            self._pending_dismiss_timer = None
+
+    def dismiss(self, result: Any = None) -> Any:
+        if getattr(self, "_dismissed", False):
+            return None
+        self._dismissed = True
+        if self._pending_dismiss_timer is not None:
+            try:
+                self._pending_dismiss_timer.stop()
+            except Exception:
+                pass
+            self._pending_dismiss_timer = None
+        if hasattr(self, "app") and self.app is not None:
+            if hasattr(self.app, "record_shortcuts_toggle"):
+                self.app.record_shortcuts_toggle()
+        return super().dismiss(result)
+
+    def _do_f1_dismiss(self) -> None:
+        self._pending_dismiss_timer = None
+        self.dismiss()
+
     def on_key(self, event: events.Key) -> None:
-        if event.key in ("escape", "q", "f1"):
+        if event.key in ("escape", "q"):
             event.stop()
             self.dismiss()
+            return
+        if event.key == "f1":
+            event.stop()
+            now = time.monotonic()
+            dt = now - self._last_f1_time
+            self._last_f1_time = now
+
+            # If an F1 repeat arrives quickly (< 100ms), it's part of an active key hold
+            if dt < 0.10:
+                self._is_holding_f1 = True
+                if self._pending_dismiss_timer is not None:
+                    self._pending_dismiss_timer.stop()
+                    self._pending_dismiss_timer = None
+                return
+
+            # If user was actively holding F1 and events just paused slightly, don't dismiss
+            if self._is_holding_f1 and dt < 0.25:
+                return
+            self._is_holding_f1 = False
+
+            # If the dialog just opened within the last 200ms, don't dismiss (protect initial press hold)
+            if (now - self._opened_at) < 0.20:
+                return
+
+            # Cancel any existing pending timer
+            if self._pending_dismiss_timer is not None:
+                self._pending_dismiss_timer.stop()
+
+            # Schedule a short 60ms timer to confirm it's a tap and not the start of a repeat burst
+            self._pending_dismiss_timer = self.set_timer(0.06, self._do_f1_dismiss)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "close_shortcuts":

@@ -12,8 +12,18 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Switch, Tab, TabbedContent, TabPane, Tabs
 
-from cyguide.engine.explainer import is_placeholder_key
+from cyguide.common import is_placeholder_key
 from cyguide.paths import get_default_db_path, get_default_exports_dir, get_default_reports_dir
+
+
+def format_key_status_pill(raw_key: Optional[str], is_active: bool) -> str:
+    """Format the status indicator pill for an AI provider key."""
+    if not raw_key or is_placeholder_key(raw_key):
+        return "[bold #f59e0b]▲ No Key[/bold #f59e0b]"
+    if is_active:
+        return "[bold green]● Active[/bold green]"
+    return "[dim]▪ Standby[/dim]"
+
 
 PROVIDER_PRESETS: Dict[str, Dict[str, str]] = {
     "openai": {
@@ -186,6 +196,90 @@ async def check_ollama_status(base_url: str, model: str) -> Tuple[bool, str]:
         return False, f"▲ Ollama Offline (Cannot connect to {clean_url})"
 
 
+class KeyProfileManager:
+    """Pure domain controller managing AI cloud key profiles independently of Textual DOM."""
+
+    def __init__(
+        self,
+        cloud_keys: Optional[List[Dict[str, Any]]] = None,
+        active_key_id: Optional[str] = None,
+        editing_profile_id: Optional[str] = None,
+    ):
+        self.cloud_keys: List[Dict[str, Any]] = list(cloud_keys or [])
+        self.active_key_id: Optional[str] = active_key_id
+        self.editing_profile_id: Optional[str] = editing_profile_id
+
+    def add_key_profile(
+        self,
+        name: Optional[str] = None,
+        provider: str = "",
+        api_key: str = "",
+        model: str = "",
+        base_url: str = "",
+    ) -> Dict[str, Any]:
+        import time
+
+        new_id = f"key_{len(self.cloud_keys) + 1}_{int(time.time() * 1000) % 10000}"
+        new_name = name or f"Key {len(self.cloud_keys) + 1}"
+        new_prof = {
+            "id": new_id,
+            "name": new_name,
+            "provider": provider,
+            "api_key": api_key,
+            "model": model,
+            "base_url": base_url,
+        }
+        self.cloud_keys.append(new_prof)
+        if not self.active_key_id:
+            self.active_key_id = new_id
+        self.editing_profile_id = new_id
+        return new_prof
+
+    def delete_key_profile(self, kid: str) -> Optional[Dict[str, Any]]:
+        target = None
+        for k in self.cloud_keys:
+            if k.get("id") == kid:
+                target = k
+                break
+        self.cloud_keys = [k for k in self.cloud_keys if k.get("id") != kid]
+        if self.active_key_id == kid:
+            self.active_key_id = self.cloud_keys[0]["id"] if self.cloud_keys else None
+        if self.editing_profile_id == kid:
+            self.editing_profile_id = self.active_key_id or (
+                self.cloud_keys[0]["id"] if self.cloud_keys else None
+            )
+        return target
+
+    def set_active_key(self, kid: str) -> None:
+        self.active_key_id = kid
+
+    def get_active_profile(self) -> Optional[Dict[str, Any]]:
+        if not self.cloud_keys:
+            return None
+        return next(
+            (k for k in self.cloud_keys if k.get("id") == self.active_key_id),
+            self.cloud_keys[0],
+        )
+
+    def get_editing_profile(self) -> Optional[Dict[str, Any]]:
+        return next(
+            (k for k in self.cloud_keys if k.get("id") == self.editing_profile_id),
+            None,
+        )
+
+    def validate_key_uniqueness(self, candidate_key: str, exclude_id: Optional[str] = None) -> bool:
+        clean = (candidate_key or "").strip().strip("\"'")
+        if not clean or is_placeholder_key(clean):
+            return True
+        for k in self.cloud_keys:
+            if exclude_id and k.get("id") == exclude_id:
+                continue
+            existing = (k.get("api_key") or "").strip().strip("\"'")
+            if existing and existing == clean:
+                return False
+        return True
+
+
 class ConfigProvider(Provider):
     """Command Palette provider for CyGuide Configuration.
 
@@ -282,7 +376,26 @@ class ConfigProvider(Provider):
                 yield Hit(match, matcher.highlight(name), callback)
 
 
-class OllamaConfigProvider(Provider):
+class BaseConfigCommandProvider(Provider):
+    """Deep base provider encapsulating discover and fuzzy-search command dispatch."""
+
+    @property
+    def commands(self) -> List[Tuple[str, Callable[[], None]]]:
+        """Subclasses declare their (name, action) command list."""
+        return []
+
+    async def discover(self) -> Hits:
+        for name, callback in self.commands:
+            yield DiscoveryHit(name, callback)
+
+    async def search(self, query: str) -> Hits:
+        matcher = self.matcher(query)
+        for name, callback in self.commands:
+            if (match := matcher.match(name)) > 0:
+                yield Hit(match, matcher.highlight(name), callback)
+
+
+class OllamaConfigProvider(BaseConfigCommandProvider):
     """Sub-palette provider for local Ollama configuration."""
 
     @property
@@ -313,18 +426,8 @@ class OllamaConfigProvider(Provider):
             ),
         ]
 
-    async def discover(self) -> Hits:
-        for name, callback in self.commands:
-            yield DiscoveryHit(name, callback)
 
-    async def search(self, query: str) -> Hits:
-        matcher = self.matcher(query)
-        for name, callback in self.commands:
-            if (match := matcher.match(name)) > 0:
-                yield Hit(match, matcher.highlight(name), callback)
-
-
-class CloudAPIConfigProvider(Provider):
+class CloudAPIConfigProvider(BaseConfigCommandProvider):
     """Sub-palette provider for Cloud AI and API key configuration."""
 
     @property
@@ -404,18 +507,8 @@ class CloudAPIConfigProvider(Provider):
         )
         return cmds
 
-    async def discover(self) -> Hits:
-        for name, callback in self.commands:
-            yield DiscoveryHit(name, callback)
 
-    async def search(self, query: str) -> Hits:
-        matcher = self.matcher(query)
-        for name, callback in self.commands:
-            if (match := matcher.match(name)) > 0:
-                yield Hit(match, matcher.highlight(name), callback)
-
-
-class DatabaseConfigProvider(Provider):
+class DatabaseConfigProvider(BaseConfigCommandProvider):
     """Sub-palette provider for Database configuration."""
 
     @property
@@ -448,18 +541,8 @@ class DatabaseConfigProvider(Provider):
             ),
         ]
 
-    async def discover(self) -> Hits:
-        for name, callback in self.commands:
-            yield DiscoveryHit(name, callback)
 
-    async def search(self, query: str) -> Hits:
-        matcher = self.matcher(query)
-        for name, callback in self.commands:
-            if (match := matcher.match(name)) > 0:
-                yield Hit(match, matcher.highlight(name), callback)
-
-
-class ToolsConfigProvider(Provider):
+class ToolsConfigProvider(BaseConfigCommandProvider):
     """Sub-palette provider for Tools directory configuration."""
 
     @property
@@ -477,16 +560,6 @@ class ToolsConfigProvider(Provider):
                 lambda: app.action_show_config(focus_target="tools_dir"),
             ),
         ]
-
-    async def discover(self) -> Hits:
-        for name, callback in self.commands:
-            yield DiscoveryHit(name, callback)
-
-    async def search(self, query: str) -> Hits:
-        matcher = self.matcher(query)
-        for name, callback in self.commands:
-            if (match := matcher.match(name)) > 0:
-                yield Hit(match, matcher.highlight(name), callback)
 
 
 class ConfigModal(ModalScreen[None]):
@@ -564,12 +637,7 @@ class ConfigModal(ModalScreen[None]):
         is_editing = kid == self.editing_profile_id
         enabled = k.get("enabled", True)
 
-        if not raw_key or is_placeholder_key(raw_key):
-            status_text = "[bold yellow]▲ No Key[/bold yellow]"
-        elif is_active:
-            status_text = "[bold green]● Active[/bold green]"
-        else:
-            status_text = "[dim]▪ Standby[/dim]"
+        status_text = format_key_status_pill(raw_key, is_active)
 
         fallback_text = (
             "[bold #38bdf8]Fallback: YES[/bold #38bdf8]"
@@ -1515,12 +1583,7 @@ class ConfigModal(ModalScreen[None]):
                     card.remove_class("cfg_key_card_active_key")
 
                 pill = self.query_one(f"#cfg_pill_{cid}", Label)
-                if not raw_key or is_placeholder_key(raw_key):
-                    pill.update("[bold yellow]▲ No Key[/bold yellow]")
-                elif is_active:
-                    pill.update("[bold green]● Active[/bold green]")
-                else:
-                    pill.update("[dim]▪ Standby[/dim]")
+                pill.update(format_key_status_pill(raw_key, is_active))
 
                 act_btn = self.query_one(f"#cfg_activate_key_{cid}", Button)
                 act_btn.disabled = is_active
@@ -1746,12 +1809,7 @@ class ConfigModal(ModalScreen[None]):
                     try:
                         self.query_one(f"#cfg_masked_{cid}", Label).update(masked)
                         pill = self.query_one(f"#cfg_pill_{cid}", Label)
-                        if not raw or is_placeholder_key(raw):
-                            pill.update("[bold yellow]▲ No Key[/bold yellow]")
-                        elif cid == self.active_key_id:
-                            pill.update("[bold green]● Active[/bold green]")
-                        else:
-                            pill.update("[dim]▪ Standby[/dim]")
+                        pill.update(format_key_status_pill(raw, cid == self.active_key_id))
                     except Exception:
                         pass
                 elif event.input.id == "cfg_api_model":

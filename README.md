@@ -1,21 +1,27 @@
-# CyGuide
+<p align="center">
+  <h1 align="center">CyGuide</h1>
+  <p align="center"><b>The deterministic terminal workstation & pedagogical lab for cybersecurity tools.</b></p>
+  <p align="center">
+    <a href="https://pypi.org/project/cyguide/">PyPI</a> ·
+    <a href="docs/README.md">Documentation Hub</a> ·
+    <a href="docs/developer/ROADMAP.md">Roadmap</a> ·
+    <a href="CONTRIBUTING.md">Contributing</a> ·
+    <a href=".github/SECURITY.md">Security Policy</a> ·
+    <a href="assets/demo.mp4">Video Walkthrough</a> ·
+    <a href="https://h45sh.com/portfolio/cyguide/">Website</a>
+  </p>
+</p>
 
-[![CI](https://github.com/h45sh/cyguide/actions/workflows/ci.yml/badge.svg)](https://github.com/h45sh/cyguide/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/h45sh/cyguide/actions/workflows/codeql.yml/badge.svg)](https://github.com/h45sh/cyguide/actions/workflows/codeql.yml)
-[![PyPI](https://img.shields.io/pypi/v/cyguide.svg)](https://pypi.org/project/cyguide/)
-[![Python](https://img.shields.io/pypi/pyversions/cyguide.svg)](https://pypi.org/project/cyguide/)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/h45sh/cyguide/pkgs/container/cyguide)
-[![Website](https://img.shields.io/badge/website-h45sh.com-blue.svg)](https://h45sh.com/portfolio/cyguide/)
-[![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](.github/SECURITY.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/h45sh/cyguide/actions/workflows/ci.yml"><img src="https://github.com/h45sh/cyguide/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/h45sh/cyguide/actions/workflows/codeql.yml"><img src="https://github.com/h45sh/cyguide/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+  <a href="https://pypi.org/project/cyguide/"><img src="https://img.shields.io/pypi/v/cyguide.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/cyguide/"><img src="https://img.shields.io/pypi/pyversions/cyguide.svg" alt="Python"></a>
+  <a href="https://github.com/h45sh/cyguide/pkgs/container/cyguide"><img src="https://img.shields.io/badge/docker-ghcr.io-blue.svg" alt="Docker"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
+</p>
 
-
-
-**TUI-Based Guided Cybersecurity Learning and Terminal Tool Orchestration Platform.**
-
-CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models.
-
-For an interactive overview and project showcase, visit the official webpage at [https://h45sh.com/portfolio/cyguide/](https://h45sh.com/portfolio/cyguide/).
+CyGuide transforms penetration testing and security learning from disorganized terminal tabs into an integrated, stateful terminal workstation. It orchestrates industry-standard security tools (`nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `dnspython`, `searchsploit`, `ffuf`, `nuclei`, `sqlmap`, `netexec`), normalizes their outputs into a live entity graph, resolves contextual target variables dynamically, and provides real-time explanations through local (Ollama) or cloud AI models—backed by strict subprocess isolation, SSRF gating, and token spend guardrails.
 
 <p align="center">
   <a href="assets/demo.mp4">
@@ -32,8 +38,9 @@ For an interactive overview and project showcase, visit the official webpage at 
 * **No More Terminal Tab Chaos**: Run multiple reconnaissance tools concurrently with dedicated tabs, active job monitoring, and instant output review.
 * **Stateful Entity Graph**: Discoveries (hosts, open ports, endpoints, DNS records, vulnerabilities) automatically link together in a deterministic graph using SHA-256 Primary Identity Keys (PIKs).
 * **Universal Variable Injection**: Click any node in your target tree to bind variables (`$TARGET`, `$PORT`, `$SERVICE`) into subsequent commands without retyping IP addresses.
-* **Offline-First AI Tutor**: Get immediate, structured breakdowns of scan results and security recommendations powered by local Ollama models or cloud APIs.
-* **Portable Engagement Archives**: Export investigations into standalone `.db` archives and Markdown reports (`cyg export`). Instructors can import (`cyg import`) and replay a student's exact methodology step-by-step.
+* **Deterministic Execution & Safety Guardrails**: Non-shell subprocess execution vectors (`asyncio.create_subprocess_exec`), Link-Local/cloud metadata SSRF gating (`169.254.0.0/16`), and child environment secret scrubbing protect operator credentials.
+* **Offline-First AI Tutor with Token Guardrails**: Get immediate, structured breakdowns of scan results and security recommendations powered by local Ollama models or cloud APIs, guarded by token spend caps (`max_tokens: 1500`), automatic 429 rate-limit backoff, and sensitive artifact redaction.
+* **Portable Engagement Archives**: Export investigations into standalone `.db` archives and Markdown reports (`cyg session export`). Instructors can import (`cyg session import`) and replay a student's exact methodology step-by-step.
 
 ---
 
@@ -54,7 +61,7 @@ Organize complex penetration tests and CTFs into discrete workspaces and isolate
 </p>
 
 ### 3. Guided Learning Mode & Interactive Tool Browser
-Explore tool recipes, inspect command flags before execution, and receive AI-guided security breakdowns and hardening steps:
+Explore tool recipes, inspect command flags before execution, and receive AI-guided security breakdowns and hardening steps. Features universal multi-tool lab progression (retaining per-tool flags/targets as you switch between tools), unified knowledge graph tracking (`Ctrl+G`), lab notes with direct Markdown export, and full lab session quicksave checkpoints (`.cyglab`, `Ctrl+S` / `Ctrl+O`):
 <p align="center">
   <img src="assets/learning_mode.png" alt="CyGuide Guided Learning Mode" width="100%">
 </p>
@@ -69,6 +76,12 @@ Inspect security binary availability on `$PATH` in real time with `Ctrl+P` -> **
 </p>
 <p align="center">
   <img src="assets/command_pallete.png" alt="CyGuide Command Palette" width="100%">
+</p>
+
+### 5. Domain-Driven CLI & Headless Operations (`cyg` CLI)
+Audit system readiness, inspect security tool ecosystems, manage workspaces, and export forensic graphs directly from your terminal:
+<p align="center">
+  <img src="assets/cli.png" alt="CyGuide CLI Interface & Subcommands" width="100%">
 </p>
 
 ---
@@ -92,7 +105,7 @@ CyGuide is built on a **Smart Adapter / Stupid Framework** model:
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                         Security Tool Adapters                         │
 │  nmap • gobuster • nikto • whois • subfinder • dnspython • ffuf • nuclei│
-│                    • searchsploit • custom plugins...                  │
+│       • searchsploit • sqlmap • netexec • custom plugins...            │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -117,7 +130,7 @@ CyGuide can be run or installed through several methods depending on your workfl
 ---
 
 ### Option 1: Instant Evaluation via Docker (Zero Setup)
-Run CyGuide immediately with Python 3.11+ and all 5 security tools pre-installed inside an isolated container:
+Run CyGuide immediately with Python 3.11+ and pre-bundled security tools inside an isolated container:
 
 ```bash
 docker run -it --rm --net=host -v ~/.cyguide:/root/.cyguide ghcr.io/h45sh/cyguide
@@ -277,29 +290,36 @@ export CYGUIDE_API_MODEL="gpt-4o"
 
 ---
 
-## Diagnostic Health Check
+## Diagnostic Health Check & Doctor
 
 Verify your Python runtime, database write permissions, installed security tools, and AI backends:
 ```bash
-cyg check
+cyg doctor
 ```
-*(Use `cyg check --json` for scriptable JSON output in CI/CD pipelines).*
+*(Use `cyg doctor --json` for scriptable JSON output in CI/CD pipelines).*
 
 ---
 
 ## Session Portability & Reporting
 
-* **Export Session (`cyg export`)**: Creates a portable `.db` archive of findings, relationships, and raw commands:
+* **Export Session (`cyg session export`)**: Creates a portable `.db` archive of findings, relationships, and raw commands:
   ```bash
-  cyg export <session_id> exports/my_session.db
+  cyg session export <session_id_or_name> exports/my_session.db
   ```
 * **Generate Technical Report**: Produces a structured executive Markdown summary:
   ```bash
-  cyg export <session_id> exports/my_session.db --report reports/investigation.md
+  cyg session export <session_id_or_name> exports/my_session.db -r reports/investigation.md
   ```
-* **Import Session (`cyg import`)**: Restores an archive into your local workspace:
+* **Import Session (`cyg session import`)**: Restores an archive into your local workspace:
   ```bash
-  cyg import exports/my_session.db
+  cyg session import exports/my_session.db -w "My Workspace"
+  ```
+* **Universal Lab Checkpoints & Practice Lab (`cyg lab`)**: Manage multi-tool training sessions and launch local mock practice targets:
+  ```bash
+  cyg lab list
+  cyg lab save lesson1 --target 10.10.10.5
+  cyg lab load lesson1.cyglab
+  cyg lab start --port 8888            # Launch isolated offline mock practice web server
   ```
 
 ---
@@ -314,9 +334,7 @@ Our complete documentation is organized using the **[Diátaxis Framework](docs/R
 * **[Architecture & Domain Context](docs/developer/ARCHITECTURE.md)**: Subsystem pipelines, ADRs, and facade contracts.
 * **[Database Architecture & Specification](docs/developer/DATABASE.md)**: Relational schema, PIK hashing, and ER diagrams.
 * **[Schema Registry](docs/developer/SCHEMA_REGISTRY.md)**: Standard finding schema models and identity keys.
-* **[Roadmap & Progress Tracker](docs/developer/ROADMAP.md)**: Project phases, active tasks, and historical milestones.
-* **[Autonomous Agent Harness Vision](docs/developer/FUTURE_POWER_MODE.md)**: Architecture for autonomous ReAct loops and safety gates.
-* **[Developer Performance Notes](docs/developer/DEVELOPER_NOTES.md)**: Real-time streaming, event loops, and lessons learned.
+* **[Roadmap & Progress Tracker](docs/developer/ROADMAP.md)**: Project phases, active tasks, and future milestones.
 * **[Security Policy](.github/SECURITY.md)**: Vulnerability disclosure channels, response SLAs, and threat model scope.
 * **[Contributing Guide](docs/user/CONTRIBUTING.md)**: Step-by-step guide for creating new tool plugins, code standards, and PR templates.
 
@@ -330,6 +348,16 @@ Contributions are warmly welcomed! Please read our **[Contributing Guide](docs/u
 ```bash
 ./scripts/verify.sh
 ```
+
+---
+
+## Author & Maintainer
+
+**CyGuide** was conceived, architected, and built from scratch by **Harshwardhan Patil ([@h45sh](https://github.com/h45sh))**.
+
+* **Website**: [h45sh.com/portfolio/cyguide](https://h45sh.com/portfolio/cyguide/)
+* **GitHub**: [@h45sh](https://github.com/h45sh)
+* **Email**: [harshwardhan@h45sh.com](mailto:harshwardhan@h45sh.com)
 
 ---
 

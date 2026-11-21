@@ -2,7 +2,6 @@
 
 import json
 import shlex
-import shutil
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from cyguide.engine.adapter import ToolAdapter
@@ -16,11 +15,30 @@ class NucleiAdapter(ToolAdapter):
 
     def validate_install(self) -> bool:
         """Verify nuclei binary is available on system PATH."""
-        return shutil.which("nuclei") is not None
+        return self.is_binary_available("nuclei")
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Filter verbose nuclei loading stats, update notices, and template clusters."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if any(
+                s.startswith(p)
+                for p in (
+                    "[INF] Current nuclei version",
+                    "[INF] New templates",
+                    "[INF] Loading templates",
+                    "[INF] Templates cluster",
+                    "[INF] Using",
+                )
+            ):
+                continue
+            lines.append(line)
+        return "\n".join(lines)
 
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         """Construct nuclei execution command with streaming JSONL output."""
-        url = self._extract_url(target)
+        url = self.extract_url(target)
 
         raw_flags = params.get("raw_flags", "").strip()
         flag_args = shlex.split(raw_flags) if raw_flags else []
@@ -48,15 +66,7 @@ class NucleiAdapter(ToolAdapter):
         return args
 
     def _extract_url(self, target: BaseFinding) -> Optional[str]:
-        if target.schema_type == "web.endpoint":
-            return target.pik.get("url") or target.data.get("url")
-        if target.schema_type == "network.host":
-            ip = target.pik.get("ip")
-            return f"http://{ip}" if ip else None
-        if target.schema_type == "dns.record":
-            domain = target.pik.get("domain") or target.data.get("value")
-            return f"http://{domain}" if domain else None
-        return None
+        return self.extract_url(target)
 
     async def parse_output(
         self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
@@ -143,3 +153,19 @@ class NucleiAdapter(ToolAdapter):
                     else "info",
                     description=description or None,
                 )
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip verbose banner and template loading stats from nuclei output."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if not s:
+                continue
+            if s.startswith("[INF]") and any(
+                k in s for k in ("Templates", "projectdiscovery.io", "Configured", "Using")
+            ):
+                continue
+            if any(banner in s for banner in ("__     __", "   __  _")):
+                continue
+            lines.append(line)
+        return "\n".join(lines)

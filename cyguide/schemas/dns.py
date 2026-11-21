@@ -56,3 +56,22 @@ class DomainInfo(BaseFinding):
             associations=associations,
             data={**pik, "registrar": registrar, "organization": organization},
         )
+
+
+class EntityAlias(BaseFinding):
+    """Links two identifiers that represent the same entity (e.g. hostname to IP). Produced by resolvers."""
+
+    schema_type: str = "entity.alias"
+    pik_fields: ClassVar[List[str]] = ["source_id", "target_id"]
+
+    @classmethod
+    def create(cls, source_id: str, target_id: str, relation_type: str = "alias_of", **kwargs):
+        # Links two existing entities (e.g. hostname to IP)
+        return cls.from_data(
+            {
+                "source_id": source_id,
+                "target_id": target_id,
+                "relation_type": relation_type,
+                **kwargs,
+            }
+        )

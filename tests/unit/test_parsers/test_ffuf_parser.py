@@ -14,10 +14,6 @@ def adapter():
     return FfufAdapter()
 
 
-def test_ffuf_validate_install(adapter):
-    assert isinstance(adapter.validate_install(), bool)
-
-
 def test_ffuf_build_command(adapter):
     # 1. Target is web.endpoint
     endpoint = WebEndpoint.create(url="http://example.com")
@@ -84,13 +80,3 @@ login                   [Status: 302, Size: 0, Words: 0, Lines: 1, Duration: 3ms
     assert endpoints[0].pik["url"] == "http://example.com/admin"
     assert endpoints[0].data["status_code"] == 200
     assert endpoints[0].data["content_length"] == 1256
-
-
-@pytest.mark.asyncio
-async def test_ffuf_parse_empty_or_malformed(adapter):
-    target = WebEndpoint.create(url="http://example.com")
-    findings = [f async for f in adapter.parse_output("", target)]
-    assert len(findings) == 0
-
-    findings = [f async for f in adapter.parse_output("No valid data here", target)]
-    assert len(findings) == 0

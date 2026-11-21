@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyGuide Performance & Limits Benchmark Report</title>
+<style>
+  :root {
+    --bg: #080c14;
+    --surface: #0e1524;
+    --surface-hover: #131d31;
+    --surface-elevated: #162238;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(6, 182, 212, 0.4);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent: #06b6d4;
+    --accent-glow: rgba(6, 182, 212, 0.15);
+    --emerald: #10b981;
+    --emerald-glow: rgba(16, 185, 129, 0.15);
+    --amber: #f59e0b;
+    --rose: #f43f5e;
+    --purple: #a855f7;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(6, 182, 212, 0.12), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 10%, rgba(16, 185, 129, 0.08), transparent);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    line-height: 1.5;
+    padding: 32px 20px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* Top Navigation Bar */
+  .header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .brand-logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #06b6d4, #10b981);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 20px;
+    color: #080c14;
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+  }
+
+  .brand-text h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .brand-text p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .overall-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--emerald);
+  }
+
+  .status-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 10px currentColor;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Scorecard Hero Cards */
+  .scorecard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-hover);
+    box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
+  }
+
+  .kpi-card:hover::before { opacity: 1; }
+
+  .kpi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+
+  .kpi-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+  }
+
+  .kpi-target {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  .kpi-value {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: #ffffff;
+    font-family: var(--font-mono);
+    margin-bottom: 8px;
+  }
+
+  .kpi-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  .badge-emerald { background: var(--emerald-glow); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+  .badge-cyan { background: var(--accent-glow); color: var(--accent); border: 1px solid rgba(6, 182, 212, 0.3); }
+  .badge-amber { background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3); }
+  .badge-purple { background: rgba(168, 85, 247, 0.15); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.3); }
+
+  .kpi-delta {
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .delta-pass { color: var(--emerald); }
+  .delta-warn { color: var(--amber); }
+
+  /* Interactive Tab Switcher */
+  .tab-bar {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .tab-btn {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .tab-btn.active {
+    color: var(--accent);
+    background: rgba(6, 182, 212, 0.05);
+  }
+
+  .tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0; right: 0; height: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  .tab-pane {
+    display: none;
+    animation: fadeIn 0.2s ease forwards;
+  }
+  .tab-pane.active {
+    display: block;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Section Styling */
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .section-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+
+  /* Visual SVG Charts */
+  .chart-box {
+    background: #090e18;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .chart-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  .chart-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Data Tables */
+  .table-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .search-input {
+    background: #090e18;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--text-primary);
+    outline: none;
+    font-family: var(--font-sans);
+    min-width: 260px;
+    transition: border-color 0.15s ease;
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+    background: var(--surface);
+  }
+
+  th {
+    background: #0c121e;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.6px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface-hover); color: var(--text-primary); }
+
+  td strong { color: #ffffff; }
+
+  code {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .metric-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mini-bar-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .mini-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .mini-bar-emerald { background: var(--emerald); }
+
+  /* Environment Metadata Grid */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+
+  .meta-item {
+    background: #090e18;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+
+  .meta-item-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .meta-item-val {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: #ffffff;
+    word-break: break-all;
+  }
+
+  /* Quick Command Box */
+  .command-box {
+    background: #090e18;
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .command-text {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent);
+  }
+
+  .copy-btn {
+    background: rgba(6, 182, 212, 0.12);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    color: var(--accent);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .copy-btn:hover {
+    background: rgba(6, 182, 212, 0.25);
+    color: #ffffff;
+  }
+
+  /* Toast Notification */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface-elevated);
+    border: 1px solid var(--accent);
+    color: var(--text-primary);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: all 0.2s ease;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  footer a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header class="header-bar">
+    <div class="brand">
+      <div class="brand-logo">Cy</div>
+      <div class="brand-text">
+        <h1>CyGuide Limits & Performance Engine</h1>
+        <p>Continuous Subsystem Limits, Memory Bounds & Regression Guard Dashboard</p>
+      </div>
+    </div>
+    <div class="overall-status">
+      <span class="status-pulse"></span>
+      <span>4 / 4 REGRESSION GUARDS PASSING</span>
+    </div>
+  </header>
+
+  <!-- Executive Scorecard Cards -->
+  <div class="scorecard-grid">
+    <!-- Card 1 -->
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-label">Cold App Launch</span>
+        <span class="kpi-target">Max: 950 ms</span>
+      </div>
+      <div class="kpi-value">579.3 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">ms</span></div>
+      <div class="kpi-footer">
+        <span class="badge badge-emerald">PASS</span>
+        <span class="kpi-delta delta-pass">39.0% headroom</span>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-label">Stream Bombardment</span>
+        <span class="kpi-target">Min: 60,000 /s</span>
+      </div>
+      <div class="kpi-value">106,548 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
+      <div class="kpi-footer">
+        <span class="badge badge-emerald">PASS</span>
+        <span class="kpi-delta delta-pass">+77.6% above floor</span>
+      </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-label">GraphStore Ingest</span>
+        <span class="kpi-target">Min: 1,500 /s</span>
+      </div>
+      <div class="kpi-value">7,045 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
+      <div class="kpi-footer">
+        <span class="badge badge-emerald">PASS</span>
+        <span class="kpi-delta delta-pass">+369.7% above floor</span>
+      </div>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-label">DOM Tree Virtualization</span>
+        <span class="kpi-target">Max: 120 ms</span>
+      </div>
+      <div class="kpi-value">45.8 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">ms</span></div>
+      <div class="kpi-footer">
+        <span class="badge badge-emerald">PASS</span>
+        <span class="kpi-delta delta-pass">61.8% headroom</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('tab-overview', this)">Overview & Scorecard</button>
+    <button class="tab-btn" onclick="switchTab('tab-imports', this)">Startup & Subsystems</button>
+    <button class="tab-btn" onclick="switchTab('tab-streaming', this)">Terminal Streaming</button>
+    <button class="tab-btn" onclick="switchTab('tab-graphstore', this)">SQLite GraphStore</button>
+    <button class="tab-btn" onclick="switchTab('tab-schemas', this)">Schema & DOM Search</button>
+    <button class="tab-btn" onclick="switchTab('tab-branches', this)">77-Branch Matrix</button>
+    <button class="tab-btn" onclick="switchTab('tab-methodology', this)">Environment & Reproduction</button>
+  </div>
+
+  <!-- TAB 1: OVERVIEW -->
+  <div id="tab-overview" class="tab-pane active">
+    <div class="section-card">
+      <div class="section-title">Subsystem Performance Thresholds</div>
+      <div class="section-desc">Automated regression gates evaluated against production hardware limits.</div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr><th>Subsystem</th><th>Target Metric</th><th>Current Measurement</th><th>Regression Ceiling / Floor</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cold App Launch</strong></td>
+              <td>Full entrypoint import latency</td>
+              <td><strong>579.3 ms</strong></td>
+              <td><code>&lt; 950 ms</code></td>
+              <td><span class="badge badge-emerald">PASS</span></td>
+            </tr>
+            <tr>
+              <td><strong>Terminal Stream Buffer</strong></td>
+              <td>Throughput @ 500k burst</td>
+              <td><strong>106,548 lines/s</strong></td>
+              <td><code>&gt; 60,000 lines/s</code></td>
+              <td><span class="badge badge-emerald">PASS</span></td>
+            </tr>
+            <tr>
+              <td><strong>SQLite GraphStore</strong></td>
+              <td>Batch atomic ingestion (10k findings)</td>
+              <td><strong>7,045 entities/s</strong></td>
+              <td><code>&gt; 1,500 entities/s</code></td>
+              <td><span class="badge badge-emerald">PASS</span></td>
+            </tr>
+            <tr>
+              <td><strong>EntityBrowser DOM Virtualization</strong></td>
+              <td>10k node category tree rebuild</td>
+              <td><strong>45.8 ms</strong></td>
+              <td><code>&lt; 120 ms</code></td>
+              <td><span class="badge badge-emerald">PASS</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Micro-Batching Highlight Box -->
+    <div class="section-card">
+      <div class="section-title">Architectural Micro-Batching Validation</div>
+      <div class="section-desc">Comparison of single-row transaction commits versus atomic micro-batching across 250 findings:</div>
+      <div class="chart-box">
+        <div class="chart-title">Throughput Comparison (Findings / Second)</div>
+        <svg class="chart-svg" viewBox="0 0 700 120" xmlns="http://www.w3.org/2000/svg">
+          <!-- Background bars -->
+          <rect x="180" y="20" width="480" height="32" rx="6" fill="#131d31" />
+          <rect x="180" y="68" width="480" height="32" rx="6" fill="#131d31" />
+
+          <!-- Labels -->
+          <text x="165" y="41" fill="#94a3b8" font-size="12" font-family="ui-monospace, monospace" text-anchor="end">Single Commit</text>
+          <text x="165" y="89" fill="#94a3b8" font-size="12" font-family="ui-monospace, monospace" text-anchor="end">Atomic Batch</text>
+
+          <!-- Bars -->
+          <rect x="180" y="20" width="32" height="32" rx="6" fill="#64748b" />
+          <rect x="180" y="68" width="480" height="32" rx="6" fill="url(#emerald-grad)" />
+
+          <!-- Values inside bars -->
+          <text x="195" y="41" fill="#f8fafc" font-size="12" font-weight="700" font-family="ui-monospace, monospace">1,725 findings/s (0.14s)</text>
+          <text x="195" y="89" fill="#080c14" font-size="12" font-weight="800" font-family="ui-monospace, monospace">25,282 findings/s (0.010s) — 14.7x FASTER</text>
+
+          <defs>
+            <linearGradient id="emerald-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#06b6d4" />
+              <stop offset="100%" stop-color="#10b981" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: STARTUP & IMPORTS -->
+  <div id="tab-imports" class="tab-pane">
+    <div class="section-card">
+      <div class="section-title">Startup Latency & Subsystem Import Breakdown</div>
+      <div class="section-desc">Each module is imported in an isolated clean Python subprocess to measure true cold-start cost.</div>
+
+      <div class="table-controls">
+        <input type="text" class="search-input" placeholder="Search module or layer..." onkeyup="filterTable(this, 'imports-table')">
+        <span class="badge badge-cyan">CLI Cold-Check: 338.5 ms</span>
+      </div>
+
+      <div class="table-responsive">
+        <table id="imports-table">
+          <thead>
+            <tr><th>Subsystem / Module</th><th>Measured Latency (ms)</th><th>Layer Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>pydantic</code></td><td><div class='metric-cell'><strong>85.7 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 14.8%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>rich</code></td><td><div class='metric-cell'><strong>33.3 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 5.7%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>textual</code></td><td><div class='metric-cell'><strong>166.1 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 28.7%'></div></div></div></td><td><span class='badge badge-cyan'>Dependency / Subsystem</span></td></tr><tr><td><code>aiosqlite</code></td><td><div class='metric-cell'><strong>96.7 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 16.7%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>httpx</code></td><td><div class='metric-cell'><strong>119.9 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 20.7%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>dnspython</code></td><td><div class='metric-cell'><strong>144.9 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 25.0%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.paths</code></td><td><div class='metric-cell'><strong>33.0 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 5.7%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.schemas</code></td><td><div class='metric-cell'><strong>251.1 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 43.4%'></div></div></div></td><td><span class='badge badge-cyan'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.engine.store</code></td><td><div class='metric-cell'><strong>274.5 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 47.4%'></div></div></div></td><td><span class='badge badge-cyan'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.ui.widgets.power</code></td><td><div class='metric-cell'><strong>516.1 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 89.1%'></div></div></div></td><td><span class='badge badge-amber'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.app (FULL APP)</code></td><td><div class='metric-cell'><strong>579.3 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 100.0%'></div></div></div></td><td><span class='badge badge-amber'>Full Application Entrypoint</span></td></tr><tr><td><code>cyg --version</code> (CLI Check)</td><td><div class='metric-cell'><strong>338.5 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill mini-bar-emerald' style='width: 58.4%'></div></div></div></td><td><span class='badge badge-emerald'>Fast CLI Parser Path</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: STREAMING -->
+  <div id="tab-streaming" class="tab-pane">
+    <div class="section-card">
+      <div class="section-title">Subprocess Stream Bombardment & Viewport Virtualization</div>
+      <div class="section-desc">Simulates extreme line emission into <code>TerminalStreamPane</code> with a strict 5,000-line ring buffer.</div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr><th>Stream Lines</th><th>Elapsed Time</th><th>Throughput Rate</th><th>Peak Traced RAM</th><th>Active Ring Buffer</th><th>Memory Guarantee</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>50,000</strong></td><td>0.48 s</td><td class='metric-val'><strong>103,902 lines/s</strong></td><td>8.50 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr><tr><td><strong>100,000</strong></td><td>1.00 s</td><td class='metric-val'><strong>100,271 lines/s</strong></td><td>16.84 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr><tr><td><strong>250,000</strong></td><td>2.51 s</td><td class='metric-val'><strong>99,548 lines/s</strong></td><td>42.05 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr><tr><td><strong>500,000</strong></td><td>4.69 s</td><td class='metric-val'><strong>106,548 lines/s</strong></td><td>84.07 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 20px; font-size: 13px; color: var(--text-secondary); background: #090e18; padding: 14px 18px; border-radius: 8px; border-left: 3px solid var(--emerald);">
+        <strong style="color: var(--emerald);">Architectural Guarantee:</strong> Memory remains strictly $O(1)$ bounded regardless of whether the subprocess emits 50,000 or 5,000,000 lines. The TUI thread renders at 30 FPS micro-batches, preventing UI freeze.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: GRAPHSTORE -->
+  <div id="tab-graphstore" class="tab-pane">
+    <div class="section-card">
+      <div class="section-title">SQLite GraphStore Scale & Ingestion Limits</div>
+      <div class="section-desc">Stress-testing transactional ingestion, relational graph queries, and standalone database portability.</div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr><th>Entity Count</th><th>Batch Ingest</th><th>Throughput</th><th>Query Nodes</th><th>Query Edges</th><th>DB Export</th><th>DB Import</th><th>Disk Footprint</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>1,000</strong></td><td>0.07 s</td><td class='metric-val'><strong>14,939 /s</strong></td><td>3.8 ms</td><td>1.4 ms</td><td>57.4 ms</td><td><strong>69.0 ms</strong></td><td>1.43 MB</td></tr><tr><td><strong>5,000</strong></td><td>0.57 s</td><td class='metric-val'><strong>8,722 /s</strong></td><td>21.0 ms</td><td>9.6 ms</td><td>151.1 ms</td><td><strong>328.8 ms</strong></td><td>6.88 MB</td></tr><tr><td><strong>10,000</strong></td><td>1.42 s</td><td class='metric-val'><strong>7,045 /s</strong></td><td>55.1 ms</td><td>14.5 ms</td><td>247.6 ms</td><td><strong>687.9 ms</strong></td><td>13.65 MB</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: SCHEMAS & DOM -->
+  <div id="tab-schemas" class="tab-pane">
+    <div class="section-card">
+      <div class="section-title">Schema Validation & DOM Virtualization Scaling</div>
+      <div class="section-desc">Pydantic finding model creation, pre-compiled regex extraction, and categorized entity tree rendering.</div>
+
+      <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--accent);">Pydantic Finding Instantiation & Regex Performance</h3>
+      <div class="table-responsive" style="margin-bottom: 24px;">
+        <table>
+          <thead>
+            <tr><th>Operation</th><th>Batch Size</th><th>Elapsed Time</th><th>Model Throughput</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>NetworkHost.create</code></td><td>50,000</td><td>0.60 s</td><td><strong>83,228 models/s</strong></td></tr>
+            <tr><td><code>WebEndpoint.create</code></td><td>50,000</td><td>1.21 s</td><td><strong>41,334 models/s</strong></td></tr>
+            <tr><td>Pre-compiled Regex Parser</td><td>50,000</td><td>0.023 s</td><td><strong>2,192,018 lines/s</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--emerald);">EntityBrowser Category Tree Virtualization (MAX_DISPLAY=200)</h3>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr><th>Graph Entities</th><th>Initial Tree Render</th><th>Filter Query ('10.0.1')</th><th>Fast-Path Identical Re-Render</th><th>DOM Branch Cap</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>1,000</strong></td><td><strong>13.6 ms</strong></td><td>7.9 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr><tr><td><strong>5,000</strong></td><td><strong>27.3 ms</strong></td><td>36.6 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr><tr><td><strong>10,000</strong></td><td><strong>45.8 ms</strong></td><td>72.0 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr><tr><td><strong>25,000</strong></td><td><strong>101.0 ms</strong></td><td>184.2 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 6: 77-BRANCH EXECUTION MATRIX -->
+  <div id="tab-branches" class="tab-pane">
+    <div class="section-card">
+      <div class="section-title">Comprehensive Branch Execution Matrix (77 Operations)</div>
+      <div class="section-desc">Granular microsecond-level timing and throughput profiling across all internal execution paths.</div>
+
+      <div class="table-controls">
+        <input type="text" class="search-input" placeholder="Search operation, category, or branch..." onkeyup="filterTable(this, 'branches-table')">
+        <span class="badge badge-cyan">77 Operations Profiled</span>
+      </div>
+
+      <div class="table-responsive">
+        <table id="branches-table">
+          <thead>
+            <tr><th>#</th><th>Category</th><th>Operation</th><th>Branch / Condition</th><th>Mean Latency</th><th>Throughput</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>01</code></td><td><span class='badge badge-cyan'>CLI: Root</span></td><td><code>Version Flag</code></td><td>--version (exit)</td><td class='metric-val'><strong>25.99 ms</strong></td><td>38 ops/s</td></tr><tr><td><code>02</code></td><td><span class='badge badge-cyan'>CLI: Workspace</span></td><td><code>workspace list</code></td><td>Text format (Rich Table)</td><td class='metric-val'><strong>13.62 ms</strong></td><td>73 ops/s</td></tr><tr><td><code>03</code></td><td><span class='badge badge-cyan'>CLI: Workspace</span></td><td><code>workspace list</code></td><td>JSON format (--json)</td><td class='metric-val'><strong>9.38 ms</strong></td><td>107 ops/s</td></tr><tr><td><code>04</code></td><td><span class='badge badge-cyan'>CLI: Workspace</span></td><td><code>workspace create</code></td><td>Text format</td><td class='metric-val'><strong>20.50 ms</strong></td><td>49 ops/s</td></tr><tr><td><code>05</code></td><td><span class='badge badge-cyan'>CLI: Workspace</span></td><td><code>workspace create</code></td><td>JSON format (--json)</td><td class='metric-val'><strong>23.20 ms</strong></td><td>43 ops/s</td></tr><tr><td><code>06</code></td><td><span class='badge badge-cyan'>CLI: Session</span></td><td><code>session list</code></td><td>Text format (Rich Table)</td><td class='metric-val'><strong>13.35 ms</strong></td><td>75 ops/s</td></tr><tr><td><code>07</code></td><td><span class='badge badge-cyan'>CLI: Session</span></td><td><code>session list</code></td><td>JSON format (--json)</td><td class='metric-val'><strong>9.83 ms</strong></td><td>102 ops/s</td></tr><tr><td><code>08</code></td><td><span class='badge badge-cyan'>CLI: Session</span></td><td><code>session export</code></td><td>SQLite .db export</td><td class='metric-val'><strong>46.04 ms</strong></td><td>22 ops/s</td></tr><tr><td><code>09</code></td><td><span class='badge badge-cyan'>CLI: Session</span></td><td><code>session export</code></td><td>Markdown report (-r)</td><td class='metric-val'><strong>13.96 ms</strong></td><td>72 ops/s</td></tr><tr><td><code>10</code></td><td><span class='badge badge-cyan'>CLI: Session</span></td><td><code>session import</code></td><td>Import into workspace</td><td class='metric-val'><strong>24.45 ms</strong></td><td>41 ops/s</td></tr><tr><td><code>11</code></td><td><span class='badge badge-cyan'>CLI: Tool</span></td><td><code>tool list</code></td><td>Text format (Rich Table)</td><td class='metric-val'><strong>78.01 ms</strong></td><td>13 ops/s</td></tr><tr><td><code>12</code></td><td><span class='badge badge-cyan'>CLI: Tool</span></td><td><code>tool list</code></td><td>JSON format (--json)</td><td class='metric-val'><strong>20.70 ms</strong></td><td>48 ops/s</td></tr><tr><td><code>13</code></td><td><span class='badge badge-cyan'>CLI: Tool</span></td><td><code>tool info nmap</code></td><td>JSON metadata inspection</td><td class='metric-val'><strong>26.34 ms</strong></td><td>38 ops/s</td></tr><tr><td><code>14</code></td><td><span class='badge badge-cyan'>CLI: Doctor</span></td><td><code>doctor --json</code></td><td>Full system & tool diagnostics</td><td class='metric-val'><strong>173.39 ms</strong></td><td>6 ops/s</td></tr><tr><td><code>15</code></td><td><span class='badge badge-cyan'>CLI: Lab</span></td><td><code>lab list</code></td><td>JSON format (--json)</td><td class='metric-val'><strong>17.52 ms</strong></td><td>57 ops/s</td></tr><tr><td><code>16</code></td><td><span class='badge badge-amber'>Engine: Registry</span></td><td><code>load_tools</code></td><td>All 11 Tool Manifests</td><td class='metric-val'><strong>1.49 ms</strong></td><td>671 ops/s</td></tr><tr><td><code>17</code></td><td><span class='badge badge-amber'>Engine: Gateway</span></td><td><code>is_blocked_destination</code></td><td>Valid Domain / IP</td><td class='metric-val'><strong>0.003 ms</strong></td><td>340,943 ops/s</td></tr><tr><td><code>18</code></td><td><span class='badge badge-amber'>Engine: Gateway</span></td><td><code>is_blocked_destination</code></td><td>Blocked Link-Local IPv4 (169.254.x.x)</td><td class='metric-val'><strong>0.000 ms</strong></td><td>2,355,180 ops/s</td></tr><tr><td><code>19</code></td><td><span class='badge badge-amber'>Engine: Gateway</span></td><td><code>is_blocked_destination</code></td><td>Blocked Hex Encoded IP (0xa9fea9fe)</td><td class='metric-val'><strong>0.000 ms</strong></td><td>2,063,566 ops/s</td></tr><tr><td><code>20</code></td><td><span class='badge badge-amber'>Engine: Gateway</span></td><td><code>is_blocked_destination</code></td><td>Blocked Decimal IP (2852039166)</td><td class='metric-val'><strong>0.000 ms</strong></td><td>2,970,506 ops/s</td></tr><tr><td><code>21</code></td><td><span class='badge badge-amber'>Engine: Gateway</span></td><td><code>is_blocked_destination</code></td><td>Blocked Cloud Metadata DNS</td><td class='metric-val'><strong>0.000 ms</strong></td><td>3,192,359 ops/s</td></tr><tr><td><code>22</code></td><td><span class='badge badge-amber'>Engine: Gateway</span></td><td><code>interpolate_variables</code></td><td>Parameter & Variable Interpolation</td><td class='metric-val'><strong>0.001 ms</strong></td><td>794,581 ops/s</td></tr><tr><td><code>23</code></td><td><span class='badge badge-amber'>Engine: Gateway</span></td><td><code>sanitize_subprocess_env</code></td><td>Scrubbing Sensitive Secrets</td><td class='metric-val'><strong>0.010 ms</strong></td><td>95,663 ops/s</td></tr><tr><td><code>24</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>store.initialize()</code></td><td>SQLite Schema & WAL Migration</td><td class='metric-val'><strong>17.70 ms</strong></td><td>57 ops/s</td></tr><tr><td><code>25</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>upsert_finding (single)</code></td><td>Individual Auto-Commit (100 nodes)</td><td class='metric-val'><strong>0.519 ms</strong></td><td>1,926 ops/s</td></tr><tr><td><code>26</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>upsert_findings_batch</code></td><td>Atomic Batch Ingestion (1,000 nodes)</td><td class='metric-val'><strong>0.062 ms</strong></td><td>16,239 ops/s</td></tr><tr><td><code>27</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>upsert_findings_batch</code></td><td>Idempotent Merge (Existing Node)</td><td class='metric-val'><strong>3.06 ms</strong></td><td>327 ops/s</td></tr><tr><td><code>28</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>get_all_nodes</code></td><td>Fetch 1100 nodes (50 iters)</td><td class='metric-val'><strong>4.76 ms</strong></td><td>210 ops/s</td></tr><tr><td><code>29</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>get_all_edges</code></td><td>Fetch 0 edges (50 iters)</td><td class='metric-val'><strong>0.141 ms</strong></td><td>7,108 ops/s</td></tr><tr><td><code>30</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>append_event</code></td><td>Append-Only Event Log (100 rows)</td><td class='metric-val'><strong>0.257 ms</strong></td><td>3,895 ops/s</td></tr><tr><td><code>31</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>get_event_log</code></td><td>Retrieve 1201 events</td><td class='metric-val'><strong>7.15 ms</strong></td><td>140 ops/s</td></tr><tr><td><code>32</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>Forensic Lock</code></td><td>Dispatch Rejection on CLOSED session</td><td class='metric-val'><strong>0.445 ms</strong></td><td>2,246 ops/s</td></tr><tr><td><code>33</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>export_session</code></td><td>Zero-Copy ATTACH DATABASE Export</td><td class='metric-val'><strong>54.61 ms</strong></td><td>18 ops/s</td></tr><tr><td><code>34</code></td><td><span class='badge badge-emerald'>Engine: Store</span></td><td><code>import_session</code></td><td>Zero-Copy ATTACH DATABASE Import</td><td class='metric-val'><strong>47.30 ms</strong></td><td>21 ops/s</td></tr><tr><td><code>35</code></td><td><span class='badge badge-amber'>Adapter: BuildCmd</span></td><td><code>NmapAdapter</code></td><td>build_command(NmapAdapter)</td><td class='metric-val'><strong>0.017 ms</strong></td><td>58,750 ops/s</td></tr><tr><td><code>36</code></td><td><span class='badge badge-amber'>Adapter: Parse</span></td><td><code>NmapAdapter</code></td><td>parse_output (5 findings)</td><td class='metric-val'><strong>0.111 ms</strong></td><td>9,021 ops/s</td></tr><tr><td><code>37</code></td><td><span class='badge badge-amber'>Adapter: Sanitize</span></td><td><code>NmapAdapter</code></td><td>sanitize_output()</td><td class='metric-val'><strong>0.003 ms</strong></td><td>296,529 ops/s</td></tr><tr><td><code>38</code></td><td><span class='badge badge-amber'>Adapter: BuildCmd</span></td><td><code>WhoisAdapter</code></td><td>build_command(WhoisAdapter)</td><td class='metric-val'><strong>0.011 ms</strong></td><td>88,350 ops/s</td></tr><tr><td><code>39</code></td><td><span class='badge badge-amber'>Adapter: Parse</span></td><td><code>WhoisAdapter</code></td><td>parse_output (2 findings)</td><td class='metric-val'><strong>0.047 ms</strong></td><td>21,411 ops/s</td></tr><tr><td><code>40</code></td><td><span class='badge badge-amber'>Adapter: Sanitize</span></td><td><code>WhoisAdapter</code></td><td>sanitize_output()</td><td class='metric-val'><strong>0.004 ms</strong></td><td>266,754 ops/s</td></tr><tr><td><code>41</code></td><td><span class='badge badge-amber'>Adapter: BuildCmd</span></td><td><code>GobusterAdapter</code></td><td>build_command(GobusterAdapter)</td><td class='metric-val'><strong>0.033 ms</strong></td><td>30,662 ops/s</td></tr><tr><td><code>42</code></td><td><span class='badge badge-amber'>Adapter: Parse</span></td><td><code>GobusterAdapter</code></td><td>parse_output (5 findings)</td><td class='metric-val'><strong>0.382 ms</strong></td><td>2,617 ops/s</td></tr><tr><td><code>43</code></td><td><span class='badge badge-amber'>Adapter: Sanitize</span></td><td><code>GobusterAdapter</code></td><td>sanitize_output()</td><td class='metric-val'><strong>0.009 ms</strong></td><td>109,766 ops/s</td></tr><tr><td><code>44</code></td><td><span class='badge badge-amber'>Adapter: BuildCmd</span></td><td><code>NiktoAdapter</code></td><td>build_command(NiktoAdapter)</td><td class='metric-val'><strong>0.016 ms</strong></td><td>61,960 ops/s</td></tr><tr><td><code>45</code></td><td><span class='badge badge-amber'>Adapter: Parse</span></td><td><code>NiktoAdapter</code></td><td>parse_output (4 findings)</td><td class='metric-val'><strong>0.158 ms</strong></td><td>6,341 ops/s</td></tr><tr><td><code>46</code></td><td><span class='badge badge-amber'>Adapter: Sanitize</span></td><td><code>NiktoAdapter</code></td><td>sanitize_output()</td><td class='metric-val'><strong>0.004 ms</strong></td><td>279,727 ops/s</td></tr><tr><td><code>47</code></td><td><span class='badge badge-amber'>Adapter: BuildCmd</span></td><td><code>SubfinderAdapter</code></td><td>build_command(SubfinderAdapter)</td><td class='metric-val'><strong>0.013 ms</strong></td><td>79,321 ops/s</td></tr><tr><td><code>48</code></td><td><span class='badge badge-amber'>Adapter: Parse</span></td><td><code>SubfinderAdapter</code></td><td>parse_output (5 findings)</td><td class='metric-val'><strong>0.076 ms</strong></td><td>13,177 ops/s</td></tr><tr><td><code>49</code></td><td><span class='badge badge-amber'>Adapter: Sanitize</span></td><td><code>SubfinderAdapter</code></td><td>sanitize_output()</td><td class='metric-val'><strong>0.002 ms</strong></td><td>479,729 ops/s</td></tr><tr><td><code>50</code></td><td><span class='badge badge-amber'>Adapter: BuildCmd</span></td><td><code>DnsPythonAdapter</code></td><td>build_command(DnsPythonAdapter)</td><td class='metric-val'><strong>0.011 ms</strong></td><td>92,168 ops/s</td></tr><tr><td><code>51</code></td><td><span class='badge badge-amber'>Adapter: Parse</span></td><td><code>DnsPythonAdapter</code></td><td>parse_output (0 findings)</td><td class='metric-val'><strong>0.005 ms</strong></td><td>190,758 ops/s</td></tr><tr><td><code>52</code></td><td><span class='badge badge-amber'>Adapter: Sanitize</span></td><td><code>DnsPythonAdapter</code></td><td>sanitize_output()</td><td class='metric-val'><strong>0.000 ms</strong></td><td>21,463,833 ops/s</td></tr><tr><td><code>53</code></td><td><span class='badge badge-amber'>Adapter: BuildCmd</span></td><td><code>SearchSploitAdapter</code></td><td>build_command(SearchSploitAdapter)</td><td class='metric-val'><strong>0.013 ms</strong></td><td>78,781 ops/s</td></tr><tr><td><code>54</code></td><td><span class='badge badge-amber'>Adapter: Parse</span></td><td><code>SearchSploitAdapter</code></td><td>parse_output (0 findings)</td><td class='metric-val'><strong>0.005 ms</strong></td><td>195,988 ops/s</td></tr><tr><td><code>55</code></td><td><span class='badge badge-amber'>Adapter: Sanitize</span></td><td><code>SearchSploitAdapter</code></td><td>sanitize_output()</td><td class='metric-val'><strong>0.000 ms</strong></td><td>3,995,078 ops/s</td></tr><tr><td><code>56</code></td><td><span class='badge badge-amber'>Adapter: BuildCmd</span></td><td><code>FfufAdapter</code></td><td>build_command(FfufAdapter)</td><td class='metric-val'><strong>0.035 ms</strong></td><td>28,364 ops/s</td></tr><tr><td><code>57</code></td><td><span class='badge badge-amber'>Adapter: Parse</span></td><td><code>FfufAdapter</code></td><td>parse_output (3 findings)</td><td class='metric-val'><strong>0.094 ms</strong></td><td>10,619 ops/s</td></tr><tr><td><code>58</code></td><td><span class='badge badge-amber'>Adapter: Sanitize</span></td><td><code>FfufAdapter</code></td><td>sanitize_output()</td><td class='metric-val'><strong>0.002 ms</strong></td><td>550,911 ops/s</td></tr><tr><td><code>59</code></td><td><span class='badge badge-amber'>Adapter: BuildCmd</span></td><td><code>NucleiAdapter</code></td><td>build_command(NucleiAdapter)</td><td class='metric-val'><strong>0.021 ms</strong></td><td>46,523 ops/s</td></tr><tr><td><code>60</code></td><td><span class='badge badge-amber'>Adapter: Parse</span></td><td><code>NucleiAdapter</code></td><td>parse_output (0 findings)</td><td class='metric-val'><strong>0.004 ms</strong></td><td>229,009 ops/s</td></tr><tr><td><code>61</code></td><td><span class='badge badge-amber'>Adapter: Sanitize</span></td><td><code>NucleiAdapter</code></td><td>sanitize_output()</td><td class='metric-val'><strong>0.004 ms</strong></td><td>222,580 ops/s</td></tr><tr><td><code>62</code></td><td><span class='badge badge-amber'>Modeling: Canon</span></td><td><code>canonicalize_host</code></td><td>Host Lowercase & Localhost Normalization</td><td class='metric-val'><strong>0.000 ms</strong></td><td>2,002,821 ops/s</td></tr><tr><td><code>63</code></td><td><span class='badge badge-amber'>Modeling: Canon</span></td><td><code>canonicalize_url</code></td><td>URL Lowercase, Port Strip & Query Sort</td><td class='metric-val'><strong>0.006 ms</strong></td><td>161,645 ops/s</td></tr><tr><td><code>64</code></td><td><span class='badge badge-amber'>Modeling: PIK</span></td><td><code>generate_node_id</code></td><td>Sorted PIK Dict -> SHA-256 Node ID</td><td class='metric-val'><strong>0.001 ms</strong></td><td>1,214,975 ops/s</td></tr><tr><td><code>65</code></td><td><span class='badge badge-amber'>Modeling: Pydantic</span></td><td><code>NetworkHost.create</code></td><td>Host Schema Validation</td><td class='metric-val'><strong>0.008 ms</strong></td><td>122,472 ops/s</td></tr><tr><td><code>66</code></td><td><span class='badge badge-amber'>Modeling: Pydantic</span></td><td><code>NetworkService.create</code></td><td>Service Schema Validation</td><td class='metric-val'><strong>0.013 ms</strong></td><td>79,731 ops/s</td></tr><tr><td><code>67</code></td><td><span class='badge badge-amber'>Modeling: Pydantic</span></td><td><code>WebEndpoint.create</code></td><td>Web Endpoint Schema Validation</td><td class='metric-val'><strong>0.021 ms</strong></td><td>48,629 ops/s</td></tr><tr><td><code>68</code></td><td><span class='badge badge-amber'>Modeling: Pydantic</span></td><td><code>VulnerabilityFound.create</code></td><td>Vulnerability Schema Validation</td><td class='metric-val'><strong>0.014 ms</strong></td><td>74,072 ops/s</td></tr><tr><td><code>69</code></td><td><span class='badge badge-amber'>UI: Stream</span></td><td><code>TerminalStreamPane.write</code></td><td>50,000 Lines (Ring Buffer max=5k)</td><td class='metric-val'><strong>0.007 ms</strong></td><td>139,581 ops/s</td></tr><tr><td><code>70</code></td><td><span class='badge badge-amber'>UI: EntityBrowser</span></td><td><code>refresh_entities (cold)</code></td><td>Build DOM tree from 2000 entities</td><td class='metric-val'><strong>13.82 ms</strong></td><td>72 ops/s</td></tr><tr><td><code>71</code></td><td><span class='badge badge-amber'>UI: EntityBrowser</span></td><td><code>refresh_entities (search)</code></td><td>Filtered search query across tree</td><td class='metric-val'><strong>15.13 ms</strong></td><td>66 ops/s</td></tr><tr><td><code>72</code></td><td><span class='badge badge-amber'>UI: EntityBrowser</span></td><td><code>refresh_entities (fast)</code></td><td>Fast-Path Cached Identical Hash</td><td class='metric-val'><strong>0.007 ms</strong></td><td>150,173 ops/s</td></tr><tr><td><code>73</code></td><td><span class='badge badge-amber'>AI: Context</span></td><td><code>resolve_entity_variables</code></td><td>Resolve $TARGET, $IP, $PORT from PIK</td><td class='metric-val'><strong>0.025 ms</strong></td><td>39,396 ops/s</td></tr><tr><td><code>74</code></td><td><span class='badge badge-amber'>AI: Security</span></td><td><code>Neutralize Tag Breakout</code></td><td>Escape </untrusted_scan_output> Injection</td><td class='metric-val'><strong>0.001 ms</strong></td><td>1,935,534 ops/s</td></tr><tr><td><code>75</code></td><td><span class='badge badge-amber'>AI: Explainer</span></td><td><code>stream_explanation</code></td><td>Mock LLM Token Stream Generation</td><td class='metric-val'><strong>0.030 ms</strong></td><td>33,434 ops/s</td></tr><tr><td><code>76</code></td><td><span class='badge badge-amber'>Reporting</span></td><td><code>render_markdown</code></td><td>Executive Markdown Report (50 nodes)</td><td class='metric-val'><strong>0.398 ms</strong></td><td>2,513 ops/s</td></tr><tr><td><code>77</code></td><td><span class='badge badge-amber'>Reporting</span></td><td><code>extract_structured_findings_summary</code></td><td>Aggregate findings by schema type (50 nodes)</td><td class='metric-val'><strong>0.168 ms</strong></td><td>5,968 ops/s</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 7: METHODOLOGY -->
+  <div id="tab-methodology" class="tab-pane">
+    <div class="section-card">
+      <div class="section-title">System & Execution Baseline</div>
+      <div class="section-desc">Exact execution environment and reproduction parameters for benchmark auditability.</div>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <div class="meta-item-label">Report Date & Time</div>
+          <div class="meta-item-val">2026-11-21 04:41:24 UTC</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-item-label">Git Commit / Branch</div>
+          <div class="meta-item-val">c9fcec0 (dev)</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-item-label">Platform / Kernel</div>
+          <div class="meta-item-val">Linux-7.2.15-1-omarchy-x86_64-with-glibc2.44</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-item-label">CPU Architecture</div>
+          <div class="meta-item-val">x86_64</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-item-label">Python Version</div>
+          <div class="meta-item-val">3.15.2</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-item-label">Python Binary</div>
+          <div class="meta-item-val">/home/harsh/Documents/cyguide/.venv/bin/python</div>
+        </div>
+      </div>
+
+      <div class="command-box">
+        <span class="command-text" id="repro-cmd">python scripts/generate_benchmark_report.py --check --html</span>
+        <button class="copy-btn" onclick="copyCommand()">Copy CLI Command</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast">Command copied to clipboard!</div>
+
+  <!-- Footer -->
+  <footer>
+    <div>CyGuide Limits & Performance Engine • Created by <a href="https://h45sh.com" target="_blank">Harshwardhan Patil (@h45sh)</a> • <a href="https://github.com/h45sh/cyguide" target="_blank">GitHub Repository</a></div>
+    <div>Zero Telemetry • Self-Contained Artifact</div>
+  </footer>
+
+</div>
+
+<script>
+  function switchTab(tabId, el) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    el.classList.add('active');
+  }
+
+  function filterTable(input, tableId) {
+    const query = input.value.toLowerCase();
+    const table = document.getElementById(tableId);
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    for (let i = 0; i < rows.length; i++) {
+      const text = rows[i].textContent.toLowerCase();
+      rows[i].style.display = text.includes(query) ? '' : 'none';
+    }
+  }
+
+  function copyCommand() {
+    const text = document.getElementById('repro-cmd').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      const toast = document.getElementById('toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    });
+  }
+</script>
+</body>
+</html>

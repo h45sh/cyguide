@@ -1,0 +1,89 @@
+[meta]
+name = "sqlmap"
+description = "Automatic SQL injection and database takeover tool capable of detecting and exploiting flaws across MySQL, PostgreSQL, Oracle, Microsoft SQL Server, SQLite, and more."
+one_line_summary = "automatic SQL injection and database takeover engine"
+category = "Vulnerability Assessment"
+categories = ["vulnerability", "web", "database", "exploit"]
+binary = "sqlmap"
+theory = """
+### Theory & SQL Injection Mechanics
+SQL Injection (SQLi) occurs when untrusted user-supplied input is directly concatenated into dynamic database query strings rather than bound via parameterized statements. This allows an attacker to alter the query's abstract syntax tree (AST) and execute arbitrary database commands.
+
+### Detection & Exploitation Techniques
+* **Boolean-Based Blind**: Injects true/false conditional subqueries and infers data character-by-character based on subtle response body variations.
+* **Error-Based**: Forces unhandled database runtime exceptions (e.g., `FLOOR(RAND(0)*2)` or `CAST(...)`) that echo sensitive data directly into HTTP error pages.
+* **UNION Query**: Combines the original query results with attacker-crafted `UNION SELECT` rows, echoing table contents directly into the page response.
+* **Stacked Queries**: Executes semicolon-separated commands, allowing `INSERT`, `UPDATE`, `DROP`, or stored procedures (e.g., `xp_cmdshell` on MSSQL).
+* **Time-Based Blind**: Injects database sleep routines (e.g., `pg_sleep()`, `WAITFOR DELAY`, `SLEEP()`) and measures response latency to extract data when no output or errors are returned.
+
+### Defensive Remediation & Secure Architecture
+* **Parameterized Queries & Prepared Statements**: Enforce complete separation between code and data across all database access layers.
+* **Least Privilege Database Accounts**: Restrict web application database users from accessing administrative system catalogs or OS-level procedures.
+* **Web Application Firewall (WAF)**: Deploy signature and heuristic inspection to filter obvious injection payloads.
+"""
+
+[modes]
+learning = true
+power = true
+
+[input]
+accepts = ["web.endpoint", "web.vulnerability"]
+
+[output]
+produces = ["web.vulnerability", "credential.found"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "Safe Injection Detection & Fingerprinting"
+difficulty = "Beginner"
+description = "Safely test endpoint parameters for SQL injection vulnerabilities and fingerprint the underlying DBMS."
+flags = ["-u", "{url}", "--batch", "--banner", "--level=1", "--risk=1"]
+
+[learning.recipes.theory]
+concept = "SQL Syntax Deviation & Database Engine Fingerprinting"
+explanation = """
+1. What the tool does: Injects benign syntax probes (single quotes, logic inversions like AND 1=1) into URL query parameters to evaluate response stability and detect unhandled database exceptions.
+2. Flag selection: '--batch' forces non-interactive mode so scans run automatically without prompts; '--banner' retrieves the DBMS version banner; '--level=1 --risk=1' limits testing to standard HTTP parameters without destructive payloads.
+3. Response interpretation: Identifying specific SQL error strings or status code changes reveals the exact database vendor and version (e.g. MySQL, PostgreSQL).
+"""
+packet_wire_summary = "Client GET /items?id=1' -> Server HTTP/1.1 500 Internal Server Error (You have an error in your SQL syntax)"
+remediation = "Replace string-concatenated SQL queries with parameterized statements and prepared statements in your application code."
+
+[[learning.recipes]]
+name = "Multi-Technique Injection Assessment"
+difficulty = "Intermediate"
+description = "Execute comprehensive testing across Boolean, Error, UNION, Stacked, and Time-based injection vectors."
+flags = ["-u", "{url}", "--batch", "--technique=BEUST", "--current-user"]
+
+[learning.recipes.theory]
+concept = "Five Core SQL Injection Methodologies (BEUST)"
+explanation = """
+1. What the tool does: Systematically tests all five core injection techniques:
+   - B: Boolean-based blind (conditional true/false responses)
+   - E: Error-based (forcing data into error messages)
+   - U: UNION query (joining attacker queries to legitimate output)
+   - S: Stacked queries (multiple commands separated by semicolons)
+   - T: Time-based blind (measuring delay via SLEEP functions)
+2. Flag selection: '--technique=BEUST' restricts or enforces all 5 methods; '--current-user' extracts the active database user account.
+3. Response interpretation: Verifying the injection technique determines the fastest extraction speed (UNION is fastest, Time-based is slowest).
+"""
+packet_wire_summary = "Client GET /items?id=1 UNION SELECT 1,CURRENT_USER(),3-- - -> Server HTTP/1.1 200 OK (db_user@localhost)"
+remediation = "Ensure Object-Relational Mappers (ORMs) or database abstraction libraries are configured with strict parameter binding."
+
+[[learning.recipes]]
+name = "Database Catalog & Schema Enumeration"
+difficulty = "Advanced"
+description = "Enumerate accessible databases and system schemas on verified vulnerable endpoints."
+flags = ["-u", "{url}", "--batch", "--dbs"]
+
+[learning.recipes.theory]
+concept = "Database Catalog Discovery & Information Disclosure"
+explanation = """
+1. What the tool does: Queries metadata catalogs (such as INFORMATION_SCHEMA.SCHEMATA on MySQL/PostgreSQL or sys.databases on MSSQL) to discover all database instances hosted on the target engine.
+2. Flag selection: '--dbs' requests the list of all available databases; '--batch' ensures automated non-blocking execution.
+3. Risk analysis: Demonstrates critical risk: read access to internal database schemas typically leads to discovery of user credentials, payment tables, and sensitive company records.
+"""
+packet_wire_summary = "Client GET /items?id=1 UNION SELECT schema_name FROM information_schema.schemata-- - -> Database lists schemas"
+remediation = "Isolate application databases into independent user accounts without permissions to read INFORMATION_SCHEMA or master catalogs."

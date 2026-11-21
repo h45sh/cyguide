@@ -6,7 +6,7 @@ import pytest
 from cyguide.engine.executor import Executor
 from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.registry import ToolRegistry
-from cyguide.engine.reporter import generate_markdown_report
+from cyguide.engine.reporter import SessionReportService
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost, NetworkService
 from cyguide.schemas.power import ActionRequest, ActionSource
@@ -50,11 +50,11 @@ async def test_full_session_lifecycle_and_portability(tmp_path):
     facade = PowerWorkspaceFacade(src_store, executor, registry)
 
     # 2. Workspace & Session Management
-    ws_id = await facade.create_workspace("RedTeam Alpha")
-    session_id = await facade.create_session(ws_id, "Recon Phase 1")
+    ws_id = await src_store.create_workspace("RedTeam Alpha")
+    session_id = await src_store.create_session(ws_id, "Recon Phase 1")
 
     # Rename session
-    await facade.rename_session(session_id, "Recon Internal")
+    await src_store.rename_session(session_id, "Recon Internal")
     sessions = await src_store.list_sessions(ws_id)
     assert len(sessions) == 1
     assert sessions[0]["name"] == "Recon Internal"
@@ -74,7 +74,7 @@ async def test_full_session_lifecycle_and_portability(tmp_path):
     await src_store.upsert_finding(session_id, target_endpoint)
 
     # 4. Execute Action through Facade with background completion wait
-    target_node_id = src_store._generate_node_id(target_host.schema_type, target_host.pik)
+    target_node_id = src_store.generate_node_id(target_host.schema_type, target_host.pik)
     action = ActionRequest(
         session_id=session_id,
         tool_name="mock_nmap",
@@ -102,7 +102,7 @@ async def test_full_session_lifecycle_and_portability(tmp_path):
     export_md_file = tmp_path / "recon_report.md"
 
     await src_store.export_session(session_id, str(export_db_file))
-    report_text = await generate_markdown_report(src_store, session_id)
+    report_text = await SessionReportService(src_store).generate_markdown_report(session_id)
     export_md_file.write_text(report_text, encoding="utf-8")
 
     assert export_db_file.exists()

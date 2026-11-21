@@ -204,15 +204,17 @@ class Executor:
                     # Tool parsing only on stdout
                     if is_stdout:
                         buffer += raw_text
-                        while "\n" in buffer:
-                            line, buffer = buffer.split("\n", 1)
-                            try:
-                                async for finding in adapter.parse_output(
-                                    line, target, context=parsing_context
-                                ):
-                                    await finding_queue.put(finding)
-                            except Exception as parse_e:
-                                logger.error(f"Error parsing line '{line}': {parse_e}")
+                        if "\n" in buffer:
+                            lines = buffer.split("\n")
+                            buffer = lines.pop()
+                            for line in lines:
+                                try:
+                                    async for finding in adapter.parse_output(
+                                        line, target, context=parsing_context
+                                    ):
+                                        await finding_queue.put(finding)
+                                except Exception as parse_e:
+                                    logger.error(f"Error parsing line '{line}': {parse_e}")
             except Exception as e:
                 logger.error(f"Error draining stream: {e}")
 

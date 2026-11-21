@@ -1,0 +1,83 @@
+[meta]
+name = "netexec"
+description = "High-performance network execution and credential spraying tool (successor to CrackMapExec) automating assessment and exploitation of Active Directory, SMB, SSH, WinRM, and LDAP services."
+one_line_summary = "Active Directory & network credential spraying Swiss army knife"
+category = "Network Reconnaissance"
+categories = ["network", "recon", "exploit", "active_directory"]
+binary = "nxc"
+theory = """
+### Theory & Active Directory Protocol Auditing
+In enterprise Windows environments, authentication and administration rely heavily on multi-layered protocols: Server Message Block (SMB), Kerberos, NTLM, and Lightweight Directory Access Protocol (LDAP). NetExec interfaces directly with these protocols to audit configuration flaws and credential exposures.
+
+### Protocol Mechanics & Attack Surfaces
+* **SMB Signing**: Without cryptographically enforced message signing, attackers can execute Man-in-the-Middle (MitM) attacks and relay intercepted NTLM authentication to secondary network servers (NTLM Relay).
+* **Null & Guest Sessions**: Historical Windows implementations permitted unauthenticated null sessions (`IPC$`), allowing anonymous actors to list domain accounts, password policies, and file shares.
+* **Credential Spraying & Password Spraying**: Testing a single common password against hundreds of domain users avoids account lockout thresholds while discovering weak accounts.
+* **Pwn3d Status**: Indicates that authenticated credentials possess local Administrator or Domain Administrator rights, permitting remote command execution (via PsExec, WMI, or WinRM).
+
+### Defensive Hardening & Remediation
+* **Enforce SMB Signing**: Mandate SMB signing via Group Policy (`Microsoft network server: Digitally sign communications (always)`).
+* **Disable NTLM & Migrate to Kerberos**: Decommission legacy NTLMv1 and restrict NTLMv2 using Protected Users security groups.
+* **Account Lockout Policies & Tiered Administration**: Enforce tiered administration (Tier 0 Domain Controllers never logging onto Tier 1/2 workstations) to block lateral credential harvesting.
+"""
+
+[modes]
+learning = true
+power = true
+
+[input]
+accepts = ["network.host", "network.service"]
+
+[output]
+produces = ["network.host", "network.service", "audit.misconfig", "credential.found"]
+
+[learning]
+enabled = true
+
+[[learning.recipes]]
+name = "SMB Protocol Discovery & Signing Audit"
+difficulty = "Beginner"
+description = "Enumerate Windows workstations and domain controllers to verify SMB signing enforcement and OS versions."
+flags = ["smb", "{target}", "--gen-relay-list", "/tmp/relay_targets.txt"]
+
+[learning.recipes.theory]
+concept = "SMB Protocol Negotiation & NTLM Relay Vulnerability"
+explanation = """
+1. What the tool does: Connects to port 445 on target systems, negotiates SMB dialects (SMBv2/SMBv3), and interrogates the server's security flags for mandatory digital signatures.
+2. Flag selection: 'smb' targets the SMB transport; '--gen-relay-list' outputs systems with signing disabled to a file for relay assessment.
+3. Security analysis: When 'signing:False' is detected, any intercepted NTLM authentication packet can be relayed to that host to achieve unauthorized execution without cracking the password.
+"""
+packet_wire_summary = "Client SMB2 NEGOTIATE_REQ -> Server SMB2 NEGOTIATE_RESP (SecurityMode: Signing Enabled, Not Required)"
+remediation = "Enable 'Digitally sign communications (always)' in Windows GPO under Computer Configuration > Windows Settings > Security Settings > Local Policies > Security Options."
+
+[[learning.recipes]]
+name = "Null Session & Guest Share Discovery"
+difficulty = "Intermediate"
+description = "Audit target systems for anonymous IPC$ null sessions and unauthenticated network file shares."
+flags = ["smb", "{target}", "-u", "''", "-p", "''", "--shares"]
+
+[learning.recipes.theory]
+concept = "Anonymous Access & Network Share Exposure"
+explanation = """
+1. What the tool does: Attempts an unauthenticated SMB session with blank username and password to query the NetShareEnum RPC function.
+2. Flag selection: '-u \"\" -p \"\"' specifies null authentication credentials; '--shares' queries accessible file storage shares (e.g. IPC$, C$, SYSVOL, NETLOGON).
+3. Risk analysis: Accessible network shares frequently expose confidential backups, deployment scripts, cleartext credentials in web.config files, and sensitive spreadsheets.
+"""
+packet_wire_summary = "Client SMB2 SESSION_SETUP_REQ (Anonymous) -> Server SMB2 TREE_CONNECT_RESP (IPC$ Access Granted)"
+remediation = "Disable anonymous share enumeration by setting 'RestrictNullSessAccess' to 1 in the Windows Registry."
+
+[[learning.recipes]]
+name = "Domain Password Policy & Lockout Inspection"
+difficulty = "Intermediate"
+description = "Retrieve Active Directory password complexity rules and lockout thresholds without triggering lockouts."
+flags = ["smb", "{target}", "-u", "guest", "-p", "''", "--pass-pol"]
+
+[learning.recipes.theory]
+concept = "Password Policy Reconnaissance & Spray Safety"
+explanation = """
+1. What the tool does: Queries the SAM and LSA subsystem via RPC to extract domain password length rules, history length, and account lockout thresholds.
+2. Flag selection: '--pass-pol' extracts minimum password length and bad password lockout counts.
+3. Assessment safety: Professional penetration testers always verify lockout thresholds before password spraying to prevent locking out entire enterprise departments.
+"""
+packet_wire_summary = "Client SAMR QueryInformationDomain -> Server returns LockoutThreshold: 5, LockoutDuration: 30m"
+remediation = "Enforce a minimum password length of 15+ characters with multi-factor authentication (MFA) on all domain accounts."

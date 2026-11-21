@@ -77,9 +77,12 @@ class PreferencesStore:
         """Set a single setting and persist atomically."""
         self.update({key: value})
 
-    def update(self, updates: Dict[str, Any]) -> None:
-        """Batch update settings and persist with atomic 0o600 file permissions."""
+    def update_cache(self, updates: Dict[str, Any]) -> None:
+        """Update in-memory settings cache without immediate disk flush."""
         self._cache.update(updates)
+
+    def flush(self) -> None:
+        """Flush current in-memory cache to disk with atomic 0o600 file permissions."""
         path = self._resolve_settings_path()
         if not path or path == ":memory:":
             return
@@ -101,6 +104,11 @@ class PreferencesStore:
         except Exception:
             pass
 
+    def update(self, updates: Dict[str, Any]) -> None:
+        """Batch update settings and persist with atomic 0o600 file permissions."""
+        self.update_cache(updates)
+        self.flush()
+
     def all(self) -> Dict[str, Any]:
         """Return a copy of all current settings."""
         return dict(self._cache)
@@ -119,7 +127,7 @@ class PreferencesStore:
         return ""
 
     def write_scratchpad(self, content: str) -> None:
-        """Atomically persist operator notes with 0o600 permissions."""
+        """Atomically persist operator notes with 0o600 permissions, preserving a backup."""
         path = self._resolve_scratchpad_path()
         if not path or path == ":memory:":
             self._cache["_memory_scratchpad"] = content
@@ -129,15 +137,40 @@ class PreferencesStore:
             base_dir = os.path.dirname(os.path.abspath(path))
             if base_dir:
                 os.makedirs(base_dir, exist_ok=True)
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+
+            # Preserve backup of existing non-empty file before overwriting
+            if os.path.exists(path) and os.path.getsize(path) > 0:
+                bak_path = f"{path}.bak"
+                try:
+                    with open(path, "r", encoding="utf-8") as src:
+                        existing = src.read()
+                    if existing != content:
+                        bak_fd = os.open(bak_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                        try:
+                            with open(bak_fd, "w", encoding="utf-8", closefd=False) as b_out:
+                                b_out.write(existing)
+                        finally:
+                            os.close(bak_fd)
+                        try:
+                            os.chmod(bak_path, 0o600)
+                        except OSError:
+                            pass
+                except Exception:
+                    pass
+
+            # Atomic write via temporary file in same directory to prevent 0-byte truncations
+            tmp_path = f"{path}.tmp.{os.getpid()}"
+            fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             try:
                 with open(fd, "w", encoding="utf-8", closefd=False) as f:
                     f.write(content)
             finally:
                 os.close(fd)
             try:
-                os.chmod(path, 0o600)
+                os.chmod(tmp_path, 0o600)
             except OSError:
                 pass
+
+            os.replace(tmp_path, path)
         except Exception:
             pass

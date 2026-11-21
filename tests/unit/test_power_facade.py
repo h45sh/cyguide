@@ -47,8 +47,8 @@ async def test_facade_submit_shell_action():
     registry.get_tool.return_value = None
 
     facade = PowerWorkspaceFacade(store, executor, registry)
-    ws_id = await facade.create_workspace("TestWS")
-    sess_id = await facade.create_session(ws_id, "ShellSess")
+    ws_id = await facade.workspaces.create_workspace("TestWS")
+    sess_id = await facade.workspaces.create_session(ws_id, "ShellSess")
 
     action = ActionRequest(
         session_id=UUID(sess_id),
@@ -109,34 +109,36 @@ async def test_facade_uniqueness():
     facade = PowerWorkspaceFacade(store, executor, registry)
 
     # 1. Workspace uniqueness
-    ws1_id = await facade.create_workspace("Project A")
+    ws1_id = await facade.workspaces.create_workspace("Project A")
     assert ws1_id is not None
 
     with pytest.raises(ValueError, match="Workspace with this name already exists"):
-        await facade.create_workspace("project a")  # case-insensitive duplicate
+        await facade.workspaces.create_workspace("project a")  # case-insensitive duplicate
 
-    ws2_id = await facade.create_workspace("Project B")
+    ws2_id = await facade.workspaces.create_workspace("Project B")
     with pytest.raises(ValueError, match="Workspace with this name already exists"):
-        await facade.rename_workspace(ws2_id, "project a")
+        await facade.workspaces.rename_workspace(ws2_id, "project a")
 
     # 2. Session uniqueness
-    sess1_id = await facade.create_session(ws1_id, "Session A")
+    sess1_id = await facade.workspaces.create_session(ws1_id, "Session A")
     assert sess1_id is not None
 
     with pytest.raises(ValueError, match="Session with this name already exists"):
-        await facade.create_session(ws1_id, "session a")
+        await facade.workspaces.create_session(ws1_id, "session a")
 
-    sess2_id = await facade.create_session(ws1_id, "Session B")
+    sess2_id = await facade.workspaces.create_session(ws1_id, "Session B")
     with pytest.raises(ValueError, match="Session with this name already exists"):
-        await facade.rename_session(sess2_id, "session a")
+        await facade.workspaces.rename_session(sess2_id, "session a")
 
     # 3. Move session uniqueness
     # Create Session A in Workspace B
-    await facade.create_session(ws2_id, "Session A")
+    await facade.workspaces.create_session(ws2_id, "Session A")
     with pytest.raises(
         ValueError, match="A session with this name already exists in the target workspace"
     ):
-        await facade.move_session(sess1_id, ws2_id)  # Should fail as ws2 already has "Session A"
+        await facade.workspaces.move_session(
+            sess1_id, ws2_id
+        )  # Should fail as ws2 already has "Session A"
 
     await store.close()
 
@@ -149,8 +151,8 @@ async def test_facade_deletion_cleanup():
     registry = MagicMock()
     facade = PowerWorkspaceFacade(store, executor, registry)
 
-    ws_id = await facade.create_workspace("Project A")
-    sess_id = await facade.create_session(ws_id, "Session A")
+    ws_id = await facade.workspaces.create_workspace("Project A")
+    sess_id = await facade.workspaces.create_session(ws_id, "Session A")
 
     # Mock active jobs
     import datetime
@@ -171,7 +173,7 @@ async def test_facade_deletion_cleanup():
     assert facade.is_job_closed(job_uuid) is True
 
     # Delete session
-    await facade.delete_session(sess_id)
+    await facade.workspaces.delete_session(sess_id)
 
     # Verify executor.stop_task called and facade tracking cleaned up
     executor.stop_task.assert_called_once_with(str(job_uuid))
@@ -193,8 +195,8 @@ async def test_facade_job_output_buffering_and_subscription():
     registry = MagicMock()
     facade = PowerWorkspaceFacade(store, executor, registry)
 
-    ws_id = await facade.create_workspace("StreamWS")
-    sess_id = await facade.create_session(ws_id, "StreamSess")
+    ws_id = await facade.workspaces.create_workspace("StreamWS")
+    sess_id = await facade.workspaces.create_session(ws_id, "StreamSess")
 
     job_uuid = uuid4()
     job = JobStatus(
@@ -236,9 +238,9 @@ async def test_facade_workspace_and_session_running_counts():
     registry = MagicMock()
     facade = PowerWorkspaceFacade(store, executor, registry)
 
-    ws_id = await facade.create_workspace("CountWS")
-    sess1_id = await facade.create_session(ws_id, "Sess1")
-    sess2_id = await facade.create_session(ws_id, "Sess2")
+    ws_id = await facade.workspaces.create_workspace("CountWS")
+    sess1_id = await facade.workspaces.create_session(ws_id, "Sess1")
+    sess2_id = await facade.workspaces.create_session(ws_id, "Sess2")
 
     job1 = JobStatus(
         job_id=uuid4(), session_id=UUID(sess1_id), tool_name="nmap", status=JobStatusEnum.RUNNING
@@ -324,8 +326,8 @@ async def test_workspace_context_builder():
     registry = MagicMock()
     facade = PowerWorkspaceFacade(store, executor, registry)
 
-    ws_id = await facade.create_workspace("Context WS")
-    sess_id = await facade.create_session(ws_id, "Context Sess")
+    ws_id = await facade.workspaces.create_workspace("Context WS")
+    sess_id = await facade.workspaces.create_session(ws_id, "Context Sess")
 
     host = NetworkHost.create(ip="172.16.0.5", hostname="target.corp")
     await store.upsert_finding(sess_id, host)
@@ -340,4 +342,26 @@ async def test_workspace_context_builder():
     assert ctx.selected_entity.pik["ip"] == "172.16.0.5"
     assert ctx.resolved_vars["TARGET"] == "172.16.0.5"
     assert "network.host" in ctx.entity_counts
+    await store.close()
+
+
+@pytest.mark.asyncio
+async def test_facade_verify_preflight():
+    store = GraphStore(":memory:")
+    await store.initialize()
+    executor = MagicMock()
+    registry = MagicMock()
+    registry.get_tool.return_value = None
+    facade = PowerWorkspaceFacade(store, executor, registry)
+
+    # Valid command report
+    report = facade.verify_preflight(tool_name="nmap", target="127.0.0.1", flags="-sS")
+    assert report.tool_name == "nmap"
+    assert report.target == "127.0.0.1"
+
+    # Blocked SSRF target report
+    ssrf_report = facade.verify_preflight(tool_name="curl", target="169.254.169.254", flags="")
+    assert not ssrf_report.is_valid
+    assert any(i.category == "security" for i in ssrf_report.errors)
+
     await store.close()

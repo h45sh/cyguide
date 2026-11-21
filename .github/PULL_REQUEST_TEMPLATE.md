@@ -21,7 +21,7 @@ Fixes # <!-- Issue number if applicable -->
 ## Architectural Tier Check
 
 - [ ] **Tier 1 (Core Engine & Schemas)**: Modifies `store.py`, `registry.py`, `canonicalize.py`, `base.py`, or `paths.py`. Requires CODEOWNERS review from `@h45sh`.
-- [ ] **Tier 2 (Adapters & Pipelines)**: Modifies `executor.py`, `gateway.py`, or tool adapters in `tools/*/`.
+- [ ] **Tier 2 (Adapters, Pipelines & Intelligence)**: Modifies `power_facade.py`, `explainer.py`, `gateway.py`, `executor.py`, `schemas/*.py`, or tool adapters in `tools/*/`.
 - [ ] **Tier 3 (UI & Docs)**: Presentation, CSS, documentation, or learning mode recipes.
 
 ---
@@ -29,9 +29,9 @@ Fixes # <!-- Issue number if applicable -->
 ## Pre-Merge Verification Checklist
 
 - [ ] My code adheres to the project code standards (formatted via `ruff format` and linted via `ruff check`).
-- [ ] I have executed the automated verification script: `./scripts/verify.sh`.
-- [ ] All 170+ logic tests pass without regressions.
+- [ ] Fast pre-flight invariants pass: `pytest -m tier0` (<5s).
+- [ ] I have executed the automated verification script: `./scripts/verify.sh` (all test suites pass without regressions).
 - [ ] If finding schemas in `cyguide/schemas/` were added or modified, schema documentation has been regenerated and committed (`python3 scripts/generate_schema_registry.py`).
 - [ ] No decorative emojis have been added in documentation, code, or commit messages.
 - [ ] For tool adapters: External CLI commands are passed strictly as argument lists without `shell=True`.
-- [ ] Diagnostic health check passes: `cyg check --json`.
+- [ ] Diagnostic health check passes: `cyg doctor --json`.

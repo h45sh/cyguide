@@ -46,4 +46,26 @@ async def test_action_timeline_repository(tmp_path):
     assert len(active_events) == 1
     assert active_events[0]["schema_type"] == "system.session_archived"
 
+    # 5. Query timeline by schema_type and keyword
+    filtered = await timeline.query_timeline(sess_id, schema_type="system.session_archived")
+    assert len(filtered) == 1
+    assert filtered[0]["schema_type"] == "system.session_archived"
+
+    kw_filtered = await timeline.query_timeline(sess_id, keyword="Archived")
+    assert len(kw_filtered) == 1
+
+    no_match = await timeline.query_timeline(sess_id, keyword="nonexistent_xyz")
+    assert len(no_match) == 0
+
+    # 6. Replay session history
+    replayed = await timeline.replay_session_history(sess_id)
+    assert len(replayed) == 1
+    assert replayed[0]["schema_type"] == "system.session_archived"
+    assert replayed[0]["message"] == "Archived session"
+
+    # 7. Compact timeline
+    pruned = await timeline.compact_timeline(sess_id, keep_closed_events=0)
+    assert pruned == 1
+    assert await timeline.get_closed_events_count(sess_id) == 0
+
     await store.close()

@@ -60,22 +60,6 @@ def test_sanitize_subprocess_env():
         "ANTHROPIC_API_KEY": "ant-test789",
         "AWS_SECRET_ACCESS_KEY": "aws-secret",
         "GITHUB_TOKEN": "ghp_token",
-    }
-    cleaned = sanitize_subprocess_env(raw_env)
-    assert cleaned["PATH"] == "/usr/bin:/bin"
-    assert cleaned["USER"] == "analyst"
-    assert "CYGUIDE_API_KEY" not in cleaned
-    assert "CYGUIDE_API_BASE" not in cleaned
-    assert "GROQ_API_KEY" not in cleaned
-    assert "OPENAI_API_KEY" not in cleaned
-    assert "ANTHROPIC_API_KEY" not in cleaned
-    assert "AWS_SECRET_ACCESS_KEY" not in cleaned
-    assert "GITHUB_TOKEN" not in cleaned
-
-
-def test_sanitize_subprocess_env_extended():
-    raw_env = {
-        "PATH": "/usr/bin:/bin",
         "DEEPSEEK_API_KEY": "sk-deepseek",
         "PERPLEXITY_API_KEY": "pplx-secret",
         "PPLX_TOKEN": "token123",
@@ -86,10 +70,21 @@ def test_sanitize_subprocess_env_extended():
     }
     cleaned = sanitize_subprocess_env(raw_env)
     assert cleaned["PATH"] == "/usr/bin:/bin"
-    assert "DEEPSEEK_API_KEY" not in cleaned
-    assert "PERPLEXITY_API_KEY" not in cleaned
-    assert "PPLX_TOKEN" not in cleaned
-    assert "HUGGINGFACE_TOKEN" not in cleaned
-    assert "HF_TOKEN" not in cleaned
-    assert "VAULT_TOKEN" not in cleaned
-    assert "SSH_PRIVATE_KEY" not in cleaned
+    assert cleaned["USER"] == "analyst"
+    for secret in [
+        "CYGUIDE_API_KEY",
+        "CYGUIDE_API_BASE",
+        "GROQ_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "AWS_SECRET_ACCESS_KEY",
+        "GITHUB_TOKEN",
+        "DEEPSEEK_API_KEY",
+        "PERPLEXITY_API_KEY",
+        "PPLX_TOKEN",
+        "HUGGINGFACE_TOKEN",
+        "HF_TOKEN",
+        "VAULT_TOKEN",
+        "SSH_PRIVATE_KEY",
+    ]:
+        assert secret not in cleaned

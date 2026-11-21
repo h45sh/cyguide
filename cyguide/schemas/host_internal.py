@@ -13,12 +13,11 @@ class ProcessRunning(BaseFinding):
 
     @classmethod
     def create(cls, host_ip: str, pid: int, name: str, **kwargs):
-        return cls(
-            pik={"host_ip": host_ip, "pid": pid},
+        return cls.from_data(
+            {"host_ip": host_ip, "pid": pid, "name": name, **kwargs},
             parent=Relation(
                 target_type="network.host", target_pik={"ip": host_ip}, via="hosts_process"
             ),
-            data={"host_ip": host_ip, "pid": pid, "name": name, **kwargs},
         )
 
 
@@ -30,12 +29,11 @@ class FileSystemObject(BaseFinding):
 
     @classmethod
     def create(cls, host_ip: str, path: str, **kwargs):
-        return cls(
-            pik={"host_ip": host_ip, "path": path},
+        return cls.from_data(
+            {"host_ip": host_ip, "path": path, **kwargs},
             parent=Relation(
                 target_type="network.host", target_pik={"ip": host_ip}, via="hosts_file"
             ),
-            data={"host_ip": host_ip, "path": path, **kwargs},
         )
 
 
@@ -47,15 +45,14 @@ class SoftwarePackage(BaseFinding):
 
     @classmethod
     def create(cls, host_ip: str, package_name: str, version: Optional[str] = None, **kwargs):
-        return cls(
-            pik={"host_ip": host_ip, "package_name": package_name},
-            parent=Relation(
-                target_type="network.host", target_pik={"ip": host_ip}, via="hosts_software"
-            ),
-            data={
+        return cls.from_data(
+            {
                 "host_ip": host_ip,
                 "package_name": package_name,
                 "version": version,
                 **kwargs,
             },
+            parent=Relation(
+                target_type="network.host", target_pik={"ip": host_ip}, via="hosts_software"
+            ),
         )

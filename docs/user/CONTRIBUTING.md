@@ -27,6 +27,14 @@ tools/<tool_name>/
 └── adapter.py       # Command generation and stdout parsing logic
 ```
 
+> [!TIP]
+> **Automated Scaffolding & Validation**: You can automatically bootstrap a new adapter and validate existing plugins using the official **[CyGuide DevKit & Agent Skill (`cyguide-devkit`)](https://github.com/h45sh/cyguide-devkit)**:
+> ```bash
+> pip install cyguide-devkit
+> cyguide-devkit new mytool --target-dir . --category "Web Application Analysis"
+> cyguide-devkit validate tools/mytool
+> ```
+
 ### A. The Declarative Manifest (`manifest.toml`)
 
 The manifest informs CyGuide's registry about tool capabilities, inputs, and outputs:
@@ -81,7 +89,7 @@ class MyToolAdapter(ToolAdapter):
         """Construct the CLI arguments safely as an argument list (preventing shell injection)."""
         raw_flags = params.get("raw_flags", "")
         flag_args = shlex.split(raw_flags) if raw_flags else []
-        url = target.pik.get("url") or target.data.get("url", "")
+        url = self.extract_url(target) or ""
         return ["mytool", "-u", url] + flag_args
 
     async def parse_output(
@@ -89,12 +97,12 @@ class MyToolAdapter(ToolAdapter):
     ) -> AsyncIterator[BaseFinding]:
         """Parse raw stdout into validated BaseFinding schemas."""
         for line in raw_stdout.splitlines():
-            cleaned = line.strip()
+            cleaned = self.strip_ansi(line).strip()
             if "200 OK" in cleaned:
                 path = cleaned.split()[0]
                 yield WebEndpoint.create(
                     url=path,
-                    host_ip=target.pik.get("host_ip") or target.pik.get("ip"),
+                    host_ip=self.extract_host(target),
                     status_code=200,
                 )
 ```
@@ -126,7 +134,8 @@ Before testing your adapter inside the Textual TUI, verify the **Executor → Ad
 # scripts/test_mytool_headless.py
 import asyncio
 from cyguide.engine.store import GraphStore
-from cyguide.engine.executor import SubprocessExecutor
+from cyguide.engine.executor import Executor
+from cyguide.schemas.web import WebEndpoint
 from tools.mytool.adapter import MyToolAdapter
 
 
@@ -135,10 +144,11 @@ async def test_run():
     await store.initialize()
 
     adapter = MyToolAdapter()
-    executor = SubprocessExecutor(store)
+    executor = Executor(store)
 
     # Run against a mock target or local test server
-    cmd = adapter.build_command("http://127.0.0.1:8000", [])
+    target = WebEndpoint.create(url="http://127.0.0.1:8000")
+    cmd = adapter.build_command(target, {})
     print(f"Executing: {' '.join(cmd)}")
 
     await store.close()
@@ -182,18 +192,39 @@ To protect system determinism and database stability, CyGuide follows a three-ti
 Before submitting a Pull Request, run the automated verification pipeline:
 
 ```bash
-# Execute the full verification suite (unit & integration tests, schema doc sync, and code style)
+# Execute the full verification suite (Tier 0 pre-flight, unit, integration, fuzz, proofs, schema doc sync, and ruff)
 ./scripts/verify.sh
 
-# Run fast unit tests directly with pytest
-pytest tests/unit/ -v
+# Run Tier 0 AST and mathematical property invariants (<3 seconds, zero I/O)
+pytest -m tier0 -v
 
-# Run integration flow tests
-pytest tests/integration/ -v
+# Run fast hermetic tests
+pytest -m fast -v
+
+# Run universal adapter fuzzing suite (ANSI, 20k tokens, truncated JSON, null bytes)
+pytest -m fuzz -v
+
+# Run headless TUI workflow proof suite
+pytest -m proof -v
 
 # Verify finding schema documentation is in sync without modifying files
 python3 scripts/generate_schema_registry.py --check
 ```
+
+### Empirical Testing Standards (Lauren Tan "Trust Pyramid" Model)
+
+CyGuide rejects brittle, mock-heavy example tests and layered boilerplate in favor of empirical contracts:
+
+1. **Tier 0 AST Architectural Checks** (`tests/unit/test_architecture.py`):
+   Mechanical AST enforcement banning dangerous patterns (`shell=True`, direct `subprocess` imports in adapters, raw string SQL execution).
+2. **Mathematical Properties with Hypothesis** (`tests/unit/test_properties.py`):
+   Algebraic invariants: PIK hash order independence, canonicalization idempotence, SSRF metadata permutations (100% block rate across hex, decimal, link-local, cloud metadata DNS), and GraphStore merge commutativity & idempotence.
+3. **Universal Adapter Fuzzing** (`tests/unit/test_parsers/test_fuzz_all_adapters.py`):
+   When adding a new tool adapter in `tools/<name>/`, it is **automatically registered** and tested against 4 adversarial output streams (ANSI explosions, truncated JSON, 20,000-token strings, null bytes) and installation validation. Never write duplicate `test_validate_install` boilerplate.
+4. **Headless TUI Workflow Proofs** (`tests/integration/test_tui_workflow_proof.py`):
+   Full operator journeys tested headlessly via Textual pilot to ensure screens, sidebars, and reactive event streams remain unbroken.
+5. **Pruning over Layering**:
+   Never pile shallow wrappers or redundant test suites on top of existing code. When universal property or fuzz tests strictly cover a domain, prune obsolete point-value tests.
 
 > [!NOTE]
 > If you create or modify finding schemas in `cyguide/schemas/`, `./scripts/verify.sh` automatically updates and validates [`docs/developer/SCHEMA_REGISTRY.md`](../developer/SCHEMA_REGISTRY.md). Ensure any generated documentation diffs are committed with your PR.

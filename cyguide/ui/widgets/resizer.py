@@ -4,11 +4,20 @@ from typing import Optional
 
 from rich.text import Text
 from textual import events
+from textual.message import Message
 from textual.widget import Widget
 
 
 class ResizeHandle(Widget):
     """A vertical edge handle that can be clicked or dragged to resize an adjacent pane."""
+
+    class Resized(Message):
+        """Posted when a pane is resized by dragging."""
+
+        def __init__(self, target_id: str, new_size: int) -> None:
+            super().__init__()
+            self.target_id = target_id
+            self.new_size = new_size
 
     DEFAULT_CSS = """
     ResizeHandle {
@@ -81,6 +90,7 @@ class ResizeHandle(Widget):
                 self._start_width = self.min_size
         except Exception:
             self._start_width = self.min_size
+        self._current_width = self._start_width
 
         event.stop()
 
@@ -104,8 +114,13 @@ class ResizeHandle(Widget):
             max_limit = self.max_size
 
         new_width = max(self.min_size, min(new_width, max_limit))
+        if getattr(self, "_current_width", None) == new_width:
+            event.stop()
+            return
+
+        self._current_width = new_width
         target.styles.width = new_width
-        self.screen.refresh(layout=True)
+        self.post_message(self.Resized(self.target_id, new_width))
         event.stop()
 
     def on_mouse_up(self, event: events.MouseUp) -> None:
@@ -125,4 +140,47 @@ class ResizeHandle(Widget):
 
             if self.setting_key and hasattr(self.app, "save_settings"):
                 self.app.save_settings({self.setting_key: final_width})
+            self.post_message(self.Resized(self.target_id, final_width))
         event.stop()
+
+    def step(self, delta: int) -> int:
+        """Step the target pane width by delta columns with automated fast-stepping animation decoupling."""
+        target = self._get_target_widget()
+        if not target:
+            return self.min_size
+
+        try:
+            current_w = (
+                int(target.styles.width.value)
+                if target.styles.width and target.styles.width.value is not None
+                else int(target.region.width)
+            )
+        except Exception:
+            current_w = self.min_size
+
+        try:
+            screen_width = self.screen.size.width
+            max_limit = min(self.max_size, max(self.min_size + 10, screen_width - 35))
+        except Exception:
+            max_limit = self.max_size
+
+        new_width = max(self.min_size, min(current_w + delta, max_limit))
+        if new_width == current_w:
+            return current_w
+
+        target.add_class("-fast-stepping")
+        target.styles.width = new_width
+
+        if self.setting_key and hasattr(self.app, "save_settings"):
+            self.app.save_settings({self.setting_key: new_width})
+
+        self.post_message(self.Resized(self.target_id, new_width))
+
+        def _cleanup():
+            try:
+                target.remove_class("-fast-stepping")
+            except Exception:
+                pass
+
+        self.set_timer(0.2, _cleanup)
+        return new_width

@@ -2,12 +2,14 @@
 
 ## Supported Versions
 
-CyGuide receives active security updates and vulnerability patches on the following release branches:
+CyGuide receives active security updates and vulnerability patches on the current default release branch and latest PyPI release. 
 
-| Version | Supported     |
-| :------ | :------------ |
-| 1.7.x   | Yes (Current) |
-| < 1.7.0 | No            |
+| Release Channel | Supported | Notes |
+| :--- | :---: | :--- |
+| **Latest Release / Default Branch (`main`)** | **Yes** | Active security support and patches. |
+| **Prior Releases** | **Best Effort** | Security fixes are backported or rolled into the next minor/patch release. |
+
+We recommend always running the latest packaged release (`pip install -U cyguide`) or pulling the latest tagged release.
 
 ---
 
@@ -40,9 +42,12 @@ Credit will be given in the release notes and security advisories for responsibl
 
 ## Security Architecture & Scope
 
-CyGuide operates as an orchestration and analysis harness executing external cybersecurity binaries on the local host. When assessing potential vulnerabilities, consider the following threat model boundaries:
+CyGuide operates as an orchestration, analysis, and educational harness executing external cybersecurity binaries on the local host. When assessing potential vulnerabilities, consider the following threat model boundaries:
 
-1. **Subprocess Execution**: CyGuide tool adapters must always pass arguments as structured argument lists (`List[str]`) rather than invoking a shell with `shell=True`. Vulnerabilities where arbitrary target parameters lead to unintended command execution on the host are in-scope.
-2. **Session Database Isolation**: Exported `.db` files contain findings and command metadata. SQLite database deserialization must prevent path traversal, arbitrary file writes, or SQL injection.
-3. **Local Scope & Network Gateways**: CyGuide provides target CIDR boundary checks. Bypasses that lead to scanning unintended IP ranges are considered security issues.
-4. **Third-Party Tool Output**: Parsing untrusted stdout/stderr from external security tools must not lead to terminal escape sequence injections or crash the host process.
+1. **Subprocess Execution**: CyGuide tool adapters must always pass arguments as structured argument lists (`List[str]`) directly to `asyncio.create_subprocess_exec` rather than invoking a shell with `shell=True`. Vulnerabilities where arbitrary target parameters or unescaped macro tokens lead to unintended shell execution on the host are in-scope.
+2. **Environment Sanitization & Credential Protection**: Subprocess environments must be scrubbed (`sanitize_subprocess_env`) of operator secrets (`CYGUIDE_*`, `OPENAI_*`, `ANTHROPIC_*`, `AWS_*`, `GITHUB_*`, `SSH_PRIVATE_KEY`). Flaws where external CLI tools can read operator API tokens from child `/proc/<PID>/environ` are in-scope.
+3. **Session Database Isolation & Hardening**: Exported `.db` files contain findings and command metadata. SQLite database connections enforce `PRAGMA trusted_schema = OFF` and parameterized queries. Deserialization flaws leading to path traversal, arbitrary file writes, or trigger execution are in-scope.
+4. **Network Gateways & Cloud Metadata SSRF Protection**: CyGuide provides target validation and Link-Local/cloud metadata blocking (`169.254.0.0/16`, IMDSv2, cloud metadata hostnames). Bypasses that trick the gateway into dispatching requests to cloud metadata services or bypassing target CIDR boundary checks are considered security issues.
+5. **AI Prompt Injection & Boundary Delimiters**: Parsing untrusted stdout/stderr from external security tools encapsulates content within `<untrusted_scan_output>` XML boundary tags with closing-tag sanitization and credential redaction (PEM keys, tokens, passwords). Exploits that achieve prompt injection override or credential exfiltration are in-scope.
+6. **Local Filesystem Permissions**: Sensitive settings (`settings.json`) and scratchpads (`scratchpad.md`) enforce atomic `0o600` permissions to prevent TOCTOU race conditions.
+

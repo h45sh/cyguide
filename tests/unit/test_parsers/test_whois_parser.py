@@ -10,10 +10,6 @@ def adapter():
     return WhoisAdapter()
 
 
-def test_whois_validate_install(adapter):
-    assert isinstance(adapter.validate_install(), bool)
-
-
 def test_whois_build_command(adapter):
     # 1. Target is dns.record
     dns_rec = DnsRecord.create(domain="example.com", record_type="A", value="93.184.216.34")

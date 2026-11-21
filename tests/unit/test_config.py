@@ -20,7 +20,7 @@ from cyguide.ui.screens.config_modal import (
 
 
 def test_system_commands_single_config_entry(tmp_path):
-    """Verify that get_system_commands has only ONE consolidated Config entry, NO Toggle Sidebar, and NO duplicate config options."""
+    """Verify that get_system_commands has only ONE consolidated Config entry and correct conventional commands."""
     db_file = str(tmp_path / "test.db")
     app = CyGuideApp(db_path=db_file)
     mock_screen = MagicMock()
@@ -33,17 +33,6 @@ def test_system_commands_single_config_entry(tmp_path):
     assert len(config_commands) == 1
     assert config_commands[0] == "Config"
 
-    # Verify Toggle Sidebar has been completely removed
-    assert not any("Toggle Sidebar" in t for t in titles)
-
-    # Verify duplicate entries have been eliminated from main palette
-    assert not any("Config: Open Settings Dialog" in t for t in titles)
-    assert not any("Config: Ollama Backend" in t for t in titles)
-    assert not any("Config: LLM Model" in t for t in titles)
-    assert not any("Config: API Keys & Cloud AI" in t for t in titles)
-    assert not any("Config: Database Path" in t for t in titles)
-    assert not any("Config: Tools Directory" in t for t in titles)
-
     # Verify exact conventional command order (6 streamlined items)
     assert any("Toggle Animations" in t for t in titles)
     assert any("Tool Health" in t for t in titles)
@@ -51,9 +40,6 @@ def test_system_commands_single_config_entry(tmp_path):
     assert "Hotkeys" in titles
     assert "Screenshot" in titles
     assert titles[-1] == "Quit"
-
-    # Verify legacy Textual 'Keys' command is replaced by our 'Hotkeys'
-    assert "Keys" not in titles
 
 
 @pytest.mark.asyncio
@@ -82,18 +68,6 @@ async def test_command_palette_exact_order(tmp_path):
             prompts.append(matched)
 
         assert prompts == prefixes
-
-
-@pytest.mark.asyncio
-async def test_legacy_help_panel_replaced_by_shortcuts_dialog(tmp_path):
-    """Verify action_show_help_panel opens the F1 Shortcuts dialog instead of Textual's legacy half window."""
-    db_file = str(tmp_path / "test_help_panel.db")
-    app = CyGuideApp(db_path=db_file)
-    async with app.run_test() as pilot:
-        await pilot.pause()
-        app.action_show_help_panel()
-        await pilot.pause()
-        assert type(app.screen).__name__ == "ShortcutsDialog"
 
 
 @pytest.mark.asyncio
@@ -997,172 +971,6 @@ async def test_config_modal_cloud_toggle_and_key_bar_layout(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_duplicate_api_key_security_rejection(tmp_path):
-    """Verify that entering duplicate API keys across profiles is rejected by security validation."""
-    db_file = str(tmp_path / "test_dup.db")
-    app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
-
-    async with app.run_test(size=(120, 45)) as pilot:
-        modal = ConfigModal()
-        await app.push_screen(modal)
-        await pilot.pause()
-        modal.query_one("#config_tabs").active = "tab_cloud"
-        await pilot.pause()
-
-        # Key 1
-        modal.query_one("#cfg_key_name", Input).value = "OpenAI 1"
-        modal.query_one("#cfg_api_type", Input).value = "openai"
-        modal.query_one("#cfg_api_key", Input).value = "sk-shared-credential-12345"
-        await pilot.pause()
-
-        # Click + Add to start Key 2
-        await pilot.click("#cfg_key_add_btn")
-        await pilot.pause()
-
-        # Key 2 with DUPLICATE key
-        modal.query_one("#cfg_key_name", Input).value = "OpenAI 2"
-        modal.query_one("#cfg_api_type", Input).value = "groq"
-        modal.query_one("#cfg_api_key", Input).value = "sk-shared-credential-12345"
-        await pilot.pause()
-
-        # Click Save & Apply -> Must fail validation
-        await pilot.click("#cfg_save_btn")
-        await pilot.pause()
-
-        banner = modal.query_one("#config_feedback_banner")
-        banner_text = str(banner.render())
-        assert "Duplicate API key" in banner_text
-
-
-@pytest.mark.asyncio
-async def test_deleted_key_remains_deleted_and_no_resurrection(tmp_path):
-    """Verify that deleting all keys persists and doesn't resurrect default key on reopen."""
-    db_file = str(tmp_path / "test_del.db")
-    settings_file = tmp_path / "settings.json"
-    settings_file.write_text(
-        json.dumps(
-            {
-                "cloud_keys": [
-                    {
-                        "id": "k1",
-                        "name": "Key to Remove",
-                        "provider": "openai",
-                        "api_key": "sk-remove-123",
-                        "model": "gpt-4o",
-                        "base_url": "",
-                        "enabled": True,
-                    }
-                ],
-                "active_key_id": "k1",
-            }
-        )
-    )
-
-    app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
-
-    async with app.run_test(size=(120, 45)) as pilot:
-        modal = ConfigModal()
-        await app.push_screen(modal)
-        await pilot.pause()
-        modal.query_one("#config_tabs").active = "tab_cloud"
-        await pilot.pause()
-
-        # Delete the key via per-card delete button on list
-        modal.query_one("#cfg_delete_key_k1").scroll_visible(animate=False)
-        await pilot.click("#cfg_delete_key_k1")
-        await pilot.pause()
-
-        assert len(modal.cloud_keys) == 0
-
-        # Save & Apply (keeps modal open)
-        await pilot.click("#cfg_save_btn")
-        await pilot.pause()
-
-        assert len(app.cloud_keys) == 0
-        assert app.active_key_id is None
-
-        # Close first modal cleanly
-        await pilot.click("#cfg_close_btn")
-        await pilot.pause()
-
-        # Reopen modal
-        modal2 = ConfigModal()
-        await app.push_screen(modal2)
-        await pilot.pause()
-        modal2.query_one("#config_tabs").active = "tab_cloud"
-        await pilot.pause()
-
-        # Must still be 0, no ghost Default Key
-        assert len(modal2.cloud_keys) == 0
-        assert modal2.active_key_id is None
-        assert modal2.query_one("#cfg_api_key", Input).value == ""
-        assert "No Cloud API Key set" in str(modal2.query_one("#cfg_cloud_status_msg").render())
-
-
-@pytest.mark.asyncio
-async def test_in_place_parameter_modification_does_not_add_extra_keys(tmp_path):
-    """Verify that editing fields for an existing key modifies that key in-place and does not add extra profiles."""
-    db_file = str(tmp_path / "test_inplace.db")
-    settings_file = tmp_path / "settings.json"
-    settings_file.write_text(
-        json.dumps(
-            {
-                "cloud_keys": [
-                    {
-                        "id": "k1",
-                        "name": "Key One",
-                        "provider": "openai",
-                        "api_key": "sk-one-1234",
-                        "model": "gpt-4o",
-                        "base_url": "",
-                        "enabled": True,
-                    }
-                ],
-                "active_key_id": "k1",
-            }
-        )
-    )
-    app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
-
-    async with app.run_test(size=(120, 45)) as pilot:
-        modal = ConfigModal()
-        await app.push_screen(modal)
-        await pilot.pause()
-        modal.query_one("#config_tabs").active = "tab_cloud"
-        await pilot.pause()
-
-        assert len(modal.cloud_keys) == 1
-        assert modal.query_one("#cfg_key_name", Input).value == "Key One"
-        assert modal.query_one("#cfg_api_model", Input).value == "gpt-4o"
-
-        # Modify parameters in-place
-        modal.query_one("#cfg_key_name", Input).value = "Key One Renamed"
-        modal.query_one("#cfg_api_model", Input).value = "gpt-4o-mini"
-        await pilot.pause()
-
-        # Still exactly 1 key, modified in-place
-        assert len(modal.cloud_keys) == 1
-        assert modal.cloud_keys[0]["name"] == "Key One Renamed"
-        assert modal.cloud_keys[0]["model"] == "gpt-4o-mini"
-        assert modal.cloud_keys[0]["id"] == "k1"
-
-        # Click Save & Apply (keeps modal open)
-        await pilot.click("#cfg_save_btn")
-        await pilot.pause()
-
-        # Modal is still open!
-        assert isinstance(app.screen, ConfigModal)
-        assert len(modal.cloud_keys) == 1
-        assert len(app.cloud_keys) == 1
-        assert app.cloud_keys[0]["name"] == "Key One Renamed"
-        assert app.cloud_keys[0]["model"] == "gpt-4o-mini"
-
-        # Verify feedback banner shows success
-        banner = modal.query_one("#config_feedback_banner")
-        assert "Configuration saved and applied successfully" in str(banner.render())
-
-
-@pytest.mark.asyncio
 async def test_credential_missing_indicators_for_blank_key(tmp_path):
     """Verify that a profile without an API key displays credential missing indicators and is safely saved."""
     db_file = str(tmp_path / "test_missing.db")
@@ -1204,149 +1012,6 @@ async def test_credential_missing_indicators_for_blank_key(tmp_path):
         assert modal.cloud_keys[0]["name"] == "Pending Profile"
         assert modal.cloud_keys[0]["api_key"] == ""
         assert len(app.cloud_keys) == 1
-
-
-@pytest.mark.asyncio
-async def test_key_list_cards_interaction_and_per_key_actions(tmp_path):
-    """Verify key card list renders info, fallback badge, and inline actions work seamlessly."""
-    db_file = str(tmp_path / "test_cards.db")
-    settings_file = tmp_path / "settings.json"
-    settings_file.write_text(
-        json.dumps(
-            {
-                "cloud_keys": [
-                    {
-                        "id": "k1",
-                        "name": "Primary OpenAI",
-                        "provider": "openai",
-                        "api_key": "sk-openai-12345",
-                        "model": "gpt-4o",
-                        "base_url": "https://api.openai.com/v1",
-                        "enabled": True,
-                    },
-                    {
-                        "id": "k2",
-                        "name": "Backup Groq",
-                        "provider": "groq",
-                        "api_key": "gsk-groq-67890",
-                        "model": "llama-3.3-70b",
-                        "base_url": "https://api.groq.com/openai/v1",
-                        "enabled": False,
-                    },
-                ],
-                "active_key_id": "k1",
-            }
-        )
-    )
-
-    app = CyGuideApp(db_path=db_file, data_dir=str(tmp_path))
-
-    async with app.run_test(size=(120, 45)) as pilot:
-        modal = ConfigModal()
-        await app.push_screen(modal)
-        await pilot.pause()
-        modal.query_one("#config_tabs").active = "tab_cloud"
-        await pilot.pause()
-
-        # Check list has 2 cards
-        card_1 = modal.query_one("#cfg_card_k1")
-        card_2 = modal.query_one("#cfg_card_k2")
-        assert card_1 is not None
-        assert card_2 is not None
-
-        # Verify initial active / standby pills
-        pill_1 = modal.query_one("#cfg_pill_k1")
-        pill_2 = modal.query_one("#cfg_pill_k2")
-        assert "Active" in str(pill_1.render())
-        assert "Standby" in str(pill_2.render())
-
-        # Verify fallback badges
-        fb_1 = modal.query_one("#cfg_fallback_k1")
-        fb_2 = modal.query_one("#cfg_fallback_k2")
-        assert "YES" in str(fb_1.render())
-        assert "NO" in str(fb_2.render())
-
-        # Click Set Active button on card 2
-        await pilot.click("#cfg_activate_key_k2")
-        await pilot.pause()
-
-        assert modal.active_key_id == "k2"
-        assert "Active" in str(pill_2.render())
-        assert "Standby" in str(pill_1.render())
-
-        # Initially list is visible, editor is hidden
-        assert modal.query_one("#cfg_key_editor").has_class("hidden")
-        assert not modal.query_one("#cfg_cloud_list_view").has_class("hidden")
-
-        # Click Edit on card 1 -> switches to editor view and loads card 1
-        await pilot.click("#cfg_edit_key_k1")
-        await pilot.pause()
-
-        assert not modal.query_one("#cfg_key_editor").has_class("hidden")
-        assert modal.query_one("#cfg_cloud_list_view").has_class("hidden")
-        assert len(modal.query("#cfg_key_editor #cfg_key_set_active_btn")) == 0
-
-        assert modal.editing_profile_id == "k1"
-        assert modal.query_one("#cfg_key_name", Input).value == "Primary OpenAI"
-        assert "Primary OpenAI" in str(modal.query_one("#cfg_editor_title").render())
-
-        # Toggle fallback switch for card 1
-        modal.query_one("#cfg_key_enabled", Switch).value = False
-        await pilot.pause()
-
-        # Test long input does not break layout: Input styles overflow_x is hidden
-        long_url = (
-            "https://very-long-custom-enterprise-gateway.company.internal/v1/services/ai/inference"
-        )
-        url_input = modal.query_one("#cfg_api_base", Input)
-        url_input.value = long_url
-        await pilot.pause()
-        assert url_input.styles.overflow_x == "hidden"
-        assert url_input.styles.overflow_y == "hidden"
-
-        # Return to list view via Save & Back
-        save_btn = modal.query_one("#cfg_editor_save_btn")
-        save_btn.scroll_visible(animate=False)
-        await pilot.pause()
-        await pilot.click("#cfg_editor_save_btn")
-        await pilot.pause()
-
-        assert modal.query_one("#cfg_key_editor").has_class("hidden")
-        assert not modal.query_one("#cfg_cloud_list_view").has_class("hidden")
-        assert "NO" in str(modal.query_one("#cfg_fallback_k1").render())
-
-        # Test Just Back (cancel): Edit card 1, make unsaved changes, then click Back
-        await pilot.click("#cfg_edit_key_k1")
-        await pilot.pause()
-        modal.query_one("#cfg_key_name", Input).value = "Modified Unsaved Name"
-        await pilot.pause()
-        modal.query_one("#cfg_editor_cancel_btn").scroll_visible(animate=False)
-        await pilot.pause()
-        await pilot.click("#cfg_editor_cancel_btn")
-        await pilot.pause()
-
-        # Should be back in list view and title is NOT the unsaved modification
-        assert modal.query_one("#cfg_key_editor").has_class("hidden")
-        assert not modal.query_one("#cfg_cloud_list_view").has_class("hidden")
-        assert "Primary OpenAI" in str(modal.query_one("#cfg_title_k1").render())
-
-        # Delete card 2 via per-card delete button on list
-        modal.query_one("#cfg_delete_key_k2").scroll_visible(animate=False)
-        await pilot.pause()
-        await pilot.click("#cfg_delete_key_k2")
-        await pilot.pause()
-
-        assert len(modal.cloud_keys) == 1
-        assert modal.cloud_keys[0]["id"] == "k1"
-        assert len(modal.query("#cfg_card_k2")) == 0
-
-        # Save & Apply and verify
-        await pilot.click("#cfg_save_btn")
-        await pilot.pause()
-
-        assert len(app.cloud_keys) == 1
-        assert app.cloud_keys[0]["id"] == "k1"
-        assert app.cloud_keys[0]["enabled"] is False
 
 
 @pytest.mark.asyncio

@@ -157,7 +157,10 @@ async def test_tool_browser_launch_actions():
         await pilot.pause()
 
         assert app.learning_mode_tool == "nmap"
-        assert app.screen.name == "learning_mode" or app.screen.__class__.__name__ == "LearningModeScreen"
+        assert (
+            app.screen.name == "learning_mode"
+            or app.screen.__class__.__name__ == "LearningModeScreen"
+        )
 
 
 @pytest.mark.asyncio
@@ -193,7 +196,10 @@ async def test_tool_browser_type_to_search_and_enter_launch():
         await pilot.pause()
 
         assert app.learning_mode_tool == "whois"
-        assert app.screen.name == "learning_mode" or app.screen.__class__.__name__ == "LearningModeScreen"
+        assert (
+            app.screen.name == "learning_mode"
+            or app.screen.__class__.__name__ == "LearningModeScreen"
+        )
 
 
 @pytest.mark.asyncio
@@ -244,4 +250,3 @@ async def test_tool_browser_single_escape_and_fresh_resume():
         assert isinstance(screen, ToolBrowserScreen)
         assert screen.query_one("#search_input", Input).value == ""
         assert screen.query_one(ToolInspectorPane).active_tool == "nuclei"
-

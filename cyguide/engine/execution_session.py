@@ -3,8 +3,9 @@
 import asyncio
 import os
 import shlex
+import shutil
 import subprocess
-from contextlib import contextmanager
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import (
@@ -13,7 +14,6 @@ from typing import (
     Callable,
     ContextManager,
     Dict,
-    Iterator,
     List,
     Optional,
     Protocol,
@@ -40,14 +40,6 @@ class TerminalSuspendContext(Protocol):
     def suspend(self) -> ContextManager[None]:
         """Context manager invoked before privileged execution to release terminal controls."""
         ...
-
-
-class DefaultSuspendContext:
-    """Default no-op suspend context for headless or testing execution."""
-
-    @contextmanager
-    def suspend(self) -> Iterator[None]:
-        yield
 
 
 @runtime_checkable
@@ -502,6 +494,20 @@ class ExecutionSession:
         on_complete: Optional[Callable[[], Any]],
     ) -> None:
         start_time = asyncio.get_event_loop().time()
+        cwd = self.get_cwd(str(action.session_id))
+        clean_env = sanitize_subprocess_env(self.user_env)
+
+        # Initialize LogSpooler with 64KB buffering
+        spooler = LogSpooler(log_file_path)
+        self._job_spoolers[action.action_id] = spooler
+        spooler.write(
+            f"=== Privileged Execution Start: {datetime.now(UTC).isoformat()} ===\n"
+            f"Tool: sudo\n"
+            f"Session: {action.session_id}\n"
+            f"Action ID: {action.action_id}\n"
+            f"{'=' * 50}\n\n"
+        )
+
         await self._emit_event(
             action.action_id,
             ExecutionStarted(
@@ -512,47 +518,138 @@ class ExecutionSession:
             ),
         )
 
-        ctx = suspend_context or DefaultSuspendContext()
-        cmd_args = ["sudo"] + shlex.split(cmd_raw)
-        clean_env = sanitize_subprocess_env(self.user_env)
-        cwd = self.get_cwd(str(action.session_id))
-
-        await self._append_chunk(
-            action.action_id, f"❯ sudo {cmd_raw}\n[Suspending for sudo...]\n", log_file_path
-        )
-        if on_chunk:
-            await on_chunk(f"❯ sudo {cmd_raw}\n[Suspending for sudo...]\n")
-
-        returncode = 0
         err_msg = None
+        target_args: List[str] = []
         try:
-            with ctx.suspend():
-                res = subprocess.run(cmd_args, shell=False, env=clean_env, cwd=cwd)
-                returncode = res.returncode
-            if returncode == 0:
-                job.status = JobStatusEnum.DONE
-                await self._append_chunk(
-                    action.action_id, "[Resumed from sudo: Success]\n", log_file_path
-                )
+            tokens = shlex.split(cmd_raw) if cmd_raw else []
+            while tokens and tokens[0] == "sudo":
+                tokens = tokens[1:]
+            target_args = tokens
+
+            if not target_args:
+                cmd_args = ["sudo", "-h"]
             else:
-                job.status = JobStatusEnum.FAILED
-                err_msg = f"Sudo command exited with code {returncode}"
-                await self._append_chunk(
-                    action.action_id,
-                    f"[Resumed from sudo: Failed with code {returncode}]\n",
-                    log_file_path,
-                    is_error=True,
+                cmd_args = ["sudo"] + target_args
+
+            if not shutil.which("sudo"):
+                raise RuntimeError("'sudo' binary not found on system PATH")
+
+            # Check if sudo credentials are authenticated/cached or if passwordless sudo is configured.
+            # 'sudo -n true' exits 0 if cached or passwordless, and non-zero if a password prompt is required.
+            check_proc = subprocess.run(
+                ["sudo", "-n", "true"],
+                shell=False,
+                env=clean_env,
+                capture_output=True,
+            )
+            needs_auth = check_proc.returncode != 0
+
+            if needs_auth:
+                auth_notice = (
+                    "❯ sudo: Authentication required. Suspending UI for password entry...\n"
                 )
+                await self._append_chunk(action.action_id, auth_notice, log_file_path)
+                if on_chunk:
+                    try:
+                        await on_chunk(auth_notice)
+                    except Exception:
+                        pass
+
+                suspend_cm = suspend_context.suspend() if suspend_context else nullcontext()
+                with suspend_cm:
+                    auth_proc = subprocess.run(
+                        ["sudo", "-v"],
+                        shell=False,
+                        env=clean_env,
+                        cwd=cwd,
+                    )
+                    auth_code = auth_proc.returncode
+
+                if auth_code != 0:
+                    raise PermissionError(
+                        f"Sudo authentication failed or cancelled (code {auth_code})"
+                    )
+
+                resumed_notice = "[Sudo credentials validated. Live output resumed below]\n"
+                await self._append_chunk(action.action_id, resumed_notice, log_file_path)
+                if on_chunk:
+                    try:
+                        await on_chunk(resumed_notice)
+                    except Exception:
+                        pass
+
+            # Stream the actual privileged command in the foreground/terminal tab
+            async def handle_stdout(text: str) -> None:
+                await self._append_chunk(action.action_id, text, log_file_path, is_error=False)
+                if on_chunk:
+                    try:
+                        await on_chunk(text)
+                    except Exception:
+                        pass
+
+            async def handle_stderr(text: str) -> None:
+                await self._append_chunk(action.action_id, text, log_file_path, is_error=True)
+                if on_chunk:
+                    try:
+                        await on_chunk(text)
+                    except Exception:
+                        pass
+
+            adapter = InternalShellAdapter()
+            target = BaseFinding(
+                schema_type="system.shell",
+                pik={"cmd": "sudo"},
+                data={},
+                status="confirmed",
+            )
+            params = {"raw_flags": shlex.join(cmd_args)}
+
+            async for _ in self.runner.run(
+                adapter=adapter,
+                target=target,
+                params=params,
+                task_id=str(action.action_id),
+                cwd=cwd,
+                env=clean_env,
+                use_shell=False,
+                on_output=handle_stdout,
+                on_error_output=handle_stderr,
+                timeout_seconds=getattr(action, "timeout_seconds", None),
+            ):
+                pass
+
+            if job.status == JobStatusEnum.RUNNING:
+                job.status = JobStatusEnum.DONE
+
+        except asyncio.CancelledError:
+            err_msg = "Job cancelled"
+            job.status = JobStatusEnum.FAILED
         except Exception as e:
             job.status = JobStatusEnum.FAILED
             err_msg = str(e)
             await self._append_chunk(
-                action.action_id, f"[Sudo execution error: {e}]\n", log_file_path, is_error=True
+                action.action_id,
+                f"[Privileged execution error: {e}]\n",
+                log_file_path,
+                is_error=True,
             )
+            if on_chunk:
+                try:
+                    await on_chunk(f"[Privileged execution error: {e}]\n")
+                except Exception:
+                    pass
         finally:
             elapsed = asyncio.get_event_loop().time() - start_time
             job.completed_at = datetime.now(UTC)
             self._notify_status(job)
+
+            # Record final status in disk log and close spooler
+            status_str = "SUCCESS" if job.status == JobStatusEnum.DONE else f"FAILED ({err_msg})"
+            spooler.write(
+                f"\n\n=== Privileged Execution End: {datetime.now(UTC).isoformat()} [{status_str}] ===\n"
+            )
+            spooler.close()
+            self._job_spoolers.pop(action.action_id, None)
 
             if job.status == JobStatusEnum.DONE:
                 await self._emit_event(
@@ -577,13 +674,29 @@ class ExecutionSession:
             # Persist to database event log
             if not getattr(self.store, "_closed", False):
                 try:
-                    full_output = "".join(self.get_output_history(action.action_id))
+                    buf_output = "".join(self.get_output_history(action.action_id))
+                    if len(buf_output) > 200_000:
+                        db_output = (
+                            buf_output[:100_000]
+                            + f"\n\n... [Log truncated for database storage. Full log at {log_file_path}] ...\n\n"
+                            + buf_output[-100_000:]
+                        )
+                    else:
+                        db_output = buf_output
+
+                    command_summary = (
+                        f"Ran sudo {shlex.join(target_args)}"
+                        if target_args
+                        else f"Ran sudo {cmd_raw}"
+                    )
                     await self.store.append_event(
                         str(action.session_id),
                         action,
-                        {"output": full_output, "log_file": log_file_path, "error": err_msg},
-                        f"Ran sudo {cmd_raw}" + (f" (failed: {err_msg})" if err_msg else ""),
+                        {"output": db_output, "log_file": log_file_path, "error": err_msg},
+                        command_summary + (f" (failed: {err_msg})" if err_msg else ""),
                     )
+                    if str(action.action_id) in self.closed_job_ids:
+                        self.evict_job(action.action_id)
                 except Exception:
                     pass
 

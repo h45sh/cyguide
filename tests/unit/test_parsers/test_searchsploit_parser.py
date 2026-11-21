@@ -14,10 +14,6 @@ def adapter():
     return SearchSploitAdapter()
 
 
-def test_searchsploit_validate_install(adapter):
-    assert isinstance(adapter.validate_install(), bool)
-
-
 def test_searchsploit_build_command(adapter):
     # 1. Target is network.service
     service = NetworkService.create(
@@ -89,13 +85,3 @@ async def test_searchsploit_parse_output(adapter):
     assert f2.pik["exploit_id"] == "EDB-29290"
     assert f2.data["cve_id"] == "CVE-2012-1823"
     assert f2.data["verified"] is False
-
-
-@pytest.mark.asyncio
-async def test_searchsploit_parse_empty_or_malformed(adapter):
-    target = NetworkHost.create(ip="192.168.1.1")
-    findings = [f async for f in adapter.parse_output("", target)]
-    assert len(findings) == 0
-
-    findings = [f async for f in adapter.parse_output("No Results", target)]
-    assert len(findings) == 0

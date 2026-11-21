@@ -1,0 +1,15 @@
+NetExec v1.3.0 (CrackMapExec)
+[*] NetExec Active Directory & Protocol Auditor
+SMB         10.10.10.5      445    DC01             [*] Windows 10.0 Build 17763 x64 (name:DC01) (domain:CORP.LOCAL) (signing:False) (SMBv1:False)
+SMB         10.10.10.5      445    DC01             [+] CORP.LOCAL\administrator:Password123 (Pwn3d!)
+SMB         10.10.10.5      445    DC01             [-] CORP.LOCAL\guest: STATUS_LOGON_FAILURE
+SMB         10.10.10.5      445    DC01             [+] Enumerated shares:
+SMB         10.10.10.5      445    DC01             Share        Permissions     Remark
+SMB         10.10.10.5      445    DC01             -----        -----------     ------
+SMB         10.10.10.5      445    DC01             ADMIN$       READ,WRITE      Remote Admin
+SMB         10.10.10.5      445    DC01             C$           READ,WRITE      Default share
+SMB         10.10.10.5      445    DC01             IPC$         READ            Remote IPC
+SMB         10.10.10.5      445    DC01             SYSVOL       READ            Logon server share
+SMB         10.10.10.5      445    DC01             NETLOGON     READ            Logon server share
+SMB         10.10.10.6      445    FS01             [*] Windows 10.0 Build 19041 x64 (name:FS01) (domain:CORP.LOCAL) (signing:True) (SMBv1:False)
+SMB         10.10.10.6      445    FS01             [+] CORP.LOCAL\backup_svc:Summer2024!

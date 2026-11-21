@@ -4,7 +4,6 @@ import asyncio
 import json
 import os
 import re
-import subprocess
 from datetime import UTC, datetime
 from typing import Any, Dict, List
 
@@ -14,6 +13,7 @@ from textual.containers import Horizontal, Vertical
 from textual.geometry import Offset
 from textual.widgets import Input, Label, ListItem, ListView, Static, Tree
 
+from cyguide.paths import get_git_branch
 from cyguide.schemas.power import JobStatus, JobStatusEnum
 from cyguide.schemas.presentation import build_ip_to_name_map, format_node_label
 
@@ -315,8 +315,8 @@ class JobQueue(Vertical):
                     status_text = " [red]FAILED[/]"
                     elapsed = ((job.completed_at or now) - job.started_at).total_seconds()
                 else:  # QUEUED
-                    status_icon = "[#eab308]◌[/]"
-                    status_text = " [yellow]QUEUED[/]"
+                    status_icon = "[#f59e0b]◌[/]"
+                    status_text = " [#f59e0b]QUEUED[/]"
                     elapsed = (now - job.started_at).total_seconds()
 
                 dur_str = f" [dim #94a3b8]{_format_elapsed(elapsed)}[/]"
@@ -448,13 +448,7 @@ class CommandPalette(Vertical):
 
     def _get_git_branch(self) -> str:
         try:
-            return (
-                subprocess.check_output(
-                    ["git", "branch", "--show-current"], stderr=subprocess.DEVNULL
-                )
-                .decode()
-                .strip()
-            )
+            return get_git_branch(self.cwd)
         except Exception:
             return ""
 
@@ -466,11 +460,12 @@ class CommandPalette(Vertical):
         except Exception:
             self.branch = ""
 
-    def _update_lhost_badge(self) -> None:
+    @work(exclusive=True, group="lhost_badge")
+    async def _async_update_lhost_badge(self) -> None:
         try:
             from cyguide.engine.network import get_lhost_info
 
-            ip, iface = get_lhost_info()
+            ip, iface = await asyncio.to_thread(get_lhost_info)
             badge = self.query_one("#lhost_badge", Label)
             is_vpn = iface.startswith(("tun", "wg", "tap", "ppp", "utun"))
             badge.set_class(is_vpn, "vpn")
@@ -480,6 +475,9 @@ class CommandPalette(Vertical):
                 badge.update(f"[{iface}: {ip}]" if iface != "lo" else f"[LHOST: {ip}]")
         except Exception:
             pass
+
+    def _update_lhost_badge(self) -> None:
+        self._async_update_lhost_badge()
 
     def on_mount(self) -> None:
         self._async_update_git_branch()
