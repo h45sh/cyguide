@@ -2,9 +2,10 @@
 
 import ipaddress
 import socket
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from cyguide import paths
+from cyguide.common.algorithms import IPRadixTrie
 from cyguide.engine.network import get_lhost_info
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
@@ -39,6 +40,10 @@ BLOCKED_NETWORKS = [
     ipaddress.ip_network("fd00:ec2::/64"),
 ]
 
+_BLOCKED_TRIE = IPRadixTrie()
+for _net in BLOCKED_NETWORKS:
+    _BLOCKED_TRIE.insert(_net)
+
 
 def _parse_ip_candidate(candidate: str):
     """Attempt to parse an address token into an ipaddress object, resolving alternate numerical notations."""
@@ -54,6 +59,10 @@ def _parse_ip_candidate(candidate: str):
         c = c.split(":", 1)[0]
 
     if not c:
+        return None
+
+    # Fast guard: valid IP candidates or alternate representations must have at least one digit or colon
+    if not any(ch.isdigit() or ch == ":" for ch in c):
         return None
 
     try:
@@ -90,12 +99,8 @@ def is_blocked_destination(text: str) -> bool:
             if hasattr(ip_obj, "ipv4_mapped") and ip_obj.ipv4_mapped:
                 ip_obj = ip_obj.ipv4_mapped
 
-            for net in BLOCKED_NETWORKS:
-                try:
-                    if ip_obj in net:
-                        return True
-                except TypeError:
-                    continue
+            if _BLOCKED_TRIE.contains(ip_obj):
+                return True
 
     return False
 
@@ -113,9 +118,53 @@ class ActionGateway:
     and respects the tool's input contract before execution.
     """
 
-    def __init__(self, registry: ToolRegistry, store: GraphStore):
+    def __init__(
+        self,
+        registry: ToolRegistry,
+        store: GraphStore,
+        allowed_cidrs: Optional[List[str]] = None,
+    ):
         self.registry = registry
         self.store = store
+        self._allowed_cidrs: Optional[List[Any]] = None
+        if allowed_cidrs:
+            self.set_allowed_cidrs(allowed_cidrs)
+
+    def set_allowed_cidrs(self, allowed_cidrs: Optional[List[str]]) -> None:
+        """Configure declarative CIDR scope boundaries for engagements."""
+        if not allowed_cidrs:
+            self._allowed_cidrs = None
+            self._allowed_cidrs_trie = None
+        else:
+            self._allowed_cidrs = [
+                ipaddress.ip_network(c.strip(), strict=False) for c in allowed_cidrs if c.strip()
+            ]
+            self._allowed_cidrs_trie = IPRadixTrie()
+            for net in self._allowed_cidrs:
+                self._allowed_cidrs_trie.insert(net)
+
+    def validate_target_scope(self, text_or_ip: str) -> bool:
+        """Ensure any target IPs in text belong to the authorized engagement CIDR scope.
+
+        Returns True if within scope (or if no scope restrictions are configured).
+        """
+        if not self._allowed_cidrs or not text_or_ip:
+            return True
+
+        tokens = text_or_ip.replace("=", " ").replace("&", " ").replace(";", " ").split()
+        for tok in tokens:
+            ip_obj = _parse_ip_candidate(tok)
+            if ip_obj is not None:
+                if hasattr(ip_obj, "ipv4_mapped") and ip_obj.ipv4_mapped:
+                    ip_obj = ip_obj.ipv4_mapped
+                trie = getattr(self, "_allowed_cidrs_trie", None)
+                if trie is not None:
+                    if not trie.contains(ip_obj):
+                        return False
+                else:
+                    if not any(ip_obj in net for net in self._allowed_cidrs):
+                        return False
+        return True
 
     @staticmethod
     def resolve_entity_variables(
@@ -170,6 +219,12 @@ class ActionGateway:
                 "Access to cloud metadata endpoints is strictly prohibited."
             )
 
+        # Enforce engagement CIDR scope boundaries if configured
+        if self._allowed_cidrs and not self.validate_target_scope(raw_flags):
+            raise ActionValidationError(
+                "Target in command arguments violates authorized engagement CIDR scope."
+            )
+
         # 2. Resolve Tool
         tool_data = self.registry.get_tool(action.tool_name)
 
@@ -210,6 +265,11 @@ class ActionGateway:
         if is_blocked_destination(pik_str):
             raise ActionValidationError(
                 "Target entity points to a prohibited cloud metadata endpoint."
+            )
+
+        if self._allowed_cidrs and not self.validate_target_scope(pik_str):
+            raise ActionValidationError(
+                "Target entity IP violates authorized engagement CIDR scope."
             )
 
         target_schema = node["schema_type"]

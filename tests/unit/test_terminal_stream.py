@@ -101,6 +101,7 @@ async def test_terminal_stream_virtual_render_line():
         assert strip_blank.text.strip() == ""
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_terminal_stream_100k_lines_stress_and_bounded_memory():
     """Verify that 100,000 streamed lines execute in milliseconds with zero memory leak.

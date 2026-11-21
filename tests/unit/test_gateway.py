@@ -350,3 +350,42 @@ def test_adapter_flag_injection_prevention():
     d_idx = cmd_sub.index("-d")
     assert cmd_sub[d_idx + 1] == malicious_domain
     assert "-o" not in cmd_sub
+
+
+@pytest.mark.asyncio
+async def test_gateway_cidr_scope_enforcement(tmp_path):
+    store = GraphStore(str(tmp_path / "cidr_scope.db"))
+    await store.initialize()
+
+    mock_registry = MagicMock()
+    mock_tool = MagicMock()
+    mock_tool.input = {"accepts": ["network.host"]}
+    mock_registry.get_tool.return_value = {"manifest": mock_tool, "adapter": MagicMock()}
+
+    # Gateway configured with authorized scope
+    gateway = ActionGateway(mock_registry, store, allowed_cidrs=["10.0.0.0/8", "192.168.1.0/24"])
+
+    # 1. In-scope action passes
+    action_in_scope = ActionRequest(
+        session_id=uuid4(),
+        tool_name="nmap",
+        params={"raw_flags": "-sV 10.50.1.20"},
+        triggered_by=ActionSource.USER,
+    )
+    assert await gateway.validate_action(action_in_scope) is True
+
+    # 2. Out-of-scope target in raw_flags raises ActionValidationError
+    action_out_scope = ActionRequest(
+        session_id=uuid4(),
+        tool_name="nmap",
+        params={"raw_flags": "-sV 172.16.0.5"},
+        triggered_by=ActionSource.USER,
+    )
+    with pytest.raises(ActionValidationError, match="violates authorized engagement CIDR scope"):
+        await gateway.validate_action(action_out_scope)
+
+    # 3. Dynamic reconfiguration of scope
+    gateway.set_allowed_cidrs(None)
+    assert await gateway.validate_action(action_out_scope) is True
+
+    await store.close()

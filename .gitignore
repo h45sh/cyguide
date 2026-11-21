@@ -18,10 +18,15 @@ uv.lock
 
 # Testing, coverage, and linting caches
 .pytest_cache/
+tests/.pytest_cache/
 .coverage
 htmlcov/
 .ruff_cache/
+tests/.ruff_cache/
 .mypy_cache/
+tests/.mypy_cache/
+.hypothesis/
+tests/.hypothesis/
 
 # Local databases, runtime logs, and data
 *.db
@@ -35,6 +40,7 @@ reports/
 # Benchmark temporary previews and historical runs
 docs/benchmarks/*.html
 !docs/benchmarks/preview.html
+docs/benchmarks/*.json
 docs/benchmarks/.history/
 
 # Environment configurations and secrets
@@ -48,8 +54,10 @@ docs/benchmarks/.history/
 *.swo
 *~
 .DS_Store
+.config/
 .codex
 .t3*
+.t3-architecture-cache.md
 
 # Agent thread retrospectives (raw retrospectives aggregated into .agents/knowledge/)
 .agents/threads/*.md

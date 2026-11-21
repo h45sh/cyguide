@@ -29,8 +29,8 @@ class HeadlessWorkstationSession:
 
     async def create_workspace_and_session(self, ws_name: str, sess_name: str) -> tuple[str, str]:
         """Create a workspace and session, select them, and wait for event propagation."""
-        ws_id = await self.app.power_facade.create_workspace(ws_name)
-        sess_id = await self.app.power_facade.create_session(ws_id, sess_name)
+        ws_id = await self.app.workspaces.create_workspace(ws_name)
+        sess_id = await self.app.workspaces.create_session(ws_id, sess_name)
         self.app.selected_workspace_id = ws_id
         self.app.selected_session_id = sess_id
 
@@ -101,7 +101,6 @@ async def test_end_to_end_power_mode_operator_proof(tmp_path):
         )
         assert ws_id is not None
         assert sess_id is not None
-
 
         # Phase 2: Transition to Power Mode Workbench
         power_screen = await session.open_power_mode()

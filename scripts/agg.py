@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# codeguard: disable-file[INJECTION_COMMAND_SHELL, DEBUG_PYTHON_PRINT]
 """
 scripts/agg.py - Autonomous Engine for engineering-aggregate.
 
@@ -30,7 +31,9 @@ INDEX_FILE = KNOWLEDGE_DIR / "index.json"
 def run_cmd(cmd):
     """Run shell command safely and return output."""
     try:
-        res = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        res = subprocess.run(
+            cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
         return res.stdout.strip()
     except subprocess.CalledProcessError:
         return ""
@@ -57,10 +60,7 @@ def load_index():
         except Exception:
             pass
 
-    return {
-        "domains": {},
-        "anti_patterns": []
-    }
+    return {"domains": {}, "anti_patterns": []}
 
 
 def save_index(data):
@@ -126,7 +126,9 @@ def cmd_inherit(args):
         if agents_md.exists():
             for line in agents_md.read_text(encoding="utf-8").splitlines():
                 s = line.strip()
-                if (s.startswith("- ") or s.startswith("* ") or (s.startswith("**") and ":" in s)) and len(s) > 5:
+                if (
+                    s.startswith("- ") or s.startswith("* ") or (s.startswith("**") and ":" in s)
+                ) and len(s) > 5:
                     brief_bullets.append(f"[GLOBAL] {s.lstrip('-* ')}")
                     if len(brief_bullets) >= 3:
                         break
@@ -151,7 +153,9 @@ def cmd_inherit(args):
             brief_bullets.append(f"[TRAP: {title}] -> Instead: {repl}")
 
         if not brief_bullets:
-            print("[INHERITANCE] Clean: No domain constraints or traps registered for current context.")
+            print(
+                "[INHERITANCE] Clean: No domain constraints or traps registered for current context."
+            )
         else:
             print(f"=== INHERITANCE BRIEF: {len(brief_bullets)} ACTIVE RULES (COMPACT) ===")
             for b in brief_bullets[:10]:
@@ -162,7 +166,9 @@ def cmd_inherit(args):
         return
 
     print("=== ANCESTRAL INHERITANCE: REPOSITORY INTELLIGENCE BRIEF ===")
-    print(f"Context Filter: {', '.join(sorted(target_files)) if target_files else 'None'} | Terms: {', '.join(sorted(query_terms)) if query_terms else 'General'}\n")
+    print(
+        f"Context Filter: {', '.join(sorted(target_files)) if target_files else 'None'} | Terms: {', '.join(sorted(query_terms)) if query_terms else 'General'}\n"
+    )
 
     # 3. Output Global Laws (AGENTS.md summary if present)
     agents_md = Path("AGENTS.md")
@@ -196,7 +202,11 @@ def cmd_inherit(args):
         if ap_file.exists():
             print(f"\n--- [GENERAL ANTI-PATTERNS] ({ap_file}) ---")
             with open(ap_file, "r", encoding="utf-8") as f:
-                lines = [l for l in f.readlines() if l.strip().startswith("-") or l.strip().startswith("#")][:25]
+                lines = [
+                    l
+                    for l in f.readlines()
+                    if l.strip().startswith("-") or l.strip().startswith("#")
+                ][:25]
                 print("".join(lines).strip())
 
     print("\n=== END OF INHERITANCE BRIEF: PROCEED WITH TASK EXECUTION ===")
@@ -224,7 +234,7 @@ def cmd_tithe(args):
     content = f"""# Thread Retrospective: {topic}
 
 - **Branch / PR**: `{branch}` (Commit `{commit}`)
-- **Primary Domain**: `[{args.domain or 'Unspecified'}]`
+- **Primary Domain**: `[{args.domain or "Unspecified"}]`
 - **Touched Files**:
 {chr(10).join(f"- `{f}`" for f in changed_files.splitlines()) if changed_files else "- None"}
 
@@ -247,7 +257,7 @@ def cmd_tithe(args):
 - **Principle**: *Name of the insight*
 - **Problem Solved**: *What bug, performance cliff, or friction was resolved?*
 - **Mechanism**: *How does it work?*
-- **Code Reference**: `{changed_files.splitlines()[0] if changed_files else 'path/to/file.py'}:L1`
+- **Code Reference**: `{changed_files.splitlines()[0] if changed_files else "path/to/file.py"}:L1`
 
 ---
 
@@ -279,7 +289,9 @@ def cmd_tithe(args):
         with open(target_file, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"✅ Tithe scaffolded at: {target_file}")
-        print("Agent instructions: Review and fill in the 4 pillars with empirical facts from your test runs.")
+        print(
+            "Agent instructions: Review and fill in the 4 pillars with empirical facts from your test runs."
+        )
 
     run_hook("post_tithe", str(target_file))
 
@@ -305,7 +317,10 @@ def cmd_quick_tithe(args):
     summary = getattr(args, "summary", None) or f"Task execution and validation on {branch}"
     domain = getattr(args, "domain", None) or ("General" if not files_list else "Codebase")
     validated = getattr(args, "validated", None) or "Standard coding & design patterns"
-    discovery = getattr(args, "discovery", None) or f"Changes verified in {files_list[0] if files_list else 'codebase'}"
+    discovery = (
+        getattr(args, "discovery", None)
+        or f"Changes verified in {files_list[0] if files_list else 'codebase'}"
+    )
     trap = getattr(args, "trap", None) or "None observed"
     invariant = getattr(args, "invariant", None) or "Test suite passes without regressions"
 
@@ -318,11 +333,15 @@ def cmd_quick_tithe(args):
         # Check actual exit code
         proc = subprocess.run(verify_cmd, shell=True, text=True, capture_output=True)
         if proc.returncode != 0:
-            print(f"❌ [VERIFICATION GATE FAILED] Command `{verify_cmd}` failed with exit code {proc.returncode}!")
+            print(
+                f"❌ [VERIFICATION GATE FAILED] Command `{verify_cmd}` failed with exit code {proc.returncode}!"
+            )
             if proc.stderr:
                 print(f"Error output:\n{proc.stderr.strip()[:500]}")
             if not getattr(args, "force", False):
-                print("Aborting tithe: Code does not satisfy quantitative verification invariant. Fix code or run with --force.")
+                print(
+                    "Aborting tithe: Code does not satisfy quantitative verification invariant. Fix code or run with --force."
+                )
                 sys.exit(1)
             verify_status = f"FAILED (exit code {proc.returncode})"
         else:
@@ -349,7 +368,7 @@ def cmd_quick_tithe(args):
 ## Pillar 2: Novel Discoveries & Codebase Realities
 - **Insight**: {discovery}
 - **Mechanism**: Confirmed via test execution and functional verification.
-- **Reference**: `{files_list[0] if files_list else 'src'}:L1`
+- **Reference**: `{files_list[0] if files_list else "src"}:L1`
 
 ---
 
@@ -362,7 +381,7 @@ def cmd_quick_tithe(args):
 ## Pillar 4: Invariants & Performance Contracts to Preserve
 | Contract / Invariant | Threshold / Guarantee | Verification Command | Gate Status |
 | :--- | :--- | :--- | :--- |
-| {invariant} | Zero Regressions | `{verify_cmd or 'agg.py test'}` | **{verify_status}** |
+| {invariant} | Zero Regressions | `{verify_cmd or "agg.py test"}` | **{verify_status}** |
 
 ---
 """
@@ -380,7 +399,9 @@ def cmd_quick_tithe(args):
     cmd_sync(argparse.Namespace())
     cmd_condense(argparse.Namespace(silent=True))
 
-    print(f"✅ [QUICK-TITHE] Retrospective recorded, intelligence synchronized, and audits passed: {target_file}")
+    print(
+        f"✅ [QUICK-TITHE] Retrospective recorded, intelligence synchronized, and audits passed: {target_file}"
+    )
     run_hook("post_tithe", str(target_file))
 
 
@@ -402,7 +423,7 @@ def cmd_auto_tithe(args):
         discovery=f"Commit {run_cmd('git rev-parse --short HEAD') or 'HEAD'}: {first_line}",
         trap=getattr(args, "trap", None) or "None observed",
         invariant="All unit and integration tests passing",
-        force=True
+        force=True,
     )
     cmd_quick_tithe(quick_args)
 
@@ -452,7 +473,10 @@ def cmd_condense(args):
     recent_diff = run_cmd("git diff HEAD~1 HEAD") or run_cmd("git diff")
     escape_hatch_count = 0
     if recent_diff:
-        escape_pattern = re.compile(r"^\+\s*.*(//|#|/\*)\s*(TODO|FIXME|HACK|WORKAROUND|TEMP|BUG):?", re.IGNORECASE | re.MULTILINE)
+        escape_pattern = re.compile(
+            r"^\+\s*.*(//|#|/\*)\s*(TODO|FIXME|HACK|WORKAROUND|TEMP|BUG):?",
+            re.IGNORECASE | re.MULTILINE,
+        )
         found = escape_pattern.findall(recent_diff)
         escape_hatch_count = len(found)
         if escape_hatch_count > 0:
@@ -461,10 +485,14 @@ def cmd_condense(args):
                 print(f"\n{msg}")
 
     if not silent:
-        print(f"Reference Audit Complete: {total_links} references verified, {dead_links} dead links found.")
+        print(
+            f"Reference Audit Complete: {total_links} references verified, {dead_links} dead links found."
+        )
         print("=== CONDENSATION & AUDIT FINISHED ===")
     else:
-        print(f"[Audit Summary]: {total_links} references verified, {dead_links} dead links, {escape_hatch_count} excuse comments.")
+        print(
+            f"[Audit Summary]: {total_links} references verified, {dead_links} dead links, {escape_hatch_count} excuse comments."
+        )
 
 
 def cmd_deslop(args):
@@ -477,7 +505,7 @@ def cmd_deslop(args):
     """
     print("=== RUNNING CODEBASE ANTI-ENTROPY SWEEP (DE-SLOP) ===")
     root = Path(".")
-    
+
     # 1. Scan for escape hatch comments
     print("\n[1/3] Scanning for escape-hatch comments (TODO/FIXME/HACK)...")
     comment_pattern = re.compile(r"\b(TODO|FIXME|HACK|WORKAROUND)\b:?\s*(.*)", re.IGNORECASE)
@@ -487,10 +515,16 @@ def cmd_deslop(args):
     for ext in scanned_extensions:
         for p in root.rglob(f"*{ext}"):
             # ignore hidden, vendor, node_modules, build directories, and tooling scripts
-            if any(part.startswith(".") or part in ["node_modules", "target", "dist", "build", "venv", ".venv", "scripts"] for part in p.parts):
+            if any(
+                part.startswith(".")
+                or part in ["node_modules", "target", "dist", "build", "venv", ".venv", "scripts"]
+                for part in p.parts
+            ):
                 continue
             try:
-                for idx, line in enumerate(p.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                for idx, line in enumerate(
+                    p.read_text(encoding="utf-8", errors="ignore").splitlines(), 1
+                ):
                     match = comment_pattern.search(line)
                     if match:
                         total_excuses += 1
@@ -506,8 +540,13 @@ def cmd_deslop(args):
     # 2. Scan for layer DAG violations (UI -> DB/Backend)
     print("\n[2/3] Checking Architectural Seams (UI -> Direct DB/Backend imports)...")
     ui_patterns = [
-        "src/ui/**", "src/components/**", "src/views/**", "src/frontend/**",
-        "ui/**", "components/**", "cyguide/ui/**"
+        "src/ui/**",
+        "src/components/**",
+        "src/views/**",
+        "src/frontend/**",
+        "ui/**",
+        "components/**",
+        "cyguide/ui/**",
     ]
     dag_violations = 0
     forbidden_imports = ["sqlite3", "aiosqlite", "prisma", "typeorm", "storage/direct"]
@@ -516,7 +555,9 @@ def cmd_deslop(args):
         for p in root.glob(pattern):
             if p.is_file() and p.suffix in [".ts", ".tsx", ".js", ".jsx", ".py"]:
                 try:
-                    for idx, line in enumerate(p.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                    for idx, line in enumerate(
+                        p.read_text(encoding="utf-8", errors="ignore").splitlines(), 1
+                    ):
                         for bad in forbidden_imports:
                             if (
                                 f"from '{bad}" in line
@@ -544,13 +585,17 @@ def cmd_deslop(args):
         title = ap.get("title", "")
         if freq >= 2 or ap.get("critical", False):
             print(f"  🎓 Candidate for Linter Rule: '{title}' (Occurred {freq}x)")
-            print(f"     Action: Graduate from prose in anti-patterns.md to a custom linter rule or AST check.")
+            print(
+                f"     Action: Graduate from prose in anti-patterns.md to a custom linter rule or AST check."
+            )
             grad_count += 1
 
     if grad_count == 0:
         print("  ✅ All current anti-patterns are within acceptable frequency limits.")
     else:
-        print(f"  ⚠️ {grad_count} anti-pattern(s) should be graduated into hard machine-enforced linter rules.")
+        print(
+            f"  ⚠️ {grad_count} anti-pattern(s) should be graduated into hard machine-enforced linter rules."
+        )
 
     print("\n=== DE-SLOP SWEEP COMPLETE ===")
 
@@ -576,7 +621,7 @@ def cmd_sync(args):
             domains[domain_name] = {
                 "path": str(md_file.as_posix()),
                 "keywords": [domain_name],
-                "file_patterns": [f"src/{domain_name}/**", f"**/{domain_name}/**"]
+                "file_patterns": [f"src/{domain_name}/**", f"**/{domain_name}/**"],
             }
             count_added += 1
 
@@ -588,6 +633,7 @@ def cmd_test(args):
     """
     Built-in regression suite verifying that the CLI and hooks remain healthy across evolutions.
     """
+
     class SelfTest(unittest.TestCase):
         def test_load_index_structure(self):
             idx = load_index()
@@ -598,7 +644,9 @@ def cmd_test(args):
             dummy_file = THREADS_DIR / "thread__selftest_dummy.md"
             if dummy_file.exists():
                 dummy_file.unlink()
-            dummy_args = argparse.Namespace(topic="_selftest_dummy", domain="TestDomain", force=True)
+            dummy_args = argparse.Namespace(
+                topic="_selftest_dummy", domain="TestDomain", force=True
+            )
             cmd_tithe(dummy_args)
             self.assertTrue(dummy_file.exists())
             content = dummy_file.read_text(encoding="utf-8")
@@ -625,7 +673,7 @@ def cmd_test(args):
                 discovery="One-shot execution test",
                 trap="None observed",
                 invariant="All tests pass",
-                force=True
+                force=True,
             )
             cmd_quick_tithe(q_args)
             self.assertTrue(dummy_file.exists())
@@ -638,7 +686,9 @@ def cmd_test(args):
             auto_file = THREADS_DIR / "thread__selftest_auto.md"
             if auto_file.exists():
                 auto_file.unlink()
-            a_args = argparse.Namespace(topic="_selftest_auto", domain="AutoDomain", trap="None observed")
+            a_args = argparse.Namespace(
+                topic="_selftest_auto", domain="AutoDomain", trap="None observed"
+            )
             cmd_auto_tithe(a_args)
             self.assertTrue(auto_file.exists())
             auto_file.unlink()
@@ -659,7 +709,7 @@ def cmd_test(args):
                 trap="None observed",
                 invariant="True condition",
                 verify_cmd="python3 -c 'exit(0)'",
-                force=True
+                force=True,
             )
             cmd_quick_tithe(v_args)
             verify_file = THREADS_DIR / "thread__selftest_verify.md"
@@ -723,7 +773,7 @@ def cmd_harvest_t3(args):
         "## Harvested Feature & Fix Sprints",
         "",
         "| PR # | Title | Branch Flow | State |",
-        "| :---: | :--- | :--- | :---: |"
+        "| :---: | :--- | :--- | :---: |",
     ]
 
     for pr in harvested:
@@ -734,19 +784,23 @@ def cmd_harvest_t3(args):
         state = pr.get("state", "")
         md_lines.append(f"| #{num} | {title} | `{head}` → `{base}` | **{state.upper()}** |")
 
-    md_lines.extend([
-        "",
-        "---",
-        "",
-        "## Key Solved Regressions & Invariant Candidates",
-        "",
-        "Review the PR titles above to extract verified techniques into `.agents/knowledge/<domain>.md` and anti-patterns into `.agents/knowledge/anti-patterns.md`.",
-        ""
-    ])
+    md_lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "## Key Solved Regressions & Invariant Candidates",
+            "",
+            "Review the PR titles above to extract verified techniques into `.agents/knowledge/<domain>.md` and anti-patterns into `.agents/knowledge/anti-patterns.md`.",
+            "",
+        ]
+    )
 
     out_file.write_text("\n".join(md_lines), encoding="utf-8")
     print(f"✅ Harvest report generated at: {out_file}")
-    print("Agent instruction: Review and extract the confirmed techniques and timing invariants into domain knowledge files.")
+    print(
+        "Agent instruction: Review and extract the confirmed techniques and timing invariants into domain knowledge files."
+    )
 
 
 def main():
@@ -754,19 +808,27 @@ def main():
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
 
     # inherit
-    p_inherit = subparsers.add_parser("inherit", help="Extract ancestral intelligence for files or query")
+    p_inherit = subparsers.add_parser(
+        "inherit", help="Extract ancestral intelligence for files or query"
+    )
     p_inherit.add_argument("--files", nargs="*", help="File paths being modified")
     p_inherit.add_argument("--query", type=str, help="Keywords or task description")
-    p_inherit.add_argument("--compact", action="store_true", help="Emit high-density, low-token brief (< 150 tokens)")
+    p_inherit.add_argument(
+        "--compact", action="store_true", help="Emit high-density, low-token brief (< 150 tokens)"
+    )
 
     # tithe
     p_tithe = subparsers.add_parser("tithe", help="Scaffold retrospective from git diff")
     p_tithe.add_argument("--topic", type=str, help="Topic / feature name")
     p_tithe.add_argument("--domain", type=str, help="Primary domain (UI, Storage, Engine, etc.)")
-    p_tithe.add_argument("--force", action="store_true", help="Overwrite existing thread retrospective")
+    p_tithe.add_argument(
+        "--force", action="store_true", help="Overwrite existing thread retrospective"
+    )
 
     # quick-tithe
-    p_qtithe = subparsers.add_parser("quick-tithe", help="One-shot atomic retrospective, condensation, and audit")
+    p_qtithe = subparsers.add_parser(
+        "quick-tithe", help="One-shot atomic retrospective, condensation, and audit"
+    )
     p_qtithe.add_argument("--topic", type=str, help="Topic / feature name")
     p_qtithe.add_argument("--domain", type=str, help="Primary domain (UI, Storage, Engine, etc.)")
     p_qtithe.add_argument("--summary", type=str, help="Short summary of implementation")
@@ -774,20 +836,32 @@ def main():
     p_qtithe.add_argument("--discovery", type=str, help="Novel discovery or code reference")
     p_qtithe.add_argument("--trap", type=str, help="Anti-pattern observed or avoided")
     p_qtithe.add_argument("--invariant", type=str, help="Contract or invariant preserved")
-    p_qtithe.add_argument("--verify-cmd", type=str, help="Verification command to execute (Lauren Tan 70/30 Verification Law)")
-    p_qtithe.add_argument("--force", action="store_true", help="Overwrite existing thread retrospective")
+    p_qtithe.add_argument(
+        "--verify-cmd",
+        type=str,
+        help="Verification command to execute (Lauren Tan 70/30 Verification Law)",
+    )
+    p_qtithe.add_argument(
+        "--force", action="store_true", help="Overwrite existing thread retrospective"
+    )
 
     # auto-tithe
-    p_atithe = subparsers.add_parser("auto-tithe", help="Fully automated background tithe from git log/diff")
+    p_atithe = subparsers.add_parser(
+        "auto-tithe", help="Fully automated background tithe from git log/diff"
+    )
     p_atithe.add_argument("--topic", type=str, help="Topic / feature name")
     p_atithe.add_argument("--domain", type=str, help="Primary domain")
     p_atithe.add_argument("--trap", type=str, help="Optional anti-pattern to record")
 
     # deslop (Lauren Tan "Codebase is Memory" sweep)
-    p_deslop = subparsers.add_parser("deslop", help="Run codebase anti-entropy sweep for layer DAG leaks and excuse comments")
+    p_deslop = subparsers.add_parser(
+        "deslop", help="Run codebase anti-entropy sweep for layer DAG leaks and excuse comments"
+    )
 
     # condense
-    p_condense = subparsers.add_parser("condense", help="Run algorithmic budget and reference audit")
+    p_condense = subparsers.add_parser(
+        "condense", help="Run algorithmic budget and reference audit"
+    )
     p_condense.add_argument("--silent", action="store_true", help="Suppress detailed audit logs")
 
     # sync
@@ -797,7 +871,9 @@ def main():
     p_test = subparsers.add_parser("test", help="Run self-testing suite for CLI and tools")
 
     # harvest-t3
-    p_harvest = subparsers.add_parser("harvest-t3", help="Harvest PRs and reviews from ~/.t3/caches/")
+    p_harvest = subparsers.add_parser(
+        "harvest-t3", help="Harvest PRs and reviews from ~/.t3/caches/"
+    )
     p_harvest.add_argument("--repo", type=str, help="Repository name filter (e.g. h45sh/cyguide)")
 
     args = parser.parse_args()

@@ -101,4 +101,3 @@ def test_key_uniqueness_validation_invariant(keys):
 
     # A fresh unique key must pass
     assert mgr.validate_key_uniqueness("sk-brand-new-completely-unique-key-12345") is True
-

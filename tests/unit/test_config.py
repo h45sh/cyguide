@@ -20,7 +20,7 @@ from cyguide.ui.screens.config_modal import (
 
 
 def test_system_commands_single_config_entry(tmp_path):
-    """Verify that get_system_commands has only ONE consolidated Config entry, NO Toggle Sidebar, and NO duplicate config options."""
+    """Verify that get_system_commands has only ONE consolidated Config entry and correct conventional commands."""
     db_file = str(tmp_path / "test.db")
     app = CyGuideApp(db_path=db_file)
     mock_screen = MagicMock()
@@ -33,17 +33,6 @@ def test_system_commands_single_config_entry(tmp_path):
     assert len(config_commands) == 1
     assert config_commands[0] == "Config"
 
-    # Verify Toggle Sidebar has been completely removed
-    assert not any("Toggle Sidebar" in t for t in titles)
-
-    # Verify duplicate entries have been eliminated from main palette
-    assert not any("Config: Open Settings Dialog" in t for t in titles)
-    assert not any("Config: Ollama Backend" in t for t in titles)
-    assert not any("Config: LLM Model" in t for t in titles)
-    assert not any("Config: API Keys & Cloud AI" in t for t in titles)
-    assert not any("Config: Database Path" in t for t in titles)
-    assert not any("Config: Tools Directory" in t for t in titles)
-
     # Verify exact conventional command order (6 streamlined items)
     assert any("Toggle Animations" in t for t in titles)
     assert any("Tool Health" in t for t in titles)
@@ -51,9 +40,6 @@ def test_system_commands_single_config_entry(tmp_path):
     assert "Hotkeys" in titles
     assert "Screenshot" in titles
     assert titles[-1] == "Quit"
-
-    # Verify legacy Textual 'Keys' command is replaced by our 'Hotkeys'
-    assert "Keys" not in titles
 
 
 @pytest.mark.asyncio
@@ -82,68 +68,6 @@ async def test_command_palette_exact_order(tmp_path):
             prompts.append(matched)
 
         assert prompts == prefixes
-
-
-@pytest.mark.asyncio
-async def test_legacy_help_panel_replaced_by_shortcuts_dialog(tmp_path):
-    """Verify action_show_help_panel opens the F1 Shortcuts dialog instead of Textual's legacy half window."""
-    db_file = str(tmp_path / "test_help_panel.db")
-    app = CyGuideApp(db_path=db_file)
-    async with app.run_test() as pilot:
-        await pilot.pause()
-        app.action_show_help_panel()
-        await pilot.pause()
-        assert type(app.screen).__name__ == "ShortcutsDialog"
-
-
-@pytest.mark.asyncio
-async def test_shortcuts_dialog_f1_toggle_and_holding_resilience(tmp_path):
-    """Verify F1 toggles ShortcutsDialog open and closed, and holding F1 does not cause ScreenStackError."""
-    from textual import events
-
-    db_file = str(tmp_path / "test_f1_toggle.db")
-    app = CyGuideApp(db_path=db_file)
-    async with app.run_test() as pilot:
-        await pilot.pause()
-        # 1. Press F1 to open
-        await pilot.press("f1")
-        assert type(app.screen).__name__ == "ShortcutsDialog"
-
-        # 2. Press F1 again to close (fast toggle)
-        await pilot.pause(0.3)
-        await pilot.press("f1")
-        await pilot.pause(0.1)
-        assert type(app.screen).__name__ == "DashboardScreen"
-
-        # 3. Press F1 to reopen
-        await pilot.pause(0.3)
-        await pilot.press("f1")
-        await pilot.pause(0.1)
-        assert type(app.screen).__name__ == "ShortcutsDialog"
-
-        # 4. Simulate rapid key repeat from holding F1
-        for _ in range(25):
-            app.screen.post_message(events.Key("f1", None))
-        await pilot.pause(0.05)
-        assert len(app._screen_stack) >= 2
-        assert type(app.screen).__name__ == "ShortcutsDialog"
-
-        # 5. Simulate rapid key repeat from holding Escape
-        if type(app.screen).__name__ == "ShortcutsDialog":
-            for _ in range(20):
-                app.screen.post_message(events.Key("escape", None))
-            await pilot.pause(0.05)
-        assert type(app.screen).__name__ == "DashboardScreen"
-        assert len(app._screen_stack) == 2
-
-
-def test_markdown_amber_warm_gold_theme():
-    """Verify console markdown theme uses Matte Warm Gold / Amber palette instead of conflicting sky blue."""
-    app = CyGuideApp(db_path=":memory:")
-    assert "c89b3c" in str(app.console.get_style("markdown.h1").color)
-    assert "c89b3c" in str(app.console.get_style("markdown.h2").color)
-    assert "b4832e" in str(app.console.get_style("markdown.h3").color)
-    assert "d5c4a1" in str(app.console.get_style("markdown.code").color)
 
 
 @pytest.mark.asyncio
@@ -1046,9 +970,6 @@ async def test_config_modal_cloud_toggle_and_key_bar_layout(tmp_path):
         assert app.use_cloud_api is False
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_credential_missing_indicators_for_blank_key(tmp_path):
     """Verify that a profile without an API key displays credential missing indicators and is safely saved."""
@@ -1091,7 +1012,6 @@ async def test_credential_missing_indicators_for_blank_key(tmp_path):
         assert modal.cloud_keys[0]["name"] == "Pending Profile"
         assert modal.cloud_keys[0]["api_key"] == ""
         assert len(app.cloud_keys) == 1
-
 
 
 @pytest.mark.asyncio

@@ -40,7 +40,7 @@ body:
     id: health_check
     attributes:
       label: Diagnostic Health Check Output
-      description: Run `cyg check --json` in your terminal and paste the full JSON output here.
+      description: Run `cyg doctor --json` in your terminal and paste the full JSON output here.
       render: json
     validations:
       required: false

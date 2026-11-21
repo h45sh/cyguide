@@ -8,6 +8,7 @@ body:
       value: |
         CyGuide integrates cybersecurity tools using the **Smart Adapter / Stupid Framework** architecture.
         Refer to the [Contributing Guide](https://github.com/h45sh/cyguide/blob/main/docs/user/CONTRIBUTING.md) for details on writing adapters.
+        Tip: You can use the [CyGuide DevKit](https://github.com/h45sh/cyguide-devkit) (`cyguide-devkit new <tool>`) to scaffold and validate adapters automatically.
   - type: input
     id: tool_name
     attributes:

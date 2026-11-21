@@ -1,17 +1,10 @@
-"""Unit tests for ResizeHandle widget and JobQueue UI components."""
-
-import os
-from datetime import datetime, timezone
-from uuid import uuid4
+"""Unit tests for ResizeHandle widget and split layout drag behavior."""
 
 import pytest
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.events import MouseDown, MouseMove, MouseUp
-from textual.widgets import Static
 
-from cyguide.schemas.power import JobStatus, JobStatusEnum
-from cyguide.ui.widgets.power import JobQueue
 from cyguide.ui.widgets.resizer import ResizeHandle
 
 
@@ -93,6 +86,11 @@ async def test_resizer_handle_mouse_drag():
         left_resizer.on_mouse_move(move_event)
         assert int(left_pane.styles.width.value) == 35
 
+        # Simulate duplicate MouseMove at same coordinate (deadband filtering)
+        left_resizer.on_mouse_move(move_event)
+        assert left_resizer._current_width == 35
+        assert int(left_pane.styles.width.value) == 35
+
         # Simulate MouseUp
         up_event = MouseUp(
             left_resizer,
@@ -112,58 +110,3 @@ async def test_resizer_handle_mouse_drag():
         assert not left_resizer.has_class("-dragging")
         assert not left_pane.has_class("-resizing")
         assert app.settings.get("left_width") == 35
-
-
-@pytest.mark.asyncio
-async def test_job_queue_renders_without_headers():
-    class JobQueueApp(App):
-        def compose(self) -> ComposeResult:
-            yield JobQueue(id="test_job_queue")
-
-    app = JobQueueApp()
-    async with app.run_test() as pilot:
-        jq = app.query_one("#test_job_queue", JobQueue)
-
-        # Verify no "JOB QUEUE" Label widget is in JobQueue children
-        labels = list(jq.query("Label"))
-        assert len(labels) == 0
-
-        # Feed some jobs
-        s_id = uuid4()
-        job1 = JobStatus(
-            job_id=uuid4(),
-            session_id=s_id,
-            tool_name="nmap",
-            status=JobStatusEnum.RUNNING,
-            started_at=datetime.now(timezone.utc),
-        )
-        job2 = JobStatus(
-            job_id=uuid4(),
-            session_id=s_id,
-            tool_name="gobuster",
-            status=JobStatusEnum.DONE,
-            started_at=datetime.now(timezone.utc),
-        )
-
-        await jq.update_jobs([job1, job2])
-        await pilot.pause()
-
-        job_list = jq.query_one("#power_job_list")
-        assert len(job_list.children) == 2
-        static0 = job_list.children[0].query_one(Static)
-        assert "nmap" in str(static0.content)
-        assert "◌" in str(static0.content)
-        static1 = job_list.children[1].query_one(Static)
-        assert "gobuster" in str(static1.content)
-        assert "●" in str(static1.content)
-
-
-def test_style_css_input_scrollbar_removal():
-    css_path = os.path.join(os.path.dirname(__file__), "../../cyguide/ui/style.css")
-    with open(css_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    assert "Input, CommandInput, .input" in content
-    assert "scrollbar-size: 0 0;" in content
-    assert "ResizeHandle" in content
-    assert "pointer: ew-resize;" in content

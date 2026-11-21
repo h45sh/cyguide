@@ -1,7 +1,27 @@
 /* ==========================================================================
-   CyGuide - Modern Grok / AI CLI Aesthetic Theme
-   Unified Deep Canvas, Low-Contrast Rounded Framing, Soft Selection Highlights
+   CyGuide - Human-Factors Eye Comfort Theme & Design Tokens
+   Unified Deep Canvas, Low-Glare Slate Typography, Warm Antique Sand Badges
    ========================================================================== */
+
+$bg-base: #0c0d10;
+$bg-surface: #101318;
+$bg-elevated: #141820;
+$bg-active: #1e2633;
+$border-subtle: #283344;
+$border-focus: #38bdf8;
+$text-primary: #cbd5e1;
+$text-secondary: #94a3b8;
+$text-muted: #64748b;
+$accent-primary: #38bdf8;
+$accent-cyan: #7dd3fc;
+$semantic-gold: #c5a059;
+$semantic-gold-bg: #1e1b14;
+$semantic-green: #34d399;
+$semantic-green-bg: #0d1e17;
+$semantic-red: #f87171;
+$semantic-red-bg: #271415;
+$semantic-amber: #f59e0b;
+$semantic-amber-bg: #241d0f;
 
 * {
     scrollbar-size: 1 1;
@@ -41,6 +61,17 @@ Screen {
     color: #e2e8f0;
     padding: 0;
     margin: 0;
+}
+
+/* Suppress all floating tooltip popups */
+Tooltip {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
 }
 
 .hidden {
@@ -418,7 +449,7 @@ Screen > .screen--selection {
 }
 
 #reopen_session_btn {
-    background: #0d1e17;
+    background: transparent;
     border: round #10b981;
     color: #34d399;
     text-style: bold;
@@ -437,7 +468,7 @@ Screen > .screen--selection {
 }
 
 #view_audit_btn {
-    background: #181b22;
+    background: transparent;
     border: round #334155;
     color: #94a3b8;
     text-style: bold;
@@ -643,7 +674,7 @@ Button.-style-flat,
 Button.-primary,
 Button.-style-default.-primary {
     height: 3;
-    background: #181b22;
+    background: transparent;
     border: round #2b303c;
     color: #cbd5e1;
     text-style: bold;
@@ -671,7 +702,7 @@ Button.-style-default:focus {
 .enter_session_btn {
     width: 100%;
     margin-top: 0;
-    background: #181b22;
+    background: transparent;
     border: round #38bdf8;
     color: #38bdf8;
     text-style: bold;
@@ -690,15 +721,15 @@ Button.-style-default:focus {
 }
 
 Button.-error {
-    background: #2d1417;
-    border: round #5c2429;
+    background: transparent;
+    border: round #ef4444;
     color: #f87171;
 }
 
 Button.-error:hover,
 Button.-error:focus {
     background: #3c1a1e;
-    border: round #7f2b32;
+    border: round #f87171;
     color: #fca5a5;
 }
 
@@ -722,8 +753,8 @@ Button.-error:focus {
 }
 
 .organize-status {
-    color: #eab308;
-    background: #241d0f;
+    color: #c5a059;
+    background: #1e1b14;
 }
 
 .delete-mode-border {
@@ -765,20 +796,20 @@ ConfirmationDialog {
 }
 
 #confirm {
-    background: #2d1417;
-    border: round #5c2429;
+    background: transparent;
+    border: round #ef4444;
     color: #f87171;
     text-style: bold;
 }
 
 #confirm:hover, #confirm:focus {
     background: #3c1a1e;
-    border: round #7f2b32;
+    border: round #f87171;
     color: #fca5a5;
 }
 
 #cancel {
-    background: #181b22;
+    background: transparent;
     border: round #2b303c;
     color: #94a3b8;
     text-style: bold;
@@ -834,14 +865,26 @@ ConfirmationDialog {
     border-bottom: solid #283344;
     padding: 0;
     margin-top: 0;
-    margin-bottom: 1;
+    margin-bottom: 0;
+}
+
+#tool_context_header_bar {
+    height: 1;
+    width: 100%;
+    align: left middle;
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 #tool_name_header {
     color: #e2e8f0;
     text-style: bold;
+    width: 1fr;
+    min-width: 6;
+    height: 1;
     padding: 0;
     margin: 0;
+    content-align: left middle;
     text-wrap: nowrap;
     text-overflow: ellipsis;
     overflow-x: hidden;
@@ -862,6 +905,42 @@ ConfirmationDialog {
     overflow-x: hidden;
 }
 
+#sidebar_view_toggle {
+    height: 1;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 1;
+    padding: 0;
+}
+
+Button.sidebar_toggle_btn {
+    width: 1fr;
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    min-width: 4;
+    background: #141a24;
+    border: none !important;
+    color: #64748b;
+    text-style: bold;
+    margin: 0;
+    padding: 0;
+    content-align: center middle;
+}
+
+Button.sidebar_toggle_btn:hover {
+    background: #1e2636;
+    color: #cbd5e1;
+    border: none !important;
+}
+
+Button.sidebar_toggle_btn.active_view {
+    background: #1e3a5f;
+    color: #38bdf8;
+    border: none !important;
+    text-style: bold;
+}
+
 #recipe_list {
     background: transparent;
     height: 1fr;
@@ -871,6 +950,26 @@ ConfirmationDialog {
     margin-bottom: 1;
     padding: 0;
     scrollbar-size: 0 0;
+}
+
+#learning_entity_browser {
+    background: transparent;
+    height: 1fr;
+    min-height: 4;
+    border: none;
+    margin-top: 0;
+    margin-bottom: 1;
+    padding: 0 1;
+    color: #cbd5e1;
+    overflow-x: auto;
+    overflow-y: auto;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-size-horizontal: 1;
+}
+
+#learning_entity_browser.hidden {
+    display: none !important;
 }
 
 RecipeListItem {
@@ -920,22 +1019,24 @@ RecipeListItem.--highlight .recipe_desc {
 
 #recipes_scroll {
     height: 1fr;
-    padding: 1 2;
+    padding: 0 0 0 1;
     overflow-y: auto;
     scrollbar-size: 1 1;
     scrollbar-size-vertical: 1;
 }
 
 .recipes_header_intro {
-    color: #94a3b8;
-    margin-bottom: 1;
+    color: #64748b;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 1;
 }
 
 .tool_ref_card {
     height: auto;
-    background: #101318;
-    border: round #283344;
-    padding: 1 2;
+    background: #0f1217;
+    border: round #1e2633;
+    padding: 0 1;
     margin-bottom: 1;
 }
 
@@ -943,7 +1044,8 @@ RecipeListItem.--highlight .recipe_desc {
     height: 1;
     width: 100%;
     align: left middle;
-    margin-bottom: 1;
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 .tool_ref_title {
@@ -954,9 +1056,9 @@ RecipeListItem.--highlight .recipe_desc {
 
 .tool_ref_category_badge {
     dock: right;
-    background: #1e293b;
-    color: #eab308;
-    text-style: bold;
+    background: #1e1b14;
+    color: #c5a059;
+    text-style: none;
     padding: 0 1;
     height: 1;
 }
@@ -965,20 +1067,23 @@ RecipeListItem.--highlight .recipe_desc {
     height: 1;
     width: 100%;
     align: left middle;
-    margin-bottom: 1;
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 .tool_ref_desc {
-    color: #cbd5e1;
+    color: #94a3b8;
     height: auto;
     width: 100%;
+    padding-left: 2;
+    margin-top: 0;
     margin-bottom: 0;
 }
 
 .recipe_card {
     height: auto;
-    background: #101318;
-    border: round #283344;
+    background: #0e1117;
+    border: round #1e2633;
     padding: 0 1;
     margin-bottom: 1;
 }
@@ -986,7 +1091,7 @@ RecipeListItem.--highlight .recipe_desc {
 .recipe_card:focus-within,
 .recipe_card:hover {
     border: round #38bdf8;
-    background: #141720;
+    background: #131722;
 }
 
 .recipe_card_header {
@@ -1005,17 +1110,20 @@ RecipeListItem.--highlight .recipe_desc {
 }
 
 .recipe_card_flags_badge {
-    background: #181c24;
-    color: #eab308;
-    text-style: bold;
+    background: #1e1b14;
+    color: #c5a059;
+    text-style: none;
     padding: 0 1;
     border: none;
     height: 1;
     width: auto;
+    margin-right: 1;
 }
 
 .recipe_card_desc {
-    color: #94a3b8;
+    color: #8193a8;
+    padding-left: 2;
+    padding-right: 1;
     margin-top: 0;
     margin-bottom: 0;
     height: auto;
@@ -1027,6 +1135,8 @@ RecipeListItem.--highlight .recipe_desc {
     height: 1;
     width: auto;
     align: right middle;
+    margin: 0;
+    padding: 0;
 }
 
 Button.recipe_card_btn,
@@ -1034,24 +1144,26 @@ Button.recipe_card_btn,
     height: 1 !important;
     min-height: 1 !important;
     max-height: 1 !important;
+    min-width: 0 !important;
     border: none !important;
     text-style: bold;
-    padding: 0 1;
+    padding: 0 1 !important;
+    margin: 0 !important;
 }
 
 Button.recipe_ask_btn,
 .recipe_card Button.recipe_ask_btn {
-    background: #1e293b !important;
+    background: #1e3a5f !important;
     color: #38bdf8 !important;
-    margin-right: 1;
+    margin-right: 1 !important;
 }
 
 Button.recipe_ask_btn:hover,
 Button.recipe_ask_btn:focus,
 .recipe_card Button.recipe_ask_btn:hover,
 .recipe_card Button.recipe_ask_btn:focus {
-    background: #28384d !important;
-    color: #7dd3fc !important;
+    background: #0284c7 !important;
+    color: #ffffff !important;
     border: none !important;
 }
 
@@ -1059,7 +1171,7 @@ Button.recipe_run_btn,
 Button.recipe_load_btn,
 .recipe_card Button.recipe_run_btn,
 .recipe_card Button.recipe_load_btn {
-    background: #132d1d !important;
+    background: #144627 !important;
     color: #4ade80 !important;
 }
 
@@ -1071,15 +1183,15 @@ Button.recipe_load_btn:focus,
 .recipe_card Button.recipe_run_btn:focus,
 .recipe_card Button.recipe_load_btn:hover,
 .recipe_card Button.recipe_load_btn:focus {
-    background: #1e462d !important;
-    color: #86efac !important;
+    background: #16a34a !important;
+    color: #ffffff !important;
     border: none !important;
 }
 
 Button.recipe_stop_btn,
 .recipe_card Button.recipe_stop_btn {
-    background: #ef4444 !important;
-    color: #ffffff !important;
+    background: #4c1d24 !important;
+    color: #f87171 !important;
 }
 
 Button.recipe_stop_btn:hover,
@@ -1096,6 +1208,7 @@ Button.recipe_stop_btn:focus,
     border-top: solid #283344;
     padding-top: 1;
     margin-top: 0;
+    margin-bottom: 0;
 }
 
 #flag_editor_container, FlagEditor, CommandPreviewEditor {
@@ -1106,39 +1219,51 @@ Button.recipe_stop_btn:focus,
 }
 
 .input_label {
-    color: #94a3b8;
+    color: #64748b;
     text-style: bold;
-    margin-top: 0;
+    height: 1;
+    margin-top: 1;
     margin-bottom: 0;
     padding: 0;
 }
 
+#flag_editor_container .input_label:first-of-type {
+    margin-top: 0;
+}
+
 #flags_input, #target_input {
-    background: #0f1114;
-    border: round #283344;
+    background: #090c10;
+    border: none !important;
     color: #e2e8f0;
-    height: 3;
+    height: 1;
+    min-height: 1;
+    max-height: 1;
     padding: 0 1;
     margin-top: 0;
-    margin-bottom: 1;
+    margin-bottom: 0;
 }
 
 #flags_input:focus, #target_input:focus {
-    border: round #64748b;
+    background: #162032;
+    border: none !important;
     color: #f8fafc;
 }
 
 #command_preview {
-    background: #0f1114;
-    border: round #283344;
+    background: #090c10;
+    border: none !important;
     color: #38bdf8;
     text-style: bold;
     padding: 0 1;
     height: auto;
-    min-height: 3;
-    max-height: 5;
+    min-height: 1;
+    max-height: 3;
     margin-top: 0;
     margin-bottom: 1;
+}
+
+#command_preview:hover {
+    background: #111722;
 }
 
 #sudo_warning {
@@ -1151,7 +1276,8 @@ Button.recipe_stop_btn:focus,
 }
 
 #run_stop_container {
-    height: auto;
+    height: 1;
+    width: 100%;
     margin-top: 0;
     margin-bottom: 0;
     padding: 0;
@@ -1159,50 +1285,77 @@ Button.recipe_stop_btn:focus,
     align: center middle;
 }
 
-#run_stop_container Button {
-    width: 100%;
-    height: 3;
+#run_stop_container Button,
+Button.sidebar_action_btn {
+    width: 1fr;
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    min-width: 4;
     text-style: bold;
+    padding: 0 1;
     margin: 0;
+    border: none !important;
+    content-align: center middle;
+}
+
+Button.sidebar_action_btn:hover,
+Button.sidebar_action_btn:focus {
+    border: none !important;
 }
 
 #sidebar_ask_btn {
-    margin: 0;
-    background: #181b22;
-    border: round #38bdf8;
+    width: 1fr;
+    height: 1;
+    min-width: 4;
+    margin-right: 1;
+    padding: 0 1;
+    background: #1e3a5f;
+    border: none !important;
     color: #38bdf8;
 }
 
-#sidebar_ask_btn:hover, #sidebar_ask_btn:focus {
-    background: #283344;
-    border: round #7dd3fc;
+#sidebar_ask_btn:hover,
+#sidebar_ask_btn:focus {
+    background: #0284c7;
     color: #ffffff;
+    border: none !important;
 }
 
 #run_btn {
+    width: 1fr;
+    height: 1;
+    min-width: 4;
     margin: 0;
-    background: #132d1d;
-    border: round #22c55e;
+    padding: 0 1;
+    background: #144627;
+    border: none !important;
     color: #4ade80;
 }
 
-#run_btn:hover, #run_btn:focus {
-    background: #1a3c27;
-    border: round #4ade80;
-    color: #86efac;
+#run_btn:hover,
+#run_btn:focus {
+    background: #16a34a;
+    color: #ffffff;
+    border: none !important;
 }
 
 #stop_btn {
-    width: 100% !important;
-    background: #2d1417;
-    border: round #ef4444;
+    width: 1fr !important;
+    height: 1 !important;
+    min-width: 4 !important;
+    margin: 0;
+    padding: 0 1;
+    background: #4c1d24;
+    border: none !important;
     color: #f87171;
 }
 
-#stop_btn:hover, #stop_btn:focus {
-    background: #3f1a1f;
-    border: round #f87171;
-    color: #fca5a5;
+#stop_btn:hover,
+#stop_btn:focus {
+    background: #dc2626;
+    color: #ffffff;
+    border: none !important;
 }
 
 /* Right Execution Zone */
@@ -1211,13 +1364,16 @@ Button.recipe_stop_btn:focus,
     height: 1fr;
     padding: 0;
     margin: 0;
+    overflow: hidden hidden;
 }
 
 #learning_tabs {
-    height: 1fr;
+    width: 100%;
+    height: 100%;
     border: round #334155;
     background: #14161b;
     margin: 0;
+    overflow: hidden hidden;
 }
 
 #learning_tabs:focus-within {
@@ -1277,21 +1433,30 @@ Button.pane_action_btn {
     color: #e2e8f0;
     text-style: bold;
     padding: 0 1;
-    min-width: 7;
+    min-width: 0;
+    margin-left: 1;
+}
+
+Button.pane_action_btn:hover,
+Button.pane_action_btn:focus {
+    background: #252b37 !important;
+    color: #f1f5f9 !important;
+    border: none !important;
+    height: 1;
 }
 
 .pane_status_label {
     width: 1fr;
     height: 1;
-    color: #eab308;
-    text-style: bold;
+    color: #38bdf8;
+    text-style: none;
     padding-left: 1;
     content-align: left middle;
 }
 
 Button.ai_toggle_btn {
-    width: 13;
-    min-width: 13;
+    width: auto;
+    min-width: 0;
     max-width: 13;
     text-style: bold;
     border: none;
@@ -1319,7 +1484,13 @@ Button.ai_toggle_off:focus {
 #copy_explanation_btn:hover,
 #copy_explanation_btn:focus,
 #copy_output_btn:hover,
-#copy_output_btn:focus {
+#copy_output_btn:focus,
+#copy_theory_btn:hover,
+#copy_theory_btn:focus,
+#copy_notes_btn:hover,
+#copy_notes_btn:focus,
+#export_notes_btn:hover,
+#export_notes_btn:focus {
     background: #1e3a5f !important;
     color: #38bdf8 !important;
     border: none !important;
@@ -1328,7 +1499,9 @@ Button.ai_toggle_off:focus {
 #clear_explanation_btn:hover,
 #clear_explanation_btn:focus,
 #clear_output_btn:hover,
-#clear_output_btn:focus {
+#clear_output_btn:focus,
+#clear_notes_btn:hover,
+#clear_notes_btn:focus {
     background: #3b1d22 !important;
     color: #f87171 !important;
     border: none !important;
@@ -1338,7 +1511,7 @@ Button.ai_toggle_off:focus {
     height: 1fr;
     background: #0f1114;
     border: none;
-    padding: 0 2 1 2;
+    padding: 0 0 1 1;
     margin: 0;
     overflow-y: auto;
     scrollbar-size: 1 1;
@@ -1381,7 +1554,7 @@ Button.ai_toggle_off:focus {
 #explanation_text, #power_guide_text {
     color: #e2e8f0;
     height: auto;
-    padding: 0;
+    padding: 0 1 0 0;
 }
 
 MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
@@ -1393,8 +1566,11 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
     color: #cbd5e1;
     background: #0f1114;
     height: 1fr;
+    width: 100%;
     border: none;
-    padding: 0 1;
+    padding: 0 0 0 1;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
 }
 
 /* Bottom Chat Dock (docked bar identical to Power Mode command dock) */
@@ -1405,6 +1581,7 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
     padding: 0 1;
     margin: 0;
     align: left middle;
+    overflow: hidden;
 }
 
 #chat_dock:focus-within {
@@ -1424,6 +1601,7 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
     background: transparent;
     color: #e2e8f0;
     width: 1fr;
+    min-width: 0;
     padding: 0;
     margin: 0;
 }
@@ -1440,7 +1618,7 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
     color: #38bdf8;
     text-style: bold;
     padding: 0 1;
-    min-width: 6;
+    min-width: 0;
     margin-left: 1;
 }
 
@@ -1463,6 +1641,162 @@ MarkdownH1, MarkdownH2, MarkdownH3, MarkdownH4, MarkdownH5, MarkdownH6 {
 }
 
 /* Learning Mode Specifics */
+#learning_copilot_pane {
+    width: 44;
+    height: 100%;
+    background: #14161b;
+    border: round #334155;
+    padding: 0;
+    margin: 0;
+    transition: width 200ms in_out_cubic;
+}
+
+#learning_copilot_pane:focus-within {
+    border: round #38bdf8;
+}
+
+#learning_copilot_pane.hidden_sidebar {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+}
+
+#copilot_tab_controls {
+    dock: right;
+    width: auto;
+    height: 1;
+    align: right top;
+    padding-right: 1;
+    background: transparent;
+}
+
+#copilot_model_badge {
+    color: #94a3b8;
+    width: auto;
+    text-align: left;
+    text-wrap: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 1;
+}
+
+.academic_card {
+    height: auto;
+    background: #0e1117;
+    border: round #1e2633;
+    padding: 0 1;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+
+.academic_card_title {
+    color: #38bdf8;
+    text-style: bold;
+    height: 1;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.academic_card_desc {
+    color: #8193a8;
+    height: auto;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+#copilot_tabs {
+    height: 1fr;
+    background: transparent;
+    border: none;
+    margin: 0;
+}
+
+#copilot_tabs Tabs {
+    background: #14161b;
+    height: 2;
+}
+
+#copilot_tabs Tabs .underline--bar {
+    color: #38bdf8;
+    background: #283344;
+}
+
+#copilot_tabs Tab {
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    padding: 0 1;
+}
+
+#copilot_tabs Tab.-active {
+    color: #38bdf8;
+    text-style: bold;
+}
+
+#copilot_tabs TabPane {
+    background: #0f1114;
+    padding: 0;
+}
+
+#copilot_tab_ai {
+    height: 1fr;
+}
+
+#copilot_tab_notes {
+    height: 1fr;
+}
+
+#learning_scratchpad_textarea {
+    height: 1fr;
+    border: none;
+    background: #0f1114;
+    color: #cbd5e1;
+    padding: 0;
+    scrollbar-size: 1 1;
+}
+
+#learning_scratchpad_textarea:focus {
+    border: none;
+}
+
+#learning_scratchpad_textarea .text-area--cursor-line {
+    background: #0f1114;
+}
+
+#learning_scratchpad_textarea .text-area--gutter {
+    color: #475569;
+    background: #0f1114;
+}
+
+#learning_scratchpad_textarea .text-area--cursor-gutter {
+    color: #38bdf8;
+    background: #0f1114;
+}
+
+#learning_scratchpad_textarea .text-area--selection {
+    background: #1e3a5f;
+    color: #f8fafc;
+}
+
+#theory_scroll {
+    height: 1fr;
+    padding: 0 1;
+    scrollbar-size: 1 1;
+    scrollbar-size-vertical: 1;
+}
+
+#theory_markdown_view {
+    color: #cbd5e1;
+    height: auto;
+    padding: 0;
+}
+
 Checkbox {
     margin-bottom: 0;
     height: 1;
@@ -1649,8 +1983,13 @@ Footer > .footer--highlight-key {
 
 #power_sidebar.-resizing,
 #scratchpad_pane.-resizing,
-#lesson_config_pane.-resizing {
-    transition: width 1ms, height 1ms !important;
+#lesson_config_pane.-resizing,
+#learning_copilot_pane.-resizing,
+#power_sidebar.-fast-stepping,
+#scratchpad_pane.-fast-stepping,
+#lesson_config_pane.-fast-stepping,
+#learning_copilot_pane.-fast-stepping {
+    transition: none !important;
 }
 
 ResizeHandle {
@@ -1795,7 +2134,7 @@ RichLog {
 }
 
 #mode_status.shell-mode {
-    color: #eab308;
+    color: #c5a059;
 }
 
 #lock_icon {
@@ -1805,8 +2144,8 @@ RichLog {
 }
 
 #lock_icon.locked {
-    color: #eab308;
-    text-style: bold;
+    color: #c5a059;
+    text-style: none;
 }
 
 #lhost_badge {
@@ -1916,22 +2255,22 @@ Tree > .tree--guides-selected {
 }
 
 #scratchpad_textarea .text-area--cursor-line {
-    background: #181b22;
+    background: #0f1114;
 }
 
 #scratchpad_textarea .text-area--gutter {
-    color: #64748b;
+    color: #475569;
     background: #0f1114;
 }
 
 #scratchpad_textarea .text-area--cursor-gutter {
-    color: #94a3b8;
-    background: #14161b;
+    color: #38bdf8;
+    background: #0f1114;
 }
 
 #scratchpad_textarea .text-area--selection {
-    background: #282e3a;
-    color: #f1f5f9;
+    background: #1e3a5f;
+    color: #f8fafc;
 }
 
 #size_warning {
@@ -2250,8 +2589,8 @@ ToolListItem.--highlight .tool_summary_label {
 #inspector_category_badge {
     dock: right;
     background: transparent;
-    color: #eab308;
-    text-style: bold;
+    color: #c5a059;
+    text-style: none;
     padding: 0;
     height: 1;
 }
@@ -2377,8 +2716,8 @@ ToolListItem.--highlight .tool_summary_label {
 .inspector_recipe_row_flags {
     width: auto;
     background: transparent;
-    color: #eab308;
-    text-style: bold;
+    color: #c5a059;
+    text-style: none;
     padding: 0 0 0 1;
     height: 1;
     text-align: right;
@@ -2400,7 +2739,7 @@ ToolListItem.--highlight .tool_summary_label {
     height: 3;
     width: 42;
     min-width: 36;
-    background: #132d1d;
+    background: transparent;
     border: round #22c55e;
     color: #4ade80;
     text-style: bold;
@@ -2645,7 +2984,7 @@ ToolHealthModal {
 }
 
 .status_error {
-    color: #fbbf24;
+    color: #f59e0b;
 }
 
 #tool_health_card .dialog_buttons {
@@ -2741,8 +3080,8 @@ ConfigModal {
 }
 
 .config_tab_banner.status_warn {
-    color: #fbbf24;
-    background: #3b2505;
+    color: #f59e0b;
+    background: #241d0f;
     border: round #d97706;
 }
 
@@ -3219,11 +3558,12 @@ ConfigModal {
    ========================================================================== */
 
 ToastRack {
+    layer: _toastrack !important;
     dock: bottom;
     align: right bottom;
-    margin-bottom: 2;
-    margin-right: 2;
-    width: 1fr;
+    margin-bottom: 1;
+    margin-right: 1;
+    width: auto;
     height: auto;
     background: transparent;
     overflow-y: hidden;
@@ -3231,33 +3571,40 @@ ToastRack {
 }
 
 ToastHolder {
+    layer: _toastrack !important;
     align-horizontal: right;
     width: 1fr;
     height: auto;
     margin: 0;
-    padding-right: 2;
+    margin-top: 1;
+    padding-right: 1;
     background: transparent;
+    visibility: hidden;
 }
 
 Toast {
-    width: 50;
-    min-width: 50;
-    max-width: 50;
+    layer: _toastrack !important;
+    visibility: visible;
+    width: auto;
+    min-width: 38;
+    max-width: 52;
     height: auto;
     padding: 0 1;
     margin: 0;
     border: round #334155;
-    background: #14171f;
+    background: #11141c;
     color: #e2e8f0;
+    text-wrap: wrap;
 }
 
 .toast--title {
     text-style: bold;
+    color: #f1f5f9;
 }
 
 /* --- Category 1: Information (Cyber Sky Blue) --- */
 Toast.-information {
-    background: #0c1929;
+    background: #09131f;
     border: round #0284c7;
     color: #e0f2fe;
 }
@@ -3267,21 +3614,29 @@ Toast.-information .toast--title {
     text-style: bold;
 }
 
+Toast.-information:hover {
+    border: round #38bdf8;
+}
+
 /* --- Category 2: Warning (Warm Amber) --- */
 Toast.-warning {
-    background: #1c180d;
+    background: #181208;
     border: round #d97706;
     color: #fef3c7;
 }
 
 Toast.-warning .toast--title {
-    color: #fbbf24;
+    color: #f59e0b;
     text-style: bold;
+}
+
+Toast.-warning:hover {
+    border: round #d97706;
 }
 
 /* --- Category 3: Error (Crimson Red) --- */
 Toast.-error {
-    background: #1f1215;
+    background: #1c0d10;
     border: round #ef4444;
     color: #fee2e2;
 }
@@ -3291,9 +3646,13 @@ Toast.-error .toast--title {
     text-style: bold;
 }
 
+Toast.-error:hover {
+    border: round #f87171;
+}
+
 /* --- Category 4: Success (Emerald Mint) --- */
 Toast.-success {
-    background: #0b1a13;
+    background: #061811;
     border: round #10b981;
     color: #d1fae5;
 }
@@ -3301,4 +3660,285 @@ Toast.-success {
 Toast.-success .toast--title {
     color: #34d399;
     text-style: bold;
+}
+
+Toast.-success:hover {
+    border: round #34d399;
+}
+
+/* ==========================================================================
+   LEARNING MODE CHECKPOINT & LAB ARCHIVE STYLES
+   ========================================================================== */
+
+#checkpoint_action_bar {
+    height: 1;
+    width: auto;
+    align: right middle;
+    margin: 0;
+    padding: 0;
+}
+
+Button.checkpoint_btn {
+    width: auto;
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    min-width: 3;
+    background: #1e3a5f;
+    border: none !important;
+    color: #38bdf8;
+    text-style: bold;
+    margin: 0;
+    padding: 0;
+    content-align: center middle;
+}
+
+#save_checkpoint_btn {
+    margin-left: 0;
+}
+
+Button.checkpoint_btn:hover,
+Button.checkpoint_btn:focus,
+#save_checkpoint_btn:hover,
+#save_checkpoint_btn:focus,
+#load_checkpoint_btn:hover,
+#load_checkpoint_btn:focus {
+    background: #0284c7;
+    color: #ffffff;
+    border: none !important;
+}
+
+#load_checkpoint_btn {
+    margin-left: 1;
+}
+
+#reset_session_btn {
+    margin-left: 1;
+    background: #2d1417;
+    color: #f87171;
+}
+
+#reset_session_btn:hover,
+#reset_session_btn:focus {
+    background: #7f2b32 !important;
+    color: #fca5a5 !important;
+    border: none !important;
+}
+
+SaveCheckpointModal,
+LoadCheckpointModal {
+    align: center middle;
+    background: rgba(0, 0, 0, 0.75);
+}
+
+#checkpoint_modal_card {
+    background: #14161b !important;
+    border: round #38bdf8;
+    padding: 1 2;
+    visibility: visible;
+}
+
+.checkpoint_save_card {
+    width: 74;
+    max-width: 90%;
+    height: auto;
+    min-height: 19;
+    max-height: 24;
+}
+
+.checkpoint_load_card {
+    width: 84;
+    max-width: 94%;
+    height: 26;
+    min-height: 20;
+    max-height: 32;
+}
+
+#checkpoint_modal_header {
+    height: 1;
+    margin-bottom: 1;
+}
+
+#checkpoint_modal_title {
+    color: #e2e8f0;
+    text-style: bold;
+    width: 1fr;
+}
+
+#checkpoint_modal_hint {
+    color: #94a3b8;
+}
+
+#checkpoint_modal_meta_row {
+    height: 1;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+#checkpoint_modal_meta_target {
+    color: #cbd5e1;
+    width: 1fr;
+    margin-left: 1;
+}
+
+.checkpoint_sec_badge {
+    color: #34d399;
+    text-style: bold;
+}
+
+#checkpoint_modal_desc {
+    color: #94a3b8;
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.checkpoint_input_label {
+    color: #38bdf8;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#checkpoint_name_input {
+    background: #0f1114;
+    border: tall #334155;
+    color: #f1f5f9;
+    margin-bottom: 1;
+    height: 3;
+}
+
+#checkpoint_name_input:focus {
+    border: tall #38bdf8;
+}
+
+#checkpoint_list_subbar {
+    height: 1;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+.checkpoint_subheading {
+    color: #38bdf8;
+    text-style: bold;
+    width: 1fr;
+}
+
+.checkpoint_nav_hint {
+    color: #64748b;
+}
+
+#checkpoint_list_container {
+    height: 1fr;
+    min-height: 8;
+    background: #0f1114;
+    border: round #282e3a;
+    padding: 0;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+
+#checkpoint_list_view {
+    background: transparent;
+    height: 100%;
+    border: none;
+    scrollbar-size: 1 1;
+}
+
+#checkpoint_list_view > ListItem {
+    padding: 1 1;
+    height: auto;
+    background: transparent;
+    border-bottom: solid #1e293b;
+    border-left: thick transparent;
+}
+
+#checkpoint_list_view > ListItem:hover {
+    background: #151a24;
+}
+
+#checkpoint_list_view > ListItem.-highlight,
+#checkpoint_list_view > ListItem.--highlight {
+    background: #182234 !important;
+    border-left: thick #38bdf8 !important;
+}
+
+.checkpoint_item_content {
+    height: auto;
+    width: 100%;
+    padding: 0;
+}
+
+.checkpoint_item_row1 {
+    height: 1;
+    width: 100%;
+    margin-bottom: 0;
+    align: left middle;
+}
+
+.checkpoint_tool_badge {
+    background: #132238;
+    color: #38bdf8;
+    text-style: bold;
+    padding: 0 1;
+    margin-right: 1;
+    height: 1;
+    min-width: 9;
+    content-align: center middle;
+}
+
+.checkpoint_filename {
+    color: #f1f5f9;
+    text-style: bold;
+    width: 1fr;
+    content-align: left middle;
+}
+
+.checkpoint_filesize {
+    color: #94a3b8;
+    margin-right: 2;
+    content-align: right middle;
+}
+
+.checkpoint_filedate {
+    color: #64748b;
+    content-align: right middle;
+}
+
+.checkpoint_item_meta {
+    color: #94a3b8;
+    height: 1;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 10;
+}
+
+.checkpoint_item_notes {
+    color: #64748b;
+    height: 1;
+    width: 100%;
+    margin-top: 0;
+    padding-left: 10;
+    text-style: italic;
+}
+
+.checkpoint_empty_container {
+    width: 100%;
+    height: auto;
+    padding: 2 1;
+    align: center middle;
+}
+
+.checkpoint_empty_title {
+    color: #38bdf8;
+    text-style: bold;
+    text-align: center;
+    width: 100%;
+}
+
+.checkpoint_empty_label {
+    color: #94a3b8;
+    text-align: center;
+    width: 100%;
+    margin-top: 1;
 }

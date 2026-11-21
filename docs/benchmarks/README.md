@@ -8,20 +8,20 @@
 
 | Specification | Value |
 | :--- | :--- |
-| **Report Date** | `2026-11-17 01:01:16 UTC` |
-| **Git Commit / Branch** | `434759a` (`feat/api-guardrails-and-tool-intelligence`) |
+| **Report Date** | `2026-11-21 00:27:22 UTC` |
+| **Git Commit / Branch** | `0b81283` (`dev`) |
 | **Platform / OS** | `Linux` (`Linux-7.2.15-1-omarchy-x86_64-with-glibc2.44`) |
 | **CPU Architecture** | `x86_64` |
-| **Python Version** | `3.15.2` (`/home/harsh/Documents/cyguide/.venv/bin/python`) |
+| **Python Version** | `3.15.2` (`/home/harsh/Documents/cyguide/.venv/bin/python3`) |
 
 ## 2. Executive Performance Scorecard
 
 | Subsystem | Metric Measured | Current Result | Guard Threshold | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **App Cold Launch** | Full import latency | **507.8 ms** | `< 950 ms` | 🟢 PASS |
-| **Terminal Stream** | Ingestion rate (500k lines) | **96,570 lines/s** | `> 60,000 lines/s` | 🟢 PASS |
-| **SQLite GraphStore** | Batch ingestion (10k entities) | **2,428 entities/s** | `> 1,500 entities/s` | 🟢 PASS |
-| **DOM Virtualization** | EntityBrowser rebuild (10k) | **45.6 ms** | `< 120 ms` | 🟢 PASS |
+| **App Cold Launch** | Full import latency | **585.5 ms** | `< 950 ms` | 🟢 PASS |
+| **Terminal Stream** | Ingestion rate (500k lines) | **103,118 lines/s** | `> 60,000 lines/s` | 🟢 PASS |
+| **SQLite GraphStore** | Batch ingestion (10k entities) | **6,928 entities/s** | `> 1,500 entities/s` | 🟢 PASS |
+| **DOM Virtualization** | EntityBrowser rebuild (10k) | **45.1 ms** | `< 120 ms` | 🟢 PASS |
 
 ## 3. Startup & Import Breakdown
 
@@ -29,18 +29,18 @@ Subsystem import latencies measured in isolated fresh Python processes:
 
 | Module / Layer | Import Latency | Description |
 | :--- | :--- | :--- |
-| `pydantic` | **83.6 ms** | Dependency / Subsystem |
-| `rich` | **34.7 ms** | Dependency / Subsystem |
-| `textual` | **166.9 ms** | Dependency / Subsystem |
-| `aiosqlite` | **91.6 ms** | Dependency / Subsystem |
-| `httpx` | **121.7 ms** | Dependency / Subsystem |
-| `dnspython` | **140.2 ms** | Dependency / Subsystem |
+| `pydantic` | **87.0 ms** | Dependency / Subsystem |
+| `rich` | **32.5 ms** | Dependency / Subsystem |
+| `textual` | **180.5 ms** | Dependency / Subsystem |
+| `aiosqlite` | **107.9 ms** | Dependency / Subsystem |
+| `httpx` | **124.2 ms** | Dependency / Subsystem |
+| `dnspython` | **136.9 ms** | Dependency / Subsystem |
 | `cyguide.paths` | **32.1 ms** | Dependency / Subsystem |
-| `cyguide.schemas` | **184.1 ms** | Dependency / Subsystem |
-| `cyguide.engine.store` | **233.3 ms** | Dependency / Subsystem |
-| `cyguide.ui.widgets.power` | **394.8 ms** | Dependency / Subsystem |
-| `cyguide.app (FULL APP)` | **507.8 ms** | Full Application Entrypoint |
-| `cyg --version` (CLI Check) | **126.4 ms** | Fast CLI parser path |
+| `cyguide.schemas` | **208.4 ms** | Dependency / Subsystem |
+| `cyguide.engine.store` | **262.8 ms** | Dependency / Subsystem |
+| `cyguide.ui.widgets.power` | **556.9 ms** | Dependency / Subsystem |
+| `cyguide.app (FULL APP)` | **585.5 ms** | Full Application Entrypoint |
+| `cyg --version` (CLI Check) | **396.6 ms** | Fast CLI parser path |
 
 ## 4. Subprocess Terminal Stream Bombardment
 
@@ -48,10 +48,10 @@ Simulates rapid subprocess output stream chunks flushed to `TerminalStreamPane` 
 
 | Stream Lines | Elapsed Time | Throughput | Peak Memory | Ring Buffer Size | Memory Bound |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **50,000** | 0.50 s | **100,808 lines/s** | 8.50 MB | 5000 lines | $O(1)$ Strictly Capped |
-| **100,000** | 1.04 s | **96,268 lines/s** | 16.84 MB | 5000 lines | $O(1)$ Strictly Capped |
-| **250,000** | 2.57 s | **97,375 lines/s** | 42.05 MB | 5000 lines | $O(1)$ Strictly Capped |
-| **500,000** | 5.18 s | **96,570 lines/s** | 84.07 MB | 5000 lines | $O(1)$ Strictly Capped |
+| **50,000** | 0.48 s | **103,471 lines/s** | 8.50 MB | 5000 lines | $O(1)$ Strictly Capped |
+| **100,000** | 1.07 s | **93,700 lines/s** | 16.84 MB | 5000 lines | $O(1)$ Strictly Capped |
+| **250,000** | 2.55 s | **98,113 lines/s** | 42.05 MB | 5000 lines | $O(1)$ Strictly Capped |
+| **500,000** | 4.85 s | **103,118 lines/s** | 84.07 MB | 5000 lines | $O(1)$ Strictly Capped |
 
 > [!TIP]
 > Throughput comfortably exceeds 90,000 lines/second while strictly limiting resident memory to 5,000 lines.
@@ -62,21 +62,21 @@ Evaluates atomic batch ingestion, query performance, and database serialization:
 
 | Entity Count | Batch Ingest (100) | Ingest Rate | Query Nodes | Query Edges | Export DB | Import DB | SQLite Size |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | 0.32 s | **3,142/s** | 4.6 ms | 1.4 ms | 52.0 ms | **64.5 ms** | 1.35 MB |
-| **5,000** | 1.86 s | **2,688/s** | 22.7 ms | 7.2 ms | 130.8 ms | **325.7 ms** | 6.50 MB |
-| **10,000** | 4.12 s | **2,428/s** | 47.2 ms | 54.3 ms | 222.0 ms | **664.1 ms** | 12.92 MB |
+| **1,000** | 0.06 s | **15,806/s** | 8.4 ms | 1.5 ms | 57.3 ms | **70.0 ms** | 1.44 MB |
+| **5,000** | 0.57 s | **8,849/s** | 22.6 ms | 6.9 ms | 140.0 ms | **329.5 ms** | 6.87 MB |
+| **10,000** | 1.44 s | **6,928/s** | 48.4 ms | 13.7 ms | 247.8 ms | **701.8 ms** | 13.64 MB |
 
 ### Single Transaction vs. Atomic Micro-Batching (250 findings)
-- **Individual `upsert_finding` calls**: 0.12 s (2,052 findings/s) — Contention & per-row transaction commits.
-- **Batch `upsert_findings_batch`**: 0.069 s (3,606 findings/s) — **1.8x Faster**.
+- **Individual `upsert_finding` calls**: 0.14 s (1,744 findings/s) — Contention & per-row transaction commits.
+- **Batch `upsert_findings_batch`**: 0.008 s (29,978 findings/s) — **17.2x Faster**.
 
 ## 6. Schema Model Validation & Tool Parsing
 
 | Operation | Count | Elapsed Time | Throughput |
 | :--- | :--- | :--- | :--- |
-| `NetworkHost.create` | 50,000 | 0.47 s | **105,314 models/s** |
-| `WebEndpoint.create` | 50,000 | 1.19 s | **42,070 models/s** |
-| Pre-compiled Regex Line Parsing | 50,000 | 0.022 s | **2,234,031 lines/s** |
+| `NetworkHost.create` | 50,000 | 0.54 s | **92,260 models/s** |
+| `WebEndpoint.create` | 50,000 | 1.22 s | **40,982 models/s** |
+| Pre-compiled Regex Line Parsing | 50,000 | 0.022 s | **2,271,386 lines/s** |
 
 ## 7. EntityBrowser DOM Virtualization & Search
 
@@ -84,10 +84,95 @@ Tests category capping (`MAX_DISPLAY_PER_CATEGORY=200`) and live search performa
 
 | Graph Entities | Initial Tree Render | Filter Query (`10.0.1`) | Fast-Path (Identical Data) | Root Branches |
 | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | 13.6 ms | 7.7 ms | 0.01 ms | Capped (201 items) |
-| **5,000** | 26.1 ms | 36.1 ms | 0.01 ms | Capped (201 items) |
-| **10,000** | 45.6 ms | 73.3 ms | 0.01 ms | Capped (201 items) |
-| **25,000** | 99.6 ms | 196.8 ms | 0.01 ms | Capped (201 items) |
+| **1,000** | 13.9 ms | 7.7 ms | 0.01 ms | Capped (201 items) |
+| **5,000** | 27.1 ms | 36.5 ms | 0.01 ms | Capped (201 items) |
+| **10,000** | 45.1 ms | 72.8 ms | 0.01 ms | Capped (201 items) |
+| **25,000** | 100.6 ms | 191.8 ms | 0.01 ms | Capped (201 items) |
+
+## 8. Comprehensive Branch Execution Matrix (77 Operation Profiles)
+
+Systematic microsecond-level timing and throughput across all application branches:
+
+| # | Category | Operation | Branch / Condition | Latency | Throughput |
+| :---: | :--- | :--- | :--- | :---: | :---: |
+| `01` | **CLI: Root** | `Version Flag` | --version (exit) | **25.49 ms** | 39 ops/s |
+| `02` | **CLI: Workspace** | `workspace list` | Text format (Rich Table) | **11.69 ms** | 86 ops/s |
+| `03` | **CLI: Workspace** | `workspace list` | JSON format (--json) | **9.64 ms** | 104 ops/s |
+| `04` | **CLI: Workspace** | `workspace create` | Text format | **21.27 ms** | 47 ops/s |
+| `05` | **CLI: Workspace** | `workspace create` | JSON format (--json) | **18.54 ms** | 54 ops/s |
+| `06` | **CLI: Session** | `session list` | Text format (Rich Table) | **12.85 ms** | 78 ops/s |
+| `07` | **CLI: Session** | `session list` | JSON format (--json) | **10.15 ms** | 99 ops/s |
+| `08` | **CLI: Session** | `session export` | SQLite .db export | **47.07 ms** | 21 ops/s |
+| `09` | **CLI: Session** | `session export` | Markdown report (-r) | **10.27 ms** | 97 ops/s |
+| `10` | **CLI: Session** | `session import` | Import into workspace | **22.92 ms** | 44 ops/s |
+| `11` | **CLI: Tool** | `tool list` | Text format (Rich Table) | **77.98 ms** | 13 ops/s |
+| `12` | **CLI: Tool** | `tool list` | JSON format (--json) | **20.36 ms** | 49 ops/s |
+| `13` | **CLI: Tool** | `tool info nmap` | JSON metadata inspection | **24.81 ms** | 40 ops/s |
+| `14` | **CLI: Doctor** | `doctor --json` | Full system & tool diagnostics | **179.13 ms** | 6 ops/s |
+| `15` | **CLI: Lab** | `lab list` | JSON format (--json) | **12.49 ms** | 80 ops/s |
+| `16` | **Engine: Registry** | `load_tools` | All 11 Tool Manifests | **1.33 ms** | 751 ops/s |
+| `17` | **Engine: Gateway** | `is_blocked_destination` | Valid Domain / IP | **0.003 ms** | 339,311 ops/s |
+| `18` | **Engine: Gateway** | `is_blocked_destination` | Blocked Link-Local IPv4 (169.254.x.x) | **0.000 ms** | 3,028,761 ops/s |
+| `19` | **Engine: Gateway** | `is_blocked_destination` | Blocked Hex Encoded IP (0xa9fea9fe) | **0.000 ms** | 2,057,105 ops/s |
+| `20` | **Engine: Gateway** | `is_blocked_destination` | Blocked Decimal IP (2852039166) | **0.000 ms** | 4,372,579 ops/s |
+| `21` | **Engine: Gateway** | `is_blocked_destination` | Blocked Cloud Metadata DNS | **0.001 ms** | 1,476,797 ops/s |
+| `22` | **Engine: Gateway** | `interpolate_variables` | Parameter & Variable Interpolation | **0.001 ms** | 773,685 ops/s |
+| `23` | **Engine: Gateway** | `sanitize_subprocess_env` | Scrubbing Sensitive Secrets | **0.010 ms** | 96,571 ops/s |
+| `24` | **Engine: Store** | `store.initialize()` | SQLite Schema & WAL Migration | **16.89 ms** | 59 ops/s |
+| `25` | **Engine: Store** | `upsert_finding (single)` | Individual Auto-Commit (100 nodes) | **0.523 ms** | 1,913 ops/s |
+| `26` | **Engine: Store** | `upsert_findings_batch` | Atomic Batch Ingestion (1,000 nodes) | **0.058 ms** | 17,100 ops/s |
+| `27` | **Engine: Store** | `upsert_findings_batch` | Idempotent Merge (Existing Node) | **4.57 ms** | 219 ops/s |
+| `28` | **Engine: Store** | `get_all_nodes` | Fetch 1100 nodes (50 iters) | **4.96 ms** | 202 ops/s |
+| `29` | **Engine: Store** | `get_all_edges` | Fetch 0 edges (50 iters) | **0.119 ms** | 8,435 ops/s |
+| `30` | **Engine: Store** | `append_event` | Append-Only Event Log (100 rows) | **0.299 ms** | 3,343 ops/s |
+| `31` | **Engine: Store** | `get_event_log` | Retrieve 1201 events | **7.25 ms** | 138 ops/s |
+| `32` | **Engine: Store** | `Forensic Lock` | Dispatch Rejection on CLOSED session | **0.436 ms** | 2,296 ops/s |
+| `33` | **Engine: Store** | `export_session` | Zero-Copy ATTACH DATABASE Export | **54.37 ms** | 18 ops/s |
+| `34` | **Engine: Store** | `import_session` | Zero-Copy ATTACH DATABASE Import | **46.16 ms** | 22 ops/s |
+| `35` | **Adapter: BuildCmd** | `NmapAdapter` | build_command(NmapAdapter) | **0.015 ms** | 67,241 ops/s |
+| `36` | **Adapter: Parse** | `NmapAdapter` | parse_output (5 findings) | **0.084 ms** | 11,954 ops/s |
+| `37` | **Adapter: Sanitize** | `NmapAdapter` | sanitize_output() | **0.003 ms** | 294,641 ops/s |
+| `38` | **Adapter: BuildCmd** | `WhoisAdapter` | build_command(WhoisAdapter) | **0.011 ms** | 92,570 ops/s |
+| `39` | **Adapter: Parse** | `WhoisAdapter` | parse_output (2 findings) | **0.046 ms** | 21,876 ops/s |
+| `40` | **Adapter: Sanitize** | `WhoisAdapter` | sanitize_output() | **0.004 ms** | 281,994 ops/s |
+| `41` | **Adapter: BuildCmd** | `GobusterAdapter` | build_command(GobusterAdapter) | **0.032 ms** | 31,249 ops/s |
+| `42` | **Adapter: Parse** | `GobusterAdapter` | parse_output (5 findings) | **0.379 ms** | 2,640 ops/s |
+| `43` | **Adapter: Sanitize** | `GobusterAdapter` | sanitize_output() | **0.004 ms** | 276,197 ops/s |
+| `44` | **Adapter: BuildCmd** | `NiktoAdapter` | build_command(NiktoAdapter) | **0.016 ms** | 63,846 ops/s |
+| `45` | **Adapter: Parse** | `NiktoAdapter` | parse_output (4 findings) | **0.162 ms** | 6,172 ops/s |
+| `46` | **Adapter: Sanitize** | `NiktoAdapter` | sanitize_output() | **0.004 ms** | 276,798 ops/s |
+| `47` | **Adapter: BuildCmd** | `SubfinderAdapter` | build_command(SubfinderAdapter) | **0.013 ms** | 77,598 ops/s |
+| `48` | **Adapter: Parse** | `SubfinderAdapter` | parse_output (5 findings) | **0.061 ms** | 16,514 ops/s |
+| `49` | **Adapter: Sanitize** | `SubfinderAdapter` | sanitize_output() | **0.002 ms** | 478,028 ops/s |
+| `50` | **Adapter: BuildCmd** | `DnsPythonAdapter` | build_command(DnsPythonAdapter) | **0.011 ms** | 90,935 ops/s |
+| `51` | **Adapter: Parse** | `DnsPythonAdapter` | parse_output (0 findings) | **0.005 ms** | 182,741 ops/s |
+| `52` | **Adapter: Sanitize** | `DnsPythonAdapter` | sanitize_output() | **0.000 ms** | 20,973,155 ops/s |
+| `53` | **Adapter: BuildCmd** | `SearchSploitAdapter` | build_command(SearchSploitAdapter) | **0.012 ms** | 83,050 ops/s |
+| `54` | **Adapter: Parse** | `SearchSploitAdapter` | parse_output (0 findings) | **0.005 ms** | 184,478 ops/s |
+| `55` | **Adapter: Sanitize** | `SearchSploitAdapter` | sanitize_output() | **0.000 ms** | 3,598,106 ops/s |
+| `56` | **Adapter: BuildCmd** | `FfufAdapter` | build_command(FfufAdapter) | **0.034 ms** | 29,117 ops/s |
+| `57` | **Adapter: Parse** | `FfufAdapter` | parse_output (3 findings) | **0.107 ms** | 9,345 ops/s |
+| `58` | **Adapter: Sanitize** | `FfufAdapter` | sanitize_output() | **0.002 ms** | 611,875 ops/s |
+| `59` | **Adapter: BuildCmd** | `NucleiAdapter` | build_command(NucleiAdapter) | **0.027 ms** | 36,834 ops/s |
+| `60` | **Adapter: Parse** | `NucleiAdapter` | parse_output (0 findings) | **0.002 ms** | 416,502 ops/s |
+| `61` | **Adapter: Sanitize** | `NucleiAdapter` | sanitize_output() | **0.002 ms** | 524,667 ops/s |
+| `62` | **Modeling: Canon** | `canonicalize_host` | Host Lowercase & Localhost Normalization | **0.000 ms** | 4,184,685 ops/s |
+| `63` | **Modeling: Canon** | `canonicalize_url` | URL Lowercase, Port Strip & Query Sort | **0.006 ms** | 165,914 ops/s |
+| `64` | **Modeling: PIK** | `generate_node_id` | Sorted PIK Dict -> SHA-256 Node ID | **0.001 ms** | 1,359,845 ops/s |
+| `65` | **Modeling: Pydantic** | `NetworkHost.create` | Host Schema Validation | **0.008 ms** | 132,925 ops/s |
+| `66` | **Modeling: Pydantic** | `NetworkService.create` | Service Schema Validation | **0.012 ms** | 81,731 ops/s |
+| `67` | **Modeling: Pydantic** | `WebEndpoint.create` | Web Endpoint Schema Validation | **0.019 ms** | 51,362 ops/s |
+| `68` | **Modeling: Pydantic** | `VulnerabilityFound.create` | Vulnerability Schema Validation | **0.012 ms** | 81,888 ops/s |
+| `69` | **UI: Stream** | `TerminalStreamPane.write` | 50,000 Lines (Ring Buffer max=5k) | **0.006 ms** | 157,323 ops/s |
+| `70` | **UI: EntityBrowser** | `refresh_entities (cold)` | Build DOM tree from 2000 entities | **14.45 ms** | 69 ops/s |
+| `71` | **UI: EntityBrowser** | `refresh_entities (search)` | Filtered search query across tree | **15.67 ms** | 64 ops/s |
+| `72` | **UI: EntityBrowser** | `refresh_entities (fast)` | Fast-Path Cached Identical Hash | **0.006 ms** | 159,312 ops/s |
+| `73` | **AI: Context** | `resolve_entity_variables` | Resolve $TARGET, $IP, $PORT from PIK | **0.026 ms** | 38,931 ops/s |
+| `74` | **AI: Security** | `Neutralize Tag Breakout` | Escape </untrusted_scan_output> Injection | **0.001 ms** | 1,929,632 ops/s |
+| `75` | **AI: Explainer** | `stream_explanation` | Mock LLM Token Stream Generation | **0.030 ms** | 33,072 ops/s |
+| `76` | **Reporting** | `render_markdown` | Executive Markdown Report (50 nodes) | **0.431 ms** | 2,323 ops/s |
+| `77` | **Reporting** | `extract_structured_findings_summary` | Aggregate findings by schema type (50 nodes) | **0.175 ms** | 5,710 ops/s |
+
 
 ---
 *Report generated automatically for CyGuide.*

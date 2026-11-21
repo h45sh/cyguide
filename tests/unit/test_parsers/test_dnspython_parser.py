@@ -69,4 +69,3 @@ async def test_dnspython_parse_output(adapter):
 
     mx_rec = next(f for f in findings if f.pik["type"] == "MX")
     assert mx_rec.data["value"] == "10 mail.example.com"
-

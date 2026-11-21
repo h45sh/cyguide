@@ -701,9 +701,7 @@ async def test_retry_after_and_moderation_handling():
 @pytest.mark.asyncio
 async def test_ollama_backend_fast_connect_timeout():
     """Verify OllamaBackend configures a fast connection timeout and fails gracefully when offline."""
-    backend = OllamaBackend(
-        base_url="http://127.0.0.1:54321", connect_timeout=0.2
-    )
+    backend = OllamaBackend(base_url="http://127.0.0.1:54321", connect_timeout=0.2)
     assert backend.connect_timeout == 0.2
 
     chunks = []
@@ -714,4 +712,3 @@ async def test_ollama_backend_fast_connect_timeout():
     assert "Ollama connection failed" in chunks[0]
     assert backend.last_error is not None
     assert "Ollama connection failed" in backend.last_error
-

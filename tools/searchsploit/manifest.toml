@@ -68,8 +68,8 @@ remediation = "Place listening services behind firewall ACLs, zero-trust network
 [[learning.recipes]]
 name = "Direct CVE Correlation"
 difficulty = "Intermediate"
-description = "Lookup proof-of-concept scripts and weaponized code corresponding to a specific Common Vulnerabilities and Exposures (CVE) identifier."
-flags = ["--cve", "{cve_id}", "--json"]
+description = "Lookup proof-of-concept scripts and weaponized code corresponding to a specific Common Vulnerabilities and Exposures (CVE) identifier (e.g. Apache 2.4.49 path traversal CVE-2021-41773)."
+flags = ["--cve", "2021-41773", "--json"]
 
 [learning.recipes.theory]
 concept = "Common Vulnerabilities and Exposures (CVE) Standardization"

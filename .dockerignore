@@ -10,11 +10,22 @@ env
 # Python bytecode and caches
 __pycache__
 *.py[cod]
+# Testing, coverage, and linting caches
 .pytest_cache
+tests/.pytest_cache
 .coverage
 htmlcov
 .ruff_cache
+tests/.ruff_cache
 .mypy_cache
+tests/.mypy_cache
+.hypothesis
+tests/.hypothesis
+
+# IDE, agent intelligence, and tooling caches
+.t3*
+.agents
+.codex
 
 # Build artifacts
 dist

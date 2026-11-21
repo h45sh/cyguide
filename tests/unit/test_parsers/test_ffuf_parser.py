@@ -80,4 +80,3 @@ login                   [Status: 302, Size: 0, Words: 0, Lines: 1, Duration: 3ms
     assert endpoints[0].pik["url"] == "http://example.com/admin"
     assert endpoints[0].data["status_code"] == 200
     assert endpoints[0].data["content_length"] == 1256
-

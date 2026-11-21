@@ -3,7 +3,6 @@
 import json
 import re
 import shlex
-import shutil
 from typing import Any, AsyncIterator, Dict, List
 
 from cyguide.engine.adapter import ToolAdapter
@@ -14,9 +13,20 @@ from cyguide.schemas.vulnerability import ExploitReference
 class SearchSploitAdapter(ToolAdapter):
     """Adapter for the searchsploit local exploit query utility."""
 
+    CVE_PATTERN = re.compile(r"CVE-\d{4}-\d+", re.IGNORECASE)
+
     def validate_install(self) -> bool:
         """Verify searchsploit binary is present in system PATH."""
-        return shutil.which("searchsploit") is not None
+        return self.is_binary_available("searchsploit")
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip non-JSON diagnostic lines or headers from searchsploit output."""
+        cleaned = raw_stdout.strip()
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return cleaned[start : end + 1]
+        return cleaned
 
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         """Construct the searchsploit command line arguments."""
@@ -112,7 +122,7 @@ class SearchSploitAdapter(ToolAdapter):
 
             # Extract primary CVE code if present in "Codes" field
             codes = str(item.get("Codes", ""))
-            cve_match = re.search(r"CVE-\d{4}-\d+", codes, re.IGNORECASE)
+            cve_match = self.CVE_PATTERN.search(codes)
             cve_id = cve_match.group(0).upper() if cve_match else None
 
             yield ExploitReference.create(

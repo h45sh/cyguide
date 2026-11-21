@@ -35,7 +35,7 @@ CyGuide strictly adheres to John Ousterhout’s philosophy of software design (*
 3. **Pure Core vs. Imperative Shell (Unidirectional Layer DAG)**:
    - Dependencies must flow strictly downwards in one direction:
      ```
-     Presentation Layer (TUI / CLI: cyguide/ui/, cyguide/main.py)
+     Presentation Layer (TUI / CLI: cyguide/ui/, cyguide/cli/, cyguide/__main__.py)
        ↓
      Coordination & Intelligence Layer (cyguide/engine/power_facade.py, learning.py, gateway.py, context_builder.py, explainer.py, reporter.py)
        ↓

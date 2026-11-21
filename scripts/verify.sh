@@ -45,7 +45,7 @@ else
     echo -e "\n--- 4. Dependency Audit Skipped (pip-audit not found) ---"
 fi
 
-echo -e "\n--- 5. Running Environment Diagnostics (cyg check) ---"
-$PYTHON_BIN -m cyguide.main check --json > /dev/null
+echo -e "\n--- 5. Running Environment Diagnostics (cyg doctor) ---"
+$PYTHON_BIN -m cyguide doctor --json > /dev/null
 
 echo -e "\n[SUCCESS] All checks passed! The codebase is stable and documentation is in sync."

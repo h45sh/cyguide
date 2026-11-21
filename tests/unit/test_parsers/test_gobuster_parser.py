@@ -18,7 +18,7 @@ def test_gobuster_build_command(adapter):
     assert "dir" in cmd
     assert "-u" in cmd
     assert "http://10.10.10.5/app" in cmd
-    assert any("wordlist.txt" in arg for arg in cmd)
+    assert any("common_dirs.txt" in arg or "wordlist" in arg for arg in cmd)
 
     # 2. Target is network.service (HTTP)
     http_svc = NetworkService.create(host_ip="192.168.1.100", port=80, protocol="tcp")

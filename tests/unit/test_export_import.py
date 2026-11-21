@@ -4,10 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from cyguide.engine.reporter import (
-    generate_markdown_report,
-    render_markdown_report,
-)
+from cyguide.engine.reporter import SessionReportService
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.network import NetworkHost
 from cyguide.schemas.power import ActionRequest, ActionSource
@@ -39,7 +36,7 @@ async def test_report_generation(tmp_path):
     )
 
     # Generate report
-    report = await generate_markdown_report(store, sess_id)
+    report = await SessionReportService(store).generate_markdown_report(sess_id)
 
     assert "CyGuide Investigation Report: Test Session" in report
     assert "Test Project" in report
@@ -72,7 +69,7 @@ def test_pure_render_markdown_report():
         "edges": [],
         "events": [],
     }
-    report = render_markdown_report(data)
+    report = SessionReportService().render_markdown(data)
     assert "CyGuide Investigation Report: Pure Session" in report
     assert "In-Memory Lab" in report
     assert "10.0.0.5" in report
@@ -212,7 +209,7 @@ async def test_session_report_service(tmp_path):
 
 
 def test_reporter_html_escaping():
-    from cyguide.engine.reporter import build_markdown_table_for_type
+    from cyguide.engine.reporter import SessionReportService
 
     nodes = [
         {
@@ -223,7 +220,7 @@ def test_reporter_html_escaping():
             "status": "confirmed",
         }
     ]
-    lines = build_markdown_table_for_type("web.endpoint", nodes)
+    lines = SessionReportService.build_markdown_table_for_type("web.endpoint", nodes)
     report_text = "\n".join(lines)
     assert "<script>" not in report_text
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in report_text
@@ -235,7 +232,7 @@ def test_reporter_html_escaping():
 async def test_reporter_backtick_command_escaping():
     from uuid import uuid4
 
-    from cyguide.engine.reporter import generate_markdown_report
+    from cyguide.engine.reporter import SessionReportService
     from cyguide.schemas.power import ActionRequest, ActionSource
 
     store = GraphStore(":memory:")
@@ -253,6 +250,6 @@ async def test_reporter_backtick_command_escaping():
     )
     await store.append_event(sess_id, action, {"output": "root\n"}, "Ran echo")
 
-    report = await generate_markdown_report(store, sess_id)
+    report = await SessionReportService(store).generate_markdown_report(sess_id)
     assert "`` !echo `whoami` ``" in report
     await store.close()

@@ -70,4 +70,3 @@ async def test_nuclei_parse_jsonl_output(adapter):
     assert m.pik["check_id"] == "git-config-exposure"
     assert m.data["severity"] == "medium"
     assert m.data["remediation"] == "Remove .git directory from public webroot."
-

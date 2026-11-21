@@ -38,6 +38,24 @@ class BaseFinding(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     status: Literal["confirmed", "proposed"] = "confirmed"
 
+    @classmethod
+    def from_data(
+        cls,
+        data: Dict[str, Any],
+        parent: Optional[Relation] = None,
+        associations: Optional[List[Relation]] = None,
+        status: Literal["confirmed", "proposed"] = "confirmed",
+    ) -> "BaseFinding":
+        """Construct a finding instance deriving its PIK automatically from class pik_fields."""
+        pik = {k: data[k] for k in cls.pik_fields if k in data}
+        return cls(
+            pik=pik,
+            parent=parent,
+            associations=associations or [],
+            data=data,
+            status=status,
+        )
+
     @field_validator("pik", "data", mode="before")
     @classmethod
     def apply_canonicalization(cls, v: Any) -> Any:

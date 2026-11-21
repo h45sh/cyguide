@@ -51,14 +51,15 @@ cyguide = ["ui/style.css", "assets/wordlists/*.gz", "assets/wordlists/*.txt"]
 tools = ["*/*.toml", "*/*.txt"]
 
 [project.scripts]
-cyg = "cyguide.main:main"
+cyg = "cyguide.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
-norecursedirs = [".venv", "venv", ".git", "__pycache__", ".hypothesis"]
+cache_dir = "tests/.pytest_cache"
+norecursedirs = [".venv", "venv", ".git", "__pycache__", ".hypothesis", "tests/.hypothesis", "tests/.pytest_cache"]
 markers = [
     "tier0: Microsecond AST invariants and property-based mathematical tests",
     "fast: Fast in-memory engine and domain logic tests (< 5s)",
@@ -70,6 +71,7 @@ markers = [
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+cache-dir = "tests/.ruff_cache"
 
 [tool.ruff.lint]
 select = [

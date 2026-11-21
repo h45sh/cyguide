@@ -4,8 +4,8 @@ import pytest
 
 from cyguide.engine.diagnostics import (
     DiagnosticCheck,
+    DiagnosticEngine,
     DiagnosticReport,
-    format_terminal_report,
     run_diagnostics,
 )
 
@@ -46,7 +46,7 @@ async def test_diagnostic_report_serialization():
 @pytest.mark.asyncio
 async def test_format_terminal_report():
     report = await run_diagnostics(db_path=":memory:")
-    output = format_terminal_report(report)
+    output = DiagnosticEngine.format_terminal_report(report)
 
     assert "CYGUIDE SYSTEM & ENVIRONMENT DIAGNOSTICS" in output
     assert "SYSTEM" in output
@@ -77,7 +77,7 @@ def test_missing_tool_installation_hint():
         details={"install_hint": "sudo apt install nmap"},
     )
     report = DiagnosticReport(checks=[check])
-    output = format_terminal_report(report)
+    output = DiagnosticEngine.format_terminal_report(report)
     assert "[!]" in output
     assert "Tool: nmap" in output
 
@@ -112,7 +112,7 @@ def test_app_check_and_update_tool_health_broadcasting():
                 "binary": "/usr/bin/gobuster",
             },
         }
-        with patch("cyguide.engine.diagnostics.check_tool_health", return_value=fake_health_1):
+        with patch.object(DiagnosticEngine, "check_tool_health", return_value=fake_health_1):
             res1 = app.check_and_update_tool_health()
             assert res1 == fake_health_1
             assert app._cached_tool_health == fake_health_1
@@ -121,7 +121,7 @@ def test_app_check_and_update_tool_health_broadcasting():
             assert received_messages[0].health == fake_health_1
 
         # Second check with same status should not re-broadcast
-        with patch("cyguide.engine.diagnostics.check_tool_health", return_value=fake_health_1):
+        with patch.object(DiagnosticEngine, "check_tool_health", return_value=fake_health_1):
             res2 = app.check_and_update_tool_health()
             assert res2 == fake_health_1
             assert len(received_messages) == 1
@@ -136,7 +136,7 @@ def test_app_check_and_update_tool_health_broadcasting():
                 "binary": "/usr/bin/gobuster",
             },
         }
-        with patch("cyguide.engine.diagnostics.check_tool_health", return_value=fake_health_2):
+        with patch.object(DiagnosticEngine, "check_tool_health", return_value=fake_health_2):
             res3 = app.check_and_update_tool_health()
             assert res3 == fake_health_2
             assert len(received_messages) == 2
@@ -161,7 +161,7 @@ def test_command_palette_tool_health_badge_freshness():
             "binary": "/usr/bin/gobuster",
         },
     }
-    with patch("cyguide.engine.diagnostics.check_tool_health", return_value=fake_issues):
+    with patch.object(DiagnosticEngine, "check_tool_health", return_value=fake_issues):
         cmds = list(app.get_system_commands(mock_screen))
         tool_cmd = next(c for c in cmds if "Tool Health" in c.title)
         assert "1 Issue" in tool_cmd.title
@@ -175,7 +175,7 @@ def test_command_palette_tool_health_badge_freshness():
             "binary": "/usr/bin/gobuster",
         },
     }
-    with patch("cyguide.engine.diagnostics.check_tool_health", return_value=fake_healthy):
+    with patch.object(DiagnosticEngine, "check_tool_health", return_value=fake_healthy):
         cmds = list(app.get_system_commands(mock_screen))
         tool_cmd = next(c for c in cmds if "Tool Health" in c.title)
         assert "Healthy (2/2)" in tool_cmd.title

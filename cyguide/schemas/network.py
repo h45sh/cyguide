@@ -13,10 +13,7 @@ class NetworkHost(BaseFinding):
 
     @classmethod
     def create(cls, ip: str, hostname: Optional[str] = None, os: Optional[str] = None, **kwargs):
-        return cls(
-            pik={"ip": ip},
-            data={"ip": ip, "hostname": hostname, "os": os, **kwargs},
-        )
+        return cls.from_data({"ip": ip, "hostname": hostname, "os": os, **kwargs})
 
 
 class NetworkService(BaseFinding):
@@ -42,4 +39,40 @@ class NetworkService(BaseFinding):
                 target_type="network.host", target_pik={"ip": host_ip}, via="has_service"
             ),
             data={**pik, "service_name": service_name, **kwargs},
+        )
+
+
+class NetworkNetblock(BaseFinding):
+    """An IP range with ownership data — org, ASN, CIDR. Produced by whois against an IP."""
+
+    schema_type: str = "network.netblock"
+    pik_fields: ClassVar[list[str]] = ["cidr"]
+
+    @classmethod
+    def create(cls, cidr: str, organization: Optional[str] = None, asn: Optional[str] = None):
+        pik = {"cidr": cidr.strip()}
+        return cls(pik=pik, data={**pik, "organization": organization, "asn": asn})
+
+
+class TLSCertificate(BaseFinding):
+    """A TLS certificate associated with a service. Child of network.service. Produced by sslscan, nmap-scripts."""
+
+    schema_type: str = "tls.certificate"
+    pik_fields: ClassVar[list[str]] = ["fingerprint"]
+
+    @classmethod
+    def create(cls, fingerprint: str, host_ip: str, port: int, **kwargs):
+        return cls(
+            pik={"fingerprint": fingerprint},
+            parent=Relation(
+                target_type="network.service",
+                target_pik={"host_ip": host_ip, "port": port, "protocol": "tcp"},
+                via="uses_certificate",
+            ),
+            data={
+                "fingerprint": fingerprint,
+                "host_ip": host_ip,
+                "port": port,
+                **kwargs,
+            },
         )

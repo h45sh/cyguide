@@ -22,14 +22,13 @@ from textual.message import Message
 from textual.system_commands import SystemCommandsProvider
 from textual.widgets import Button, LoadingIndicator
 
-from cyguide.common.keys import is_placeholder_key
+from cyguide.common import is_placeholder_key
 
 # Replace default emoji search icon with clean terminal glyph
 SearchIcon.icon = "›"
 
-# Ensure thin, uniform scrollbars across all screens and widgets
-from cyguide.ui.compat import setup_textual_compat
-from cyguide.ui.widgets.scrollbar import setup_thin_scrollbars
+# Ensure thin, uniform scrollbars and resilience hardening across all screens and widgets
+from cyguide.ui.compat import setup_textual_compat, setup_thin_scrollbars
 
 setup_thin_scrollbars()
 setup_textual_compat()
@@ -185,6 +184,7 @@ from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.registry import ToolRegistry
 from cyguide.engine.store import GraphStore
 from cyguide.paths import (
+    get_default_checkpoints_dir,
     get_default_data_dir,
     get_default_db_path,
     get_default_exports_dir,
@@ -192,13 +192,36 @@ from cyguide.paths import (
     get_default_scratchpad_path,
     get_default_settings_path,
 )
-from cyguide.ui.screens.home import DashboardScreen
-from cyguide.ui.screens.lazy import (
-    load_config_modal,
-    load_learning_mode,
-    load_power_mode,
-    load_tool_browser,
-)
+
+
+def _load_dashboard() -> Any:
+    from cyguide.ui.screens.home import DashboardScreen
+
+    return DashboardScreen()
+
+
+def _load_tool_browser() -> Any:
+    from cyguide.ui.screens.tool_browser import ToolBrowserScreen
+
+    return ToolBrowserScreen()
+
+
+def _load_learning_mode() -> Any:
+    from cyguide.ui.screens.learning import LearningModeScreen
+
+    return LearningModeScreen()
+
+
+def _load_power_mode() -> Any:
+    from cyguide.ui.screens.power import PowerModeScreen
+
+    return PowerModeScreen()
+
+
+def _load_config_modal() -> Any:
+    from cyguide.ui.screens.config_modal import ConfigModal
+
+    return ConfigModal()
 
 
 class CyGuideApp(App):
@@ -220,14 +243,16 @@ class CyGuideApp(App):
     ]
 
     # Register screens so they can be switched by name.
-    # Dashboard is loaded immediately, non-initial screens are loaded on first switch.
+    # Non-initial screens and dashboard are loaded on demand.
     SCREENS = {
-        "dashboard": DashboardScreen,
-        "tool_browser": load_tool_browser,
-        "learning_mode": load_learning_mode,
-        "power_mode": load_power_mode,
-        "config_modal": load_config_modal,
+        "dashboard": _load_dashboard,
+        "tool_browser": _load_tool_browser,
+        "learning_mode": _load_learning_mode,
+        "power_mode": _load_power_mode,
+        "config_modal": _load_config_modal,
     }
+
+    _disable_tooltips: bool = True
 
     def __init__(
         self,
@@ -239,6 +264,7 @@ class CyGuideApp(App):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self._disable_tooltips = True
         self.data_dir = data_dir or get_default_data_dir()
         self.db_path = db_path or get_default_db_path(self.data_dir)
         self.use_ollama = use_ollama
@@ -249,29 +275,9 @@ class CyGuideApp(App):
         self.user_env: Dict[str, str] = os.environ.copy()
         self.user_shell: str = "/bin/bash"
 
-        from rich.theme import Theme
+        from cyguide.ui.widgets.markdown import CYGUIDE_MARKDOWN_THEME
 
-        self.console.push_theme(
-            Theme(
-                {
-                    "markdown.h1": "bold #c89b3c",
-                    "markdown.h2": "bold #c89b3c",
-                    "markdown.h3": "bold #b4832e",
-                    "markdown.h4": "bold #9e7427",
-                    "markdown.h5": "bold #94a3b8",
-                    "markdown.h6": "dim #94a3b8",
-                    "markdown.block_quote": "#b4832e",
-                    "markdown.code": "bold #d5c4a1",
-                    "markdown.code_block": "#d5c4a1 on #181a1f",
-                    "markdown.list": "#b4832e",
-                    "markdown.item.number": "#b4832e",
-                    "markdown.table.header": "bold #c89b3c",
-                    "markdown.table.border": "#78521a",
-                    "markdown.link": "underline #c89b3c",
-                    "markdown.link_url": "underline #78521a",
-                }
-            )
-        )
+        self.console.push_theme(CYGUIDE_MARKDOWN_THEME)
         self._cached_tool_health: Dict[str, Dict[str, Any]] = {}
         self.navigating_sub_palette: bool = False
         self.last_palette_highlight: Optional[Any] = None
@@ -286,7 +292,7 @@ class CyGuideApp(App):
         # Persistent preferences store deep module
         self.preferences = PreferencesStore(data_dir=self.data_dir, db_path=self.db_path)
         self.settings: Dict[str, Any] = self.preferences.all()
-        self.animations_enabled: bool = self.settings.get("animations_enabled", True)
+        self.animations_enabled: bool = self.settings.get("animations_enabled", False)
 
         # Apply saved settings when not explicitly overridden by non-default CLI arguments
         if "use_ollama" in self.settings and not use_ollama:
@@ -447,6 +453,22 @@ class CyGuideApp(App):
         os.makedirs(reports_dir, mode=0o700, exist_ok=True)
         return reports_dir
 
+    def get_checkpoints_dir(self) -> str:
+        """Return the directory path for learning mode lab checkpoints."""
+        if getattr(self, "checkpoints_dir", None):
+            os.makedirs(self.checkpoints_dir, mode=0o700, exist_ok=True)
+            return self.checkpoints_dir
+        if getattr(self, "db_path", None) == ":memory:":
+            return get_default_checkpoints_dir(getattr(self, "data_dir", None))
+        if hasattr(self, "data_dir") and self.data_dir:
+            default_db = get_default_db_path(self.data_dir)
+            if os.path.abspath(self.db_path) == os.path.abspath(default_db):
+                return get_default_checkpoints_dir(self.data_dir)
+        base_dir = os.path.dirname(os.path.abspath(self.db_path))
+        checkpoints_dir = os.path.join(base_dir, "checkpoints")
+        os.makedirs(checkpoints_dir, mode=0o700, exist_ok=True)
+        return checkpoints_dir
+
     def _load_settings(self) -> Dict[str, Any]:
         path = self._get_settings_path()
         if path and os.path.exists(path):
@@ -457,15 +479,42 @@ class CyGuideApp(App):
                 return {}
         return {}
 
-    def save_settings(self, updates: Dict[str, Any]) -> None:
-        """Persist application settings updates."""
+    def save_settings(self, updates: Dict[str, Any], immediate: bool = False) -> None:
+        """Persist application settings updates with optional trailing write-behind debounce."""
         if hasattr(self, "preferences"):
-            self.preferences.update(updates)
+            self.preferences.update_cache(updates)
             self.settings = self.preferences.all()
         else:
             if not hasattr(self, "settings") or self.settings is None:
                 self.settings = {}
             self.settings.update(updates)
+
+        if immediate or not getattr(self, "is_running", False):
+            self.flush_settings()
+        else:
+            if hasattr(self, "_settings_save_handle") and self._settings_save_handle is not None:
+                try:
+                    self._settings_save_handle.cancel()
+                except Exception:
+                    pass
+                self._settings_save_handle = None
+            try:
+                loop = asyncio.get_running_loop()
+                self._settings_save_handle = loop.call_later(0.4, self.flush_settings)
+            except Exception:
+                self.flush_settings()
+
+    def flush_settings(self) -> None:
+        """Flush debounced settings cache to disk."""
+        if hasattr(self, "_settings_save_handle") and self._settings_save_handle is not None:
+            try:
+                self._settings_save_handle.cancel()
+            except Exception:
+                pass
+            self._settings_save_handle = None
+
+        if hasattr(self, "preferences"):
+            self.preferences.flush()
 
     def detect_user_shell(self) -> str:
         """Find the user's default shell."""
@@ -533,9 +582,9 @@ class CyGuideApp(App):
             if hasattr(reg, "check_health"):
                 new_health = reg.check_health()
             else:
-                from cyguide.engine.diagnostics import check_tool_health
+                from cyguide.engine.diagnostics import DiagnosticEngine
 
-                new_health = check_tool_health(reg)
+                new_health = DiagnosticEngine.check_tool_health(reg)
         except Exception:
             return getattr(self, "_cached_tool_health", {}) or {}
 
@@ -588,7 +637,9 @@ class CyGuideApp(App):
         # Initial tool health check and start real-time periodic watcher (2s interval)
         self.check_and_update_tool_health()
         if "PYTEST_CURRENT_TEST" not in os.environ and "CI" not in os.environ:
-            self.set_interval(2.0, self.check_and_update_tool_health, name="tool_health_watcher")
+            self._tool_health_timer = self.set_interval(
+                2.0, self.check_and_update_tool_health, name="tool_health_watcher"
+            )
 
         self.store = GraphStore(self.db_path)
         await self.store.initialize()
@@ -608,6 +659,7 @@ class CyGuideApp(App):
         self.power_facade.user_env = self.user_env
         self.power_facade.user_shell = self.user_shell
         self.workspace_repo = self.power_facade.workspaces
+        self.workspaces = self.workspace_repo
 
         from cyguide.engine.learning import LearningSession
 
@@ -626,12 +678,12 @@ class CyGuideApp(App):
             self.add_class("no-animations")
             self.animation_level = "none"
 
-        # Request thin blinking line cursor from terminal emulator
+        # Request thin blinking underline cursor from terminal emulator
         import sys
 
         if sys.stdout.isatty():
             try:
-                sys.stdout.write("\x1b[5 q")
+                sys.stdout.write("\x1b[3 q")
                 sys.stdout.flush()
             except Exception:
                 pass
@@ -683,6 +735,17 @@ class CyGuideApp(App):
 
     async def on_unmount(self) -> None:
         """Cleanup resources before exit."""
+        if hasattr(self, "_tool_health_timer") and self._tool_health_timer is not None:
+            try:
+                self._tool_health_timer.stop()
+            except Exception:
+                pass
+            self._tool_health_timer = None
+        try:
+            self.workers.cancel_group("shell_env")
+        except Exception:
+            pass
+        self.flush_settings()
         if hasattr(self, "power_facade") and self.power_facade is not None:
             await self.power_facade.shutdown()
         if hasattr(self, "executor") and self.executor is not None:
@@ -694,7 +757,7 @@ class CyGuideApp(App):
         """Toggle UI animations on or off via the command palette."""
         self.animations_enabled = not self.animations_enabled
         self.animation_level = "full" if self.animations_enabled else "none"
-        self.save_settings({"animations_enabled": self.animations_enabled})
+        self.save_settings({"animations_enabled": self.animations_enabled}, immediate=True)
         try:
             curr_screen = self.screen
         except Exception:
@@ -873,9 +936,7 @@ class CyGuideApp(App):
         """Record the timestamp when the shortcuts modal was opened or dismissed for debounce."""
         import time
 
-        self._last_shortcuts_toggle_time = (
-            timestamp if timestamp is not None else time.monotonic()
-        )
+        self._last_shortcuts_toggle_time = timestamp if timestamp is not None else time.monotonic()
 
     def action_show_hotkeys(self) -> None:
         """Open the F1 Shortcuts / Help dialog."""
@@ -957,6 +1018,16 @@ class CyGuideApp(App):
 
     def action_quit(self) -> None:
         """Quit the app and restore terminal cursor."""
+        if hasattr(self, "_tool_health_timer") and self._tool_health_timer is not None:
+            try:
+                self._tool_health_timer.stop()
+            except Exception:
+                pass
+            self._tool_health_timer = None
+        try:
+            self.workers.cancel_group("shell_env")
+        except Exception:
+            pass
         import sys
 
         if sys.stdout.isatty():

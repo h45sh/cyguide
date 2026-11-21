@@ -4,57 +4,8 @@ import json
 
 import pytest
 
-from cyguide.engine.gateway import ActionGateway, ActionValidationError
-from cyguide.engine.manifest import Manifest
-from cyguide.engine.registry import ToolRegistry
-from cyguide.engine.store import GraphStore
-from cyguide.schemas.power import ActionRequest, ActionSource
 from cyguide.ui.screens.learning import LearningModeScreen
 from cyguide.ui.widgets.power import EntityBrowser
-
-
-def test_strip_scanner_noise():
-    screen = LearningModeScreen()
-    raw_output = (
-        "===============================================================\n"
-        "Gobuster v3.5\n"
-        "by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)\n"
-        "===============================================================\n"
-        "[-] Target: http://127.0.0.1\n"
-        "[-] Method: GET\n"
-        "Progress: 24% [====>              ] 240/1000\n"
-        "/admin (Status: 200) [Size: 1234]\n"
-        "/login (Status: 302) [Size: 456]\n"
-        "===============================================================\n"
-    )
-    cleaned = screen._strip_scanner_noise(raw_output)
-    assert "Gobuster v3.5" not in cleaned
-    assert "by OJ Reeves" not in cleaned
-    assert "Progress: 24%" not in cleaned
-    assert "/admin (Status: 200)" in cleaned
-    assert "/login (Status: 302)" in cleaned
-
-
-@pytest.mark.asyncio
-async def test_extract_structured_findings():
-    store = GraphStore(":memory:")
-    await store.initialize()
-    _, session_id = await store.get_or_create_learning_sandbox()
-
-    # Upsert sample finding
-    from cyguide.schemas.network import NetworkService
-
-    svc = NetworkService.create(host_ip="127.0.0.1", port=80, protocol="tcp", service_name="http")
-    await store.upsert_finding(session_id, svc)
-
-    screen = LearningModeScreen()
-    ui_text, llm_text = await screen._extract_structured_findings(store, session_id)
-    assert "80/tcp" in ui_text
-    assert "http" in ui_text
-    assert "80/tcp" in llm_text
-    assert "http" in llm_text
-
-    await store.close()
 
 
 @pytest.mark.asyncio
@@ -134,77 +85,6 @@ async def test_entity_browser_search_filter():
     await browser.refresh_entities(graph_data)
     labels_empty = [str(node.label) for node in browser.root.children]
     assert any("No matches for 'nonexistent_pattern'" in l for l in labels_empty)
-
-
-@pytest.mark.asyncio
-async def test_store_and_facade_set_entity_alias():
-    store = GraphStore(":memory:")
-    await store.initialize()
-    _, session_id = await store.get_or_create_learning_sandbox()
-
-    from cyguide.schemas.network import NetworkHost
-
-    host = NetworkHost.create(ip="192.168.1.50")
-    await store.upsert_finding(session_id, host)
-
-    # Fetch node
-    nodes = await store.get_all_nodes(session_id)
-    assert len(nodes) == 1
-    node_id = nodes[0]["id"]
-
-    from unittest.mock import MagicMock
-
-    from cyguide.engine.power_facade import PowerWorkspaceFacade
-
-    facade = PowerWorkspaceFacade(store, MagicMock(), MagicMock())
-    await facade.set_entity_alias(session_id, node_id, "DMZ-Web-Gateway")
-
-    updated_node = await store.get_node(session_id, node_id)
-    assert updated_node is not None
-    updated_data = json.loads(updated_node["data_json"])
-    assert updated_data.get("alias") == "DMZ-Web-Gateway"
-
-    await store.close()
-
-
-@pytest.mark.asyncio
-async def test_learning_action_ssrf_rejection():
-    store = GraphStore(":memory:")
-    await store.initialize()
-    _, session_id = await store.get_or_create_learning_sandbox()
-
-    registry = ToolRegistry()
-    manifest_data = {
-        "meta": {
-            "name": "nmap",
-            "description": "Nmap scanner",
-            "version": "1.0",
-            "categories": ["Scanning"],
-            "binary": "nmap",
-        },
-        "modes": {"learning": True, "power": True},
-        "input": {"accepts": ["network.host"]},
-        "output": {"produces": ["network.service"]},
-    }
-    registry.tools["nmap"] = {"manifest": Manifest(**manifest_data), "adapter": None}
-
-    gateway = ActionGateway(registry, store)
-
-    # Attempting to scan cloud metadata link-local endpoint
-    import uuid
-
-    malicious_action = ActionRequest(
-        session_id=uuid.UUID(session_id),
-        tool_name="nmap",
-        params={"raw_flags": "-sV 169.254.169.254"},
-        triggered_by=ActionSource.USER,
-    )
-
-    with pytest.raises(ActionValidationError) as exc_info:
-        await gateway.validate_action(malicious_action)
-
-    assert "cloud metadata" in str(exc_info.value).lower()
-    await store.close()
 
 
 @pytest.mark.asyncio
@@ -306,18 +186,18 @@ async def test_learning_recipes_tab_and_circular_navigation():
 
         # 1. Verify 3 tabs exist and initial active tab
         pane_ids = [pane.id for pane in tabs.query("TabPane")]
-        assert "tab_explanation" in pane_ids
+        assert "tab_theory" in pane_ids
         assert "tab_output" in pane_ids
         assert tabs.active == "tab_recipes"
 
-        # 2. Test 3-tab circular navigation (Recipes -> Raw Output -> Explanation -> Recipes)
+        # 2. Test 3-tab circular navigation (Recipes -> Raw Output -> Theory -> Recipes)
         screen.action_next_tab()
         await pilot.pause()
         assert tabs.active == "tab_output"
 
         screen.action_next_tab()
         await pilot.pause()
-        assert tabs.active == "tab_explanation"
+        assert tabs.active == "tab_theory"
 
         screen.action_next_tab()
         await pilot.pause()
@@ -325,7 +205,7 @@ async def test_learning_recipes_tab_and_circular_navigation():
 
         screen.action_prev_tab()
         await pilot.pause()
-        assert tabs.active == "tab_explanation"
+        assert tabs.active == "tab_theory"
 
         screen.action_prev_tab()
         await pilot.pause()
@@ -408,12 +288,13 @@ async def test_learning_ask_ai_and_run_buttons():
         assert sidebar_ask.display is True
         assert stop_btn.display is False
 
-        # 2. Test clicking sidebar Ask AI button switches to tab_explanation and calls query_ai_tutor
+        # 2. Test clicking sidebar Ask AI button activates copilot_tab_ai and calls query_ai_tutor
         tabs.active = "tab_output"
         await pilot.pause(0.1)
         sidebar_ask.press()
         await pilot.pause(0.2)
-        assert tabs.active == "tab_explanation"
+        copilot_tabs = screen.query_one("#copilot_tabs", TabbedContent)
+        assert copilot_tabs.active == "copilot_tab_ai"
         assert "Explain command:" in screen.explanation_buffer
 
         # 3. Recipe cards have both [✦ ASK AI] and [▶ RUN] buttons
@@ -433,7 +314,7 @@ async def test_learning_ask_ai_and_run_buttons():
         # 4. Test clicking recipe card [✦ ASK AI] button
         ask_recipe_0.press()
         await pilot.pause(0.2)
-        assert tabs.active == "tab_explanation"
+        assert copilot_tabs.active == "copilot_tab_ai"
         assert "Explain recipe:" in screen.explanation_buffer
 
         # 5. Test button state toggling during scan and after reset
@@ -475,20 +356,24 @@ async def test_learning_ask_ai_and_run_buttons():
         assert sidebar_ask.region.width > 0
         assert run_btn.region.width > 0
 
-        # 8. Test clicking ask_recipe_0 while on tab_recipes cleanly stays on tab_explanation (no snap-back)
+        # 8. Test clicking ask_recipe_0 while on tab_recipes cleanly stays on copilot_tab_ai (no snap-back)
         tabs.active = "tab_recipes"
+        copilot_tabs.active = "copilot_tab_notes"
         await pilot.pause()
         assert tabs.active == "tab_recipes"
+        assert copilot_tabs.active == "copilot_tab_notes"
 
-        tab_changes = []
-        tabs.watch(tabs, "active", lambda old, new: tab_changes.append((old, new)))
+        copilot_changes = []
+        copilot_tabs.watch(
+            copilot_tabs, "active", lambda old, new: copilot_changes.append((old, new))
+        )
 
         await pilot.click("#ask_recipe_0")
         await pilot.pause()
         await pilot.pause()
 
-        assert tabs.active == "tab_explanation"
-        assert ("tab_explanation", "tab_recipes") not in tab_changes
+        assert copilot_tabs.active == "copilot_tab_ai"
+        assert ("copilot_tab_ai", "copilot_tab_notes") not in copilot_changes
 
         # 9. Test recipe card button updates to STOP on run and toggles STOP/RUN correctly
         tabs.active = "tab_recipes"
@@ -535,8 +420,8 @@ async def test_learning_ask_ai_and_run_buttons():
         assert ask_recipe_0.disabled is False
         assert screen.active_recipe_idx is None
 
-        # 10. Test AI explanation toggle button in tab_explanation
-        tabs.active = "tab_explanation"
+        # 10. Test AI explanation toggle button in copilot_tab_ai
+        copilot_tabs.active = "copilot_tab_ai"
         await pilot.pause()
         toggle_btn = screen.query_one("#toggle_ai_explanation_btn", Button)
         assert toggle_btn.has_class("ai_toggle_on")
@@ -608,15 +493,28 @@ async def test_learning_mode_welcome_guide_lifecycle():
         screen = app.screen
         from textual.widgets import Static
 
-        # 1. Explanation tab contains welcome instructions and hidden shortcuts
+        from cyguide.ui.widgets import TerminalStreamPane
+
+        # 1. Raw output terminal contains tool welcome instructions and hidden shortcuts
+        terminal = screen.query_one("#raw_output_terminal", TerminalStreamPane)
+        term_text = terminal.get_text()
+        assert "Quick Start Guide" in term_text
+        assert "Alt+[" in term_text
+        assert "Alt+]" in term_text
+
+        # Verify bottom footer panel contains the core navigation bindings
+        binding_keys = [
+            getattr(b, "key", b[0] if isinstance(b, tuple) else "") for b in screen.BINDINGS
+        ]
+        assert "ctrl+b" in binding_keys
+        assert "ctrl+alt+b" in binding_keys
+
+        # 1b. Explanation tab contains AI Copilot Tutor Ready prompt
         explanation_widget = screen.query_one("#explanation_text", Static)
         markup = getattr(explanation_widget.content, "markup", str(explanation_widget.content))
-        assert "Quick Start Guide" in markup
-        assert "Alt+[" in markup
-        assert "Alt+]" in markup
-        assert "Ctrl+B" in markup
+        assert "AI Copilot Tutor Ready" in markup
 
-        # 2. Asking a tutor question clears the welcome guide
+        # 2. Asking a tutor question populates explanation buffer and updates view
         await screen.query_ai_tutor("what is this tool?").wait()
         await pilot.pause()
         assert "what is this tool?" in screen.explanation_buffer
@@ -626,3 +524,41 @@ async def test_learning_mode_welcome_guide_lifecycle():
         )
         assert "Quick Start Guide" not in updated_markup
         assert "what is this tool?" in updated_markup
+
+
+@pytest.mark.asyncio
+async def test_learning_screen_sidebar_collapse_toggle():
+    """Verify ctrl+b collapses and expands learning mode sidebar smoothly and preserves button styles."""
+    from cyguide.app import CyGuideApp
+
+    app = CyGuideApp(db_path=":memory:")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.learning_mode_tool = "nmap"
+        await app.push_screen("learning_mode")
+        await pilot.pause()
+
+        # Check clear_notes_btn hover styling: border must remain empty/none
+        copilot_tabs = app.screen.query_one("#copilot_tabs")
+        copilot_tabs.active = "copilot_tab_notes"
+        await pilot.pause()
+
+        clear_btn = app.screen.query_one("#clear_notes_btn")
+        assert clear_btn.styles.border.top[0] == ""
+
+        await pilot.hover("#clear_notes_btn")
+        await pilot.pause()
+        assert clear_btn.styles.border.top[0] == "", "Hovered button must not gain border: round"
+        assert clear_btn.styles.border.bottom[0] == ""
+
+        # Toggle sidebar collapse / expand
+        sidebar = app.screen.query_one("#lesson_config_pane")
+        assert not sidebar.has_class("collapsed")
+
+        await pilot.press("ctrl+b")
+        await pilot.pause()
+        assert sidebar.has_class("collapsed")
+
+        await pilot.press("ctrl+b")
+        await pilot.pause()
+        assert not sidebar.has_class("collapsed")

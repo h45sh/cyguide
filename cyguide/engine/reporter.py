@@ -288,9 +288,9 @@ class SessionReportService:
             return "# Session Not Found\n"
         return self.render_markdown(data)
 
-    async def export_markdown_report(self, session_id: str, output_path: str) -> None:
-        """Generate and write a structured Markdown report to a destination file with atomic 0o600 permissions."""
-        content = await self.generate_markdown_report(session_id)
+    @staticmethod
+    def export_text_file(content: str, output_path: str) -> None:
+        """Atomically write text content to a destination file with 0o600 permissions."""
         out_dir = os.path.dirname(os.path.abspath(output_path))
         if out_dir:
             os.makedirs(out_dir, exist_ok=True)
@@ -304,6 +304,11 @@ class SessionReportService:
             os.chmod(output_path, 0o600)
         except OSError:
             pass
+
+    async def export_markdown_report(self, session_id: str, output_path: str) -> None:
+        """Generate and write a structured Markdown report to a destination file with atomic 0o600 permissions."""
+        content = await self.generate_markdown_report(session_id)
+        self.export_text_file(content, output_path)
 
     @staticmethod
     def extract_structured_findings_summary(nodes: List[Dict[str, Any]]) -> tuple[str, str]:
@@ -424,28 +429,3 @@ class SessionReportService:
         except Exception:
             nodes = []
         return self.extract_structured_findings_summary(nodes)
-
-
-# Module-level convenience functions
-def build_markdown_table_for_type(schema_type: str, nodes: List[Dict[str, Any]]) -> List[str]:
-    return SessionReportService.build_markdown_table_for_type(schema_type, nodes)
-
-
-def render_markdown_report(data: Dict[str, Any]) -> str:
-    return SessionReportService().render_markdown(data)
-
-
-async def fetch_report_data(store: GraphStore, session_id: str) -> Optional[Dict[str, Any]]:
-    return await SessionReportService(store).fetch_report_data(session_id)
-
-
-async def generate_markdown_report(store: GraphStore, session_id: str) -> str:
-    return await SessionReportService(store).generate_markdown_report(session_id)
-
-
-async def export_markdown_report(store: GraphStore, session_id: str, output_path: str) -> None:
-    await SessionReportService(store).export_markdown_report(session_id, output_path)
-
-
-async def extract_structured_findings(store: GraphStore, session_id: str) -> tuple[str, str]:
-    return await SessionReportService(store).extract_structured_findings(session_id)

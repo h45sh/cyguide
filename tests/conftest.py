@@ -1,8 +1,17 @@
 """Pytest configuration and global canonical fixtures for CyGuide."""
 
+from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List
 
 import pytest
+
+# Ensure Hypothesis persists its database and caches strictly inside tests/.hypothesis
+try:
+    import hypothesis.configuration
+
+    hypothesis.configuration.set_hypothesis_home_dir(Path(__file__).parent / ".hypothesis")
+except ImportError:
+    pass
 
 from cyguide.engine.execution_session import CommandRunner
 from cyguide.engine.explainer import ExplainerBackend

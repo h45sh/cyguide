@@ -85,4 +85,3 @@ async def test_searchsploit_parse_output(adapter):
     assert f2.pik["exploit_id"] == "EDB-29290"
     assert f2.data["cve_id"] == "CVE-2012-1823"
     assert f2.data["verified"] is False
-

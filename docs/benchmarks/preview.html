@@ -552,10 +552,10 @@
         <span class="kpi-label">Cold App Launch</span>
         <span class="kpi-target">Max: 950 ms</span>
       </div>
-      <div class="kpi-value">507.8 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">ms</span></div>
+      <div class="kpi-value">560.8 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">ms</span></div>
       <div class="kpi-footer">
         <span class="badge badge-emerald">PASS</span>
-        <span class="kpi-delta delta-pass">46.5% headroom</span>
+        <span class="kpi-delta delta-pass">41.0% headroom</span>
       </div>
     </div>
 
@@ -565,10 +565,10 @@
         <span class="kpi-label">Stream Bombardment</span>
         <span class="kpi-target">Min: 60,000 /s</span>
       </div>
-      <div class="kpi-value">96,570 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
+      <div class="kpi-value">102,845 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
       <div class="kpi-footer">
         <span class="badge badge-emerald">PASS</span>
-        <span class="kpi-delta delta-pass">+61.0% above floor</span>
+        <span class="kpi-delta delta-pass">+71.4% above floor</span>
       </div>
     </div>
 
@@ -578,10 +578,10 @@
         <span class="kpi-label">GraphStore Ingest</span>
         <span class="kpi-target">Min: 1,500 /s</span>
       </div>
-      <div class="kpi-value">2,428 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
+      <div class="kpi-value">6,852 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
       <div class="kpi-footer">
         <span class="badge badge-emerald">PASS</span>
-        <span class="kpi-delta delta-pass">+61.9% above floor</span>
+        <span class="kpi-delta delta-pass">+356.8% above floor</span>
       </div>
     </div>
 
@@ -591,10 +591,10 @@
         <span class="kpi-label">DOM Tree Virtualization</span>
         <span class="kpi-target">Max: 120 ms</span>
       </div>
-      <div class="kpi-value">45.6 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">ms</span></div>
+      <div class="kpi-value">50.2 <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">ms</span></div>
       <div class="kpi-footer">
         <span class="badge badge-emerald">PASS</span>
-        <span class="kpi-delta delta-pass">62.0% headroom</span>
+        <span class="kpi-delta delta-pass">58.2% headroom</span>
       </div>
     </div>
   </div>
@@ -606,6 +606,7 @@
     <button class="tab-btn" onclick="switchTab('tab-streaming', this)">Terminal Streaming</button>
     <button class="tab-btn" onclick="switchTab('tab-graphstore', this)">SQLite GraphStore</button>
     <button class="tab-btn" onclick="switchTab('tab-schemas', this)">Schema & DOM Search</button>
+    <button class="tab-btn" onclick="switchTab('tab-branches', this)">77-Branch Matrix</button>
     <button class="tab-btn" onclick="switchTab('tab-methodology', this)">Environment & Reproduction</button>
   </div>
 
@@ -623,28 +624,28 @@
             <tr>
               <td><strong>Cold App Launch</strong></td>
               <td>Full entrypoint import latency</td>
-              <td><strong>507.8 ms</strong></td>
+              <td><strong>560.8 ms</strong></td>
               <td><code>&lt; 950 ms</code></td>
               <td><span class="badge badge-emerald">PASS</span></td>
             </tr>
             <tr>
               <td><strong>Terminal Stream Buffer</strong></td>
               <td>Throughput @ 500k burst</td>
-              <td><strong>96,570 lines/s</strong></td>
+              <td><strong>102,845 lines/s</strong></td>
               <td><code>&gt; 60,000 lines/s</code></td>
               <td><span class="badge badge-emerald">PASS</span></td>
             </tr>
             <tr>
               <td><strong>SQLite GraphStore</strong></td>
               <td>Batch atomic ingestion (10k findings)</td>
-              <td><strong>2,428 entities/s</strong></td>
+              <td><strong>6,852 entities/s</strong></td>
               <td><code>&gt; 1,500 entities/s</code></td>
               <td><span class="badge badge-emerald">PASS</span></td>
             </tr>
             <tr>
               <td><strong>EntityBrowser DOM Virtualization</strong></td>
               <td>10k node category tree rebuild</td>
-              <td><strong>45.6 ms</strong></td>
+              <td><strong>50.2 ms</strong></td>
               <td><code>&lt; 120 ms</code></td>
               <td><span class="badge badge-emerald">PASS</span></td>
             </tr>
@@ -669,12 +670,12 @@
           <text x="165" y="89" fill="#94a3b8" font-size="12" font-family="ui-monospace, monospace" text-anchor="end">Atomic Batch</text>
 
           <!-- Bars -->
-          <rect x="180" y="20" width="273" height="32" rx="6" fill="#64748b" />
+          <rect x="180" y="20" width="26" height="32" rx="6" fill="#64748b" />
           <rect x="180" y="68" width="480" height="32" rx="6" fill="url(#emerald-grad)" />
 
           <!-- Values inside bars -->
-          <text x="195" y="41" fill="#f8fafc" font-size="12" font-weight="700" font-family="ui-monospace, monospace">2,052 findings/s (0.12s)</text>
-          <text x="195" y="89" fill="#080c14" font-size="12" font-weight="800" font-family="ui-monospace, monospace">3,606 findings/s (0.069s) — 1.8x FASTER</text>
+          <text x="195" y="41" fill="#f8fafc" font-size="12" font-weight="700" font-family="ui-monospace, monospace">1,710 findings/s (0.15s)</text>
+          <text x="195" y="89" fill="#080c14" font-size="12" font-weight="800" font-family="ui-monospace, monospace">31,345 findings/s (0.008s) — 18.3x FASTER</text>
 
           <defs>
             <linearGradient id="emerald-grad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -695,7 +696,7 @@
 
       <div class="table-controls">
         <input type="text" class="search-input" placeholder="Search module or layer..." onkeyup="filterTable(this, 'imports-table')">
-        <span class="badge badge-cyan">CLI Cold-Check: 126.4 ms</span>
+        <span class="badge badge-cyan">CLI Cold-Check: 329.5 ms</span>
       </div>
 
       <div class="table-responsive">
@@ -704,7 +705,7 @@
             <tr><th>Subsystem / Module</th><th>Measured Latency (ms)</th><th>Layer Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>pydantic</code></td><td><div class='metric-cell'><strong>83.6 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 16.5%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>rich</code></td><td><div class='metric-cell'><strong>34.7 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 6.8%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>textual</code></td><td><div class='metric-cell'><strong>166.9 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 32.9%'></div></div></div></td><td><span class='badge badge-cyan'>Dependency / Subsystem</span></td></tr><tr><td><code>aiosqlite</code></td><td><div class='metric-cell'><strong>91.6 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 18.0%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>httpx</code></td><td><div class='metric-cell'><strong>121.7 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 24.0%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>dnspython</code></td><td><div class='metric-cell'><strong>140.2 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 27.6%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.paths</code></td><td><div class='metric-cell'><strong>32.1 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 6.3%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.schemas</code></td><td><div class='metric-cell'><strong>184.1 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 36.3%'></div></div></div></td><td><span class='badge badge-cyan'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.engine.store</code></td><td><div class='metric-cell'><strong>233.3 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 45.9%'></div></div></div></td><td><span class='badge badge-cyan'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.ui.widgets.power</code></td><td><div class='metric-cell'><strong>394.8 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 77.7%'></div></div></div></td><td><span class='badge badge-amber'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.app (FULL APP)</code></td><td><div class='metric-cell'><strong>507.8 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 100.0%'></div></div></div></td><td><span class='badge badge-amber'>Full Application Entrypoint</span></td></tr><tr><td><code>cyg --version</code> (CLI Check)</td><td><div class='metric-cell'><strong>126.4 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill mini-bar-emerald' style='width: 24.9%'></div></div></div></td><td><span class='badge badge-emerald'>Fast CLI Parser Path</span></td></tr>
+            <tr><td><code>pydantic</code></td><td><div class='metric-cell'><strong>94.1 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 16.8%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>rich</code></td><td><div class='metric-cell'><strong>33.3 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 5.9%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>textual</code></td><td><div class='metric-cell'><strong>171.5 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 30.6%'></div></div></div></td><td><span class='badge badge-cyan'>Dependency / Subsystem</span></td></tr><tr><td><code>aiosqlite</code></td><td><div class='metric-cell'><strong>101.9 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 18.2%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>httpx</code></td><td><div class='metric-cell'><strong>127.1 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 22.7%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>dnspython</code></td><td><div class='metric-cell'><strong>147.9 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 26.4%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.paths</code></td><td><div class='metric-cell'><strong>35.2 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 6.3%'></div></div></div></td><td><span class='badge badge-emerald'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.schemas</code></td><td><div class='metric-cell'><strong>211.3 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 37.7%'></div></div></div></td><td><span class='badge badge-cyan'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.engine.store</code></td><td><div class='metric-cell'><strong>257.7 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 46.0%'></div></div></div></td><td><span class='badge badge-cyan'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.ui.widgets.power</code></td><td><div class='metric-cell'><strong>495.2 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 88.3%'></div></div></div></td><td><span class='badge badge-amber'>Dependency / Subsystem</span></td></tr><tr><td><code>cyguide.app (FULL APP)</code></td><td><div class='metric-cell'><strong>560.8 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill' style='width: 100.0%'></div></div></div></td><td><span class='badge badge-amber'>Full Application Entrypoint</span></td></tr><tr><td><code>cyg --version</code> (CLI Check)</td><td><div class='metric-cell'><strong>329.5 ms</strong><div class='mini-bar-track'><div class='mini-bar-fill mini-bar-emerald' style='width: 58.8%'></div></div></div></td><td><span class='badge badge-emerald'>Fast CLI Parser Path</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -723,7 +724,7 @@
             <tr><th>Stream Lines</th><th>Elapsed Time</th><th>Throughput Rate</th><th>Peak Traced RAM</th><th>Active Ring Buffer</th><th>Memory Guarantee</th></tr>
           </thead>
           <tbody>
-            <tr><td><strong>50,000</strong></td><td>0.50 s</td><td class='metric-val'><strong>100,808 lines/s</strong></td><td>8.50 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr><tr><td><strong>100,000</strong></td><td>1.04 s</td><td class='metric-val'><strong>96,268 lines/s</strong></td><td>16.84 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr><tr><td><strong>250,000</strong></td><td>2.57 s</td><td class='metric-val'><strong>97,375 lines/s</strong></td><td>42.05 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr><tr><td><strong>500,000</strong></td><td>5.18 s</td><td class='metric-val'><strong>96,570 lines/s</strong></td><td>84.07 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr>
+            <tr><td><strong>50,000</strong></td><td>0.48 s</td><td class='metric-val'><strong>103,711 lines/s</strong></td><td>8.50 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr><tr><td><strong>100,000</strong></td><td>1.00 s</td><td class='metric-val'><strong>99,579 lines/s</strong></td><td>16.84 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr><tr><td><strong>250,000</strong></td><td>2.42 s</td><td class='metric-val'><strong>103,326 lines/s</strong></td><td>42.05 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr><tr><td><strong>500,000</strong></td><td>4.86 s</td><td class='metric-val'><strong>102,845 lines/s</strong></td><td>84.07 MB</td><td><code>5000 lines</code></td><td><span class='badge badge-emerald'>O(1) Strictly Capped</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -746,7 +747,7 @@
             <tr><th>Entity Count</th><th>Batch Ingest</th><th>Throughput</th><th>Query Nodes</th><th>Query Edges</th><th>DB Export</th><th>DB Import</th><th>Disk Footprint</th></tr>
           </thead>
           <tbody>
-            <tr><td><strong>1,000</strong></td><td>0.32 s</td><td class='metric-val'><strong>3,142 /s</strong></td><td>4.6 ms</td><td>1.4 ms</td><td>52.0 ms</td><td><strong>64.5 ms</strong></td><td>1.35 MB</td></tr><tr><td><strong>5,000</strong></td><td>1.86 s</td><td class='metric-val'><strong>2,688 /s</strong></td><td>22.7 ms</td><td>7.2 ms</td><td>130.8 ms</td><td><strong>325.7 ms</strong></td><td>6.50 MB</td></tr><tr><td><strong>10,000</strong></td><td>4.12 s</td><td class='metric-val'><strong>2,428 /s</strong></td><td>47.2 ms</td><td>54.3 ms</td><td>222.0 ms</td><td><strong>664.1 ms</strong></td><td>12.92 MB</td></tr>
+            <tr><td><strong>1,000</strong></td><td>0.06 s</td><td class='metric-val'><strong>15,812 /s</strong></td><td>7.1 ms</td><td>1.4 ms</td><td>58.4 ms</td><td><strong>69.4 ms</strong></td><td>1.43 MB</td></tr><tr><td><strong>5,000</strong></td><td>0.65 s</td><td class='metric-val'><strong>7,701 /s</strong></td><td>23.4 ms</td><td>6.8 ms</td><td>135.3 ms</td><td><strong>330.5 ms</strong></td><td>6.87 MB</td></tr><tr><td><strong>10,000</strong></td><td>1.46 s</td><td class='metric-val'><strong>6,852 /s</strong></td><td>46.6 ms</td><td>13.5 ms</td><td>234.6 ms</td><td><strong>689.0 ms</strong></td><td>13.64 MB</td></tr>
           </tbody>
         </table>
       </div>
@@ -766,9 +767,9 @@
             <tr><th>Operation</th><th>Batch Size</th><th>Elapsed Time</th><th>Model Throughput</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>NetworkHost.create</code></td><td>50,000</td><td>0.47 s</td><td><strong>105,314 models/s</strong></td></tr>
-            <tr><td><code>WebEndpoint.create</code></td><td>50,000</td><td>1.19 s</td><td><strong>42,070 models/s</strong></td></tr>
-            <tr><td>Pre-compiled Regex Parser</td><td>50,000</td><td>0.022 s</td><td><strong>2,234,031 lines/s</strong></td></tr>
+            <tr><td><code>NetworkHost.create</code></td><td>50,000</td><td>0.55 s</td><td><strong>91,151 models/s</strong></td></tr>
+            <tr><td><code>WebEndpoint.create</code></td><td>50,000</td><td>1.18 s</td><td><strong>42,472 models/s</strong></td></tr>
+            <tr><td>Pre-compiled Regex Parser</td><td>50,000</td><td>0.024 s</td><td><strong>2,116,907 lines/s</strong></td></tr>
           </tbody>
         </table>
       </div>
@@ -780,14 +781,38 @@
             <tr><th>Graph Entities</th><th>Initial Tree Render</th><th>Filter Query ('10.0.1')</th><th>Fast-Path Identical Re-Render</th><th>DOM Branch Cap</th></tr>
           </thead>
           <tbody>
-            <tr><td><strong>1,000</strong></td><td><strong>13.6 ms</strong></td><td>7.7 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr><tr><td><strong>5,000</strong></td><td><strong>26.1 ms</strong></td><td>36.1 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr><tr><td><strong>10,000</strong></td><td><strong>45.6 ms</strong></td><td>73.3 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr><tr><td><strong>25,000</strong></td><td><strong>99.6 ms</strong></td><td>196.8 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr>
+            <tr><td><strong>1,000</strong></td><td><strong>14.5 ms</strong></td><td>8.5 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr><tr><td><strong>5,000</strong></td><td><strong>29.2 ms</strong></td><td>40.4 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr><tr><td><strong>10,000</strong></td><td><strong>50.2 ms</strong></td><td>72.9 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr><tr><td><strong>25,000</strong></td><td><strong>97.6 ms</strong></td><td>186.8 ms</td><td>0.01 ms</td><td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- TAB 6: METHODOLOGY -->
+  <!-- TAB 6: 77-BRANCH EXECUTION MATRIX -->
+  <div id="tab-branches" class="tab-pane">
+    <div class="section-card">
+      <div class="section-title">Comprehensive Branch Execution Matrix (77 Operations)</div>
+      <div class="section-desc">Granular microsecond-level timing and throughput profiling across all internal execution paths.</div>
+
+      <div class="table-controls">
+        <input type="text" class="search-input" placeholder="Search operation, category, or branch..." onkeyup="filterTable(this, 'branches-table')">
+        <span class="badge badge-cyan">0 Operations Profiled</span>
+      </div>
+
+      <div class="table-responsive">
+        <table id="branches-table">
+          <thead>
+            <tr><th>#</th><th>Category</th><th>Operation</th><th>Branch / Condition</th><th>Mean Latency</th><th>Throughput</th></tr>
+          </thead>
+          <tbody>
+            
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 7: METHODOLOGY -->
   <div id="tab-methodology" class="tab-pane">
     <div class="section-card">
       <div class="section-title">System & Execution Baseline</div>
@@ -796,11 +821,11 @@
       <div class="meta-grid">
         <div class="meta-item">
           <div class="meta-item-label">Report Date & Time</div>
-          <div class="meta-item-val">2026-11-17 01:01:16 UTC</div>
+          <div class="meta-item-val">2026-11-21 01:34:50 UTC</div>
         </div>
         <div class="meta-item">
           <div class="meta-item-label">Git Commit / Branch</div>
-          <div class="meta-item-val">434759a (feat/api-guardrails-and-tool-intelligence)</div>
+          <div class="meta-item-val">0b81283 (dev)</div>
         </div>
         <div class="meta-item">
           <div class="meta-item-label">Platform / Kernel</div>
@@ -816,7 +841,7 @@
         </div>
         <div class="meta-item">
           <div class="meta-item-label">Python Binary</div>
-          <div class="meta-item-val">/home/harsh/Documents/cyguide/.venv/bin/python</div>
+          <div class="meta-item-val">/home/harsh/Documents/cyguide/.venv/bin/python3</div>
         </div>
       </div>
 

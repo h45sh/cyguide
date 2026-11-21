@@ -3,20 +3,12 @@
 import asyncio
 import json
 import os
-import re
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 from uuid import UUID
 
-from rich.markdown import Markdown as RichMarkdown
 from rich.markup import escape
 from rich.text import Text
-
-
-def render_markdown(text: str) -> RichMarkdown:
-    return RichMarkdown(text, code_theme="monokai")
-
-
 from textual import events, work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -33,21 +25,15 @@ from textual.widgets import (
     TextArea,
 )
 
+from cyguide.common import CTF_FLAG_RE
+from cyguide.common.preferences import PreferencesStore
+from cyguide.engine.power_facade import send_desktop_notification
 from cyguide.paths import get_default_exports_dir, get_default_reports_dir
 from cyguide.schemas.power import ActionRequest, ActionSource, JobStatus, JobStatusEnum
 from cyguide.ui.dialogs import RenameDialog
+from cyguide.ui.widgets.markdown import render_markdown
 from cyguide.ui.widgets.power import CommandPalette, EntityBrowser, JobQueue
 from cyguide.ui.widgets.resizer import ResizeHandle
-
-
-class TextualSuspendAdapter:
-    """Adapts Textual App.suspend() context manager for ExecutionSession."""
-
-    def __init__(self, app):
-        self._app = app
-
-    def suspend(self):
-        return self._app.suspend()
 
 
 class PowerModeScreen(Screen):
@@ -70,6 +56,96 @@ class PowerModeScreen(Screen):
         Binding("ctrl+pageup", "prev_tab", "Prev Tab"),
         Binding("ctrl+pagedown", "next_tab", "Next Tab"),
         Binding("f2", "rename_entity", "Set Alias / Name"),
+        Binding("ctrl+[", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True),
+        Binding(
+            "ctrl+left_square_bracket",
+            "shrink_sidebar",
+            "Shrink Sidebar",
+            show=False,
+            priority=True,
+        ),
+        Binding("ctrl+{", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True),
+        Binding(
+            "ctrl+left_curly_bracket", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True
+        ),
+        Binding(
+            "ctrl+shift+left_square_bracket",
+            "shrink_sidebar",
+            "Shrink Sidebar",
+            show=False,
+            priority=True,
+        ),
+        Binding("ctrl+]", "expand_sidebar", "Expand Sidebar", show=False, priority=True),
+        Binding(
+            "ctrl+right_square_bracket",
+            "expand_sidebar",
+            "Expand Sidebar",
+            show=False,
+            priority=True,
+        ),
+        Binding("ctrl+}", "expand_sidebar", "Expand Sidebar", show=False, priority=True),
+        Binding(
+            "ctrl+right_curly_bracket",
+            "expand_sidebar",
+            "Expand Sidebar",
+            show=False,
+            priority=True,
+        ),
+        Binding(
+            "ctrl+shift+right_square_bracket",
+            "expand_sidebar",
+            "Expand Sidebar",
+            show=False,
+            priority=True,
+        ),
+        Binding("ctrl+alt+[", "expand_scratchpad", "Expand Scratchpad", show=False, priority=True),
+        Binding(
+            "ctrl+alt+left_square_bracket",
+            "expand_scratchpad",
+            "Expand Scratchpad",
+            show=False,
+            priority=True,
+        ),
+        Binding("ctrl+alt+{", "expand_scratchpad", "Expand Scratchpad", show=False, priority=True),
+        Binding(
+            "ctrl+alt+left_curly_bracket",
+            "expand_scratchpad",
+            "Expand Scratchpad",
+            show=False,
+            priority=True,
+        ),
+        Binding("alt+ctrl+[", "expand_scratchpad", "Expand Scratchpad", show=False, priority=True),
+        Binding(
+            "alt+ctrl+left_square_bracket",
+            "expand_scratchpad",
+            "Expand Scratchpad",
+            show=False,
+            priority=True,
+        ),
+        Binding("ctrl+alt+]", "shrink_scratchpad", "Shrink Scratchpad", show=False, priority=True),
+        Binding(
+            "ctrl+alt+right_square_bracket",
+            "shrink_scratchpad",
+            "Shrink Scratchpad",
+            show=False,
+            priority=True,
+        ),
+        Binding("ctrl+alt+}", "shrink_scratchpad", "Shrink Scratchpad", show=False, priority=True),
+        Binding(
+            "ctrl+alt+right_curly_bracket",
+            "shrink_scratchpad",
+            "Shrink Scratchpad",
+            show=False,
+            priority=True,
+        ),
+        Binding("alt+ctrl+]", "shrink_scratchpad", "Shrink Scratchpad", show=False, priority=True),
+        Binding(
+            "alt+ctrl+right_square_bracket",
+            "shrink_scratchpad",
+            "Shrink Scratchpad",
+            show=False,
+            priority=True,
+        ),
         Binding("alt+[", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True),
         Binding(
             "alt+left_square_bracket", "shrink_sidebar", "Shrink Sidebar", show=False, priority=True
@@ -119,6 +195,9 @@ class PowerModeScreen(Screen):
         # Maps tab_id (str) -> job_id (str)
         self.tab_to_job: Dict[str, str] = {}
         self._scratchpad_file: Optional[str] = None
+        self._scratchpad_loading: bool = False
+        self._scratchpad_loaded: bool = False
+        self._last_scratchpad_toggle_time: float = 0.0
         self.show_global_graph: bool = False
         self._active_subscriptions: Dict[UUID, Callable] = {}
         self._live_update_task: Optional[asyncio.Task] = None
@@ -179,7 +258,12 @@ class PowerModeScreen(Screen):
             with Vertical(id="scratchpad_pane", classes="hidden"):
                 with Horizontal(classes="pane_header"):
                     yield Label("◆ SCRATCHPAD", id="scratchpad_label", classes="pane_title")
-                yield TextArea(id="scratchpad_textarea", language="markdown", theme="vscode_dark")
+                yield TextArea(
+                    id="scratchpad_textarea",
+                    show_line_numbers=True,
+                    language="markdown",
+                    theme="cyguide",
+                )
 
         yield Static(
             "Terminal window too small (minimum 75x15).\nPlease resize your terminal or press [Esc] for Dashboard.",
@@ -247,6 +331,8 @@ class PowerModeScreen(Screen):
                 facade.on_findings_batch(self.handle_live_update_batch)
             elif hasattr(facade, "on_finding_upsert"):
                 facade.on_finding_upsert(self.handle_live_update)
+        # Pre-load scratchpad from disk in background to avoid empty-save race on first toggle
+        self._load_scratchpad()
 
     def _queue_log_chunk(self, target_log: RichLog, chunk: str) -> None:
         """Buffer raw output chunks to be flushed at 30 FPS."""
@@ -311,7 +397,7 @@ class PowerModeScreen(Screen):
             self.app.switch_screen("dashboard")
             return
 
-        session_data = await self.app.power_facade.get_session(target_id)
+        session_data = await self.app.workspaces.get_session(target_id)
         if not session_data:
             self.notify("Session no longer exists.", severity="error")
             self.app.selected_session_id = None
@@ -337,6 +423,7 @@ class PowerModeScreen(Screen):
             self.selected_node_id = None
 
             await self._restore_tabs()
+            self._load_scratchpad()
 
         try:
             palette = self.query_one("#command_palette", CommandPalette)
@@ -560,7 +647,7 @@ class PowerModeScreen(Screen):
 
         ctx = await self.app.power_facade.get_context(self.active_session_id, self.selected_node_id)
 
-        session_data = await self.app.power_facade.get_session(self.active_session_id)
+        session_data = await self.app.workspaces.get_session(self.active_session_id)
         is_closed = session_data and session_data.get("status") == "CLOSED"
         running_cnt = self.app.power_facade.get_active_jobs_count(self.active_session_id)
 
@@ -669,7 +756,7 @@ class PowerModeScreen(Screen):
             if target_sess != self.active_session_id or not self.active_session_id:
                 return
             if self.show_global_graph:
-                session_data = await self.app.power_facade.get_session(self.active_session_id)
+                session_data = await self.app.workspaces.get_session(self.active_session_id)
                 if session_data:
                     nodes = await self.app.power_facade.get_workspace_graph_snapshot(
                         session_data["workspace_id"]
@@ -689,7 +776,7 @@ class PowerModeScreen(Screen):
         if event.session_id != self.active_session_id:
             self.app.selected_session_id = event.session_id
             await self.on_screen_resume()
-            session_data = await self.app.power_facade.get_session(event.session_id)
+            session_data = await self.app.workspaces.get_session(event.session_id)
             if session_data:
                 self.notify(f"Switched to session: {session_data['name']}")
 
@@ -807,7 +894,7 @@ class PowerModeScreen(Screen):
         self.run_worker(self._handle_submission(event))
 
     async def _handle_submission(self, event: CommandPalette.Submitted) -> None:
-        session_data = await self.app.power_facade.get_session(self.active_session_id)
+        session_data = await self.app.workspaces.get_session(self.active_session_id)
         if session_data and session_data.get("status") == "CLOSED":
             self.notify(
                 "This session is archived (read-only). Press Ctrl+R to reopen.", severity="warning"
@@ -855,7 +942,7 @@ class PowerModeScreen(Screen):
             )
             return
 
-        # Note: 'sudo' execution is handled through ExecutionSession with TextualSuspendAdapter
+        # Note: 'sudo' execution is handled through ExecutionSession with self.app suspend_context
 
         # BACKGROUND MODE: Tab reuse logic
         tabs = self.query_one("#job_tabs", TabbedContent)
@@ -919,9 +1006,6 @@ class PowerModeScreen(Screen):
             Text.from_markup(f"\n[bold #38bdf8]❯[/] [bold #e2e8f0]{escape(cmd_display)}[/]\n")
         )
 
-        flag_pattern = re.compile(
-            r"(?:flag|FLAG|ctf|CTF|htb|HTB|thm|THM)\{[A-Za-z0-9_!@#$%^&*+=?.-]+\}"
-        )
         detected_flags = set()
         start_time = asyncio.get_event_loop().time()
 
@@ -953,14 +1037,14 @@ class PowerModeScreen(Screen):
                     await flush_ui_buffer()
 
                 # CTF Flag Auto-Detection
-                for match in flag_pattern.finditer(text):
+                for match in CTF_FLAG_RE.finditer(text):
                     flag_str = match.group(0)
                     if flag_str not in detected_flags:
                         detected_flags.add(flag_str)
                         await flush_ui_buffer()
                         job_log.write(
                             Text.from_markup(
-                                f"\n[bold black on #eab308] ⚑ CTF FLAG DETECTED [/] [bold #facc15]{escape(flag_str)}[/]\n"
+                                f"\n[bold black on #d97706] ⚑ CTF FLAG DETECTED [/] [bold #f59e0b]{escape(flag_str)}[/]\n"
                             )
                         )
                         self.notify(
@@ -985,7 +1069,7 @@ class PowerModeScreen(Screen):
                         pass
                     dur_str = f"{elapsed:.1f}s"
                     asyncio.create_task(
-                        self._send_desktop_notification(
+                        send_desktop_notification(
                             f"Job Finished ({dur_str})", f"'{tool_name}' completed in session"
                         )
                     )
@@ -1009,7 +1093,7 @@ class PowerModeScreen(Screen):
                 on_output=stream_output,
                 on_complete=on_complete,
                 on_error_output=stream_error,
-                suspend_context=TextualSuspendAdapter(self.app),
+                suspend_context=self.app,
             )
             await self.refresh_ui()
         except Exception as e:
@@ -1048,17 +1132,24 @@ class PowerModeScreen(Screen):
         is_animating = getattr(self.app, "animations_enabled", False)
         if is_animating:
             if is_collapsing:
-                sidebar.add_class("collapsed")
+                curr_w = int(sidebar.region.width or target_w)
+                sidebar.styles.width = curr_w
                 if resizer:
                     resizer.add_class("hidden")
+
+                def _on_power_collapse_complete() -> None:
+                    sidebar.add_class("collapsed")
+
                 sidebar.styles.animate(
                     "width",
                     value=0,
                     duration=0.2,
                     easing="in_out_cubic",
+                    on_complete=_on_power_collapse_complete,
                 )
             else:
                 sidebar.remove_class("collapsed")
+                sidebar.styles.width = 0
                 if resizer:
                     resizer.remove_class("hidden")
                 sidebar.styles.animate(
@@ -1114,12 +1205,12 @@ class PowerModeScreen(Screen):
         if not self.active_session_id:
             return
 
-        session_data = await self.app.power_facade.get_session(self.active_session_id)
+        session_data = await self.app.workspaces.get_session(self.active_session_id)
         if not session_data:
             return
 
         workspace_id = session_data["workspace_id"]
-        sessions = await self.app.power_facade.list_sessions(workspace_id)
+        sessions = await self.app.workspaces.list_sessions(workspace_id)
         if not sessions or len(sessions) <= 1:
             return
 
@@ -1142,12 +1233,12 @@ class PowerModeScreen(Screen):
         if not self.active_session_id:
             return
 
-        session_data = await self.app.power_facade.get_session(self.active_session_id)
+        session_data = await self.app.workspaces.get_session(self.active_session_id)
         if not session_data:
             return
 
         workspace_id = session_data["workspace_id"]
-        sessions = await self.app.power_facade.list_sessions(workspace_id)
+        sessions = await self.app.workspaces.list_sessions(workspace_id)
         if not sessions or len(sessions) <= 1:
             return
 
@@ -1287,80 +1378,63 @@ class PowerModeScreen(Screen):
         except Exception as e:
             self.notify(f"Failed to copy log: {e}", severity="error")
 
-    async def _send_desktop_notification(self, title: str, message: str) -> None:
-        """Send a desktop notification using notify-send if available."""
-        try:
-            import shutil
-
-            if shutil.which("notify-send"):
-                proc = await asyncio.create_subprocess_exec(
-                    "notify-send",
-                    "-a",
-                    "CyGuide",
-                    title,
-                    message,
-                    stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.DEVNULL,
-                )
-                await proc.wait()
-        except Exception:
-            pass
-
     def _read_scratchpad_from_disk(self) -> str:
-        try:
-            if hasattr(self.app, "preferences"):
-                return self.app.preferences.read_scratchpad()
-            if self.scratchpad_file == ":memory:":
-                return ""
-            if os.path.exists(self.scratchpad_file):
-                with open(self.scratchpad_file, "r", encoding="utf-8") as f:
-                    return f.read()
-            return ""
-        except Exception:
-            return ""
+        pref = getattr(self.app, "preferences", None)
+        if pref:
+            return pref.read_scratchpad()
+        return PreferencesStore(scratchpad_path=self.scratchpad_file).read_scratchpad()
 
     @work(exclusive=True, group="scratchpad_load")
     async def _async_load_scratchpad(self) -> None:
-        content = await asyncio.to_thread(self._read_scratchpad_from_disk)
+        self._scratchpad_loading = True
         try:
-            self.query_one("#scratchpad_textarea", TextArea).load_text(content)
-        except Exception:
-            pass
+            content = ""
+            if self.active_session_id and hasattr(self.app, "workspaces"):
+                try:
+                    content = await self.app.workspaces.get_session_notes(self.active_session_id)
+                except Exception:
+                    pass
+            if not content:
+                content = await asyncio.to_thread(self._read_scratchpad_from_disk)
+            try:
+                self.query_one("#scratchpad_textarea", TextArea).load_text(content or "")
+                self._scratchpad_loaded = True
+            except Exception:
+                pass
+        finally:
+            self._scratchpad_loading = False
 
     def _load_scratchpad(self) -> None:
         self._async_load_scratchpad()
 
     def _write_scratchpad_to_disk(self, content: str) -> None:
-        try:
-            if hasattr(self.app, "preferences"):
-                self.app.preferences.write_scratchpad(content)
-                return
-            if self.scratchpad_file == ":memory:":
-                return
-            scratch_dir = os.path.dirname(os.path.abspath(self.scratchpad_file))
-            if scratch_dir:
-                os.makedirs(scratch_dir, exist_ok=True)
-            fd = os.open(self.scratchpad_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            try:
-                with open(fd, "w", encoding="utf-8", closefd=False) as f:
-                    f.write(content)
-            finally:
-                os.close(fd)
-            try:
-                os.chmod(self.scratchpad_file, 0o600)
-            except OSError:
-                pass
-        except Exception:
-            pass
+        pref = getattr(self.app, "preferences", None)
+        if pref:
+            pref.write_scratchpad(content)
+        else:
+            PreferencesStore(scratchpad_path=self.scratchpad_file).write_scratchpad(content)
 
     @work(exclusive=True, group="scratchpad_save")
     async def _async_save_scratchpad(self, content: str) -> None:
+        if self.active_session_id and hasattr(self.app, "workspaces"):
+            try:
+                await self.app.workspaces.save_session_notes(self.active_session_id, content)
+            except Exception:
+                pass
         await asyncio.to_thread(self._write_scratchpad_to_disk, content)
 
     def _save_scratchpad(self, immediate: bool = False) -> None:
+        # Load-in-flight safety gate: never save if a disk load is actively reading
+        if getattr(self, "_scratchpad_loading", False):
+            return
+
         try:
             content = self.query_one("#scratchpad_textarea", TextArea).text
         except Exception:
+            return
+
+        # Uninitialized buffer safety gate: never wipe disk with empty content if never loaded
+        if not getattr(self, "_scratchpad_loaded", False) and not content.strip():
             return
 
         timer = getattr(self, "_scratchpad_debounce_timer", None)
@@ -1371,6 +1445,13 @@ class PowerModeScreen(Screen):
         if immediate:
             # Immediate write without timer (e.g. toggling pane or exiting)
             self._write_scratchpad_to_disk(content)
+            if self.active_session_id and hasattr(self.app, "workspaces"):
+                try:
+                    asyncio.create_task(
+                        self.app.workspaces.save_session_notes(self.active_session_id, content)
+                    )
+                except Exception:
+                    pass
         else:
             # Debounce rapid typing by 300ms and execute write off the UI thread
             loop = asyncio.get_event_loop()
@@ -1392,7 +1473,7 @@ class PowerModeScreen(Screen):
                 severity="warning",
             )
             return
-        node = await self.app.power_facade.get_node(self.active_session_id, self.selected_node_id)
+        node = await self.app.workspaces.get_node(self.active_session_id, self.selected_node_id)
         if not node:
             return
         pik = json.loads(node.get("pik_json", "{}"))
@@ -1401,7 +1482,7 @@ class PowerModeScreen(Screen):
 
         async def handle_alias(new_alias: str) -> None:
             if new_alias:
-                await self.app.power_facade.set_entity_alias(
+                await self.app.workspaces.set_entity_alias(
                     self.active_session_id, self.selected_node_id, new_alias
                 )
                 self.notify(f"Entity alias updated to: {new_alias}")
@@ -1423,36 +1504,119 @@ class PowerModeScreen(Screen):
             pass
         return False
 
+    def _shrink_power_sidebar(self) -> None:
+        """Shrink left power sidebar width."""
+        try:
+            pane = self.query_one("#power_sidebar")
+            curr = int(
+                pane.styles.width.value
+                if pane.styles.width and pane.styles.width.value
+                else (pane.region.width or 34)
+            )
+            new_w = max(20, curr - 4)
+            pane.add_class("-fast-stepping")
+            pane.styles.width = new_w
+            if hasattr(self.app, "settings"):
+                self.app.settings["power_sidebar_width"] = new_w
+            if hasattr(self.app, "save_settings"):
+                self.app.save_settings({"power_sidebar_width": new_w})
+            try:
+                self.set_timer(0.2, lambda: pane.remove_class("-fast-stepping"))
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _expand_power_sidebar(self) -> None:
+        """Expand left power sidebar width."""
+        try:
+            pane = self.query_one("#power_sidebar")
+            curr = int(
+                pane.styles.width.value
+                if pane.styles.width and pane.styles.width.value
+                else (pane.region.width or 34)
+            )
+            new_w = min(80, curr + 4)
+            pane.add_class("-fast-stepping")
+            pane.styles.width = new_w
+            if hasattr(self.app, "settings"):
+                self.app.settings["power_sidebar_width"] = new_w
+            if hasattr(self.app, "save_settings"):
+                self.app.save_settings({"power_sidebar_width": new_w})
+            try:
+                self.set_timer(0.2, lambda: pane.remove_class("-fast-stepping"))
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def action_expand_scratchpad(self) -> None:
+        """Expand right scratchpad sidebar width on Ctrl+Alt+[."""
+        try:
+            pane = self.query_one("#scratchpad_pane")
+            resizer = None
+            try:
+                resizer = self.query_one("#scratchpad_resizer")
+            except Exception:
+                pass
+            if pane.has_class("hidden") or not pane.display:
+                self._load_scratchpad()
+                pane.remove_class("hidden")
+                pane.display = True
+                if resizer:
+                    resizer.remove_class("hidden")
+                    resizer.display = True
+            curr = int(
+                pane.styles.width.value
+                if pane.styles.width and pane.styles.width.value
+                else (pane.region.width or 32)
+            )
+            new_w = min(70, curr + 4)
+            pane.add_class("-fast-stepping")
+            pane.styles.width = new_w
+            if hasattr(self.app, "settings"):
+                self.app.settings["scratchpad_width"] = new_w
+            if hasattr(self.app, "save_settings"):
+                self.app.save_settings({"scratchpad_width": new_w})
+            try:
+                self.set_timer(0.2, lambda: pane.remove_class("-fast-stepping"))
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def action_shrink_scratchpad(self) -> None:
+        """Shrink right scratchpad sidebar width on Ctrl+Alt+]."""
+        try:
+            pane = self.query_one("#scratchpad_pane")
+            if pane.has_class("hidden") or not pane.display:
+                return
+            curr = int(
+                pane.styles.width.value
+                if pane.styles.width and pane.styles.width.value
+                else (pane.region.width or 32)
+            )
+            new_w = max(20, curr - 4)
+            pane.add_class("-fast-stepping")
+            pane.styles.width = new_w
+            if hasattr(self.app, "settings"):
+                self.app.settings["scratchpad_width"] = new_w
+            if hasattr(self.app, "save_settings"):
+                self.app.save_settings({"scratchpad_width": new_w})
+            try:
+                self.set_timer(0.2, lambda: pane.remove_class("-fast-stepping"))
+            except Exception:
+                pass
+        except Exception:
+            pass
+
     def action_shrink_sidebar(self) -> None:
         try:
             if self._is_scratchpad_focused():
                 # Right-docked Scratchpad: Alt+[ moves boundary left, expanding the scratchpad
-                pane = self.query_one("#scratchpad_pane")
-                curr = int(
-                    pane.styles.width.value
-                    if pane.styles.width and pane.styles.width.value
-                    else (pane.region.width or 32)
-                )
-                new_w = min(70, curr + 4)
-                pane.styles.width = new_w
-                if hasattr(self.app, "settings"):
-                    self.app.settings["scratchpad_width"] = new_w
-                if hasattr(self.app, "save_settings"):
-                    self.app.save_settings({"scratchpad_width": new_w})
+                self.action_expand_scratchpad()
             else:
-                pane = self.query_one("#power_sidebar")
-                curr = int(
-                    pane.styles.width.value
-                    if pane.styles.width and pane.styles.width.value
-                    else (pane.region.width or 34)
-                )
-                new_w = max(20, curr - 4)
-                pane.styles.width = new_w
-                if hasattr(self.app, "settings"):
-                    self.app.settings["power_sidebar_width"] = new_w
-                if hasattr(self.app, "save_settings"):
-                    self.app.save_settings({"power_sidebar_width": new_w})
-            self.refresh(layout=True)
+                self._shrink_power_sidebar()
         except Exception:
             pass
 
@@ -1460,38 +1624,63 @@ class PowerModeScreen(Screen):
         try:
             if self._is_scratchpad_focused():
                 # Right-docked Scratchpad: Alt+] moves boundary right, shrinking the scratchpad
-                pane = self.query_one("#scratchpad_pane")
-                curr = int(
-                    pane.styles.width.value
-                    if pane.styles.width and pane.styles.width.value
-                    else (pane.region.width or 32)
-                )
-                new_w = max(20, curr - 4)
-                pane.styles.width = new_w
-                if hasattr(self.app, "settings"):
-                    self.app.settings["scratchpad_width"] = new_w
-                if hasattr(self.app, "save_settings"):
-                    self.app.save_settings({"scratchpad_width": new_w})
+                self.action_shrink_scratchpad()
             else:
-                pane = self.query_one("#power_sidebar")
-                curr = int(
-                    pane.styles.width.value
-                    if pane.styles.width and pane.styles.width.value
-                    else (pane.region.width or 34)
-                )
-                new_w = min(80, curr + 4)
-                pane.styles.width = new_w
-                if hasattr(self.app, "settings"):
-                    self.app.settings["power_sidebar_width"] = new_w
-                if hasattr(self.app, "save_settings"):
-                    self.app.save_settings({"power_sidebar_width": new_w})
-            self.refresh(layout=True)
+                self._expand_power_sidebar()
         except Exception:
             pass
 
     def on_key(self, event: events.Key) -> None:
         key = event.key
         if key in (
+            "ctrl+[",
+            "ctrl+left_square_bracket",
+            "ctrl+left_square_brace",
+            "ctrl+{",
+            "ctrl+left_curly_bracket",
+            "ctrl+shift+left_square_bracket",
+        ):
+            event.stop()
+            event.prevent_default()
+            self._shrink_power_sidebar()
+        elif key in (
+            "ctrl+]",
+            "ctrl+right_square_bracket",
+            "ctrl+right_square_brace",
+            "ctrl+}",
+            "ctrl+right_curly_bracket",
+            "ctrl+shift+right_square_bracket",
+        ):
+            event.stop()
+            event.prevent_default()
+            self._expand_power_sidebar()
+        elif key in (
+            "ctrl+alt+[",
+            "ctrl+alt+left_square_bracket",
+            "ctrl+alt+{",
+            "ctrl+alt+left_curly_bracket",
+            "alt+ctrl+[",
+            "alt+ctrl+left_square_bracket",
+            "alt+ctrl+{",
+            "alt+ctrl+left_curly_bracket",
+        ):
+            event.stop()
+            event.prevent_default()
+            self.action_expand_scratchpad()
+        elif key in (
+            "ctrl+alt+]",
+            "ctrl+alt+right_square_bracket",
+            "ctrl+alt+}",
+            "ctrl+alt+right_curly_bracket",
+            "alt+ctrl+]",
+            "alt+ctrl+right_square_bracket",
+            "alt+ctrl+}",
+            "alt+ctrl+right_curly_bracket",
+        ):
+            event.stop()
+            event.prevent_default()
+            self.action_shrink_scratchpad()
+        elif key in (
             "alt+[",
             "alt+left_square_bracket",
             "alt+{",
@@ -1519,6 +1708,16 @@ class PowerModeScreen(Screen):
         await self.refresh_ui()
 
     def action_toggle_scratchpad(self) -> None:
+        try:
+            loop = asyncio.get_event_loop()
+            now = loop.time()
+        except RuntimeError:
+            now = 0.0
+        last_toggle = getattr(self, "_last_scratchpad_toggle_time", 0.0)
+        if now > 0 and (now - last_toggle) < 0.2:
+            return
+        self._last_scratchpad_toggle_time = now
+
         pane = self.query_one("#scratchpad_pane")
         try:
             resizer = self.query_one("#scratchpad_resizer")
@@ -1526,7 +1725,8 @@ class PowerModeScreen(Screen):
             resizer = None
 
         if pane.has_class("hidden") or not pane.display:
-            self._load_scratchpad()
+            if not getattr(self, "_scratchpad_loaded", False):
+                self._load_scratchpad()
             pane.remove_class("hidden")
             pane.display = True
             if resizer:
@@ -1544,6 +1744,9 @@ class PowerModeScreen(Screen):
 
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
         if event.text_area.id == "scratchpad_textarea":
+            if getattr(self, "_scratchpad_loading", False):
+                return
+            self._scratchpad_loaded = True
             self._save_scratchpad(immediate=False)
 
     @work(exclusive=True, group="export_session")
@@ -1568,7 +1771,7 @@ class PowerModeScreen(Screen):
             await asyncio.to_thread(os.makedirs, reports_dir, exist_ok=True)
             await asyncio.to_thread(os.makedirs, exports_dir, exist_ok=True)
 
-            session = await self.app.power_facade.get_session(self.active_session_id)
+            session = await self.app.workspaces.get_session(self.active_session_id)
             if not session:
                 self.notify("Session not found.", severity="error")
                 return
@@ -1583,10 +1786,10 @@ class PowerModeScreen(Screen):
             db_path = os.path.join(exports_dir, f"archive_{slug}_{timestamp}.db")
 
             # Generate Report
-            await self.app.power_facade.export_markdown_report(self.active_session_id, report_path)
+            await self.app.workspaces.export_markdown_report(self.active_session_id, report_path)
 
             # Export DB
-            await self.app.power_facade.export_session(self.active_session_id, db_path)
+            await self.app.workspaces.export_session(self.active_session_id, db_path)
 
             self.notify(f"Report: {report_path}", timeout=6.0)
             self.notify(f"Database: {db_path}", timeout=6.0)
@@ -1597,11 +1800,11 @@ class PowerModeScreen(Screen):
         """Reopen an archived session back to ACTIVE status."""
         if not self.active_session_id:
             return
-        session = await self.app.power_facade.get_session(self.active_session_id)
+        session = await self.app.workspaces.get_session(self.active_session_id)
         if not session:
             return
         if session.get("status") == "CLOSED":
-            await self.app.power_facade.reopen_session(self.active_session_id)
+            await self.app.workspaces.reopen_session(self.active_session_id)
             self.notify(f"Reopened session '{session.get('name')}' to ACTIVE.")
             await self.refresh_ui()
         else:

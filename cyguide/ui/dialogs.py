@@ -54,13 +54,21 @@ SHORTCUTS_MD = """
 
 ## Learning Mode (Guided Lesson Screen)
 * **`F1`**: Show Shortcuts / Help dialog
-* **`Ctrl+Left` / `Ctrl+Right`**: Cycle Tabs (*Recipes* ➔ *Raw Output* ➔ *Explanation*)
+* **`Ctrl+Left` / `Ctrl+Right`**: Cycle Workbench Tabs (*Recipes* ➔ *Raw Output* ➔ *Theory*)
+* **`Ctrl+I`**: Focus AI Copilot Tutor Tab & chat input
+* **`Ctrl+N`**: Focus Student Notes Scratchpad
+* **`Ctrl+Alt+E`**: Export Student Notes to Markdown file
 * **`Ctrl+B`**: Toggle Lesson Sidebar (show / collapse)
-* **`Alt+[` / `Alt+]` (or `Alt+{` / `Alt+}`)**: Shrink / Expand Sidebar width
+* **`Ctrl+Alt+B`**: Toggle AI Copilot Panel (show / collapse)
+* **`Ctrl+[` / `Ctrl+]` (or `Alt+[` / `Alt+]`)**: Shrink / Expand Left Sidebar width
+* **`Ctrl+Alt+[` / `Ctrl+Alt+]`**: Expand / Shrink Right Copilot width
+* **`Ctrl+S` / `Ctrl+O`**: Save / Load Lab Checkpoint (.cyglab)
+* **`Ctrl+Alt+R`**: Reset Lab Session (clears active scan & notes)
+* **`Ctrl+G`**: Toggle Sidebar Graph View / Recipes View
 * **`Enter` / `▶ RUN SCAN`**: Execute configured tool command
 * **`■ STOP SCAN`**: Stop currently running tool scan
 * **`✦ ASK AI`**: Ask AI Tutor to explain active command or workflow recipe
-* **`● AI: ON / OFF`**: Toggle live automated AI explanations in toolbar
+* **`● AI: ON / OFF`**: Toggle live automated AI explanations in copilot header
 * **`COPY` / `Ctrl+Y`**: Copy explanations or raw terminal output to clipboard
 * **AI Tutor Chat (`/` commands)**:
   - `/summary` — Summarize scan findings and risk profile
@@ -83,7 +91,8 @@ SHORTCUTS_MD = """
 * **`Ctrl+Tab / Ctrl+Shift+Tab`**: Switch Sessions
 * **`Ctrl+Right / Ctrl+Left`**: Switch Sessions (Alt)
 * **`Ctrl+B`**: Toggle Sidebar (Hide Browser & Job Queue)
-* **`Alt+[` / `Alt+]`**: Shrink / Expand Sidebar Width (or Scratchpad when focused)
+* **`Ctrl+[` / `Ctrl+]` (or `Alt+[` / `Alt+]`)**: Shrink / Expand Left Sidebar Width
+* **`Ctrl+Alt+[` / `Ctrl+Alt+]`**: Expand / Shrink Right Scratchpad Width
 * **`Ctrl+N`**: Toggle Note Taking Scratchpad
 * **`Ctrl+G`**: Toggle Global Entity Graph (Workspace-wide view)
 * **`Ctrl+E`**: Export Session Report & Database Archive
@@ -99,6 +108,64 @@ SHORTCUTS_MD = """
 * **`F2`**: Rename / Set Custom Alias for Selected Entity
 * **`Type in Search Box`**: Real-time filtering of hosts, ports, services, domains, and aliases
 """
+
+
+class ConfirmationDialog(ModalScreen[bool]):
+    """A generic centered confirmation dialog."""
+
+    def __init__(
+        self,
+        message: str,
+        confirm_label: str = "Confirm",
+        cancel_label: str = "Cancel",
+        is_destructive: bool = True,
+    ):
+        super().__init__()
+        self.message = message
+        self.confirm_label = confirm_label
+        self.cancel_label = cancel_label
+        self.is_destructive = is_destructive
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm_dialog_card"):
+            yield Label(self.message, id="dialog_message")
+            with Horizontal(classes="dialog_buttons"):
+                variant = "error" if self.is_destructive else "primary"
+                yield Button(self.confirm_label, variant=variant, id="confirm")
+                yield Button(self.cancel_label, variant="default", id="cancel")
+
+    def on_mount(self) -> None:
+        def focus_default():
+            try:
+                target_id = "#cancel" if self.is_destructive else "#confirm"
+                self.query_one(target_id, Button).focus()
+            except Exception:
+                pass
+
+        self.call_after_refresh(focus_default)
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key in ("left", "right", "up", "down"):
+            event.stop()
+            if self.query_one("#confirm", Button).has_focus:
+                self.query_one("#cancel", Button).focus()
+            else:
+                self.query_one("#confirm", Button).focus()
+        elif event.key == "escape":
+            event.stop()
+            self.dismiss(False)
+
+    def dismiss(self, result: bool = False) -> Any:
+        if getattr(self, "_dismissed", False):
+            return None
+        self._dismissed = True
+        return super().dismiss(result)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "confirm":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
 
 
 class RenameDialog(ModalScreen[str]):
@@ -187,9 +254,9 @@ _RICH_SHORTCUTS = None
 def get_rich_shortcuts():
     global _RICH_SHORTCUTS
     if _RICH_SHORTCUTS is None:
-        from rich.markdown import Markdown as RichMarkdown
+        from cyguide.ui.widgets.markdown import render_markdown
 
-        _RICH_SHORTCUTS = RichMarkdown(SHORTCUTS_MD.strip(), justify="left", code_theme="monokai")
+        _RICH_SHORTCUTS = render_markdown(SHORTCUTS_MD.strip(), code_theme="monokai")
     return _RICH_SHORTCUTS
 
 

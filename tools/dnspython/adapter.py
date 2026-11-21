@@ -15,6 +15,10 @@ class DnsPythonAdapter(ToolAdapter):
 
     def validate_install(self) -> bool:
         """Dnspython is a bundled Python dependency, always valid if importable."""
+        import sys
+
+        if "dns.resolver" in sys.modules:
+            return True
         try:
             import dns.resolver  # noqa: F401
 

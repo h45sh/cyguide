@@ -8,7 +8,7 @@ Decouples subprocess output streaming from Textual layout calculation:
 """
 
 from collections import deque
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from rich.segment import Segment
 from rich.style import Style as RichStyle
@@ -30,7 +30,7 @@ class TerminalStreamPane(ScrollView, can_focus=True):
         color: #f1f5f9;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 0 1;
+        padding: 0 0 0 1;
     }
     """
 
@@ -53,6 +53,18 @@ class TerminalStreamPane(ScrollView, can_focus=True):
         if chunk:
             self._pending_chunks.append(chunk)
 
+    def write_line(self, line: str) -> None:
+        """Enqueue a single line into the terminal stream, ensuring newline termination."""
+        if line:
+            self.write(line if line.endswith("\n") else f"{line}\n")
+
+    def write_lines(self, lines: Iterable[str]) -> None:
+        """Enqueue multiple lines into the terminal stream and flush immediately."""
+        for line in lines:
+            if line:
+                self.write(line if line.endswith("\n") else f"{line}\n")
+        self.flush()
+
     def update(self, text: str) -> None:
         """Clear existing buffer and replace with new text immediately."""
         self.clear()
@@ -69,6 +81,11 @@ class TerminalStreamPane(ScrollView, can_focus=True):
         self._ansi_cache.clear()
         self.virtual_size = Size(0, 0)
         self.refresh()
+
+    @property
+    def line_count(self) -> int:
+        """Return the number of committed lines in the circular ring buffer."""
+        return len(self._lines)
 
     def get_text(self) -> str:
         """Return all current lines in buffer as a single concatenated string."""
@@ -119,7 +136,10 @@ class TerminalStreamPane(ScrollView, can_focus=True):
     def _get_parsed_text(self, line_str: str) -> Text:
         txt = self._ansi_cache.get(line_str)
         if txt is None:
-            txt = Text.from_ansi(line_str)
+            if "\x1b" in line_str:
+                txt = Text.from_ansi(line_str)
+            else:
+                txt = Text(line_str)
             if len(self._ansi_cache) > 2000:
                 self._ansi_cache.clear()
             self._ansi_cache[line_str] = txt
@@ -138,10 +158,11 @@ class TerminalStreamPane(ScrollView, can_focus=True):
             return Strip.blank(self.size.width, self.rich_style)
 
         try:
-            txt = self._get_parsed_text(line_str).copy()
+            txt = self._get_parsed_text(line_str)
             selection = self.text_selection
             if selection is not None:
                 if (select_span := selection.get_span(idx)) is not None:
+                    txt = txt.copy()
                     start, end = select_span
                     txt_len = len(txt)
                     if end == -1 or end > txt_len:
@@ -152,15 +173,19 @@ class TerminalStreamPane(ScrollView, can_focus=True):
                         selection_style = "reverse"
                     txt.stylize(selection_style, start, end)
 
+            base_style = self.rich_style
+            if base_style.bgcolor is None:
+                base_style = base_style + RichStyle(bgcolor="#0f1114")
+
             segments = []
             curr_x = 0
             for seg in txt.render(self.app.console):
-                seg_style = seg.style or self.rich_style
+                seg_style = (base_style + seg.style) if seg.style else base_style
                 new_style = seg_style + RichStyle(meta={"offset": (curr_x, idx)})
                 segments.append(Segment(seg.text, new_style))
                 curr_x += len(seg.text)
 
             strip = Strip(segments)
-            return strip.crop_extend(scroll_x, scroll_x + self.size.width, self.rich_style)
+            return strip.crop_extend(scroll_x, scroll_x + self.size.width, base_style)
         except Exception:
             return Strip.blank(self.size.width, self.rich_style)

@@ -47,3 +47,26 @@ def test_canonicalize_mapping():
         "nested": {"url": "http://foo.com/BAR"},
         "tags": ["ONE", "TWO"],
     }
+
+
+def test_strip_scanner_noise():
+    from cyguide.common import strip_scanner_noise
+
+    raw_output = (
+        "===============================================================\n"
+        "Gobuster v3.5\n"
+        "by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)\n"
+        "===============================================================\n"
+        "[-] Target: http://127.0.0.1\n"
+        "[-] Method: GET\n"
+        "Progress: 24% [====>              ] 240/1000\n"
+        "/admin (Status: 200) [Size: 1234]\n"
+        "/login (Status: 302) [Size: 456]\n"
+        "===============================================================\n"
+    )
+    cleaned = strip_scanner_noise(raw_output)
+    assert "Gobuster v3.5" not in cleaned
+    assert "by OJ Reeves" not in cleaned
+    assert "Progress: 24%" not in cleaned
+    assert "/admin (Status: 200)" in cleaned
+    assert "/login (Status: 302)" in cleaned

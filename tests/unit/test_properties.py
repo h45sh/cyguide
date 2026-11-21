@@ -13,11 +13,16 @@ Enforces algebraic laws and system invariants across the codebase:
    - Commutativity: Upserting findings {A, B} in any order yields the exact same graph state.
 """
 
+from pathlib import Path
+
 import pytest
 
 pytestmark = pytest.mark.tier0
 
 hypothesis = pytest.importorskip("hypothesis")
+if hasattr(hypothesis, "configuration"):
+    hypothesis.configuration.set_hypothesis_home_dir(Path(__file__).parents[1] / ".hypothesis")
+
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -303,4 +308,3 @@ TestGraphStoreStateMachine.settings = settings(
     deadline=None,
     suppress_health_check=[HealthCheck.too_slow],
 )
-

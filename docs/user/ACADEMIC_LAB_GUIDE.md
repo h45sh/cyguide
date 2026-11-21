@@ -25,12 +25,21 @@ Students can install CyGuide directly on their Linux workstations, virtual machi
 docker run -it --rm --net=host -v ~/.cyguide:/root/.cyguide ghcr.io/h45sh/cyguide
 ```
 
-### 2. Instructing Students to Export Sessions
+### 2. Embedded Mock Practice Server (`cyg lab start`)
+CyGuide includes an embedded offline mock web target designed for hermetic classroom exercises without requiring live external target VMs or internet access:
+
+```bash
+# Start embedded offline practice target on loopback
+cyg lab start --port 8888
+```
+Students can immediately practice against `http://127.0.0.1:8888`, discovering simulated endpoints, custom security headers, `/robots.txt`, and sample application paths safely and legally.
+
+### 3. Instructing Students to Export Sessions
 At the end of an assigned CTF or network audit lab, instruct students to export their investigation:
 
 ```bash
 # Student command line export
-cyg export <session_id> student_submission.db --report student_report.md
+cyg session export <session_id> student_submission.db -r student_report.md
 ```
 
 This exports:
@@ -38,11 +47,11 @@ This exports:
 * The complete chronological audit log of all executed commands and raw tool outputs.
 * An automatically synthesized technical summary in Markdown.
 
-### 3. Importing & Grading Submissions
+### 4. Importing & Grading Submissions
 The instructor or teaching assistant downloads `student_submission.db` and imports it into their own local CyGuide dashboard:
 
 ```bash
-cyg import student_submission.db
+cyg session import student_submission.db
 ```
 
 #### What the Instructor Can Verify:
@@ -59,6 +68,10 @@ For beginner and intermediate students, CyGuide's **Learning Mode** acts as an i
 * **Curated Tool Recipes**: Step through safe, standardized command recipes for `nmap`, `gobuster`, `nikto`, `ffuf`, `nuclei`, and DNS tools.
 * **Flag Inspections**: Explains what each flag (e.g., `-sS`, `-sV`, `-Pn`) does under the hood before execution.
 * **Socratic AI Tutor**: Ask clarifying questions about network behaviors, protocol mechanics, and remediation steps without leaving the terminal.
+* **Universal Multi-Tool Progression**: Seamlessly switch between security tools during a single lab session (e.g., scan ports with `nmap`, brute-force endpoints with `gobuster`, inspect HTTP headers with `nikto`). Tool flags, target entries, and recipe selections are automatically cached per tool.
+* **Multi-Tool Knowledge Graph (`Ctrl+G`)**: Discovered entities (hosts, services, endpoints, vulnerabilities) accumulate into a unified relational graph throughout the student's investigation.
+* **Lab Notes & Markdown Export**: Students record observation notes directly in the Notes tab (`Ctrl+N` / Notes tab), which can be exported anytime via the `↓` Export button to a formatted Markdown lab report (`exports/notes_*.md`).
+* **Universal Lab Checkpoints (`.cyglab`)**: Students snapshot their entire lab exercise (`Ctrl+S` / `⤓ SAVE`) into a standalone `.cyglab` SQLite archive. The file bundles all command stdout, multi-tool graph entities, tutor dialogues, and notes, providing an immutable proof-of-work artifact for course grading and peer review. Instructors can reload the submission (`Ctrl+O` / `⤒ LOAD`) to inspect findings and command logs interactively.
 
 ### 2. Power Mode (Open Labs & CTFs)
 During open-ended capture-the-flag competitions or capstone penetration testing exercises, students use **Power Mode**:
@@ -74,5 +87,7 @@ During open-ended capture-the-flag competitions or capstone penetration testing 
 | :--- | :--- | :--- |
 | **Intro to Cybersecurity** | Learning Mode (`nmap`, `whois`, `dnspython`) | Understanding port scanning, TCP handshakes, and DNS enumeration. |
 | **Web Application Security** | Learning Mode (`gobuster`, `ffuf`, `nikto`) | Discovering hidden endpoints, directory brute-forcing, and HTTP status codes. |
+| **Web Exploitation & DB Auditing** | Learning & Power Mode (`sqlmap`) | Detecting SQL injection vulnerabilities and understanding query parameterization. |
+| **Network Auditing & AD Security** | Learning & Power Mode (`netexec`) | Protocol enumeration across SMB/SSH/LDAP and credential security. |
 | **Ethical Hacking & Pentesting** | Power Mode (Multi-tool correlation) | Conducting full-scope penetration tests with stateful graph tracking. |
 | **Vulnerability Assessment** | Power Mode (`nuclei`, `searchsploit`) | Mapping discovered services to Exploit-DB references and CVE advisories. |

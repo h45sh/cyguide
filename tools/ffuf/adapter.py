@@ -3,7 +3,6 @@
 import json
 import re
 import shlex
-import shutil
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from cyguide.engine.adapter import ToolAdapter
@@ -20,10 +19,14 @@ class FfufAdapter(ToolAdapter):
         r"(?:\.(?:env|git|bak|old|config|conf|json|yml|yaml|sql|db|sqlite|tar|gz|zip)|\b(?:admin|backup|secrets?|credentials?))\b",
         re.IGNORECASE,
     )
+    LINE_PATTERN = re.compile(
+        r"^(\S+)\s+\[Status:\s*(\d+),\s*Size:\s*(\d+),\s*Words:\s*(\d+),\s*Lines:\s*(\d+)",
+        re.MULTILINE,
+    )
 
     def validate_install(self) -> bool:
         """Check if ffuf binary is available in PATH."""
-        return shutil.which("ffuf") is not None
+        return self.is_binary_available("ffuf")
 
     def sanitize_output(self, raw_stdout: str) -> str:
         """Strip ffuf ASCII art, progress lines, and metadata blocks."""
@@ -38,7 +41,7 @@ class FfufAdapter(ToolAdapter):
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         """Construct the ffuf command line execution."""
         # 1. Resolve target URL
-        url = self._extract_url(target)
+        url = self.extract_url(target)
 
         # 2. Process flags and substitute macros
         raw_flags = params.get("raw_flags", "").strip()
@@ -75,17 +78,7 @@ class FfufAdapter(ToolAdapter):
         return args
 
     def _extract_url(self, target: BaseFinding) -> Optional[str]:
-        if target.schema_type == "web.endpoint":
-            return target.pik.get("url") or target.data.get("url")
-        if target.schema_type == "network.host":
-            ip = target.pik.get("ip")
-            return f"http://{ip}" if ip else None
-        if target.schema_type == "dns.record":
-            domain = (
-                target.pik.get("domain") or target.data.get("domain") or target.data.get("value")
-            )
-            return f"http://{domain}" if domain else None
-        return None
+        return self.extract_url(target)
 
     async def parse_output(
         self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
@@ -138,13 +131,8 @@ class FfufAdapter(ToolAdapter):
             return
 
         # 2. Fallback: Parse line-by-line CLI output
-        # e.g.: "admin                   [Status: 200, Size: 1256, Words: 84, Lines: 15, Duration: 4ms]"
-        line_pattern = re.compile(
-            r"^(\S+)\s+\[Status:\s*(\d+),\s*Size:\s*(\d+),\s*Words:\s*(\d+),\s*Lines:\s*(\d+)",
-            re.MULTILINE,
-        )
-        base_url = self._extract_url(target) or ""
-        for match in line_pattern.finditer(cleaned):
+        base_url = self.extract_url(target) or ""
+        for match in self.LINE_PATTERN.finditer(cleaned):
             word, status_str, size_str, words_str, lines_str = match.groups()
             endpoint_url = f"{base_url.rstrip('/')}/{word.lstrip('/')}"
             status_code = int(status_str)

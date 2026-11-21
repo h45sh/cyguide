@@ -10,6 +10,7 @@ Similar to generate_schema_registry.py:
 
 import argparse
 import asyncio
+import json
 import os
 import platform
 import subprocess
@@ -85,10 +86,16 @@ def bench_imports(python_bin: str) -> Dict[str, Any]:
     cli_ms = 0.0
     if os.path.exists(cyg_bin):
         t0 = time.perf_counter()
-        subprocess.run([cyg_bin, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        subprocess.run(
+            [cyg_bin, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
+        )
         cli_ms = (time.perf_counter() - t0) * 1000
 
-    return {"subsystems": latencies, "full_app_ms": latencies.get("cyguide.app (FULL APP)", 0.0), "cli_version_ms": cli_ms}
+    return {
+        "subsystems": latencies,
+        "full_app_ms": latencies.get("cyguide.app (FULL APP)", 0.0),
+        "cli_version_ms": cli_ms,
+    }
 
 
 def bench_streaming() -> List[Dict[str, Any]]:
@@ -105,7 +112,10 @@ def bench_streaming() -> List[Dict[str, Any]]:
         chunk_size = 500
         num_chunks = total_lines // chunk_size
         for i in range(num_chunks):
-            chunk = "".join(f"SCAN_LOG_{i*chunk_size + j:07d}: Target 10.0.{j%254}.{j%254} port {j%65535} OPEN service=http\n" for j in range(chunk_size))
+            chunk = "".join(
+                f"SCAN_LOG_{i * chunk_size + j:07d}: Target 10.0.{j % 254}.{j % 254} port {j % 65535} OPEN service=http\n"
+                for j in range(chunk_size)
+            )
             pane.write(chunk)
 
         pane.flush()
@@ -114,14 +124,16 @@ def bench_streaming() -> List[Dict[str, Any]]:
         tracemalloc.stop()
 
         rate = total_lines / max(elapsed, 0.0001)
-        results.append({
-            "lines": total_lines,
-            "elapsed_sec": elapsed,
-            "rate": rate,
-            "peak_mem_bytes": peak_mem,
-            "current_mem_bytes": current_mem,
-            "ring_lines": len(pane._lines),
-        })
+        results.append(
+            {
+                "lines": total_lines,
+                "elapsed_sec": elapsed,
+                "rate": rate,
+                "peak_mem_bytes": peak_mem,
+                "current_mem_bytes": current_mem,
+                "ring_lines": pane.line_count,
+            }
+        )
     return results
 
 
@@ -144,10 +156,16 @@ async def bench_graphstore() -> Dict[str, Any]:
             services_count = count // 2
 
             findings = [
-                NetworkHost.create(ip=f"10.{i // 65536}.{(i // 256) % 256}.{i % 256 + 1}", hostname=f"h-{i}.local")
+                NetworkHost.create(
+                    ip=f"10.{i // 65536}.{(i // 256) % 256}.{i % 256 + 1}", hostname=f"h-{i}.local"
+                )
                 for i in range(hosts_count)
             ] + [
-                NetworkService.create(host_ip=f"10.{i // 65536}.{(i // 256) % 256}.{i % 256 + 1}", port=80 + (i % 1000), service_name="http")
+                NetworkService.create(
+                    host_ip=f"10.{i // 65536}.{(i // 256) % 256}.{i % 256 + 1}",
+                    port=80 + (i % 1000),
+                    service_name="http",
+                )
                 for i in range(services_count)
             ]
 
@@ -182,19 +200,21 @@ async def bench_graphstore() -> Dict[str, Any]:
 
             db_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
 
-            scale_results.append({
-                "count": count,
-                "batch_time_sec": elapsed_batch,
-                "batch_rate": rate_batch,
-                "query_nodes_ms": elapsed_q_nodes,
-                "query_edges_ms": elapsed_q_edges,
-                "query_snap_ms": elapsed_q_snap,
-                "export_ms": elapsed_exp,
-                "import_ms": elapsed_imp,
-                "db_size_bytes": db_size,
-                "total_nodes": len(nodes),
-                "total_edges": len(edges),
-            })
+            scale_results.append(
+                {
+                    "count": count,
+                    "batch_time_sec": elapsed_batch,
+                    "batch_rate": rate_batch,
+                    "query_nodes_ms": elapsed_q_nodes,
+                    "query_edges_ms": elapsed_q_edges,
+                    "query_snap_ms": elapsed_q_snap,
+                    "export_ms": elapsed_exp,
+                    "import_ms": elapsed_imp,
+                    "db_size_bytes": db_size,
+                    "total_nodes": len(nodes),
+                    "total_edges": len(edges),
+                }
+            )
             await store.close()
 
     # Comparison: 250 single vs batch
@@ -205,7 +225,7 @@ async def bench_graphstore() -> Dict[str, Any]:
         ws_id = await store.create_workspace("CompWS")
         sess_id = await store.create_session(ws_id, "CompSess")
         comp_count = 250
-        test_findings = [NetworkHost.create(ip=f"192.168.1.{i+1}") for i in range(comp_count)]
+        test_findings = [NetworkHost.create(ip=f"192.168.1.{i + 1}") for i in range(comp_count)]
 
         t0 = time.perf_counter()
         for f in test_findings:
@@ -239,23 +259,43 @@ def bench_schemas_and_parsing() -> Dict[str, Any]:
     results = {}
     for n in [10_000, 50_000]:
         t0 = time.perf_counter()
-        _hosts = [NetworkHost.create(ip=f"10.0.{i//254}.{i%254+1}", hostname=f"srv-{i}.corp") for i in range(n)]
+        _hosts = [
+            NetworkHost.create(ip=f"10.0.{i // 254}.{i % 254 + 1}", hostname=f"srv-{i}.corp")
+            for i in range(n)
+        ]
         elapsed = time.perf_counter() - t0
-        results[f"host_create_{n}"] = {"count": n, "time_sec": elapsed, "rate": n / max(elapsed, 0.0001)}
+        results[f"host_create_{n}"] = {
+            "count": n,
+            "time_sec": elapsed,
+            "rate": n / max(elapsed, 0.0001),
+        }
 
     for n in [10_000, 50_000]:
         t0 = time.perf_counter()
-        _ep = [WebEndpoint.create(url=f"https://target.corp/api/v1/resource/{i}", status_code=200, content_length=1024) for i in range(n)]
+        _ep = [
+            WebEndpoint.create(
+                url=f"https://target.corp/api/v1/resource/{i}", status_code=200, content_length=1024
+            )
+            for i in range(n)
+        ]
         elapsed = time.perf_counter() - t0
-        results[f"endpoint_create_{n}"] = {"count": n, "time_sec": elapsed, "rate": n / max(elapsed, 0.0001)}
+        results[f"endpoint_create_{n}"] = {
+            "count": n,
+            "time_sec": elapsed,
+            "rate": n / max(elapsed, 0.0001),
+        }
 
     port_pattern = re.compile(r"(\d+)/(tcp|udp)\s+open\s+(\S+)")
-    lines = [f"{80 + (i%1000)}/tcp open http" for i in range(50_000)]
+    lines = [f"{80 + (i % 1000)}/tcp open http" for i in range(50_000)]
     t0 = time.perf_counter()
     for l in lines:
         port_pattern.search(l)
     elapsed_regex = time.perf_counter() - t0
-    results["regex_parse_50k"] = {"count": 50_000, "time_sec": elapsed_regex, "rate": 50_000 / max(elapsed_regex, 0.0001)}
+    results["regex_parse_50k"] = {
+        "count": 50_000,
+        "time_sec": elapsed_regex,
+        "rate": 50_000 / max(elapsed_regex, 0.0001),
+    }
 
     return results
 
@@ -271,8 +311,12 @@ async def bench_entity_browser() -> List[Dict[str, Any]]:
         mock_nodes = [
             {
                 "id": f"node_{i:06d}",
-                "schema_type": "network.host" if i % 3 == 0 else ("network.service" if i % 3 == 1 else "web.endpoint"),
-                "pik": {"ip": f"10.0.{i//254}.{i%254+1}", "port": 80 + (i % 100)} if i % 3 != 2 else {"url": f"http://10.0.{i//254}.{i%254+1}:{80 + (i % 100)}/path"},
+                "schema_type": "network.host"
+                if i % 3 == 0
+                else ("network.service" if i % 3 == 1 else "web.endpoint"),
+                "pik": {"ip": f"10.0.{i // 254}.{i % 254 + 1}", "port": 80 + (i % 100)}
+                if i % 3 != 2
+                else {"url": f"http://10.0.{i // 254}.{i % 254 + 1}:{80 + (i % 100)}/path"},
                 "data_json": "{}",
                 "status": "confirmed",
                 "custom_alias": None,
@@ -280,7 +324,11 @@ async def bench_entity_browser() -> List[Dict[str, Any]]:
             for i in range(n)
         ]
         mock_edges = [
-            {"source_id": f"node_{(i//3)*3:06d}", "target_id": f"node_{i:06d}", "relation_type": "HAS_CHILD"}
+            {
+                "source_id": f"node_{(i // 3) * 3:06d}",
+                "target_id": f"node_{i:06d}",
+                "relation_type": "HAS_CHILD",
+            }
             for i in range(1, n)
             if i % 3 != 0
         ]
@@ -299,13 +347,15 @@ async def bench_entity_browser() -> List[Dict[str, Any]]:
         await browser.refresh_entities(graph_data)
         elapsed_fast = (time.perf_counter() - t0) * 1000
 
-        results.append({
-            "entities": n,
-            "build_ms": elapsed_refresh,
-            "filter_ms": elapsed_filter,
-            "fast_ms": elapsed_fast,
-            "dom_nodes": len(browser.root.children),
-        })
+        results.append(
+            {
+                "entities": n,
+                "build_ms": elapsed_refresh,
+                "filter_ms": elapsed_filter,
+                "fast_ms": elapsed_fast,
+                "dom_nodes": len(browser.root.children),
+            }
+        )
 
     return results
 
@@ -316,7 +366,9 @@ async def bench_entity_browser() -> List[Dict[str, Any]]:
 def render_markdown(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
     md = []
     md.append("# CyGuide System Performance & Limit Benchmark Report\n")
-    md.append("> [!NOTE]\n> **Auto-Generated File**: Generated by `scripts/generate_benchmark_report.py`. **Do not edit manually.**\n> Tracks limits, memory bounds, and latency across core subsystems to guard against performance regressions.\n")
+    md.append(
+        "> [!NOTE]\n> **Auto-Generated File**: Generated by `scripts/generate_benchmark_report.py`. **Do not edit manually.**\n> Tracks limits, memory bounds, and latency across core subsystems to guard against performance regressions.\n"
+    )
 
     # Environment
     md.append("## 1. System & Test Environment\n")
@@ -343,10 +395,18 @@ def render_markdown(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
     status_store = "🟢 PASS" if store_10k["batch_rate"] > 1500 else "🟡 WARN"
     status_browser = "🟢 PASS" if browser_10k["build_ms"] < 100 else "🟡 WARN"
 
-    md.append(f"| **App Cold Launch** | Full import latency | **{full_app_ms:.1f} ms** | `< 950 ms` | {status_app} |")
-    md.append(f"| **Terminal Stream** | Ingestion rate (500k lines) | **{stream_500k['rate']:,.0f} lines/s** | `> 60,000 lines/s` | {status_stream} |")
-    md.append(f"| **SQLite GraphStore** | Batch ingestion (10k entities) | **{store_10k['batch_rate']:,.0f} entities/s** | `> 1,500 entities/s` | {status_store} |")
-    md.append(f"| **DOM Virtualization** | EntityBrowser rebuild (10k) | **{browser_10k['build_ms']:.1f} ms** | `< 120 ms` | {status_browser} |\n")
+    md.append(
+        f"| **App Cold Launch** | Full import latency | **{full_app_ms:.1f} ms** | `< 950 ms` | {status_app} |"
+    )
+    md.append(
+        f"| **Terminal Stream** | Ingestion rate (500k lines) | **{stream_500k['rate']:,.0f} lines/s** | `> 60,000 lines/s` | {status_stream} |"
+    )
+    md.append(
+        f"| **SQLite GraphStore** | Batch ingestion (10k entities) | **{store_10k['batch_rate']:,.0f} entities/s** | `> 1,500 entities/s` | {status_store} |"
+    )
+    md.append(
+        f"| **DOM Virtualization** | EntityBrowser rebuild (10k) | **{browser_10k['build_ms']:.1f} ms** | `< 120 ms` | {status_browser} |\n"
+    )
 
     # Section 1: Startup
     md.append("## 3. Startup & Import Breakdown\n")
@@ -354,47 +414,101 @@ def render_markdown(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
     md.append("| Module / Layer | Import Latency | Description |")
     md.append("| :--- | :--- | :--- |")
     for name, ms in data["imports"]["subsystems"].items():
-        md.append(f"| `{name}` | **{ms:.1f} ms** | {'Full Application Entrypoint' if 'FULL' in name else 'Dependency / Subsystem'} |")
-    md.append(f"| `cyg --version` (CLI Check) | **{data['imports']['cli_version_ms']:.1f} ms** | Fast CLI parser path |\n")
+        md.append(
+            f"| `{name}` | **{ms:.1f} ms** | {'Full Application Entrypoint' if 'FULL' in name else 'Dependency / Subsystem'} |"
+        )
+    md.append(
+        f"| `cyg --version` (CLI Check) | **{data['imports']['cli_version_ms']:.1f} ms** | Fast CLI parser path |\n"
+    )
 
     # Section 2: Streaming
     md.append("## 4. Subprocess Terminal Stream Bombardment\n")
-    md.append("Simulates rapid subprocess output stream chunks flushed to `TerminalStreamPane` with ring buffer capping (`max_lines=5000`):\n")
-    md.append("| Stream Lines | Elapsed Time | Throughput | Peak Memory | Ring Buffer Size | Memory Bound |")
+    md.append(
+        "Simulates rapid subprocess output stream chunks flushed to `TerminalStreamPane` with ring buffer capping (`max_lines=5000`):\n"
+    )
+    md.append(
+        "| Stream Lines | Elapsed Time | Throughput | Peak Memory | Ring Buffer Size | Memory Bound |"
+    )
     md.append("| :--- | :--- | :--- | :--- | :--- | :--- |")
     for s in data["streaming"]:
-        md.append(f"| **{s['lines']:,}** | {s['elapsed_sec']:.2f} s | **{s['rate']:,.0f} lines/s** | {format_bytes(s['peak_mem_bytes'])} | {s['ring_lines']} lines | $O(1)$ Strictly Capped |")
-    md.append("\n> [!TIP]\n> Throughput comfortably exceeds 90,000 lines/second while strictly limiting resident memory to 5,000 lines.\n")
+        md.append(
+            f"| **{s['lines']:,}** | {s['elapsed_sec']:.2f} s | **{s['rate']:,.0f} lines/s** | {format_bytes(s['peak_mem_bytes'])} | {s['ring_lines']} lines | $O(1)$ Strictly Capped |"
+        )
+    md.append(
+        "\n> [!TIP]\n> Throughput comfortably exceeds 90,000 lines/second while strictly limiting resident memory to 5,000 lines.\n"
+    )
 
     # Section 3: GraphStore
     md.append("## 5. SQLite GraphStore Scale & Ingestion Limits\n")
     md.append("Evaluates atomic batch ingestion, query performance, and database serialization:\n")
-    md.append("| Entity Count | Batch Ingest (100) | Ingest Rate | Query Nodes | Query Edges | Export DB | Import DB | SQLite Size |")
+    md.append(
+        "| Entity Count | Batch Ingest (100) | Ingest Rate | Query Nodes | Query Edges | Export DB | Import DB | SQLite Size |"
+    )
     md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
     for sc in data["graphstore"]["scales"]:
-        md.append(f"| **{sc['count']:,}** | {sc['batch_time_sec']:.2f} s | **{sc['batch_rate']:,.0f}/s** | {sc['query_nodes_ms']:.1f} ms | {sc['query_edges_ms']:.1f} ms | {sc['export_ms']:.1f} ms | **{sc['import_ms']:.1f} ms** | {format_bytes(sc['db_size_bytes'])} |")
+        md.append(
+            f"| **{sc['count']:,}** | {sc['batch_time_sec']:.2f} s | **{sc['batch_rate']:,.0f}/s** | {sc['query_nodes_ms']:.1f} ms | {sc['query_edges_ms']:.1f} ms | {sc['export_ms']:.1f} ms | **{sc['import_ms']:.1f} ms** | {format_bytes(sc['db_size_bytes'])} |"
+        )
 
     comp = data["graphstore"]["comparison"]
     md.append(f"\n### Single Transaction vs. Atomic Micro-Batching ({comp['count']} findings)")
-    md.append(f"- **Individual `upsert_finding` calls**: {comp['single_time_sec']:.2f} s ({comp['single_rate']:,.0f} findings/s) — Contention & per-row transaction commits.")
-    md.append(f"- **Batch `upsert_findings_batch`**: {comp['batch_time_sec']:.3f} s ({comp['batch_rate']:,.0f} findings/s) — **{comp['speedup']:.1f}x Faster**.\n")
+    md.append(
+        f"- **Individual `upsert_finding` calls**: {comp['single_time_sec']:.2f} s ({comp['single_rate']:,.0f} findings/s) — Contention & per-row transaction commits."
+    )
+    md.append(
+        f"- **Batch `upsert_findings_batch`**: {comp['batch_time_sec']:.3f} s ({comp['batch_rate']:,.0f} findings/s) — **{comp['speedup']:.1f}x Faster**.\n"
+    )
 
     # Section 4: Schema & Parsers
     md.append("## 6. Schema Model Validation & Tool Parsing\n")
     p = data["schemas"]
     md.append("| Operation | Count | Elapsed Time | Throughput |")
     md.append("| :--- | :--- | :--- | :--- |")
-    md.append(f"| `NetworkHost.create` | 50,000 | {p['host_create_50000']['time_sec']:.2f} s | **{p['host_create_50000']['rate']:,.0f} models/s** |")
-    md.append(f"| `WebEndpoint.create` | 50,000 | {p['endpoint_create_50000']['time_sec']:.2f} s | **{p['endpoint_create_50000']['rate']:,.0f} models/s** |")
-    md.append(f"| Pre-compiled Regex Line Parsing | 50,000 | {p['regex_parse_50k']['time_sec']:.3f} s | **{p['regex_parse_50k']['rate']:,.0f} lines/s** |\n")
+    md.append(
+        f"| `NetworkHost.create` | 50,000 | {p['host_create_50000']['time_sec']:.2f} s | **{p['host_create_50000']['rate']:,.0f} models/s** |"
+    )
+    md.append(
+        f"| `WebEndpoint.create` | 50,000 | {p['endpoint_create_50000']['time_sec']:.2f} s | **{p['endpoint_create_50000']['rate']:,.0f} models/s** |"
+    )
+    md.append(
+        f"| Pre-compiled Regex Line Parsing | 50,000 | {p['regex_parse_50k']['time_sec']:.3f} s | **{p['regex_parse_50k']['rate']:,.0f} lines/s** |\n"
+    )
 
     # Section 5: EntityBrowser
     md.append("## 7. EntityBrowser DOM Virtualization & Search\n")
-    md.append("Tests category capping (`MAX_DISPLAY_PER_CATEGORY=200`) and live search performance:\n")
-    md.append("| Graph Entities | Initial Tree Render | Filter Query (`10.0.1`) | Fast-Path (Identical Data) | Root Branches |")
+    md.append(
+        "Tests category capping (`MAX_DISPLAY_PER_CATEGORY=200`) and live search performance:\n"
+    )
+    md.append(
+        "| Graph Entities | Initial Tree Render | Filter Query (`10.0.1`) | Fast-Path (Identical Data) | Root Branches |"
+    )
     md.append("| :--- | :--- | :--- | :--- | :--- |")
     for b in data["browser"]:
-        md.append(f"| **{b['entities']:,}** | {b['build_ms']:.1f} ms | {b['filter_ms']:.1f} ms | {b['fast_ms']:.2f} ms | Capped (201 items) |")
+        md.append(
+            f"| **{b['entities']:,}** | {b['build_ms']:.1f} ms | {b['filter_ms']:.1f} ms | {b['fast_ms']:.2f} ms | Capped (201 items) |"
+        )
+    md.append("")
+
+    if "branch_records" in data and data["branch_records"]:
+        md.append("## 8. Comprehensive Branch Execution Matrix (77 Operation Profiles)\n")
+        md.append(
+            "Systematic microsecond-level timing and throughput across all application branches:\n"
+        )
+        md.append("| # | Category | Operation | Branch / Condition | Latency | Throughput |")
+        md.append("| :---: | :--- | :--- | :--- | :---: | :---: |")
+        for rec in data["branch_records"]:
+            order = rec.get("order", 0)
+            cat = rec.get("category", "")
+            op = rec.get("operation", "")
+            branch = rec.get("branch", "")
+            mean_ms = rec.get("mean_ms", 0.0)
+            tp = rec.get("throughput", 0.0)
+            lat_str = f"{mean_ms:.3f} ms" if mean_ms < 1.0 else f"{mean_ms:.2f} ms"
+            tp_str = f"{tp:,.0f} ops/s" if "Line" not in op else f"{tp:,.0f} lines/s"
+            md.append(
+                f"| `{order:02d}` | **{cat}** | `{op}` | {branch} | **{lat_str}** | {tp_str} |"
+            )
+        md.append("")
 
     md.append("\n---\n*Report generated automatically for CyGuide.*")
     return "\n".join(md) + "\n"
@@ -411,14 +525,18 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
     status_store = "PASS" if store_10k["batch_rate"] > 1500 else "WARN"
     status_browser = "PASS" if browser_10k["build_ms"] < 120 else "WARN"
 
-    all_passing = all(s == "PASS" for s in [status_app, status_stream, status_store, status_browser])
+    all_passing = all(
+        s == "PASS" for s in [status_app, status_stream, status_store, status_browser]
+    )
 
     comp = data["graphstore"]["comparison"]
     p = data["schemas"]
 
     # Table rows for imports
     import_rows = []
-    max_import_ms = max(max(data["imports"]["subsystems"].values()), data["imports"]["cli_version_ms"], 1.0)
+    max_import_ms = max(
+        max(data["imports"]["subsystems"].values()), data["imports"]["cli_version_ms"], 1.0
+    )
     for name, ms in data["imports"]["subsystems"].items():
         desc = "Full Application Entrypoint" if "FULL" in name else "Dependency / Subsystem"
         pct = min(100.0, (ms / max_import_ms) * 100.0)
@@ -463,11 +581,41 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
             f"<td><span class='badge badge-emerald'>Capped (201 nodes)</span></td></tr>"
         )
 
+    # Table rows for 77-Branch Matrix
+    branch_rows = []
+    if "branch_records" in data and data["branch_records"]:
+        for rec in data["branch_records"]:
+            order = rec.get("order", 0)
+            cat = rec.get("category", "")
+            op = rec.get("operation", "")
+            branch = rec.get("branch", "")
+            mean_ms = rec.get("mean_ms", 0.0)
+            tp = rec.get("throughput", 0.0)
+            lat_str = f"{mean_ms:.3f} ms" if mean_ms < 1.0 else f"{mean_ms:.2f} ms"
+            tp_str = f"{tp:,.0f} ops/s" if "Line" not in op else f"{tp:,.0f} lines/s"
+            cat_badge = (
+                "badge-cyan"
+                if "CLI" in cat
+                else (
+                    "badge-emerald"
+                    if any(w in cat for w in ("Store", "Cache", "Data", "Finding", "Buffer"))
+                    else "badge-amber"
+                )
+            )
+            branch_rows.append(
+                f"<tr><td><code>{order:02d}</code></td>"
+                f"<td><span class='badge {cat_badge}'>{cat}</span></td>"
+                f"<td><code>{op}</code></td>"
+                f"<td>{branch}</td>"
+                f"<td class='metric-val'><strong>{lat_str}</strong></td>"
+                f"<td>{tp_str}</td></tr>"
+            )
+
     # Calculate headroom/surplus
     app_headroom = max(0.0, (950.0 - full_app_ms) / 950.0 * 100.0)
-    stream_surplus = max(0.0, (stream_500k['rate'] - 60000.0) / 60000.0 * 100.0)
-    store_surplus = max(0.0, (store_10k['batch_rate'] - 1500.0) / 1500.0 * 100.0)
-    browser_headroom = max(0.0, (120.0 - browser_10k['build_ms']) / 120.0 * 100.0)
+    stream_surplus = max(0.0, (stream_500k["rate"] - 60000.0) / 60000.0 * 100.0)
+    store_surplus = max(0.0, (store_10k["batch_rate"] - 1500.0) / 1500.0 * 100.0)
+    browser_headroom = max(0.0, (120.0 - browser_10k["build_ms"]) / 120.0 * 100.0)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -569,12 +717,12 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: {'rgba(16, 185, 129, 0.1)' if all_passing else 'rgba(245, 158, 11, 0.1)'};
-    border: 1px solid {'rgba(16, 185, 129, 0.3)' if all_passing else 'rgba(245, 158, 11, 0.3)'};
+    background: {"rgba(16, 185, 129, 0.1)" if all_passing else "rgba(245, 158, 11, 0.1)"};
+    border: 1px solid {"rgba(16, 185, 129, 0.3)" if all_passing else "rgba(245, 158, 11, 0.3)"};
     border-radius: 9999px;
     font-size: 13px;
     font-weight: 600;
-    color: {'var(--emerald)' if all_passing else 'var(--amber)'};
+    color: {"var(--emerald)" if all_passing else "var(--amber)"};
   }}
 
   .status-pulse {{
@@ -1011,7 +1159,7 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
     </div>
     <div class="overall-status">
       <span class="status-pulse"></span>
-      <span>{'4 / 4 REGRESSION GUARDS PASSING' if all_passing else 'ELEVATED METRICS DETECTED'}</span>
+      <span>{"4 / 4 REGRESSION GUARDS PASSING" if all_passing else "ELEVATED METRICS DETECTED"}</span>
     </div>
   </header>
 
@@ -1025,7 +1173,7 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
       </div>
       <div class="kpi-value">{full_app_ms:.1f} <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">ms</span></div>
       <div class="kpi-footer">
-        <span class="badge badge-{'emerald' if status_app == 'PASS' else 'amber'}">{status_app}</span>
+        <span class="badge badge-{"emerald" if status_app == "PASS" else "amber"}">{status_app}</span>
         <span class="kpi-delta delta-pass">{app_headroom:.1f}% headroom</span>
       </div>
     </div>
@@ -1036,9 +1184,9 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
         <span class="kpi-label">Stream Bombardment</span>
         <span class="kpi-target">Min: 60,000 /s</span>
       </div>
-      <div class="kpi-value">{stream_500k['rate']:,.0f} <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
+      <div class="kpi-value">{stream_500k["rate"]:,.0f} <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
       <div class="kpi-footer">
-        <span class="badge badge-{'emerald' if status_stream == 'PASS' else 'amber'}">{status_stream}</span>
+        <span class="badge badge-{"emerald" if status_stream == "PASS" else "amber"}">{status_stream}</span>
         <span class="kpi-delta delta-pass">+{stream_surplus:.1f}% above floor</span>
       </div>
     </div>
@@ -1049,9 +1197,9 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
         <span class="kpi-label">GraphStore Ingest</span>
         <span class="kpi-target">Min: 1,500 /s</span>
       </div>
-      <div class="kpi-value">{store_10k['batch_rate']:,.0f} <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
+      <div class="kpi-value">{store_10k["batch_rate"]:,.0f} <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">/s</span></div>
       <div class="kpi-footer">
-        <span class="badge badge-{'emerald' if status_store == 'PASS' else 'amber'}">{status_store}</span>
+        <span class="badge badge-{"emerald" if status_store == "PASS" else "amber"}">{status_store}</span>
         <span class="kpi-delta delta-pass">+{store_surplus:.1f}% above floor</span>
       </div>
     </div>
@@ -1062,9 +1210,9 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
         <span class="kpi-label">DOM Tree Virtualization</span>
         <span class="kpi-target">Max: 120 ms</span>
       </div>
-      <div class="kpi-value">{browser_10k['build_ms']:.1f} <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">ms</span></div>
+      <div class="kpi-value">{browser_10k["build_ms"]:.1f} <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">ms</span></div>
       <div class="kpi-footer">
-        <span class="badge badge-{'emerald' if status_browser == 'PASS' else 'amber'}">{status_browser}</span>
+        <span class="badge badge-{"emerald" if status_browser == "PASS" else "amber"}">{status_browser}</span>
         <span class="kpi-delta delta-pass">{browser_headroom:.1f}% headroom</span>
       </div>
     </div>
@@ -1077,6 +1225,7 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
     <button class="tab-btn" onclick="switchTab('tab-streaming', this)">Terminal Streaming</button>
     <button class="tab-btn" onclick="switchTab('tab-graphstore', this)">SQLite GraphStore</button>
     <button class="tab-btn" onclick="switchTab('tab-schemas', this)">Schema & DOM Search</button>
+    <button class="tab-btn" onclick="switchTab('tab-branches', this)">77-Branch Matrix</button>
     <button class="tab-btn" onclick="switchTab('tab-methodology', this)">Environment & Reproduction</button>
   </div>
 
@@ -1101,21 +1250,21 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
             <tr>
               <td><strong>Terminal Stream Buffer</strong></td>
               <td>Throughput @ 500k burst</td>
-              <td><strong>{stream_500k['rate']:,.0f} lines/s</strong></td>
+              <td><strong>{stream_500k["rate"]:,.0f} lines/s</strong></td>
               <td><code>&gt; 60,000 lines/s</code></td>
               <td><span class="badge badge-emerald">PASS</span></td>
             </tr>
             <tr>
               <td><strong>SQLite GraphStore</strong></td>
               <td>Batch atomic ingestion (10k findings)</td>
-              <td><strong>{store_10k['batch_rate']:,.0f} entities/s</strong></td>
+              <td><strong>{store_10k["batch_rate"]:,.0f} entities/s</strong></td>
               <td><code>&gt; 1,500 entities/s</code></td>
               <td><span class="badge badge-emerald">PASS</span></td>
             </tr>
             <tr>
               <td><strong>EntityBrowser DOM Virtualization</strong></td>
               <td>10k node category tree rebuild</td>
-              <td><strong>{browser_10k['build_ms']:.1f} ms</strong></td>
+              <td><strong>{browser_10k["build_ms"]:.1f} ms</strong></td>
               <td><code>&lt; 120 ms</code></td>
               <td><span class="badge badge-emerald">PASS</span></td>
             </tr>
@@ -1140,12 +1289,12 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
           <text x="165" y="89" fill="#94a3b8" font-size="12" font-family="ui-monospace, monospace" text-anchor="end">Atomic Batch</text>
 
           <!-- Bars -->
-          <rect x="180" y="20" width="{min(480, int((comp['single_rate'] / max(comp['batch_rate'], 1)) * 480))}" height="32" rx="6" fill="#64748b" />
+          <rect x="180" y="20" width="{min(480, int((comp["single_rate"] / max(comp["batch_rate"], 1)) * 480))}" height="32" rx="6" fill="#64748b" />
           <rect x="180" y="68" width="480" height="32" rx="6" fill="url(#emerald-grad)" />
 
           <!-- Values inside bars -->
-          <text x="195" y="41" fill="#f8fafc" font-size="12" font-weight="700" font-family="ui-monospace, monospace">{comp['single_rate']:,.0f} findings/s ({comp['single_time_sec']:.2f}s)</text>
-          <text x="195" y="89" fill="#080c14" font-size="12" font-weight="800" font-family="ui-monospace, monospace">{comp['batch_rate']:,.0f} findings/s ({comp['batch_time_sec']:.3f}s) — {comp['speedup']:.1f}x FASTER</text>
+          <text x="195" y="41" fill="#f8fafc" font-size="12" font-weight="700" font-family="ui-monospace, monospace">{comp["single_rate"]:,.0f} findings/s ({comp["single_time_sec"]:.2f}s)</text>
+          <text x="195" y="89" fill="#080c14" font-size="12" font-weight="800" font-family="ui-monospace, monospace">{comp["batch_rate"]:,.0f} findings/s ({comp["batch_time_sec"]:.3f}s) — {comp["speedup"]:.1f}x FASTER</text>
 
           <defs>
             <linearGradient id="emerald-grad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -1166,7 +1315,7 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
 
       <div class="table-controls">
         <input type="text" class="search-input" placeholder="Search module or layer..." onkeyup="filterTable(this, 'imports-table')">
-        <span class="badge badge-cyan">CLI Cold-Check: {data['imports']['cli_version_ms']:.1f} ms</span>
+        <span class="badge badge-cyan">CLI Cold-Check: {data["imports"]["cli_version_ms"]:.1f} ms</span>
       </div>
 
       <div class="table-responsive">
@@ -1175,7 +1324,7 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
             <tr><th>Subsystem / Module</th><th>Measured Latency (ms)</th><th>Layer Description</th></tr>
           </thead>
           <tbody>
-            {''.join(import_rows)}
+            {"".join(import_rows)}
           </tbody>
         </table>
       </div>
@@ -1194,7 +1343,7 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
             <tr><th>Stream Lines</th><th>Elapsed Time</th><th>Throughput Rate</th><th>Peak Traced RAM</th><th>Active Ring Buffer</th><th>Memory Guarantee</th></tr>
           </thead>
           <tbody>
-            {''.join(stream_rows)}
+            {"".join(stream_rows)}
           </tbody>
         </table>
       </div>
@@ -1217,7 +1366,7 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
             <tr><th>Entity Count</th><th>Batch Ingest</th><th>Throughput</th><th>Query Nodes</th><th>Query Edges</th><th>DB Export</th><th>DB Import</th><th>Disk Footprint</th></tr>
           </thead>
           <tbody>
-            {''.join(store_rows)}
+            {"".join(store_rows)}
           </tbody>
         </table>
       </div>
@@ -1237,9 +1386,9 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
             <tr><th>Operation</th><th>Batch Size</th><th>Elapsed Time</th><th>Model Throughput</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>NetworkHost.create</code></td><td>50,000</td><td>{p['host_create_50000']['time_sec']:.2f} s</td><td><strong>{p['host_create_50000']['rate']:,.0f} models/s</strong></td></tr>
-            <tr><td><code>WebEndpoint.create</code></td><td>50,000</td><td>{p['endpoint_create_50000']['time_sec']:.2f} s</td><td><strong>{p['endpoint_create_50000']['rate']:,.0f} models/s</strong></td></tr>
-            <tr><td>Pre-compiled Regex Parser</td><td>50,000</td><td>{p['regex_parse_50k']['time_sec']:.3f} s</td><td><strong>{p['regex_parse_50k']['rate']:,.0f} lines/s</strong></td></tr>
+            <tr><td><code>NetworkHost.create</code></td><td>50,000</td><td>{p["host_create_50000"]["time_sec"]:.2f} s</td><td><strong>{p["host_create_50000"]["rate"]:,.0f} models/s</strong></td></tr>
+            <tr><td><code>WebEndpoint.create</code></td><td>50,000</td><td>{p["endpoint_create_50000"]["time_sec"]:.2f} s</td><td><strong>{p["endpoint_create_50000"]["rate"]:,.0f} models/s</strong></td></tr>
+            <tr><td>Pre-compiled Regex Parser</td><td>50,000</td><td>{p["regex_parse_50k"]["time_sec"]:.3f} s</td><td><strong>{p["regex_parse_50k"]["rate"]:,.0f} lines/s</strong></td></tr>
           </tbody>
         </table>
       </div>
@@ -1251,14 +1400,38 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
             <tr><th>Graph Entities</th><th>Initial Tree Render</th><th>Filter Query ('10.0.1')</th><th>Fast-Path Identical Re-Render</th><th>DOM Branch Cap</th></tr>
           </thead>
           <tbody>
-            {''.join(browser_rows)}
+            {"".join(browser_rows)}
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- TAB 6: METHODOLOGY -->
+  <!-- TAB 6: 77-BRANCH EXECUTION MATRIX -->
+  <div id="tab-branches" class="tab-pane">
+    <div class="section-card">
+      <div class="section-title">Comprehensive Branch Execution Matrix (77 Operations)</div>
+      <div class="section-desc">Granular microsecond-level timing and throughput profiling across all internal execution paths.</div>
+
+      <div class="table-controls">
+        <input type="text" class="search-input" placeholder="Search operation, category, or branch..." onkeyup="filterTable(this, 'branches-table')">
+        <span class="badge badge-cyan">{len(branch_rows)} Operations Profiled</span>
+      </div>
+
+      <div class="table-responsive">
+        <table id="branches-table">
+          <thead>
+            <tr><th>#</th><th>Category</th><th>Operation</th><th>Branch / Condition</th><th>Mean Latency</th><th>Throughput</th></tr>
+          </thead>
+          <tbody>
+            {"".join(branch_rows)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 7: METHODOLOGY -->
   <div id="tab-methodology" class="tab-pane">
     <div class="section-card">
       <div class="section-title">System & Execution Baseline</div>
@@ -1267,27 +1440,27 @@ def render_html(data: Dict[str, Any], meta: Dict[str, Any]) -> str:
       <div class="meta-grid">
         <div class="meta-item">
           <div class="meta-item-label">Report Date & Time</div>
-          <div class="meta-item-val">{meta['timestamp']}</div>
+          <div class="meta-item-val">{meta["timestamp"]}</div>
         </div>
         <div class="meta-item">
           <div class="meta-item-label">Git Commit / Branch</div>
-          <div class="meta-item-val">{meta['git_commit']} ({meta['git_branch']})</div>
+          <div class="meta-item-val">{meta["git_commit"]} ({meta["git_branch"]})</div>
         </div>
         <div class="meta-item">
           <div class="meta-item-label">Platform / Kernel</div>
-          <div class="meta-item-val">{meta['platform']}</div>
+          <div class="meta-item-val">{meta["platform"]}</div>
         </div>
         <div class="meta-item">
           <div class="meta-item-label">CPU Architecture</div>
-          <div class="meta-item-val">{meta['cpu']}</div>
+          <div class="meta-item-val">{meta["cpu"]}</div>
         </div>
         <div class="meta-item">
           <div class="meta-item-label">Python Version</div>
-          <div class="meta-item-val">{meta['python_version']}</div>
+          <div class="meta-item-val">{meta["python_version"]}</div>
         </div>
         <div class="meta-item">
           <div class="meta-item-label">Python Binary</div>
-          <div class="meta-item-val">{meta['python_bin']}</div>
+          <div class="meta-item-val">{meta["python_bin"]}</div>
         </div>
       </div>
 
@@ -1364,39 +1537,87 @@ def evaluate_regressions(data: Dict[str, Any]) -> Tuple[List[str], List[str]]:
     # 2. Stream throughput
     stream_500k = next(s for s in data["streaming"] if s["lines"] == 500_000)
     if stream_500k["rate"] < 50_000:
-        critical.append(f"Stream throughput {stream_500k['rate']:,.0f} lines/s fell below 50,000 floor")
+        critical.append(
+            f"Stream throughput {stream_500k['rate']:,.0f} lines/s fell below 50,000 floor"
+        )
     elif stream_500k["rate"] < 70_000:
-        warnings.append(f"Stream throughput {stream_500k['rate']:,.0f} lines/s below optimal (> 70,000)")
+        warnings.append(
+            f"Stream throughput {stream_500k['rate']:,.0f} lines/s below optimal (> 70,000)"
+        )
 
     # 3. GraphStore batch rate
     store_10k = next(s for s in data["graphstore"]["scales"] if s["count"] == 10_000)
     if store_10k["batch_rate"] < 1200:
-        critical.append(f"GraphStore batch ingestion rate {store_10k['batch_rate']:,.0f}/s below 1,200 floor")
+        critical.append(
+            f"GraphStore batch ingestion rate {store_10k['batch_rate']:,.0f}/s below 1,200 floor"
+        )
     elif store_10k["batch_rate"] < 1600:
-        warnings.append(f"GraphStore batch ingestion rate {store_10k['batch_rate']:,.0f}/s slightly degraded (< 1,600)")
+        warnings.append(
+            f"GraphStore batch ingestion rate {store_10k['batch_rate']:,.0f}/s slightly degraded (< 1,600)"
+        )
 
     # 4. EntityBrowser 10k build
     browser_10k = next(b for b in data["browser"] if b["entities"] == 10_000)
     if browser_10k["build_ms"] > 160.0:
-        critical.append(f"EntityBrowser 10k rebuild time {browser_10k['build_ms']:.1f}ms exceeded 160ms limit")
+        critical.append(
+            f"EntityBrowser 10k rebuild time {browser_10k['build_ms']:.1f}ms exceeded 160ms limit"
+        )
     elif browser_10k["build_ms"] > 100.0:
-        warnings.append(f"EntityBrowser 10k rebuild time {browser_10k['build_ms']:.1f}ms elevated (> 100ms)")
+        warnings.append(
+            f"EntityBrowser 10k rebuild time {browser_10k['build_ms']:.1f}ms elevated (> 100ms)"
+        )
 
     return warnings, critical
 
 
 async def async_main():
     parser = argparse.ArgumentParser(description="CyGuide Automated Benchmark Report Generator")
-    parser.add_argument("--check", action="store_true", help="Evaluate performance limits and fail on critical regression")
-    parser.add_argument("--update-docs", action="store_true", help="Update docs/benchmarks/README.md even in --check mode")
-    parser.add_argument("--html", action="store_true", help="Also generate docs/benchmarks/preview.html")
-    parser.add_argument("--out-dir", default=str(project_root / "docs" / "benchmarks"), help="Output directory for reports")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Evaluate performance limits and fail on critical regression",
+    )
+    parser.add_argument(
+        "--update-docs",
+        action="store_true",
+        help="Update docs/benchmarks/README.md even in --check mode",
+    )
+    parser.add_argument(
+        "--html",
+        action="store_true",
+        default=True,
+        help="Generate docs/benchmarks/preview.html (default: True)",
+    )
+    parser.add_argument(
+        "--no-html",
+        dest="html",
+        action="store_false",
+        help="Skip generating docs/benchmarks/preview.html",
+    )
+    parser.add_argument(
+        "--save-json",
+        action="store_true",
+        default=False,
+        help="Save raw results as comprehensive_benchmark_results.json (default: False)",
+    )
+    parser.add_argument(
+        "--skip-branches",
+        action="store_true",
+        help="Skip granular 77-branch execution profiling and run only scale limits",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=str(project_root / "docs" / "benchmarks"),
+        help="Output directory for reports",
+    )
     args = parser.parse_args()
 
     python_bin = sys.executable
     print("=" * 70)
     print(" CyGuide Automated Limits Benchmark & Regression Evaluator")
-    print(f" Environment: {platform.system()} {platform.machine()} | Python {platform.python_version()}")
+    print(
+        f" Environment: {platform.system()} {platform.machine()} | Python {platform.python_version()}"
+    )
     print("=" * 70)
 
     # 1. Run benchmarks
@@ -1415,12 +1636,30 @@ async def async_main():
     print("[*] Benchmarking EntityBrowser Virtualization & Search (up to 25,000 entities)...")
     browser_data = await bench_entity_browser()
 
+    branch_records = []
+    if not args.skip_branches:
+        print("[*] Benchmarking All Execution Branches (77 operations)...")
+        from scripts.benchmark_all_branches import run_all_branch_benchmarks
+
+        records = await run_all_branch_benchmarks()
+        branch_records = [r.__dict__ for r in records]
+
+        # Save comprehensive results JSON only if explicitly requested
+        if getattr(args, "save_json", False):
+            out_dir = Path(args.out_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            json_path = out_dir / "comprehensive_benchmark_results.json"
+            with open(json_path, "w") as f:
+                json.dump(branch_records, f, indent=2)
+            print(f"[+] Raw timings saved to: {json_path}")
+
     all_data = {
         "imports": imports_data,
         "streaming": streaming_data,
         "graphstore": store_data,
         "schemas": schemas_data,
         "browser": browser_data,
+        "branch_records": branch_records,
     }
 
     git_commit, git_branch = get_git_info()
@@ -1445,7 +1684,9 @@ async def async_main():
     if args.check:
         print("\n--- Regression Evaluation Check ---")
         if not report_md_path.exists():
-            print(f"[!] Notice: {report_md_path} does not exist yet. Generating latest report now...")
+            print(
+                f"[!] Notice: {report_md_path} does not exist yet. Generating latest report now..."
+            )
             md_content = render_markdown(all_data, meta)
             report_md_path.write_text(md_content, encoding="utf-8")
         elif args.update_docs:
@@ -1454,7 +1695,9 @@ async def async_main():
             print(f"\n[+] Updated benchmark report written to: {report_md_path}")
 
         if warnings:
-            print(f"\n[!] Notice: {len(warnings)} minor non-critical performance warning(s) detected:")
+            print(
+                f"\n[!] Notice: {len(warnings)} minor non-critical performance warning(s) detected:"
+            )
             for w in warnings:
                 print(f"    - {w}")
             print("    (Disregarded as minor environmental variance for release gate)")
@@ -1465,7 +1708,9 @@ async def async_main():
                 print(f"    - {c}")
             sys.exit(1)
 
-        print("\n[+] PERFORMANCE CHECK PASSED: All operational limits within acceptable guard bounds.")
+        print(
+            "\n[+] PERFORMANCE CHECK PASSED: All operational limits within acceptable guard bounds."
+        )
 
         # In check-only mode without explicit --html, return early
         if not args.html and not args.update_docs:

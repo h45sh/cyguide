@@ -82,4 +82,3 @@ Nmap done: 2 IP addresses (2 hosts up) scanned in 1.23 seconds
     s4 = next(s for s in services if s.pik["port"] == 8080)
     assert s4.pik["host_ip"] == "10.0.0.5"
     assert s4.data["service_name"] == "http-proxy"
-

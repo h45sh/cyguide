@@ -1,7 +1,7 @@
 """Subfinder tool adapter."""
 
 import re
-import shutil
+import shlex
 from typing import Any, AsyncIterator, Dict, List
 
 from cyguide.engine.adapter import ToolAdapter
@@ -12,22 +12,33 @@ from cyguide.schemas.dns import DnsRecord
 class SubfinderAdapter(ToolAdapter):
     """Adapter for the subfinder tool."""
 
+    DOMAIN_RE = re.compile(r"^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$")
+
     def validate_install(self) -> bool:
-        return shutil.which("subfinder") is not None
+        return self.is_binary_available("subfinder")
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip subfinder ASCII art banners, progress lines, and diagnostic logging."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if (
+                s.startswith("[")
+                or s.startswith("_")
+                or s.startswith("::")
+                or "subfinder" in s.lower()
+                and ("projectdiscovery" in s.lower() or "version" in s.lower())
+            ):
+                continue
+            lines.append(line)
+        return "\n".join(lines)
 
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         args = ["subfinder"]
 
         raw_flags = params.get("raw_flags", "")
         if raw_flags:
-            import shlex
-
-            domain = ""
-            if target.schema_type == "domain.info":
-                domain = target.pik.get("domain", "")
-            elif target.schema_type == "dns.record":
-                domain = target.pik.get("domain", "")
-
+            domain = self.extract_domain(target) or ""
             tokens = shlex.split(raw_flags)
             resolved_tokens = [t.replace("{domain}", domain) for t in tokens if t]
             args.extend(resolved_tokens)
@@ -37,26 +48,20 @@ class SubfinderAdapter(ToolAdapter):
     async def parse_output(
         self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
     ) -> AsyncIterator[BaseFinding]:
-        """
-        Parser for subfinder output.
+        """Parser for subfinder output.
+
         Expects lines containing just the subdomains (if -silent is used)
         or lines with subdomains among logging (which we filter out).
         Example line: api.example.com
         """
-        # Basic regex for a domain name
-        domain_pattern = re.compile(r"^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$")
-
-        # ANSI escape sequence remover
-        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-
         for line in raw_stdout.splitlines():
-            clean_line = ansi_escape.sub("", line).strip()
+            clean_line = self.strip_ansi(line).strip()
 
             # Skip subfinder banner/logging if not using -silent
             if not clean_line or clean_line.startswith("[") or clean_line.startswith("_"):
                 continue
 
-            if domain_pattern.match(clean_line):
+            if self.DOMAIN_RE.match(clean_line):
                 # We default to A record type as we just found a name, not necessarily knowing the type
                 # Real DNS resolution would follow to confirm
                 yield DnsRecord.create(

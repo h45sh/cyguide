@@ -315,8 +315,8 @@ class JobQueue(Vertical):
                     status_text = " [red]FAILED[/]"
                     elapsed = ((job.completed_at or now) - job.started_at).total_seconds()
                 else:  # QUEUED
-                    status_icon = "[#eab308]◌[/]"
-                    status_text = " [yellow]QUEUED[/]"
+                    status_icon = "[#f59e0b]◌[/]"
+                    status_text = " [#f59e0b]QUEUED[/]"
                     elapsed = (now - job.started_at).total_seconds()
 
                 dur_str = f" [dim #94a3b8]{_format_elapsed(elapsed)}[/]"

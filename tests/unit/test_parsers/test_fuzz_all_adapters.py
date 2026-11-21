@@ -119,4 +119,3 @@ def test_all_adapters_build_command_invariants(tool_name, tool_data):
         assert len(cmd) > 0, f"{tool_name}.build_command returned empty list"
         for arg in cmd:
             assert isinstance(arg, str), f"Command argument in {tool_name} is not str: {arg!r}"
-

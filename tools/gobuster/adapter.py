@@ -1,12 +1,11 @@
 """Gobuster tool adapter."""
 
-import os
 import re
 import shlex
-import shutil
 from typing import Any, AsyncIterator, Dict, List
 
 from cyguide.engine.adapter import ToolAdapter
+from cyguide.engine.wordlists import resolve_wordlist, substitute_wordlist_macros
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.web import WebEndpoint
 
@@ -14,33 +13,45 @@ from cyguide.schemas.web import WebEndpoint
 class GobusterAdapter(ToolAdapter):
     """Adapter for the gobuster directory brute-forcing tool."""
 
+    URL_FLAG_RE = re.compile(r"-u\s+([^\s]+)")
+    STATUS_PATTERN = re.compile(r"(\S+)\s+\(Status:\s+(\d+)\)")
+
     def validate_install(self) -> bool:
-        return shutil.which("gobuster") is not None
+        return self.is_binary_available("gobuster")
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip Gobuster ASCII banners, progress lines, and separator lines."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if (
+                s.startswith("==")
+                or s.startswith("by OJ Reeves")
+                or s.startswith("Gobuster v")
+                or "[+] " in s
+                or s == "Finished"
+            ):
+                continue
+            lines.append(line)
+        return "\n".join(lines)
 
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         args = ["gobuster"]
 
         raw_flags = params.get("raw_flags", "")
         if raw_flags:
-            # Replace {url} placeholder if present in recipe flags
-            url = ""
-            if target.schema_type == "web.endpoint":
-                url = target.pik.get("url", "")
-            elif target.schema_type == "network.service":
-                port = target.pik.get("port")
-                ip = target.pik.get("host_ip")
-                scheme = "https" if port in (443, 8443) else "http"
-                url = f"{scheme}://{ip}:{port}"
+            url = self.extract_url(target) or ""
+            # Substitute centralized wordlist macros
+            raw_flags, _ = substitute_wordlist_macros(raw_flags)
+            if "{wordlist}" in raw_flags:
+                default_wl = resolve_wordlist("common_dirs")
+                raw_flags = raw_flags.replace("{wordlist}", str(default_wl))
 
-            # Tokenize first, then resolve placeholders to prevent argument injection
-            wordlist_path = os.path.join(os.path.dirname(__file__), "wordlist.txt")
             tokens = shlex.split(raw_flags)
             resolved_tokens = []
             for token in tokens:
                 if "{url}" in token:
                     token = token.replace("{url}", url)
-                if "{wordlist}" in token:
-                    token = token.replace("{wordlist}", wordlist_path)
                 resolved_tokens.append(token)
 
             args.extend(resolved_tokens)
@@ -50,40 +61,26 @@ class GobusterAdapter(ToolAdapter):
     async def parse_output(
         self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
     ) -> AsyncIterator[BaseFinding]:
-        """
-        Regex parser for gobuster output.
+        """Regex parser for gobuster output.
+
         Example line: /admin (Status: 200) [Size: 1234]
         """
         context = context or {}
 
         # Base URL to construct full URLs
-        base_url = ""
-        if target and target.schema_type == "web.endpoint":
-            base_url = target.pik.get("url", "").rstrip("/")
-        elif target and target.schema_type == "network.service":
-            port = target.pik.get("port")
-            ip = target.pik.get("host_ip")
-            scheme = "https" if port in (443, 8443) else "http"
-            base_url = f"{scheme}://{ip}:{port}"
+        base_url = (self.extract_url(target) or "").rstrip("/")
 
         # Try to extract base url from command params if not available
         if not base_url:
             raw_flags = context.get("params", {}).get("raw_flags", "")
-            url_match = re.search(r"-u\s+([^\s]+)", raw_flags)
+            url_match = self.URL_FLAG_RE.search(raw_flags)
             if url_match:
                 base_url = url_match.group(1).rstrip("/")
 
-        # Regex to match: /path (Status: 200) ...
-        # Match both colored and non-colored output by stripping ANSI later, or regex for raw string
-        pattern = re.compile(r"(\S+)\s+\(Status:\s+(\d+)\)")
-
-        # Helper to strip ansi codes
-        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-
         for line in raw_stdout.splitlines():
-            clean_line = ansi_escape.sub("", line)
+            clean_line = self.strip_ansi(line)
 
-            match = pattern.search(clean_line)
+            match = self.STATUS_PATTERN.search(clean_line)
             if match:
                 path = match.group(1)
                 status_code = int(match.group(2))

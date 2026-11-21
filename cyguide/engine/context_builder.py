@@ -21,6 +21,41 @@ class WorkspaceContextBuilder:
         self.store = store
         self.execution = execution
 
+    @staticmethod
+    def budget_findings(
+        findings: list[BaseFinding],
+        max_tokens: int = 1500,
+        chars_per_token: float = 4.0,
+    ) -> list[BaseFinding]:
+        """Select optimal subset of findings using 0/1 knapsack dynamic programming
+
+        to fit within the target LLM token window while prioritizing high-severity items.
+        """
+        from cyguide.common.algorithms import knapsack_01
+
+        def _estimate_weight(f: BaseFinding) -> int:
+            raw_len = len(json.dumps(f.model_dump()))
+            return max(1, int(raw_len / chars_per_token))
+
+        def _estimate_utility(f: BaseFinding) -> float:
+            score = 10.0
+            st = str(f.schema_type).lower()
+            if "vulnerability" in st or "exploit" in st:
+                score += 50.0
+            elif "credential" in st:
+                score += 80.0
+            elif "service" in st:
+                score += 20.0
+            if getattr(f, "data", None) and isinstance(f.data, dict):
+                sev = str(f.data.get("severity", "")).lower()
+                if "crit" in sev:
+                    score += 60.0
+                elif "high" in sev:
+                    score += 40.0
+            return score
+
+        return knapsack_01(findings, max_tokens, _estimate_weight, _estimate_utility)
+
     async def build(
         self, session_id: str, selected_entity_id: Optional[str] = None
     ) -> WorkspaceContext:

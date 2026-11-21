@@ -1,13 +1,17 @@
 """Unit tests for Textual compatibility and resilience hardening."""
 
 import pytest
+from rich.color import Color
+from rich.segment import Segments
 from textual.app import App, ComposeResult
 from textual.events import MouseDown
 from textual.geometry import Offset
-from textual.widgets import Markdown
+from textual.scrollbar import ScrollBar
+from textual.widgets import Markdown, RichLog
 from textual.widgets._markdown import MarkdownTableContent
 
-from cyguide.ui.compat import setup_textual_compat
+from cyguide.ui.compat import ThinScrollBarRender, setup_textual_compat, setup_thin_scrollbars
+from cyguide.ui.widgets.power import EntityBrowser
 
 
 def test_markdown_table_content_allow_select():
@@ -377,3 +381,272 @@ def test_kitty_parser_extended_delete_aliases():
     shift_key_name = res_shift[0].key
     shift_aliases = _get_key_aliases(shift_key_name)
     assert "shift+delete" in shift_aliases
+
+
+def test_cyguide_textarea_theme_cursor_style():
+    """Verify cyguide TextArea theme uses underline cursor instead of solid pipe/block."""
+    setup_textual_compat()
+    import textual._text_area_theme as tat
+
+    cyguide_theme = tat._BUILTIN_THEMES.get("cyguide")
+    assert cyguide_theme is not None
+    assert cyguide_theme.cursor_style is not None
+    assert cyguide_theme.cursor_style.underline is True
+    assert cyguide_theme.cursor_style.bgcolor is None
+
+
+@pytest.mark.asyncio
+async def test_scalar_animation_auto_dimension_resilience():
+    """Verify ScalarAnimation resolves 'auto' units without raising ScalarResolveError."""
+    setup_textual_compat()
+    from textual.css.scalar import Scalar
+    from textual.css.scalar_animation import ScalarAnimation
+    from textual.widgets import Label
+
+    class DummyApp(App):
+        def compose(self) -> ComposeResult:
+            yield Label("Test Label", id="test_label")
+
+    app = DummyApp()
+    async with app.run_test() as pilot:
+        lbl = app.query_one("#test_label")
+        # Animate from auto width to 0
+        anim = ScalarAnimation(
+            lbl,
+            lbl.styles,
+            0.0,
+            "width",
+            Scalar.from_number(0.0),
+            duration=0.2,
+            speed=None,
+            easing=lambda x: x,
+        )
+        assert anim.start is not None
+        assert anim.destination == 0.0
+
+
+@pytest.mark.asyncio
+async def test_toastrack_max_visible_toasts_and_deduplication():
+    """Verify ToastRack caps visible toasts to 3 and deduplicates identical notifications."""
+    setup_textual_compat()
+    from textual.widgets._toast import Toast, ToastHolder, ToastRack
+
+    from cyguide.app import CyGuideApp
+
+    app = CyGuideApp()
+    async with app.run_test(notifications=True) as pilot:
+        await pilot.pause()
+
+        # Fire 6 distinct notifications
+        for i in range(6):
+            app.notify(f"Message payload {i}", title=f"Event {i}")
+        await pilot.pause()
+
+        # Must be capped to max 3 visible toasts
+        visible_toasts = list(app.screen.query(Toast))
+        assert len(visible_toasts) == 3, f"Expected 3 visible toasts, got {len(visible_toasts)}"
+        # Oldest (0, 1, 2) must have been evicted, 3, 4, 5 remain
+        titles = [t._notification.title for t in visible_toasts]
+        assert "Event 0" not in titles
+        assert "Event 5" in titles
+
+        # Fire duplicate of existing notification (Event 5)
+        app.notify("Message payload 5", title="Event 5")
+        await pilot.pause()
+        visible_after_dup = list(app.screen.query(Toast))
+        assert len(visible_after_dup) <= 3
+        count_event5 = sum(1 for t in visible_after_dup if t._notification.title == "Event 5")
+        assert count_event5 == 1, "Duplicate notification must not spawn a second toast"
+
+        # Verify layer: _toastrack is enforced on ToastRack, ToastHolder, and Toast
+        rack = app.screen.get_child_by_type(ToastRack)
+        assert rack.styles.layer == "_toastrack"
+        for holder in rack.children:
+            if isinstance(holder, ToastHolder):
+                assert holder.styles.layer == "_toastrack"
+                for toast in holder.children:
+                    if isinstance(toast, Toast):
+                        assert toast.styles.layer == "_toastrack"
+
+
+def test_thin_scrollbar_render_horizontal():
+    """Verify horizontal scrollbar renders thin lower block character."""
+    back = Color.parse("#14161b")
+    bar = Color.parse("#38bdf8")
+
+    res = ThinScrollBarRender.render_bar(
+        size=30,
+        virtual_size=100,
+        window_size=25,
+        position=10,
+        thickness=1,
+        vertical=False,
+        back_color=back,
+        bar_color=bar,
+    )
+
+    assert isinstance(res, Segments)
+    chars = "".join(s.text for s in res.segments if s.text != "\n")
+    assert len(chars) == 30
+    assert "▂" in chars
+    assert "█" not in chars
+
+    thumb_segs = [s for s in res.segments if "▂" in s.text]
+    assert len(thumb_segs) > 0
+    assert thumb_segs[0].style.meta.get("@mouse.down") == "grab"
+
+
+def test_thin_scrollbar_render_vertical():
+    """Verify vertical scrollbar renders thin left block character."""
+    back = Color.parse("#14161b")
+    bar = Color.parse("#38bdf8")
+
+    res = ThinScrollBarRender.render_bar(
+        size=20,
+        virtual_size=80,
+        window_size=20,
+        position=15,
+        thickness=1,
+        vertical=True,
+        back_color=back,
+        bar_color=bar,
+    )
+
+    assert isinstance(res, Segments)
+    chars = "".join(s.text for s in res.segments if s.text != "\n")
+    assert "▌" in chars
+    assert "█" not in chars
+
+    thumb_segs = [s for s in res.segments if "▌" in s.text]
+    assert len(thumb_segs) > 0
+    assert thumb_segs[0].style.meta.get("@mouse.down") == "grab"
+
+
+def test_thin_scrollbar_render_unscrollable():
+    """Verify that when window_size >= virtual_size, no thumb is rendered."""
+    res = ThinScrollBarRender.render_bar(
+        size=20,
+        virtual_size=10,
+        window_size=20,
+        position=0,
+        thickness=1,
+        vertical=False,
+    )
+    chars = "".join(s.text for s in res.segments if s.text != "\n")
+    assert "▂" not in chars
+    assert " " in chars
+
+
+def test_scrollbar_renderer_registered():
+    """Verify ThinScrollBarRender is registered as global ScrollBar renderer."""
+    setup_thin_scrollbars()
+    assert ScrollBar.renderer is ThinScrollBarRender
+
+
+@pytest.mark.asyncio
+async def test_richlog_thin_scrollbar_scrolling():
+    """Verify RichLog renders thin scrollbars and scrolls without error."""
+
+    class ScrollApp(App):
+        CSS_PATH = "../../cyguide/ui/style.css"
+
+        def compose(self) -> ComposeResult:
+            yield RichLog(id="test_log")
+
+    app = ScrollApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        log = app.query_one("#test_log", RichLog)
+        for i in range(50):
+            log.write(f"Line {i:02d}: " + "x" * 120)
+        await pilot.pause(0.2)
+
+        assert log.show_vertical_scrollbar is True
+        assert log.show_horizontal_scrollbar is True
+
+        log.scroll_right(animate=False)
+        await pilot.pause(0.1)
+        assert log.scroll_offset.x > 0
+
+        log.scroll_down(animate=False)
+        await pilot.pause(0.1)
+        assert log.scroll_offset.y > 0
+
+
+@pytest.mark.asyncio
+async def test_entity_browser_scrollbar_preservation():
+    """Verify EntityBrowser preserves scrollbars and renders thin scrollbar on overflow."""
+
+    class BrowserApp(App):
+        CSS_PATH = "../../cyguide/ui/style.css"
+
+        def compose(self) -> ComposeResult:
+            yield EntityBrowser(id="entity_browser")
+
+    app = BrowserApp()
+    async with app.run_test(size=(34, 15)) as pilot:
+        eb = app.query_one("#entity_browser", EntityBrowser)
+        assert eb.styles.overflow_x == "auto"
+        assert eb.styles.overflow_y == "auto"
+
+        for i in range(25):
+            eb.root.add_leaf(f"Node {i}: Very long entity title that exceeds sidebar width")
+        eb.root.expand_all()
+        await pilot.pause(0.2)
+
+        assert eb.show_vertical_scrollbar is True
+        assert eb.show_horizontal_scrollbar is True
+        assert eb.vertical_scrollbar.thickness == 1
+        assert eb.horizontal_scrollbar.thickness == 1
+
+
+def test_kitty_keyboard_repeat_and_release_resilience():
+    """Verify Kitty Keyboard Protocol press, repeat, and release sequences parse without crash."""
+    setup_textual_compat()
+    from textual._xterm_parser import XTermParser
+
+    parser = XTermParser()
+
+    # Down arrow: press (event_type=1)
+    press_events = list(parser.feed("\x1b[1;1:1B"))
+    assert len(press_events) == 1
+    assert press_events[0].key == "down"
+
+    # Down arrow: repeat (event_type=2) - caused upstream ValueError on int("1:2")
+    repeat_events = list(parser.feed("\x1b[1;1:2B"))
+    assert len(repeat_events) == 1
+    assert repeat_events[0].key == "down"
+
+    # Down arrow: release (event_type=3) - should be cleanly ignored without event
+    release_events = list(parser.feed("\x1b[1;1:3B"))
+    assert release_events == []
+
+    # Shift+Down repeat
+    shift_down = list(parser.feed("\x1b[1;2:2B"))
+    assert len(shift_down) == 1
+    assert shift_down[0].key == "shift+down"
+
+    # Alt+Down repeat
+    alt_down = list(parser.feed("\x1b[1;3:2B"))
+    assert len(alt_down) == 1
+    assert alt_down[0].key == "alt+down"
+
+    # Ctrl+Down repeat
+    ctrl_down = list(parser.feed("\x1b[1;5:2B"))
+    assert len(ctrl_down) == 1
+    assert ctrl_down[0].key == "ctrl+down"
+
+    # Extended unicode key with event_type (scroll lock)
+    ext_key = list(parser.feed("\x1b[57359;1:2u"))
+    assert len(ext_key) == 1
+    assert ext_key[0].key == "scroll_lock"
+
+
+def test_xterm_parser_feed_malformed_sequence_resilience():
+    """Verify XTermParser.feed safely handles corrupted escape sequences without throwing."""
+    setup_textual_compat()
+    from textual._xterm_parser import XTermParser
+
+    parser = XTermParser()
+    # Feed garbage sequences, unclosed escapes, null bytes, and out-of-range codepoints
+    tokens = list(parser.feed("\x1b[;;;;\x1b[999999999999999999999999;foo:bar~"))
+    assert isinstance(tokens, list)

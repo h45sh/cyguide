@@ -12,8 +12,18 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Switch, Tab, TabbedContent, TabPane, Tabs
 
-from cyguide.engine.explainer import is_placeholder_key
+from cyguide.common import is_placeholder_key
 from cyguide.paths import get_default_db_path, get_default_exports_dir, get_default_reports_dir
+
+
+def format_key_status_pill(raw_key: Optional[str], is_active: bool) -> str:
+    """Format the status indicator pill for an AI provider key."""
+    if not raw_key or is_placeholder_key(raw_key):
+        return "[bold #f59e0b]▲ No Key[/bold #f59e0b]"
+    if is_active:
+        return "[bold green]● Active[/bold green]"
+    return "[dim]▪ Standby[/dim]"
+
 
 PROVIDER_PRESETS: Dict[str, Dict[str, str]] = {
     "openai": {
@@ -257,9 +267,7 @@ class KeyProfileManager:
             None,
         )
 
-    def validate_key_uniqueness(
-        self, candidate_key: str, exclude_id: Optional[str] = None
-    ) -> bool:
+    def validate_key_uniqueness(self, candidate_key: str, exclude_id: Optional[str] = None) -> bool:
         clean = (candidate_key or "").strip().strip("\"'")
         if not clean or is_placeholder_key(clean):
             return True
@@ -629,12 +637,7 @@ class ConfigModal(ModalScreen[None]):
         is_editing = kid == self.editing_profile_id
         enabled = k.get("enabled", True)
 
-        if not raw_key or is_placeholder_key(raw_key):
-            status_text = "[bold yellow]▲ No Key[/bold yellow]"
-        elif is_active:
-            status_text = "[bold green]● Active[/bold green]"
-        else:
-            status_text = "[dim]▪ Standby[/dim]"
+        status_text = format_key_status_pill(raw_key, is_active)
 
         fallback_text = (
             "[bold #38bdf8]Fallback: YES[/bold #38bdf8]"
@@ -1580,12 +1583,7 @@ class ConfigModal(ModalScreen[None]):
                     card.remove_class("cfg_key_card_active_key")
 
                 pill = self.query_one(f"#cfg_pill_{cid}", Label)
-                if not raw_key or is_placeholder_key(raw_key):
-                    pill.update("[bold yellow]▲ No Key[/bold yellow]")
-                elif is_active:
-                    pill.update("[bold green]● Active[/bold green]")
-                else:
-                    pill.update("[dim]▪ Standby[/dim]")
+                pill.update(format_key_status_pill(raw_key, is_active))
 
                 act_btn = self.query_one(f"#cfg_activate_key_{cid}", Button)
                 act_btn.disabled = is_active
@@ -1811,12 +1809,7 @@ class ConfigModal(ModalScreen[None]):
                     try:
                         self.query_one(f"#cfg_masked_{cid}", Label).update(masked)
                         pill = self.query_one(f"#cfg_pill_{cid}", Label)
-                        if not raw or is_placeholder_key(raw):
-                            pill.update("[bold yellow]▲ No Key[/bold yellow]")
-                        elif cid == self.active_key_id:
-                            pill.update("[bold green]● Active[/bold green]")
-                        else:
-                            pill.update("[dim]▪ Standby[/dim]")
+                        pill.update(format_key_status_pill(raw, cid == self.active_key_id))
                     except Exception:
                         pass
                 elif event.input.id == "cfg_api_model":

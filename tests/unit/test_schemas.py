@@ -1,12 +1,14 @@
 import pytest
 
 from cyguide.schemas.credential import CredentialFound
-from cyguide.schemas.dns import DnsRecord, DomainInfo
-from cyguide.schemas.entity import EntityAlias
+from cyguide.schemas.dns import DnsRecord, DomainInfo, EntityAlias
 from cyguide.schemas.host_internal import FileSystemObject, ProcessRunning, SoftwarePackage
-from cyguide.schemas.netblock import NetworkNetblock
-from cyguide.schemas.network import NetworkHost, NetworkService
-from cyguide.schemas.tls import TLSCertificate
+from cyguide.schemas.network import (
+    NetworkHost,
+    NetworkNetblock,
+    NetworkService,
+    TLSCertificate,
+)
 from cyguide.schemas.vulnerability import (
     AuditMisconfig,
     ExploitReference,
@@ -522,3 +524,13 @@ def test_all_schemas_json_roundtrip_symmetry():
         assert restored == finding, f"Round-trip failed for {cls.__name__}"
         assert restored.schema_type == finding.schema_type
         assert restored.pik == finding.pik
+
+
+def test_base_finding_from_data_automatic_pik_derivation():
+    """Verify that BaseFinding.from_data extracts declarative pik_fields automatically."""
+    data = {"ip": "10.10.10.10", "hostname": "target.htb", "os": "Linux"}
+    host = NetworkHost.from_data(data)
+    assert host.schema_type == "network.host"
+    assert host.pik == {"ip": "10.10.10.10"}
+    assert host.data["hostname"] == "target.htb"
+    assert host.parent is None

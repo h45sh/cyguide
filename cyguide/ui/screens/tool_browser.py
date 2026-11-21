@@ -2,7 +2,6 @@ import asyncio
 import shutil
 from typing import Dict, List, Optional
 
-from rich.markdown import Markdown as RichMarkdown
 from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -10,11 +9,20 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Input, Label, ListItem, ListView, Static
 
 from cyguide.engine.manifest import Manifest
+from cyguide.ui.widgets.markdown import CyGuideMarkdown, render_markdown
 
-_THEORY_MD_CACHE: Dict[str, RichMarkdown] = {}
+_THEORY_MD_CACHE: Dict[str, CyGuideMarkdown] = {}
+_BINARY_PATH_CACHE: Dict[str, Optional[str]] = {}
 
 
-def _get_tool_theory_markdown(manifest: Manifest) -> RichMarkdown:
+def _check_binary_available(binary_name: str) -> bool:
+    """Check binary availability with cached filesystem PATH resolution."""
+    if binary_name not in _BINARY_PATH_CACHE:
+        _BINARY_PATH_CACHE[binary_name] = shutil.which(binary_name)
+    return _BINARY_PATH_CACHE[binary_name] is not None
+
+
+def _get_tool_theory_markdown(manifest: Manifest) -> CyGuideMarkdown:
     """Pre-parse and memoize lightweight Rich Markdown for instant sub-millisecond tool switching."""
     cache_key = manifest.meta.name
     if cache_key in _THEORY_MD_CACHE:
@@ -27,9 +35,10 @@ def _get_tool_theory_markdown(manifest: Manifest) -> RichMarkdown:
     else:
         full_md = desc or "No theoretical overview available for this tool."
 
-    parsed = RichMarkdown(full_md, justify="left", code_theme="monokai")
+    parsed = render_markdown(full_md, code_theme="monokai")
     _THEORY_MD_CACHE[cache_key] = parsed
     return parsed
+
 
 CANONICAL_CATEGORIES = [
     "Network Reconnaissance",
@@ -38,9 +47,9 @@ CANONICAL_CATEGORIES = [
 ]
 
 CANONICAL_TOOL_ORDER = {
-    "Network Reconnaissance": ["nmap", "whois", "subfinder", "dnspython"],
+    "Network Reconnaissance": ["nmap", "whois", "subfinder", "dnspython", "netexec"],
     "Web Enumeration": ["gobuster", "ffuf"],
-    "Vulnerability Assessment": ["nikto", "searchsploit", "nuclei"],
+    "Vulnerability Assessment": ["nikto", "searchsploit", "nuclei", "sqlmap"],
 }
 
 
@@ -77,7 +86,7 @@ def _match_score(tool_name: str, manifest: Manifest, query: str) -> int:
         return 3  # Summary match
     if q in manifest.meta.category.lower():
         return 4  # Category match
-    return 5      # Recipe / flag match
+    return 5  # Recipe / flag match
 
 
 class CategoryHeaderItem(ListItem):
@@ -106,10 +115,25 @@ class ToolListItem(ListItem):
     def compose(self) -> ComposeResult:
         with Horizontal(classes="tool_item_row"):
             yield Label(f"◆ {self.tool_name}", classes="tool_name_label")
-            count_str = (
-                f"{len(self.recipes)} {'recipe' if len(self.recipes) == 1 else 'recipes'}"
-            )
+            count_str = f"{len(self.recipes)} {'recipe' if len(self.recipes) == 1 else 'recipes'}"
             yield Label(f" {count_str} ", classes="tool_recipe_badge")
+
+
+class RecipeRowItem(Horizontal):
+    """A single curriculum recipe row in the inspector pane."""
+
+    def __init__(self, name: str, flags_display: str):
+        super().__init__(classes="inspector_recipe_row")
+        self._name_label = Label(f"• {name}", classes="inspector_recipe_row_name")
+        self._flags_label = Label(flags_display, classes="inspector_recipe_row_flags")
+
+    def compose(self) -> ComposeResult:
+        yield self._name_label
+        yield self._flags_label
+
+    def update_recipe(self, name: str, flags_display: str) -> None:
+        self._name_label.update(f"• {name}")
+        self._flags_label.update(flags_display)
 
 
 class ToolInspectorPane(Vertical):
@@ -126,7 +150,10 @@ class ToolInspectorPane(Vertical):
             with Horizontal(id="inspector_title_row"):
                 yield Label("◆ SELECT A TOOL", id="inspector_title")
                 yield Label("", id="inspector_category_badge")
-            yield Horizontal(id="inspector_meta_bar")
+            with Horizontal(id="inspector_meta_bar"):
+                yield Label("", id="meta_status_badge", classes="meta_badge")
+                yield Label("", id="meta_binary_badge", classes="meta_badge")
+                yield Label("", id="meta_produces_badge", classes="meta_badge")
 
         with Horizontal(id="inspector_split_body"):
             with Vertical(id="inspector_desc_card", classes="inspector_card"):
@@ -155,7 +182,7 @@ class ToolInspectorPane(Vertical):
             self.active_tool = name
             self.active_manifest = manifest
 
-            bin_ready = shutil.which(manifest.meta.binary) is not None
+            bin_ready = _check_binary_available(manifest.meta.binary)
             status_text = "● Ready" if bin_ready else "○ Not in PATH"
             status_cls = "status_ready" if bin_ready else "status_missing"
 
@@ -165,16 +192,26 @@ class ToolInspectorPane(Vertical):
                 f" {manifest.meta.category.upper()} "
             )
 
-            meta_bar = self.query_one("#inspector_meta_bar", Horizontal)
-            await meta_bar.remove_children()
-            meta_badges = [
-                Label(status_text, classes=f"meta_badge {status_cls}"),
-                Label(f"CLI: {manifest.meta.binary}", classes="meta_badge"),
-            ]
-            if manifest.output.get("produces"):
-                produces_str = ", ".join(manifest.output["produces"][:2])
-                meta_badges.append(Label(f"Produces: {produces_str}", classes="meta_badge"))
-            await meta_bar.mount(*meta_badges)
+            # In-place update of meta badges
+            try:
+                status_badge = self.query_one("#meta_status_badge", Label)
+                status_badge.update(status_text)
+                status_badge.set_classes(f"meta_badge {status_cls}")
+                status_badge.display = True
+
+                binary_badge = self.query_one("#meta_binary_badge", Label)
+                binary_badge.update(f"CLI: {manifest.meta.binary}")
+                binary_badge.display = True
+
+                produces_badge = self.query_one("#meta_produces_badge", Label)
+                if manifest.output.get("produces"):
+                    produces_str = ", ".join(manifest.output["produces"][:2])
+                    produces_badge.update(f"Produces: {produces_str}")
+                    produces_badge.display = True
+                else:
+                    produces_badge.display = False
+            except Exception:
+                pass
 
             # Update Description Card with ultra-fast textbook Markdown
             theory_renderable = _get_tool_theory_markdown(manifest)
@@ -191,27 +228,52 @@ class ToolInspectorPane(Vertical):
                 f"CURRICULUM RECIPES ({len(recipes)})"
             )
             recipes_container = self.query_one("#inspector_recipes_container", Vertical)
-            await recipes_container.remove_children()
 
-            recipe_widgets = []
-            for r in recipes:
-                raw_flags = " ".join(r.flags) if getattr(r, "flags", None) else "(standard)"
-                flags_display = raw_flags if len(raw_flags) <= 30 else raw_flags[:27] + "..."
-                recipe_widgets.append(
-                    Horizontal(
-                        Label(f"• {r.name}", classes="inspector_recipe_row_name"),
-                        Label(f"{flags_display}", classes="inspector_recipe_row_flags"),
-                        classes="inspector_recipe_row",
-                    )
-                )
-            if recipe_widgets:
-                await recipes_container.mount(*recipe_widgets)
+            if recipes:
+                existing_rows = list(recipes_container.query(".inspector_recipe_row"))
+                common_count = min(len(recipes), len(existing_rows))
+
+                # 1. Update existing rows in place without DOM allocation/mounting
+                for i in range(common_count):
+                    r = recipes[i]
+                    row = existing_rows[i]
+                    raw_flags = " ".join(r.flags) if getattr(r, "flags", None) else "(standard)"
+                    flags_display = raw_flags if len(raw_flags) <= 30 else raw_flags[:27] + "..."
+                    if isinstance(row, RecipeRowItem):
+                        row.update_recipe(r.name, flags_display)
+                    else:
+                        try:
+                            row.query_one(".inspector_recipe_row_name", Label).update(f"• {r.name}")
+                            row.query_one(".inspector_recipe_row_flags", Label).update(
+                                flags_display
+                            )
+                        except Exception:
+                            pass
+
+                # 2. Prune excess rows if previous tool had more recipes
+                if len(existing_rows) > len(recipes):
+                    for row in existing_rows[len(recipes) :]:
+                        await row.remove()
+                # 3. Mount only the additional rows if new tool has more recipes
+                elif len(recipes) > len(existing_rows):
+                    new_widgets = []
+                    for r in recipes[len(existing_rows) :]:
+                        raw_flags = " ".join(r.flags) if getattr(r, "flags", None) else "(standard)"
+                        flags_display = (
+                            raw_flags if len(raw_flags) <= 30 else raw_flags[:27] + "..."
+                        )
+                        new_widgets.append(RecipeRowItem(r.name, flags_display))
+                    await recipes_container.mount(*new_widgets)
+
                 self.query_one("#inspector_recipes_card").display = True
                 try:
-                    self.query_one("#inspector_recipes_scroll", VerticalScroll).scroll_home(animate=False)
+                    self.query_one("#inspector_recipes_scroll", VerticalScroll).scroll_home(
+                        animate=False
+                    )
                 except Exception:
                     pass
             else:
+                await recipes_container.remove_children()
                 self.query_one("#inspector_recipes_card").display = False
 
             self.query_one("#inspector_action_bar").display = True
@@ -224,7 +286,12 @@ class ToolInspectorPane(Vertical):
 
             self.query_one("#inspector_title", Label).update("◆ NO TOOLS FOUND")
             self.query_one("#inspector_category_badge", Label).update("")
-            await self.query_one("#inspector_meta_bar", Horizontal).remove_children()
+            try:
+                self.query_one("#meta_status_badge", Label).display = False
+                self.query_one("#meta_binary_badge", Label).display = False
+                self.query_one("#meta_produces_badge", Label).display = False
+            except Exception:
+                pass
 
             self.query_one("#inspector_desc_text", Static).update(message)
             self.query_one("#inspector_recipes_card").display = False
@@ -244,6 +311,14 @@ class ToolBrowserScreen(Screen):
         super().__init__(**kwargs)
         self._refresh_lock = asyncio.Lock()
         self.last_selected_tool: Optional[str] = None
+        self._highlight_debounce_task: Optional[asyncio.Task] = None
+        self._search_debounce_task: Optional[asyncio.Task] = None
+
+    def on_unmount(self) -> None:
+        if self._highlight_debounce_task and not self._highlight_debounce_task.done():
+            self._highlight_debounce_task.cancel()
+        if self._search_debounce_task and not self._search_debounce_task.done():
+            self._search_debounce_task.cancel()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="browser_container"):
@@ -295,7 +370,9 @@ class ToolBrowserScreen(Screen):
     def inspector(self) -> ToolInspectorPane:
         return self.query_one(ToolInspectorPane)
 
-    async def refresh_tools(self, filter_text: str = "", preferred_tool: Optional[str] = None) -> None:
+    async def refresh_tools(
+        self, filter_text: str = "", preferred_tool: Optional[str] = None
+    ) -> None:
         async with self._refresh_lock:
             registry = self.app.registry
             tool_list = self.query_one("#tool_list", ListView)
@@ -418,26 +495,69 @@ class ToolBrowserScreen(Screen):
 
     async def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "search_input":
-            await self.refresh_tools(event.value)
+            if self._highlight_debounce_task and not self._highlight_debounce_task.done():
+                self._highlight_debounce_task.cancel()
+            if self._search_debounce_task and not self._search_debounce_task.done():
+                self._search_debounce_task.cancel()
+            self._search_debounce_task = asyncio.create_task(
+                self._debounced_search(event.value, delay=0.015)
+            )
+
+    async def _debounced_search(self, filter_text: str, delay: float = 0.015) -> None:
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+        await self.refresh_tools(filter_text)
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "search_input":
-            if self.inspector.active_tool:
-                self._launch_tool(self.inspector.active_tool)
+            if self._highlight_debounce_task and not self._highlight_debounce_task.done():
+                self._highlight_debounce_task.cancel()
+            if self._search_debounce_task and not self._search_debounce_task.done():
+                self._search_debounce_task.cancel()
+            target_tool = self.last_selected_tool or self.inspector.active_tool
+            if target_tool:
+                self._launch_tool(target_tool)
 
     async def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if isinstance(event.item, ToolListItem):
             self.last_selected_tool = event.item.tool_name
-            await self.inspector.show_tool(event.item.tool_name, event.item.manifest)
+            self.inspector.active_tool = event.item.tool_name
+            self.inspector.active_manifest = event.item.manifest
+            if self._highlight_debounce_task and not self._highlight_debounce_task.done():
+                self._highlight_debounce_task.cancel()
+            self._highlight_debounce_task = asyncio.create_task(
+                self._debounced_show_tool(event.item.tool_name, event.item.manifest, delay=0.035)
+            )
+
+    async def _debounced_show_tool(
+        self, tool_name: str, manifest: Manifest, delay: float = 0.035
+    ) -> None:
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+        try:
+            await asyncio.shield(self.inspector.show_tool(tool_name, manifest))
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            pass
 
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         if isinstance(event.item, ToolListItem):
+            if self._highlight_debounce_task and not self._highlight_debounce_task.done():
+                self._highlight_debounce_task.cancel()
             self.last_selected_tool = event.item.tool_name
             self._launch_tool(event.item.tool_name)
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "start_lesson_btn" and self.inspector.active_tool:
-            self._launch_tool(self.inspector.active_tool)
+        target_tool = self.last_selected_tool or self.inspector.active_tool
+        if event.button.id == "start_lesson_btn" and target_tool:
+            if self._highlight_debounce_task and not self._highlight_debounce_task.done():
+                self._highlight_debounce_task.cancel()
+            self._launch_tool(target_tool)
 
     def on_key(self, event: events.Key) -> None:
         search_input = self.query_one("#search_input", Input)
@@ -460,9 +580,14 @@ class ToolBrowserScreen(Screen):
                 return
 
         # 3. Enter key or Right arrow key: open currently highlighted tool directly
-        is_right_nav = event.key == "right" and (not search_input.has_focus or search_input.value == "")
-        if (event.key == "enter" or is_right_nav) and self.inspector.active_tool:
-            self._launch_tool(self.inspector.active_tool)
+        is_right_nav = event.key == "right" and (
+            not search_input.has_focus or search_input.value == ""
+        )
+        target_tool = self.last_selected_tool or self.inspector.active_tool
+        if (event.key == "enter" or is_right_nav) and target_tool:
+            if self._highlight_debounce_task and not self._highlight_debounce_task.done():
+                self._highlight_debounce_task.cancel()
+            self._launch_tool(target_tool)
             event.prevent_default()
             event.stop()
             return

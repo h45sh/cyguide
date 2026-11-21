@@ -7,182 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.10.1](https://github.com/h45sh/cyguide/compare/v1.10.0...v1.10.1) (2026-11-16)
+## [Unreleased]
 
-
-### Bug Fixes
-
-* **test:** stabilize workspace and session list highlight debounce in unit tests ([766fca2](https://github.com/h45sh/cyguide/commit/766fca2daaa357a9a463b66c4afa9a1ece1437eb))
-* **ci:** fix PyPI OIDC trusted publisher policy by inlining publish job and add main-to-dev sync
-* **packaging:** bundle wordlist assets into wheel and sdist package data with preflight validator
-
-
-## [1.10.0](https://github.com/h45sh/cyguide/compare/v1.9.1...v1.10.0) (2026-11-15)
-
-
-### Features
-
-* **ecosystem:** update tool installer, polish UI layouts, add test fixtures and fix root log creation ([87297db](https://github.com/h45sh/cyguide/commit/87297db805aea5472c203fdbdababa6875cee0e1))
-* implement schema 2.0, wordlists, and 4 new tool adapters with curriculum recipes ([2a4e0cd](https://github.com/h45sh/cyguide/commit/2a4e0cd61457c65edb628e5c99f898d28accd0d7))
-* Schema 2.0 adapters, learning engine deep modules, and startup optimizations ([3b94abe](https://github.com/h45sh/cyguide/commit/3b94abeda93ffeedcff56bbd646f8a7429f56fc6))
-
-
-### Bug Fixes
-
-* **ci:** bypass subshell fork in CI test runners and include .txt.gz package-data ([0295972](https://github.com/h45sh/cyguide/commit/0295972f28d7e55dea3095406329e7da22947b88))
-* **docker:** allow assets/wordlists in docker build context and copy wordlists directory ([8e2c296](https://github.com/h45sh/cyguide/commit/8e2c29615d821ebd100f0be86ac879b139ce2c4c))
-* **ui:** protect widget message loop exit during DOM teardown and settle debounce tasks ([345bae4](https://github.com/h45sh/cyguide/commit/345bae456f674e3f5bde3295f1082c6d99dc1ca7))
-
-
-### Performance Improvements
-
-* **startup:** fast-path shell environment detection and guard unmounted diagnostics ([49ac6bc](https://github.com/h45sh/cyguide/commit/49ac6bc01c891894b91c227dd5df216bfccfee97))
-
-## [1.9.1](https://github.com/h45sh/cyguide/compare/v1.9.0...v1.9.1) (2026-11-14)
-
-
-### Performance Improvements
-
-* **ui:** debounce live updates and cap tree nodes to prevent freeze on large finding streams ([f171f6f](https://github.com/h45sh/cyguide/commit/f171f6f0ec579f3adde0cc86baa1b28d9f623c1a))
-* **ui:** debounce live updates and cap tree nodes to prevent freezing on large finding streams ([2ac8d57](https://github.com/h45sh/cyguide/commit/2ac8d5713f3f7f6a1f725344b6bb08c54f5caca6))
-
-## [1.9.0](https://github.com/h45sh/cyguide/compare/v1.8.0...v1.9.0) (2026-11-14)
-
-
-### Features
-
-* **cli:** enhance argument parser with rich boxed styling and flexible option ordering ([76a55f6](https://github.com/h45sh/cyguide/commit/76a55f6cada0f0cb122b8db1b6d373248b6aa469))
-* harden learning mode, canonicalize schemas, optimize store, and refine UI docks ([60a4860](https://github.com/h45sh/cyguide/commit/60a4860308410b37f38e1ae8901197545cc680a5))
-* **release:** v1.9.0 Engine, Dataflow & Concurrency Hardening ([ecb9293](https://github.com/h45sh/cyguide/commit/ecb9293c667923720fb889729d900597913db92b))
-
-
-### Bug Fixes
-
-* resolve ruff lint violations and typing imports for CI compliance ([b0d6005](https://github.com/h45sh/cyguide/commit/b0d60055d4d360304629ceeb143535223c83993b))
-* **tests:** avoid WaitForScreenTimeout by using pilot.pause with delay in workspace switch test ([9673d3e](https://github.com/h45sh/cyguide/commit/9673d3eccac64b25d48a59a6752a9ad37f00bda3))
-* **ui:** await session list items mount and prevent transient None index in dashboard ([1d4cc00](https://github.com/h45sh/cyguide/commit/1d4cc00fbe870ed21158242b660247ba4474f8a8))
-* **ui:** prevent DuplicateIds race condition in JobQueue ([6d0e1e2](https://github.com/h45sh/cyguide/commit/6d0e1e2cf5e065c154e03ec75b73f100d6db318d))
-* **ui:** synchronize session details mount with mutex lock and atomic batch mounting ([207a024](https://github.com/h45sh/cyguide/commit/207a0242a5a7530b62b6e452a60cf43467636566))
-
-
-### Documentation
-
-* **architecture:** update architecture specification and adr for deep modules refactoring ([61b5ff0](https://github.com/h45sh/cyguide/commit/61b5ff032dcf782355991cc3ea613c9f54f7854d))
-* record v1.8.0 release and shift future roadmap milestones ([251d8bd](https://github.com/h45sh/cyguide/commit/251d8bda8b2d8f0f013bd4f731a5e405adefc4ca))
-* **roadmap:** mark v1.9.0 (Phase 3.5) as completed (22/22 tasks, 100%) ([57905b5](https://github.com/h45sh/cyguide/commit/57905b5452d0d9a83fe070a69c7f21a07ecea798))
-* synchronize README and developer docs with deep modules and decommissioned recommendation engine ([8e3eae0](https://github.com/h45sh/cyguide/commit/8e3eae0a2d9ea4bb77732f9cfc0d6f2cccdb546d))
-
-## [1.8.0](https://github.com/h45sh/cyguide/compare/v1.7.0...v1.8.0) (2026-11-11)
-
-
-### Features
-
-* add demo mode dummy IP support and enrich documentation showcase ([1d45844](https://github.com/h45sh/cyguide/commit/1d458442d796f051f872ff41930e75dfb2ac7ea8))
-* **docs:** embed terminal demo video and revert recording dummy IP logic ([a61d0d3](https://github.com/h45sh/cyguide/commit/a61d0d3674f81dd10eef88977e20f5f80ecf3d00))
-
-
-### Bug Fixes
-
-* **ci:** upgrade setuptools to resolve runner vulnerability in pip audit ([b7fa94c](https://github.com/h45sh/cyguide/commit/b7fa94cb1db0e1a99e27cbbdd91c683c263082d2))
-* **ui:** protect against Textual NoneType region crash and throttle Markdown updates ([2124980](https://github.com/h45sh/cyguide/commit/212498067e11f7d9de3f71426e39b98ac5643ee5))
-* **ui:** stabilize Textual updates and automate releases ([3b002be](https://github.com/h45sh/cyguide/commit/3b002becdf0539356b6dec17e54b04a305f4e4ab))
-
-
-### Documentation
-
-* add official project webpage to README ([c964f65](https://github.com/h45sh/cyguide/commit/c964f651dd120eab8d58beb5e6c5ab7c3637af20))
-* add official project webpage to README ([aea0f49](https://github.com/h45sh/cyguide/commit/aea0f491fe34985e2394dc4c512c6257521e9484))
-* add recommendation cleanup to roadmap ([4ce4840](https://github.com/h45sh/cyguide/commit/4ce4840ce4934efd1525e824155a09515a06c035))
-* formalize v1.8.0 through v2.0.0 progression ([701a97e](https://github.com/h45sh/cyguide/commit/701a97ea996b79bc2ea6b9f281d7f010df6c4eb9))
-* formalize v1.8.0 through v2.0.0 progression and platform specification ([5418587](https://github.com/h45sh/cyguide/commit/5418587a28237c85212a27e05810ccb40272f7ee))
-* integrate authentic UI screenshots and set Power Mode as hero preview ([e0b0cad](https://github.com/h45sh/cyguide/commit/e0b0cad2716bc0f7d1a6bc11ff3fac3d234e78e8))
-* **security:** update contact email and supported versions ([5129090](https://github.com/h45sh/cyguide/commit/5129090b2378787da701bbc1005dc530dff4b7d5))
-* showcase visual workstation interface, embed demo video, and enrich user manual ([68f8fd2](https://github.com/h45sh/cyguide/commit/68f8fd2750d8eab3f66bef401c6e4d8f987ded85))
-* **ui:** document technical debt and upstream decommissioning criteria for Textual compat ([b9a5eb4](https://github.com/h45sh/cyguide/commit/b9a5eb42010ba01d0a0e9724b9bc7542913f28a3))
-
-## [1.7.0] - 2026-11-08
-
-### Power Mode & Concurrency
-* **Persistent Background Task Execution**: Background investigation jobs (e.g. `nmap`, `subfinder`, `whois`) now maintain continuous execution and ring-buffer history across tab changes, session switches, and dashboard navigation.
-* **Pub/Sub Observability Engine**: Real-time event subscription model decouples UI presentation from active execution tasks, enabling responsive live stream rendering without UI freezes.
-* **Graceful Teardown & Task Draining**: Coordinated async shutdown sequence prevents connection race conditions (`Cannot operate on a closed database`) when exiting the application during active runs.
-
-### Operator Networking & Usability
-* **Automated LHOST & Network Interface Detection**: Intelligent discovery of active local IP addresses, automatically prioritizing VPN interfaces (`tun0`, `tap0`) followed by local adapters and binding `$LHOST` directly into the execution prompt.
-* **Real-Time CTF Flag Detection**: Automated stream detection for security flag formats (`flag{...}`, `HTB{...}`, `THM{...}`) with native desktop notifications (`notify-send`) and one-key clipboard yank (`Ctrl+Y`).
-* **Modern TUI Visual Standards**: Enforced 34-column sidebar standards, anti-flicker surgical DOM updates, and standardized operational status glyphs (`●`, `◌`, `▪`, `×`, `⊘`).
+### Added
+- **Unified Algorithmic Deep Module**: Bitwise Patricia Radix Trie (`IPRadixTrie`) for $\mathcal{O}(W)$ longest-prefix matching, Disjoint-Set Union (`DisjointSet`), MinHash locality-sensitive hashing, dynamic programming 0/1 Knapsack token optimizer (`knapsack_01`), and probabilistic query filter (`BloomFilter`) consolidated in `cyguide.common.algorithms`.
+- **Graph Intelligence Engine**: In-memory graph analytics engine (`GraphAnalyticsEngine`) computing Brandes betweenness centrality for choke-point detection, Tarjan's strongly connected components (SCC) for cyclic attack loops, shortest attack path traversals, and blast-radius compromise calculations.
+- **Headless CLI 2.0 (`cyg`)**: Fully decoupled POSIX command architecture with domain subcommands (`workspace`, `session`, `tool`, `lab`, `doctor`) supporting rich terminal formatting and universal `--json` serialization for automated pipelines.
+- **Embedded Mock Practice Server**: Local loopback web server (`cyg lab start`) and `.cyglab` universal checkpoint archives for hermetic, verifiable offline training exercises.
+- **Streamlined Test Architecture**: Universal adapter fuzzing, AST architectural layer DAG guards, and property-based mathematical verification suites.
 
 ---
 
-## [1.6.1] - 2026-11-08
+## [1.0.0] - Initial Platform Release
 
-### Operator Experience & Runtime
-* **Instantaneous CLI Startup (`cyg --version`)**: Optimized startup runtime to sub-100ms (~8.5x faster) by lazy-loading interactive TUI components only when launching visual mode.
-* **Pre-Configured Web Scanning in Docker**: Fixed containerized Nikto execution by embedding Perl SSL engines and XML libraries directly in the official multi-architecture container.
-* **PyPI Distribution Integrity**: Streamlined distribution via PyPI (`pip install cyguide`) with isolated binary execution and clean uninstallation.
-
----
-
-## [1.6.0] - 2026-11-08
-
-### Engagement Management & Dashboard
-* **Actionable Engagement Cards**: Active and archived engagement cards on the Home Screen feature clear target counts, metadata tags, and one-click actions:
-  * `› VIEW AUDIT LOG`: Opens timeline logs, executed command histories, and discovered findings.
-  * `↺ REOPEN ENGAGEMENT`: Re-activates past engagements while preserving all graph nodes and findings.
-* **Streamlined Card Layout**: Repositioned quick-action shortcuts and status indicators for clean alignment and visual hierarchy.
-
-### Reactive Command Palette (Ctrl+P)
-* **Real-Time Tool Health Diagnostics**: Added a live tool health badge (`● Healthy (5/5)` / `▲ Issues Detected`) that dynamically probes installed security tools (`nmap`, `whois`, `gobuster`, `nikto`, `subfinder`) and reflects changes live.
-* **Structured Command Categorization**: Grouped actions logically into View Toggles, Tool Diagnostics, Configuration, Themes, Hotkeys, and Session Management.
-* **Live Theme Switcher**: Dedicated theme selection palette with instant preview and arrow key navigation.
-* **F1 Hotkeys Reference**: Fast-reference shortcuts dialog detailing all workbench, navigation, and resizing keys.
-
-### Command-Line Diagnostics & Reporting
-* **Terminal System Diagnostics (`cyg check`)**: Inspect installed tools, database integrity, and environment health from the terminal, with optional JSON output (`cyg check --json`).
-* **Session Export & Markdown Reports (`cyg export`)**: Export engagement databases and generate formatted Markdown assessment reports with atomic file security.
-* **Direct Version Check (`cyg --version`)**: Added `--version` / `-V` flag for immediate version checks.
-
-### Tooling Setup & Deployment
-* **Universal One-Command Installer (`scripts/install_deps.sh`)**: Automated dependency installer supporting Debian/Ubuntu, Kali, Arch Linux, Fedora/RHEL, openSUSE, Alpine, Void Linux, and macOS (Homebrew).
-* **Safe Audit & Non-Root Modes**: Added `--check` mode to preview missing tools without system changes, and `--user` mode for non-root environments.
-* **Official Multi-Architecture Container (`ghcr.io/h45sh/cyguide`)**: Pre-built container images for `linux/amd64` and `linux/arm64` bundling all security tools with zero local host configuration.
-
-### UI Polish & Terminal Ergonomics
-* **Thin Scrollbar Rendering**: Replaced bulky scrollbars with a custom thin scrollbar with mouse grab support.
-* **Terminal Crash Protection**: Escaped raw terminal markup and tool stderr to prevent crashes from noisy scans or ANSI escape sequences.
-* **Modern Minimalist Aesthetics**: Polished typography, consistent card padding, and clean border styling across all screens.
-* **Diátaxis Documentation Hub**: Reorganized documentation portal (`docs/README.md`) into practical Tutorials, How-To Guides, Reference specs, and Architecture Explanations.
-
----
-
-## [1.5.0] - 2026-11-06
-
-### Operator Workbench (Power Mode)
-* **Interactive Split-Pane Resizing**: Smooth mouse-drag and keyboard resizing (`+`/`-`) between the live terminal stream and findings graph.
-* **Integrated Engagement Scratchpad (`Ctrl+N`)**: Built-in side drawer for operator notes with atomic file security (`0600`).
-* **Interactive Entity Browser**: Live graph hierarchy displaying targets, ports, web endpoints, and detected vulnerabilities with local vs. global scope toggle (`Ctrl+G`).
-
-### Multi-Provider AI Intelligence
-* **Pluggable LLM Backends**: Support for local Ollama models (offline privacy) and cloud providers (OpenAI, Claude, Gemini, DeepSeek, Groq, OpenRouter).
-* **Contextual Suggestions**: Real-time AI explanations of tool outputs with recommended follow-up commands.
-
-### Navigation & Diagnostics
-* **Tool Health Inspector**: Graphical dialog auditing missing tool binaries with direct installation recommendations.
-* **Tool Catalog Screen**: Visual catalog of tools, parameters, scan modes, and target scopes.
-* **Guided Learning Mode**: Step-by-step penetration testing curriculum with flag breakdowns and AI coaching.
-* **Low-Latency Theme**: Zero-animation mode (`.no-animations`) for fast rendering over remote SSH connections.
-
-### Defense-in-Depth Safeguards
-* **SSRF & Metadata Protection**: Gateway blocking unauthorized tool calls to cloud metadata endpoints (`169.254.169.254`, AWS IMDSv2 IPv6).
-* **Environment Sanitization**: Automatic redaction of sensitive API keys, tokens, and SSH credentials from spawned tool subprocesses.
-
----
-
-## [1.0.0] - 2026-11-04
-
-### Initial Release
-* **Terminal User Interface**: Interactive TUI built on Textual and Rich for penetration testing and reconnaissance.
-* **Core Security Tool Adapters**: Integrated workflows for `nmap`, `whois`, `gobuster`, `nikto`, and `subfinder`.
-* **Stateful SQLite Findings Graph**: Relational entity store tracking domains, IPs, network services, endpoints, and vulnerabilities.
-* **Heuristic Recommendation Engine**: Automated analysis turning raw tool outputs into actionable next-step suggestions.
-* **Multi-Tab Terminal Execution**: Asynchronous job runner supporting concurrent tool execution and live output streaming.
+### Added
+- **Dual-Mode Terminal User Interface**: Interactive operator workbench (Power Mode) and pedagogical curriculum explorer (Learning Mode) built on Textual and Rich.
+- **Pluggable Security Tool Ecosystem**: Dynamic plugin discovery and line-by-line streaming parsers for 11 security tools: `nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `nuclei`, `ffuf`, `searchsploit`, `sqlmap`, `netexec`, and `dnspython`.
+- **Stateful SQLite Findings Graph**: Persistent relational entity graph (`GraphStore`) tracking hosts, services, endpoints, vulnerabilities, and credentials with deterministic Primary Identity Keys (PIK).
+- **Subprocess Security & SSRF Defense**: Subprocess environment scrubbing stripping cloud and API credentials, strict link-local and cloud metadata IP/DNS blocking, and declarative CIDR scope enforcement.
+- **Session Portability & Forensic Reporting**: Atomic zero-copy session export and import via SQLite `ATTACH DATABASE`, standalone `.cyglab` checkpoints, and automated Markdown report generation.
+- **Multi-Provider AI Mentoring**: Local offline Ollama integration alongside cloud AI providers (OpenAI, Anthropic, Gemini, DeepSeek, Groq) with prompt boundary sanitization and token budget caps.

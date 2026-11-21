@@ -1,7 +1,7 @@
 """Nmap tool adapter."""
 
 import re
-import shutil
+import shlex
 from typing import Any, AsyncIterator, Dict, List
 
 from cyguide.engine.adapter import ToolAdapter
@@ -17,19 +17,31 @@ class NmapAdapter(ToolAdapter):
     """Adapter for the nmap port scanner."""
 
     def validate_install(self) -> bool:
-        return shutil.which("nmap") is not None
+        return self.is_binary_available("nmap")
+
+    def sanitize_output(self, raw_stdout: str) -> str:
+        """Strip nmap banner and timing statistics to conserve LLM context tokens."""
+        lines = []
+        for line in raw_stdout.splitlines():
+            s = line.strip()
+            if (
+                s.startswith("Starting Nmap")
+                or s.startswith("Nmap done:")
+                or "host up (" in s.lower()
+            ):
+                continue
+            lines.append(line)
+        return "\n".join(lines)
 
     def build_command(self, target: BaseFinding, params: Dict[str, Any]) -> List[str]:
         # target is expected to be a network.host, but might be dummy in manual mode
-        ip = target.pik.get("ip")
+        ip = self.extract_host(target)
 
         args = ["nmap", "--noninteractive"]
 
         # Handle manual raw flags from UI
         raw_flags = params.get("raw_flags", "")
         if raw_flags:
-            import shlex
-
             args.extend(shlex.split(raw_flags))
 
         if ip and ip not in args:
@@ -44,15 +56,17 @@ class NmapAdapter(ToolAdapter):
     async def parse_output(
         self, raw_stdout: str, target: BaseFinding, context: Dict[str, Any] = None
     ) -> AsyncIterator[BaseFinding]:
-        """
-        Simple regex parser for nmap output.
+        """Simple regex parser for nmap output.
+
         Example line: 80/tcp open  http
         """
         context = context or {}
 
         for line in raw_stdout.splitlines():
+            clean_line = self.strip_ansi(line)
+
             # Host discovery
-            host_match = _REPORT_PATTERN.search(line)
+            host_match = _REPORT_PATTERN.search(clean_line)
             if host_match:
                 host_ip = host_match.group(1)
                 context["current_host_ip"] = host_ip
@@ -60,7 +74,7 @@ class NmapAdapter(ToolAdapter):
                 continue
 
             # Port discovery
-            port_match = _PORT_PATTERN.search(line)
+            port_match = _PORT_PATTERN.search(clean_line)
             if port_match:
                 # Priority: 1. Host from output context, 2. Host from target PIK, 3. Host from raw flags
                 host_ip = context.get("current_host_ip") or target.pik.get("ip")

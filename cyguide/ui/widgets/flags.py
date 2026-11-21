@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+import re
+import shlex
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from textual import events
 from textual.app import ComposeResult
@@ -10,6 +12,22 @@ from textual.containers import Vertical
 from textual.widgets import Input, Label, Static
 
 from cyguide.engine.learning import RecipeBinding, ResolvedInvocation
+from cyguide.engine.preflight import PreflightVerifier
+
+
+def _contains_sudo(flags: str, target: str) -> bool:
+    """Check if command parameters contain privileged sudo invocation without false-positives on domains."""
+    for text in (flags, target):
+        if not text:
+            continue
+        try:
+            tokens = shlex.split(text)
+            if any(t.lower() == "sudo" for t in tokens):
+                return True
+        except Exception:
+            if re.search(r"(?:^|\s)sudo(?:\s|$)", text, re.IGNORECASE):
+                return True
+    return False
 
 
 class FlagEditor(Vertical):
@@ -56,9 +74,12 @@ class FlagEditor(Vertical):
 
         try:
             warning = self.query_one("#sudo_warning", Label)
-            if "sudo" in flags.lower() or "sudo" in target.lower():
-                warning.update("[!] Sudo commands cannot be performed in Learning Mode.")
-                warning.styles.color = "red"
+            quick_warn = PreflightVerifier.quick_check(self.tool_name, target, flags)
+            if quick_warn:
+                warning.update(quick_warn)
+                warning.styles.color = (
+                    "red" if "[!] Sudo" in quick_warn or "blocked" in quick_warn else "yellow"
+                )
             else:
                 warning.update("")
         except Exception:
@@ -72,13 +93,18 @@ class FlagEditor(Vertical):
             )
             self.query_one("#command_preview", Static).update(inv.cmd_str)
         except Exception:
-            self.query_one("#command_preview", Static).update(f"{self.tool_name} {flags} {target}".strip())
+            self.query_one("#command_preview", Static).update(
+                f"{self.tool_name} {flags} {target}".strip()
+            )
 
-    def set_flags(self, flags_list: List[str]) -> None:
-        """Set flags from a recipe and update preview."""
+    def set_flags(self, flags_val: Union[List[str], str]) -> None:
+        """Set flags from a recipe or string and update preview."""
         try:
             input_widget = self.query_one("#flags_input", Input)
-            input_widget.value = " ".join(flags_list)
+            if isinstance(flags_val, (list, tuple)):
+                input_widget.value = " ".join(flags_val)
+            else:
+                input_widget.value = str(flags_val)
             self.update_preview()
         except Exception:
             pass
@@ -96,7 +122,7 @@ class FlagEditor(Vertical):
         """Validate security constraints and return command parameters."""
         flags = self.query_one("#flags_input", Input).value
         target = self.query_one("#target_input", Input).value
-        if "sudo" in flags.lower() or "sudo" in target.lower():
+        if _contains_sudo(flags, target):
             raise ValueError("Sudo is not allowed in Learning Mode.")
         return {"raw_flags": flags}, target
 

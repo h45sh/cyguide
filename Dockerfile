@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gobuster \
     whois \
     ffuf \
+    sqlmap \
     perl \
     libnet-ssleay-perl \
     libxml-writer-perl \

@@ -2,18 +2,97 @@
 # Changes to this file require team agreement.
 """SQLite-based graph store for workspaces and sessions."""
 
+import functools
+import hashlib
 import json
+import logging
 import os
 import re
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import aiosqlite
 
 from cyguide.engine.timeline import ActionTimelineRepository
 from cyguide.schemas.base import BaseFinding
 from cyguide.schemas.power import ActionRequest
+
+logger = logging.getLogger(__name__)
+
+SCHEMA_DDL = """
+CREATE TABLE IF NOT EXISTS workspaces (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    status TEXT DEFAULT 'ACTIVE',
+    closed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT DEFAULT 'ACTIVE',
+    closed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS nodes (
+    session_id TEXT NOT NULL,
+    id TEXT NOT NULL,
+    schema_type TEXT NOT NULL,
+    pik_json TEXT NOT NULL,
+    data_json TEXT NOT NULL,
+    status TEXT DEFAULT 'confirmed',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (session_id, id),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS edges (
+    session_id TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    relation_type TEXT NOT NULL,
+    PRIMARY KEY (session_id, source_id, target_id, relation_type),
+    FOREIGN KEY (session_id, source_id) REFERENCES nodes(session_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (session_id, target_id) REFERENCES nodes(session_id, id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS event_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    action_payload TEXT,
+    result_payload TEXT,
+    human_readable TEXT,
+    schema_type TEXT,
+    finding_json TEXT,
+    closed INTEGER DEFAULT 0,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS notes (
+    scope_type TEXT NOT NULL,
+    scope_id TEXT NOT NULL,
+    content TEXT DEFAULT '',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (scope_type, scope_id)
+);
+CREATE INDEX IF NOT EXISTS idx_nodes_session_schema ON nodes(session_id, schema_type);
+CREATE INDEX IF NOT EXISTS idx_edges_session ON edges(session_id);
+CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(session_id, source_id);
+CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(session_id, target_id);
+CREATE INDEX IF NOT EXISTS idx_event_log_session_time ON event_log(session_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_ws_status ON sessions(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_workspaces_status ON workspaces(status);
+CREATE INDEX IF NOT EXISTS idx_notes_scope ON notes(scope_type, scope_id);
+CREATE INDEX IF NOT EXISTS idx_nodes_session_updated ON nodes(session_id, updated_at DESC);
+"""
+
+
+@functools.lru_cache(maxsize=4096)
+def _cached_node_id(schema_type: str, pik_items: tuple) -> str:
+    """Compute and cache deterministic SHA-256 node ID from sorted PIK items."""
+    pik_str = json.dumps(dict(pik_items), sort_keys=True)
+    return hashlib.sha256(f"{schema_type}:{pik_str}".encode()).hexdigest()
 
 
 class GraphStore:
@@ -25,7 +104,17 @@ class GraphStore:
         self._on_batch_callbacks = []
         self._conn: Optional[aiosqlite.Connection] = None
         self._closed: bool = False
+        self._session_bloom: Dict[str, Any] = {}
+        self._warmed_sessions: Set[str] = set()
         self.timeline = ActionTimelineRepository(self)
+
+    def _get_bloom(self, session_id: str):
+        """Get or initialize in-memory Bloom filter for fast node ID pre-filtering."""
+        from cyguide.common.algorithms import BloomFilter
+
+        if session_id not in self._session_bloom:
+            self._session_bloom[session_id] = BloomFilter(capacity=25000, error_rate=0.01)
+        return self._session_bloom[session_id]
 
     def on_upsert(self, callback):
         """Register an async callback to fire when any finding is upserted."""
@@ -68,95 +157,7 @@ class GraphStore:
     async def initialize(self):
         """Create tables if they don't exist."""
         async with self._get_conn() as db:
-            # 1. Workspaces
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS workspaces (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    status TEXT DEFAULT 'ACTIVE',
-                    closed_at TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # 2. Sessions (Power Sessions)
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS sessions (
-                    id TEXT PRIMARY KEY,
-                    workspace_id TEXT NOT NULL,
-                    name TEXT NOT NULL,
-                    status TEXT DEFAULT 'ACTIVE',
-                    closed_at TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
-                )
-            """)
-
-            # 3. Nodes (Per-session graph nodes)
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS nodes (
-                    session_id TEXT NOT NULL,
-                    id TEXT NOT NULL,
-                    schema_type TEXT NOT NULL,
-                    pik_json TEXT NOT NULL,
-                    data_json TEXT NOT NULL,
-                    status TEXT DEFAULT 'confirmed',
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (session_id, id),
-                    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-                )
-            """)
-
-            # 4. Edges (Per-session graph edges)
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS edges (
-                    session_id TEXT NOT NULL,
-                    source_id TEXT NOT NULL,
-                    target_id TEXT NOT NULL,
-                    relation_type TEXT NOT NULL,
-                    PRIMARY KEY (session_id, source_id, target_id, relation_type),
-                    FOREIGN KEY (session_id, source_id) REFERENCES nodes(session_id, id) ON DELETE CASCADE,
-                    FOREIGN KEY (session_id, target_id) REFERENCES nodes(session_id, id) ON DELETE CASCADE
-                )
-            """)
-
-            # 5. Event Log (Audit trail per session)
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS event_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    action_payload TEXT,
-                    result_payload TEXT,
-                    human_readable TEXT,
-                    schema_type TEXT,
-                    finding_json TEXT,
-                    closed INTEGER DEFAULT 0,
-                    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-                )
-            """)
-
-            # 6. High-Performance Graph & Event Log Indexes
-            await db.execute(
-                "CREATE INDEX IF NOT EXISTS idx_nodes_session_schema ON nodes(session_id, schema_type)"
-            )
-            await db.execute("CREATE INDEX IF NOT EXISTS idx_edges_session ON edges(session_id)")
-            await db.execute(
-                "CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(session_id, source_id)"
-            )
-            await db.execute(
-                "CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(session_id, target_id)"
-            )
-            await db.execute(
-                "CREATE INDEX IF NOT EXISTS idx_event_log_session_time ON event_log(session_id, timestamp DESC)"
-            )
-            await db.execute(
-                "CREATE INDEX IF NOT EXISTS idx_sessions_ws_status ON sessions(workspace_id, status)"
-            )
-            await db.execute(
-                "CREATE INDEX IF NOT EXISTS idx_workspaces_status ON workspaces(status)"
-            )
-
+            await db.executescript(SCHEMA_DDL)
             await db.commit()
 
     async def check_integrity(self) -> tuple[str, list[str]]:
@@ -338,14 +339,57 @@ class GraphStore:
         """Delete a workspace and all its sessions/graphs (cascade)."""
         async with self._get_conn() as db:
             await db.execute("PRAGMA foreign_keys = ON")
+            await db.execute(
+                """
+                DELETE FROM notes
+                WHERE scope_type IN ('session', 'learning')
+                  AND scope_id IN (SELECT id FROM sessions WHERE workspace_id = ?)
+                """,
+                (workspace_id,),
+            )
+            await db.execute(
+                "DELETE FROM notes WHERE scope_type = 'workspace' AND scope_id = ?",
+                (workspace_id,),
+            )
             await db.execute("DELETE FROM workspaces WHERE id = ?", (workspace_id,))
             await db.commit()
 
     async def delete_session(self, session_id: str):
-        """Delete a single session and its graph data."""
+        """Delete a single session, its graph data, and its notes."""
         async with self._get_conn() as db:
             await db.execute("PRAGMA foreign_keys = ON")
             await db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+            await db.execute(
+                "DELETE FROM notes WHERE (scope_type = 'session' AND scope_id = ?) OR (scope_type = 'learning' AND scope_id = ?)",
+                (session_id, session_id),
+            )
+            await db.commit()
+
+    # --- Notes Management ---
+
+    async def get_notes(self, scope_type: str, scope_id: str) -> str:
+        """Fetch persistent notes for a specific scope (e.g. 'session' or 'learning')."""
+        async with self._get_conn() as db:
+            cursor = await db.execute(
+                "SELECT content FROM notes WHERE scope_type = ? AND scope_id = ?",
+                (scope_type, str(scope_id)),
+            )
+            row = await cursor.fetchone()
+            return row[0] if row and row[0] is not None else ""
+
+    async def save_notes(self, scope_type: str, scope_id: str, content: str) -> None:
+        """Atomically persist notes for a specific scope in SQLite."""
+        async with self._get_conn() as db:
+            await db.execute(
+                """
+                INSERT INTO notes (scope_type, scope_id, content, updated_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(scope_type, scope_id) DO UPDATE SET
+                    content = excluded.content,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (scope_type, str(scope_id), content),
+            )
             await db.commit()
 
     async def move_session(self, session_id: str, target_workspace_id: str):
@@ -376,13 +420,12 @@ class GraphStore:
 
     def generate_node_id(self, schema_type: str, pik: Dict[str, Any]) -> str:
         """Deterministically compute entity node ID from schema type and primary identity keys."""
-        import hashlib
-
-        pik_str = json.dumps(pik, sort_keys=True)
-        return hashlib.sha256(f"{schema_type}:{pik_str}".encode()).hexdigest()
-
-    def _generate_node_id(self, schema_type: str, pik: Dict[str, Any]) -> str:
-        return self.generate_node_id(schema_type, pik)
+        try:
+            items = tuple(sorted(pik.items()))
+            return _cached_node_id(schema_type, items)
+        except TypeError:
+            pik_str = json.dumps(pik, sort_keys=True)
+            return hashlib.sha256(f"{schema_type}:{pik_str}".encode()).hexdigest()
 
     async def upsert_findings_batch(
         self, session_id: str, findings: List[BaseFinding]
@@ -392,90 +435,157 @@ class GraphStore:
             return []
 
         node_ids: List[str] = []
+        event_log_params = []
+        unique_node_ids: List[str] = []
+        seen = set()
+        node_metadata: Dict[str, Dict[str, Any]] = {}
+
+        parent_nodes: Dict[str, tuple] = {}
+        parent_edges: set = set()
+        assoc_nodes: Dict[str, tuple] = {}
+        assoc_edges: set = set()
+
+        for finding in findings:
+            node_id = self.generate_node_id(finding.schema_type, finding.pik)
+            node_ids.append(node_id)
+
+            event_log_params.append(
+                (
+                    session_id,
+                    finding.schema_type,
+                    finding.model_dump_json(),
+                    f"Discovered {finding.schema_type}",
+                    "{}",
+                    "{}",
+                )
+            )
+
+            if node_id not in seen:
+                seen.add(node_id)
+                unique_node_ids.append(node_id)
+                node_metadata[node_id] = {
+                    "schema_type": finding.schema_type,
+                    "pik": finding.pik,
+                    "data": dict(finding.data),
+                    "status": finding.status,
+                }
+            else:
+                node_metadata[node_id]["data"].update(finding.data)
+                node_metadata[node_id]["status"] = finding.status
+
+            if finding.parent:
+                p = finding.parent
+                parent_id = self.generate_node_id(p.target_type, p.target_pik)
+                parent_nodes[parent_id] = (
+                    session_id,
+                    parent_id,
+                    p.target_type,
+                    json.dumps(p.target_pik),
+                    "{}",
+                )
+                parent_edges.add((session_id, parent_id, node_id, p.via))
+
+            for assoc in finding.associations:
+                assoc_id = self.generate_node_id(assoc.target_type, assoc.target_pik)
+                assoc_nodes[assoc_id] = (
+                    session_id,
+                    assoc_id,
+                    assoc.target_type,
+                    json.dumps(assoc.target_pik),
+                    "{}",
+                )
+                assoc_edges.add((session_id, node_id, assoc_id, assoc.via))
+
+        bloom = self._get_bloom(session_id)
+
         async with self._get_conn() as db:
-            for finding in findings:
-                node_id = self._generate_node_id(finding.schema_type, finding.pik)
-                node_ids.append(node_id)
-
-                # 1. Log the event
-                await db.execute(
-                    """INSERT INTO event_log (session_id, schema_type, finding_json, human_readable, action_payload, result_payload)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (
-                        session_id,
-                        finding.schema_type,
-                        finding.model_dump_json(),
-                        f"Discovered {finding.schema_type}",
-                        "{}",
-                        "{}",
-                    ),
-                )
-
-                # 2. Upsert the node
+            # Warm up bloom filter for this session if newly accessed
+            if session_id not in self._warmed_sessions:
                 cursor = await db.execute(
-                    "SELECT data_json FROM nodes WHERE session_id = ? AND id = ?",
-                    (session_id, node_id),
+                    "SELECT id FROM nodes WHERE session_id = ?", (session_id,)
                 )
-                row = await cursor.fetchone()
+                rows = await cursor.fetchall()
+                for (nid,) in rows:
+                    bloom.add(nid)
+                self._warmed_sessions.add(session_id)
 
-                if row:
-                    existing_data = json.loads(row[0])
-                    existing_data.update(finding.data)
-                    await db.execute(
-                        "UPDATE nodes SET data_json = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND id = ?",
-                        (json.dumps(existing_data), finding.status, session_id, node_id),
-                    )
-                else:
-                    await db.execute(
-                        "INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status) VALUES (?, ?, ?, ?, ?, ?)",
-                        (
-                            session_id,
-                            node_id,
-                            finding.schema_type,
-                            json.dumps(finding.pik),
-                            json.dumps(finding.data),
-                            finding.status,
-                        ),
-                    )
+            # 1. Log the events in a single batch
+            await db.executemany(
+                """INSERT INTO event_log (session_id, schema_type, finding_json, human_readable, action_payload, result_payload)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                event_log_params,
+            )
 
-                # 3. Handle Parent Relation (Auto-wiring)
-                if finding.parent:
-                    p = finding.parent
-                    parent_id = self._generate_node_id(p.target_type, p.target_pik)
-                    await db.execute(
-                        "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
-                        (session_id, parent_id, p.target_type, json.dumps(p.target_pik), "{}"),
+            # 2. Fetch existing data only for candidate node IDs that might exist in this session (via Bloom filter)
+            candidate_ids = [nid for nid in unique_node_ids if nid in bloom]
+            if candidate_ids:
+                for i in range(0, len(candidate_ids), 500):
+                    chunk = candidate_ids[i : i + 500]
+                    placeholders = ",".join("?" for _ in chunk)
+                    query_parts = (
+                        "SELECT id, data_json FROM nodes WHERE session_id = ? AND id IN (",
+                        placeholders,
+                        ")",
                     )
-                    await db.execute(
-                        "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
-                        (session_id, parent_id, node_id, p.via),
-                    )
+                    select_sql = "".join(query_parts)
+                    cursor = await db.execute(select_sql, [session_id, *chunk])
+                    rows = await cursor.fetchall()
+                    for r_id, r_data in rows:
+                        if r_data:
+                            merged = json.loads(r_data)
+                            merged.update(node_metadata[r_id]["data"])
+                            node_metadata[r_id]["data"] = merged
 
-                # 4. Handle Associations
-                for assoc in finding.associations:
-                    assoc_id = self._generate_node_id(assoc.target_type, assoc.target_pik)
-                    await db.execute(
-                        "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
-                        (
-                            session_id,
-                            assoc_id,
-                            assoc.target_type,
-                            json.dumps(assoc.target_pik),
-                            "{}",
-                        ),
-                    )
-                    await db.execute(
-                        "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
-                        (session_id, node_id, assoc_id, assoc.via),
-                    )
+            # 3. Batch upsert the nodes
+            nodes_params = [
+                (
+                    session_id,
+                    nid,
+                    meta["schema_type"],
+                    json.dumps(meta["pik"]),
+                    json.dumps(meta["data"]),
+                    meta["status"],
+                )
+                for nid, meta in node_metadata.items()
+            ]
+            await db.executemany(
+                """INSERT INTO nodes (session_id, id, schema_type, pik_json, data_json, status)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(session_id, id) DO UPDATE SET
+                       data_json = excluded.data_json,
+                       status = excluded.status,
+                       updated_at = CURRENT_TIMESTAMP""",
+                nodes_params,
+            )
+
+            # 4. Handle Parent and Association Relations (Auto-wiring in consolidated batches)
+            rel_nodes = list(parent_nodes.values())
+            if assoc_nodes:
+                rel_nodes.extend(assoc_nodes.values())
+            if rel_nodes:
+                await db.executemany(
+                    "INSERT OR IGNORE INTO nodes (session_id, id, schema_type, pik_json, data_json) VALUES (?, ?, ?, ?, ?)",
+                    rel_nodes,
+                )
+
+            rel_edges = list(parent_edges | assoc_edges)
+            if rel_edges:
+                await db.executemany(
+                    "INSERT OR IGNORE INTO edges (session_id, source_id, target_id, relation_type) VALUES (?, ?, ?, ?)",
+                    rel_edges,
+                )
 
             await db.commit()
 
+        # Update Bloom filter with all newly upserted node IDs and relationship nodes
+        for nid in unique_node_ids:
+            bloom.add(nid)
+        for p_nid in parent_nodes:
+            bloom.add(p_nid)
+        for a_nid in assoc_nodes:
+            bloom.add(a_nid)
+
         # Trigger reactive callbacks
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         if self._on_batch_callbacks and findings:
             for cb in self._on_batch_callbacks:
                 try:
@@ -706,6 +816,18 @@ class GraphStore:
                     (session_id,),
                 )
 
+                # 6. Copy notes
+                await db.execute(
+                    """
+                    INSERT OR IGNORE INTO dest.notes (scope_type, scope_id, content, updated_at)
+                    SELECT scope_type, scope_id, content, updated_at
+                    FROM notes
+                    WHERE (scope_type = 'session' AND scope_id = ?)
+                       OR (scope_type = 'learning' AND scope_id = ?)
+                """,
+                    (session_id, session_id),
+                )
+
                 await db.commit()
                 if os.path.exists(dest_db_path):
                     try:
@@ -758,10 +880,15 @@ class GraphStore:
                         raise ValueError(f"Target workspace ID '{target_workspace_id}' not found.")
                     final_workspace_id = target_workspace_id
                 else:
-                    cursor_target_ws = await db.execute(
-                        "SELECT id FROM workspaces WHERE LOWER(name) = ? AND status != 'SYSTEM' LIMIT 1",
-                        (src_workspace_name.lower(),),
-                    )
+                    if src_workspace_name.lower() == "learning sandbox":
+                        cursor_target_ws = await db.execute(
+                            "SELECT id FROM workspaces WHERE LOWER(name) = 'learning sandbox' LIMIT 1"
+                        )
+                    else:
+                        cursor_target_ws = await db.execute(
+                            "SELECT id FROM workspaces WHERE LOWER(name) = ? AND status != 'SYSTEM' LIMIT 1",
+                            (src_workspace_name.lower(),),
+                        )
                     t_ws = await cursor_target_ws.fetchone()
                     if t_ws:
                         final_workspace_id = t_ws["id"]
@@ -892,6 +1019,23 @@ class GraphStore:
                         "INSERT INTO event_log (session_id, timestamp, action_payload, result_payload, human_readable, schema_type, finding_json, closed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         events_to_insert,
                     )
+
+                # Import notes if present in src
+                try:
+                    cursor_notes = await db.execute(
+                        "SELECT * FROM src.notes WHERE scope_id = ?", (src_session_id,)
+                    )
+                    notes_rows = await cursor_notes.fetchall()
+                    if notes_rows:
+                        notes_to_insert = [
+                            (n["scope_type"], src_session_id, n["content"]) for n in notes_rows
+                        ]
+                        await db.executemany(
+                            "INSERT OR REPLACE INTO notes (scope_type, scope_id, content) VALUES (?, ?, ?)",
+                            notes_to_insert,
+                        )
+                except Exception:
+                    pass
 
                 await db.commit()
                 return src_session_id

@@ -15,16 +15,12 @@ This document is the **single authoritative source of truth** for all completed,
 | **v1.8.0: Showcase, Textual Resilience & Automated Release** | **Completed** | 4 | 4 | 0 | 100% |
 | **v1.9.0 (Phase 3.5): Engine, Dataflow & Concurrency** | **Completed** | 22 | 22 | 0 | 100% |
 | **v1.9.1: Finding Stream Debouncing & Tree Node Caps** | **Completed** | 2 | 2 | 0 | 100% |
-| **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **In Progress (Active dev)** | 30 | 17 | 13 | 57% |
-| **v1.11.0: Advanced Terminal Capabilities, IPC & Security** | **Planned (Spec Ready)** | 16 | 1 | 15 | 6% |
+| **v1.10.0: Learning Mode Mega-Course, Schema 2.0 & Tools** | **Completed (Remaining on hold for v1.11+)** | 32 | 28 | 4 | 88% |
+| **v1.11.0: Advanced Terminal Capabilities, IPC & Security** | **Active Next Phase** | 22 | 11 | 11 | 50% |
 | **v2.0.0: Mature Flagship Release & Public Launch** | **Planned (Spec Ready)** | 12 | 0 | 12 | 0% |
 | **Phase 4: Tactical Research Co-Pilot & Offensive Engine** | **Planned (Future)** | 15 | 1 | 14 | 7% |
 | **Phase 5: Multi-Agent Swarms & Collaborative Intel** | **Planned (Future)** | 6 | 0 | 6 | 0% |
-| **Job-First Engineering & Market Mastery Track** | **Active Focus** | 9 | 3 | 6 | 33% |
-| **Total Project Tasks** | **In Progress** | **177** | **111** | **66** | **63%** |
-
-> [!NOTE]
-> For complete technical specifications, architectural diagrams, and engineering contracts for the road to v2.0.0, consult [`docs/developer/V2_PLATFORM_SPECIFICATION.md`](V2_PLATFORM_SPECIFICATION.md).
+| **Total Project Tasks** | **In Progress** | **176** | **125** | **51** | **71%** |
 
 ---
 
@@ -54,276 +50,26 @@ This document is the **single authoritative source of truth** for all completed,
 
 ---
 
-### Phase 1: Core Foundation (Completed)
-- [x] **Smart-Adapter Architecture**: Implemented decoupled "Smart Adapter / Stupid Framework" model isolating security CLI tools from engine logic ([`cyguide/engine/adapter.py`](../../cyguide/engine/adapter.py)).
-- [x] **Reactive Graph Store**: Built SQLite-backed `GraphStore` with deterministic SHA-256 Primary Identity Key (PIK) upserting and graph edge modeling ([`cyguide/engine/store.py`](../../cyguide/engine/store.py)).
-- [x] **Asynchronous Subprocess Executor**: Created non-blocking async executor with real-time stream draining and error recovery ([`cyguide/engine/executor.py`](../../cyguide/engine/executor.py)).
-- [x] **Textual TUI Shell**: Implemented the base Textual application with screen management, reactive layouts, and custom theme styling ([`cyguide/app.py`](../../cyguide/app.py), [`cyguide/ui/style.css`](../../cyguide/ui/style.css)).
-- [x] **Dashboard Engagement Hub**: Built workspace and session navigation with inline renaming and deletion cascades ([`cyguide/ui/screens/home.py`](../../cyguide/ui/screens/home.py)).
-- [x] **Learning Mode Framework**: Developed guided curriculum screen with recipe selection, flag editor, and raw output panes ([`cyguide/ui/screens/learning.py`](../../cyguide/ui/screens/learning.py)).
-- [x] **Standard Finding Schema Library**: Created standard Pydantic models for cybersecurity entities ([`cyguide/schemas/`](../../cyguide/schemas)).
-- [x] **Project Governance & Packaging**: Established tiered protection rules, `pyproject.toml` packaging, and CI verification ([`docs/user/CONTRIBUTING.md`](../user/CONTRIBUTING.md)).
+### Delivered Platform Architecture & Core Foundations (Completed)
 
----
+All baseline architectural foundations across the engine, dataflow, security, and UI have been delivered and verified:
 
-### Phase 2: Intelligence & Expansion (Completed)
-- [x] **Ollama Local LLM Backend**: Implemented streaming inference from local Ollama endpoints with `--ollama` and `--ollama-model` CLI flags ([`cyguide/engine/explainer.py:20`](../../cyguide/engine/explainer.py#L20)).
-- [x] **Cloud LLM API Backend**: Implemented unified OpenAI, Anthropic, OpenRouter, Grok, and Groq streaming client via `CYGUIDE_API_KEY` ([`cyguide/engine/explainer.py:61`](../../cyguide/engine/explainer.py#L61)).
-- [x] **Network Port Scanner Adapter (`nmap`)**: Host and service discovery yielding `network.host` and `network.service` findings ([`tools/nmap/`](../../tools/nmap)).
-- [x] **Web Directory Fuzzer Adapter (`gobuster`)**: Endpoint discovery yielding `web.endpoint` findings ([`tools/gobuster/`](../../tools/gobuster)).
-- [x] **Web Vulnerability Scanner Adapter (`nikto`)**: Flaw profiling yielding `web.vulnerability` findings ([`tools/nikto/`](../../tools/nikto)).
-- [x] **Passive Subdomain Discovery Adapter (`subfinder`)**: Attack surface mapping yielding `dns.record` findings ([`tools/subfinder/`](../../tools/subfinder)).
-- [x] **OSINT & Domain Registration Adapter (`whois`)**: Netblock and registrar extraction yielding `network.netblock` and `domain.info` findings ([`tools/whois/`](../../tools/whois)).
-- [x] **Reactive Recommendation Engine (Historical - Decommissioned in Phase 3.5)**: Declarative suggestion rules proposing tools based on graph upsert events (superseded by Phase 4 on-demand `TargetAdvisor`).
-
----
-
-### Phase 3: Operator Polish, Diagnostics & Hardening (Completed)
-- [x] **Diagnostic CLI Suite (`cyg check`)**: Automated verification of Python runtime, writable storage permissions, installed security tools, and AI backends ([`cyguide/engine/diagnostics.py`](../../cyguide/engine/diagnostics.py)).
-- [x] **In-App Tool Health Modal (`Ctrl+P`)**: Surfaced real-time tool discovery badges, exact binary filesystem paths, and OS package manager installation hints directly in the TUI ([`cyguide/ui/screens/tool_health_modal.py`](../../cyguide/ui/screens/tool_health_modal.py)).
-- [x] **Portable Session Export (`cyg export`)**: Zero-overhead atomic SQLite `ATTACH DATABASE` export of session graph, edges, and execution logs ([`cyguide/engine/store.py:529`](../../cyguide/engine/store.py#L529)).
-- [x] **Session Import (`cyg import`)**: Seamless restoration of session archives into local workspaces ([`cyguide/engine/store.py:586`](../../cyguide/engine/store.py#L586)).
-- [x] **Automated Markdown Reporting**: Executive and technical finding summary report generator ([`cyguide/engine/reporter.py`](../../cyguide/engine/reporter.py)).
-- [x] **High-Performance Database Indexes**: Added 5 composite indexes (`idx_nodes_session_schema`, `idx_edges_session`, `idx_edges_source`, `idx_edges_target`, `idx_event_log_session_time`) to eliminate table scans ([`cyguide/engine/store.py:118`](../../cyguide/engine/store.py#L118)).
-- [x] **Subprocess Execution Timeout Safeguards**: Wired configurable `timeout_seconds` with graceful `SIGTERM` cleanup across executor and actions ([`cyguide/engine/executor.py`](../../cyguide/engine/executor.py)).
-- [x] **Comprehensive User Manual & Contributing Guides**: Master shortcut tables, CLI manuals, and tiered protection documentation ([`docs/user/USER_MANUAL.md`](../user/USER_MANUAL.md), [`docs/user/CONTRIBUTING.md`](../user/CONTRIBUTING.md)).
-- [x] **Comprehensive Automated Hermetic Suite**: Fully automated test coverage across unit, integration, and UI flows with zero warnings or external network dependencies ([`tests/`](../../tests)).
-- [x] **Defense-in-Depth Security Hardening**: Remediated link-local cloud metadata SSRF vectors, enforced atomic `0o600` private permissions on settings/notes, expanded subprocess secret scrubbing, and neutralized LLM prompt tag breakouts ([`docs/developer/ARCHITECTURE.md:520`](ARCHITECTURE.md#L520), [`tests/unit/test_engine_executor.py`](../../tests/unit/test_engine_executor.py), [`tests/unit/test_gateway.py`](../../tests/unit/test_gateway.py)).
-
-- [x] **Centralized Data Directory Architecture (`cyguide/paths.py`)**: Unified cross-platform application directory under `~/.cyguide` (or `$CYGUIDE_DATA_DIR`) preventing directory pollution ([`cyguide/paths.py`](../../cyguide/paths.py)).
-- [x] **In-App Configuration Modal & Command Palette Providers (`ConfigModal`)**: Live tabbed settings editor for Ollama, Cloud AI, Database, and Custom Tools with Command Palette sub-palettes ([`cyguide/ui/screens/config_modal.py`](../../cyguide/ui/screens/config_modal.py)).
-- [x] **Resilient Multi-Key Cloud AI Fallback & Cooldown Engine**: Automatic failover across multi-provider API keys and local Ollama fallback on rate-limiting (429) ([`cyguide/engine/explainer.py:208`](../../cyguide/engine/explainer.py#L208)).
-- [x] **Interactive Split-Pane Edge Resizer (`ResizeHandle`)**: Draggable edge splitter dynamically resizing Entity Browser and Suggestions panes with width persistence ([`cyguide/ui/widgets/resizer.py`](../../cyguide/ui/widgets/resizer.py)).
-- [x] **Forensic Session Archiving & Reopening Lifecycle**: Forensic read-only protection, status filters, and immutable audit event logging for closed sessions ([`cyguide/engine/store.py`](../../cyguide/engine/store.py), [`cyguide/engine/power_facade.py`](../../cyguide/engine/power_facade.py)).
-
----
-
-### Release: v1.8.0 — Terminal Showcase, Textual Resilience & Automated Release (Completed)
-- [x] **Visual Terminal Showcase Script (`demo.tape` via VHS)**: Scripted a repeatable Charm VHS recording capturing CyGuide startup, target selection, recipe execution, and graph exploration ([`demo.tape`](../../demo.tape), [`assets/demo.mp4`](../../assets/demo.mp4), [`assets/demo.gif`](../../assets/demo.gif), [`README.md`](../../README.md)).
-- [x] **Upstream Textual 0.89+ Runtime Resilience & Event Guard**: Guarded against fatal `AttributeError: 'NoneType' object has no attribute 'region'` inside Textual's `Screen._forward_event` during Markdown table click interactions and AI streaming by disabling table selection (`MarkdownTableContent.ALLOW_SELECT = False`) and applying safe event forwarding fallback monkeypatch ([`cyguide/ui/compat.py`](../../cyguide/ui/compat.py), [`docs/developer/DEVELOPER_NOTES.md`](DEVELOPER_NOTES.md)).
-- [x] **Learning Mode UI Stream Decoupling & Async Safety**: Throttled explainer Markdown pane rendering to 250ms micro-batches and properly awaited `explainer_pane.update()`, neutralizing race conditions and unhandled `asyncio.CancelledError` task crashes ([`cyguide/ui/screens/learning.py`](../../cyguide/ui/screens/learning.py), [`tests/unit/test_textual_compat.py`](../../tests/unit/test_textual_compat.py)).
-- [x] **Automated Release Please Pipeline & Changelog Generation**: Integrated Google's Release Please action for automated semantic version bumping, CHANGELOG generation, and GitHub release tagging via Conventional Commits ([`.github/workflows/release.yml`](../../.github/workflows/release.yml)).
-
----
-
-### Milestone: v1.9.0 (Phase 3.5) — Engine, Dataflow & Concurrency (Completed)
-
-This critical hardening phase eliminates UI bottlenecks, decouples stream draining from terminal rendering, prevents RAM bloat during multi-hour/multi-day tasks, fixes tab lifecycle synchronization, and elevates the graph tree into a high-utility operator HUD:
-
-#### Track 1: High-Volume Output & Streaming Resilience
-- [x] **Throttled Log Ingestion (20–30 FPS Micro-Batching)**:
-  - *Priority*: **P1** | *Complexity*: Medium
-  - Batch incoming stdout chunks in a rolling queue flushed at max 20–30 FPS (every 33–50ms) instead of calling `RichLog.write()` on every 1KB chunk.
-  - Prevents UI freezing when tools (like `ffuf`, `gobuster`, or aggressive port scans) emit tens of thousands of lines per second.
-- [x] **Spill-to-Disk Log Streaming (`data/logs/{action_id}.log`)**:
-  - *Priority*: **P1** | *Complexity*: Medium
-  - Stream subprocess stdout directly to append-only disk files in real time.
-  - Maintains $O(1)$ memory consumption so scans running for hours or days never cause RAM bloat or OOM crashes.
-- [x] **Decouple Database Ingestion from Subprocess Executor (Deepening Candidate 1)**:
-  - *Priority*: **P1** | *Complexity*: Medium
-  - Remove direct SQLite `GraphStore.upsert_finding()` calls from `Executor._drain_stream` / `run_tool()`.
-  - Turns `Executor` into a pure subprocess lifecycle engine yielding `BaseFinding` streams, eliminating connection teardown race conditions and enabling atomic micro-batched ingestion at the coordination seam.
-- [x] **Capped UI Ring Buffer**:
-  - *Priority*: **P1** | *Complexity*: Low
-  - Keep a rolling window of the last 5,000 lines in the interactive UI terminal tab for instant rendering and smooth scrolling.
-- [x] **Safe Event Log Archiving**:
-  - *Priority*: **P2** | *Complexity*: Low
-  - Cap the string payload stored in SQLite's `event_log` table (saving the tail + summary in the DB and linking the full disk log).
-
-#### Track 2: Job Queue & Tab Lifecycle Synchronization
-- [x] **Fix Tab Title Updating**:
-  - *Priority*: **P1** | *Complexity*: Low
-  - Replace the broken `#tab-{id}` query in `power.py` with Textual's native tab title API so workbench tabs update immediately whenever a new command is executed.
-- [x] **Live Job Queue Tracking & Elapsed Runtime Counter**:
-  - *Priority*: **P1** | *Complexity*: Medium
-  - Sync the Job Queue to show active tab association, current tool command snippet, live elapsed time counter (`01h:24m:10s`), and status (`◯ RUNNING`, `● DONE`, `× FAILED`).
-  - Automatically update the queue item when subsequent tasks execute in the same tab.
-
-#### Track 3: Graph Tree Optimization & Usability
-- [x] **Refined Widget Exception Boundaries (NoMatches Enforced)**:
-  - *Priority*: **P1** | *Complexity*: Low
-  - Replaced bare `except Exception: pass` across `DashboardScreen` and `PowerModeScreen` with specific `except NoMatches: pass` to eliminate silent DOM query masking without breaking on unmounted widgets.
-- [x] **Zero-Rebuild Navigation**:
-  - *Priority*: **P1** | *Complexity*: Low
-  - Make `on_tree_node_highlighted` purely update the context bar variables (`$TARGET`, `$PORT`, `$SERVICE`).
-  - Eliminate tree clearing (`self.root.clear()`) and tree rebuilding on arrow navigation, and prevent focus theft to `#command_input`.
-- [x] **Dynamic Category Entity Counts**:
-  - *Priority*: **P2** | *Complexity*: Low
-  - Display live count badges on tree headers: `Targets (3)`, `Services (12)`, `Web (22)`, `Vulnerabilities (5)`.
-- [x] **Tree Branch State Preservation**:
-  - *Priority*: **P2** | *Complexity*: Medium
-  - Retain user collapsed/expanded branch states across background finding updates.
-- [x] **Inline Target Search / Filter**:
-  - *Priority*: **P2** | *Complexity*: Medium
-  - Add an inline search bar at the top of the Entity Browser to quickly search and filter discovered hosts, services, and endpoints.
-
-#### Track 4: Event Debouncing, Batched Upserts & Database Concurrency
-- [x] **Dashboard Highlight Debouncing**:
-  - *Priority*: **P1** | *Complexity*: Low
-  - Add 100ms debounce timer on workspace and session list highlight events so holding down arrow keys is silky smooth without flooding the event loop.
-- [x] **Batched Finding Ingestion & UI Notification Coalescing**:
-  - *Priority*: **P1** | *Complexity*: Medium
-  - Buffer rapid tool finding streams into atomic micro-batches (e.g. flush every 250ms or 50 items) instead of executing individual SQLite transactions per finding.
-  - Coalesce reactive UI refresh events to prevent rendering storms.
-- [x] **Single-Query SQL Aggregates**:
-  - *Priority*: **P2** | *Complexity*: Low
-  - Replace per-session $N+1$ query loops in `show_workspace_details` with single `GROUP BY` aggregate queries in `GraphStore`.
-- [x] **SQLite WAL Mode & Pragma Tuning**:
-  - *Priority*: **P2** | *Complexity*: Low
-  - Enable `PRAGMA journal_mode = WAL;`, `PRAGMA synchronous = NORMAL;`, and `PRAGMA busy_timeout = 5000;` in `GraphStore.initialize()` to prevent read/write database locks during concurrent tasks.
-
-#### Track 5: Learning Mode Optimization, Targeted Explanations & Boundary Isolation
-- [x] **Clean Text Rendering & Markdown Buffer Decoupling**:
-  - *Priority*: **P1** | *Complexity*: Medium
-  - Auto-clear or cleanly isolate previous explanation buffers upon new scan execution instead of infinitely concatenating text into an ever-expanding markdown string.
-  - Eliminates $O(N^2)$ re-parsing of historical markdown tables and headings during streaming, preventing UI lag and screen jitter.
-  - Cleanly erase intermediate status indicators (`*[Analyzing...]*`) when LLM tokens start streaming.
-- [x] **Selective & Targeted Explanations ("Explain Certain Text, Not All")**:
-  - *Priority*: **P1** | *Complexity*: Medium
-  - Feed *structured findings* (open ports, discovered vulnerabilities, HTTP status anomalies) to the LLM rather than blindly slicing the last 80 lines of raw output.
-  - Contextual snippet / line explanation: allow the student to highlight or select a specific finding, error, or flag output and request an explanation for just that item.
-  - Automated noise stripping: filter out repetitive scanner banner headers, ASCII art, and progress bars before LLM prompting to save token costs and reduce latency.
-- [x] **Robust Prompt Boundary Isolation & Input Sandboxing**:
-  - *Priority*: **P1** | *Complexity*: Medium
-  - Implement cryptographically randomized boundary tokens (e.g. `<<<UNTRUSTED_SCAN_OUTPUT_{UUID}>>>`) and XML/HTML escaping to ensure untrusted scan payloads cannot execute prompt injection attacks or break prompt boundaries.
-  - Strict semantic demarcation separating System Directives, User Inquiries, and Untrusted Scanner Output.
-- [x] **Collapse Shallow LearningModeEngine into Unified Action Gateway (Deepening Candidate 2)**:
-  - *Priority*: **P1** | *Complexity*: Low
-  - Eliminate redundant 49-line `LearningModeEngine` pass-through module; route Learning Mode tool executions through `ActionGateway` / `PowerWorkspaceFacade.submit_action()` to inherit SSRF policy validation, live job buffers, and unified logging.
-- [x] **Eliminate Shallow LearningExplainer Wrapper (Deepening Candidate 3)**:
-  - *Priority*: **P1** | *Complexity*: Low
-  - Delete 10-line `LearningExplainer` indirection wrapper in `cyguide/engine/explainer.py` and unify callers directly against `MultiKeyCloudBackend.explain()` / `OllamaBackend.explain()`.
-- [x] **UI Structural Boundaries & Visual Cards**:
-  - *Priority*: **P2** | *Complexity*: Low
-  - Refactor the right workbench pane into distinct visual containers with explicit border separations:
-    1. Active Command Execution Context Header
-    2. Structured Discovered Findings Summary
-    3. AI Educational Breakdown & Flags Analysis
-    4. Docked Interactive Tutor Chat.
-
----
-
-### Milestone: v1.10.0 — Learning Mode Mega-Course, Schema 2.0 & Tool Ecosystem (Fast-Tracked)
-*(14/23 tasks complete — 61%)*
-
-> [!NOTE]
-> Fast-tracked ahead of terminal PTY/IPC to prioritize pedagogical mastery, tool richness, and curriculum-grade cybersecurity instruction.
-> Combines schema registry evolution, centralized wordlists, curriculum recipes, interactive theory briefings, offline local labs, and 6+ high-demand tool adapters.
-
-#### Track 1: Schema Registry Evolution & Finding Expansion
-- [x] **`exploit.reference` Schema Model**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Schemas
-  - Create Pydantic model for exploit intelligence capturing Exploit-DB ID, CVE cross-references, PoC code availability, platform (`linux`/`windows`/`webapps`), and verification status ([`cyguide/schemas/vulnerability.py:39`](../../cyguide/schemas/vulnerability.py#L39)).
-- [x] **`web.technology` / `software.banner` Schema Model**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Schemas
-  - Create typed finding schema for web framework, CMS, application server, and runtime version detection with confidence scoring and CPE identifiers ([`cyguide/schemas/web.py:65`](../../cyguide/schemas/web.py#L65)).
-- [x] **`audit.misconfig` Schema Model**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Schemas
-  - Create finding schema for policy violations, exposed `.git`/`.env` files, open directory listings, and cloud metadata exposures emitted by `nuclei` and `nikto` ([`cyguide/schemas/vulnerability.py:118`](../../cyguide/schemas/vulnerability.py#L118)).
-- [x] **Schema Versioning & Flexible Key Anchoring (`schema_version = "1.0"`)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Schemas
-  - Add explicit `schema_version` to `BaseFinding` and support URL-anchored or target-flexible Primary Identity Keys (PIKs) for web-native findings. Update `scripts/generate_schema_registry.py` to auto-validate and regenerate documentation ([`cyguide/schemas/base.py:32`](../../cyguide/schemas/base.py#L32), [`docs/developer/SCHEMA_REGISTRY.md`](SCHEMA_REGISTRY.md)).
-
-#### Track 2: Centralized Wordlist & Asset Subsystem
-- [x] **Unified Wordlist Directory Architecture (`paths.get_default_wordlists_dir()`)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Assets
-  - Centralize wordlists under `~/.cyguide/wordlists/` (or `$CYGUIDE_DATA_DIR/wordlists`) with `0o700` permissions, eliminating missing file errors in fuzzing tools ([`cyguide/paths.py:87`](../../cyguide/paths.py#L87)).
-- [x] **Bundled High-Signal Starter Micro-Wordlists**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Assets
-  - Package minimal, high-utility dictionaries inside the CyGuide wheel (`common_dirs.txt`, `subdomains_500.txt`, `common_params.txt`, `common_passwords.txt`, `common_usernames.txt`) and auto-extract on initial launch or `cyg init` ([`cyguide/assets/wordlists/`](../../cyguide/assets/wordlists), [`cyguide/engine/wordlists.py:22`](../../cyguide/engine/wordlists.py#L22)).
-- [x] **Dynamic Macro Wordlist Substitution in Recipes**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Engine / Recipes
-  - Support named wordlist macros in recipe flags (e.g. `{wordlist:common_dirs}` → `~/.cyguide/wordlists/common_dirs.txt`) with automatic fallback to bundled lists and UI input overrides ([`cyguide/engine/wordlists.py:91`](../../cyguide/engine/wordlists.py#L91), [`cyguide/ui/screens/learning.py:102`](../../cyguide/ui/screens/learning.py#L102)).
-
-#### Track 3: Tool Ecosystem Expansion & Contributor Scaffolding
-- [x] **AI Adapter Authoring Skill (`adapter-authoring`)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Developer & Agent Experience
-  - Dedicated agent skill and standalone authoring toolkit guiding the AI and developers to inspect target tool binaries/help/man-pages, map findings to CyGuide schemas, author deep `manifest.toml` files with curriculum-grade recipes & wire theory, implement `adapter.py` with streaming JSON or regex parsing, and generate hermetic pytest fixtures. Maintained in the independent [`cyguide-adapter-authoring`](https://github.com/h45sh/cyguide-adapter-authoring) project.
-- [x] **Pure-Python DNS Recon Probe (`tools/dnspython/`)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Zero-Binary Probes
-  - Built-in, zero-external-binary passive DNS resolver, reverse-lookup, and zone-transfer (AXFR) engine emitting `dns.record` findings directly into the entity graph ([`tools/dnspython/`](../../tools/dnspython)).
-- [x] **SearchSploit Tool Adapter (`tools/searchsploit/`)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Tool Plugins
-  - Command-line Exploit-DB integration querying local exploit archives for discovered `network.service` software versions via `--json`, directly emitting `exploit.reference` findings ([`tools/searchsploit/`](../../tools/searchsploit)).
-- [x] **FFUF Tool Adapter (`tools/ffuf/`)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Tool Plugins
-  - High-performance Go web fuzzer alternative to `gobuster`, leveraging v1.9.0 log batching and named wordlists. Emits `web.endpoint` and `audit.misconfig` ([`tools/ffuf/`](../../tools/ffuf)).
-- [x] **Nuclei Vulnerability Scanner (`tools/nuclei/`)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Tool Plugins
-  - Fast, template-based vulnerability scanning using community YAML signatures. Emits `vulnerability.found`, `web.technology`, and `audit.misconfig` ([`tools/nuclei/`](../../tools/nuclei)).
-- [ ] **SQLMap Tool Adapter (`tools/sqlmap/`)**:
-  - *Priority*: **P2** | *Complexity*: High | *Track*: Tool Plugins
-  - Automated SQL injection detection and database takeover with `--batch` non-interactive execution. Emits `vulnerability.found` (SQLi) and `credential.found`.
-- [ ] **NetExec (`nxc`) Network Spraying Adapter (`tools/netexec/`)**:
-  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Tool Plugins
-  - High-performance multi-protocol credential spraying and Active Directory enumeration across SMB, SSH, WinRM, and LDAP, emitting `credential.found` and `host.internal` models.
-- [x] **Hermetic Mock Scanner Testbed (`tests/fixtures/mock_tools/`)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Testing / Reliability
-  - Pre-recorded CLI output dumps and mock runner fixtures across `nmap`, `gobuster`, `nikto`, `subfinder`, `whois`, `nuclei`, `searchsploit`, `ffuf`, and `dnspython` to run full end-to-end adapter tests in CI without requiring live binaries or internet connectivity ([`tests/fixtures/mock_tools/`](../../tests/fixtures/mock_tools), [`tests/unit/test_parsers/`](../../tests/unit/test_parsers)).
-
-#### Track 4: Learning Mode Mega-Course, Theory Primer & Socratic AI
-- [x] **Curriculum-Grade Recipe Taxonomy & Theory Metadata**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode
-  - Upgrade `manifest.toml` recipe specifications with `difficulty`, `track`, `concepts`, `wire_summary`, RFC standards references, and blue-team `remediation_guide`. Expand each tool to 4–6 progressive educational recipes ([`cyguide/engine/manifest.py:17`](../../cyguide/engine/manifest.py#L17), [`tools/`](../../tools)).
-- [ ] **Interactive Theory & Protocol Deep Dive Tab**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode
-  - Add a dedicated third tab in Learning Mode (`Theory & Deep Dive`) displaying OSI layer packet flows, protocol state machines (TCP 3-way handshake vs SYN teardown, DNS recursion vs AXFR, HTTP header injection), and RFC briefings before execution.
-- [x] **API Cost Guardrails & Rate-Limit Cooldown Engine**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: AI Safety & Billing
-  - Cap output generation tokens with explicit `max_tokens: 1500` on cloud inference adapters (`OpenAIProviderAdapter`, `AnthropicProviderAdapter`). Parse `Retry-After` HTTP headers on 429 rate limits, enforcing bounded cooldown timers (1s–300s) and automatic failover across multi-key profiles. Detect HTTP 400 moderation violations with helpful policy alerts ([`cyguide/engine/explainer.py:157`](../../cyguide/engine/explainer.py#L157)).
-- [x] **Tool-Category Prompt Directives & Schema Specialization**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode / AI
-  - Dynamically inject category-aware pedagogical directives (`network`, `recon`, `web`, `vulnerability`, `osint`, `dns`, `exploit`) and adapt briefing schemas based on model capacity (`is_active_model_local()`), giving small local models direct schemas and frontier cloud models comprehensive analyses ([`cyguide/engine/explainer.py:12`](../../cyguide/engine/explainer.py#L12), [`cyguide/engine/learning.py:639`](../../cyguide/engine/learning.py#L639)).
-- [x] **Tool Output Sanitization Hooks (`ToolAdapter.sanitize_output`)**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Tool Plugins / Token Efficiency
-  - Add `sanitize_output()` interface to `ToolAdapter`, with implementations in `FfufAdapter` and `NucleiAdapter` stripping ASCII banners, progress bars, and verbose diagnostic logs before passing stdout to LLMs.
-- [ ] **Lab Checkpoints & Quicksave Engine (`.cyglab`)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode / Engine
-  - Enable explicit state serialization ("Save Checkpoint" / "Load Checkpoint" / "Reset Sandbox") for learning sessions via `.cyglab` SQLite archives. Serializes discovered graph nodes/edges, terminal log buffers, Socratic tutor dialogues, active recipe indexes, and student notes. Reuses `store.export_session()` zero-copy SQLite engine (`ATTACH DATABASE`) for portable lab sharing between students and instructors.
-- [ ] **Socratic AI Tutor & Guided Exploration**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Learning Mode / AI
-  - Implement toggleable "Socratic Tutor" persona in the AI Explainer pane that prompts students with analytical questions about findings (e.g., assessing version risk, HTTP redirect chains) and guides next steps rather than just dumping static summaries.
-- [ ] **Dual-Lens Perspective: Offense vs Blue-Team Defense**:
-  - *Priority*: **P2** | *Complexity*: Low | *Track*: Learning Mode
-  - Provide a toggleable "Defender's Lens" detailing how the scan appears in SIEM/IDS telemetry (Snort, Suricata, Zeek) and exact configuration hardening steps to remediate discovered risks.
-- [ ] **Curriculum Syllabus & Mastery Progress Tracking**:
-  - *Priority*: **P2** | *Complexity*: Medium | *Track*: Learning Mode
-  - Group recipes into sequential learning tracks (Network Discovery, DNS Mapping, Web Fuzzing, Vuln Auditing, Exploit Research) with progress tracking saved in `~/.cyguide/settings.json`, displaying mastery badges and completion percentages.
-- [ ] **Pre-flight Dependency & Parameter Verification**:
-  - *Priority*: **P1** | *Complexity*: Low | *Track*: Learning Mode
-  - Validate required binaries, wordlists, and target variables before execution, offering one-click remediation or guidance if an asset is missing.
-
-#### Track 5: Hermetic Local Lab & Target Sandboxes
-- [ ] **Built-in Mock Target Lab Server (`cyg lab start`)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: Local Lab
-  - Lightweight embedded asyncio loopback server running on `127.0.0.1:8888` simulating realistic web endpoints, HTTP headers, `/robots.txt`, and sample vulnerabilities for 100% legal, offline student practice.
-- [ ] **Interactive Concept Challenges / Flag Verification**:
-  - *Priority*: **P2** | *Complexity*: Low | *Track*: Local Lab
-  - Embedded scenario checks verifying students understand why a scan returned specific responses (e.g., distinguishing 403 Forbidden from 404 Not Found, identifying stealth scan packet resets).
-
-#### Track 6: Unified CLI Architecture & Command System Overhaul (`cyg` CLI 2.0)
-- [ ] **Modular CLI Dispatch & Router Architecture (`cyguide/cli/`)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: CLI Architecture
-  - Refactor `cyguide/main.py` from a 293-line procedural script into a clean, decoupled CLI command package (`cyguide/cli/router.py`, `cyguide/cli/commands/`). Decouple CLI argument parsing, configuration loading, and sub-process execution from Textual TUI startup.
-- [ ] **First-Class Domain Command Hierarchy (Noun-Verb Taxonomy)**:
-  - *Priority*: **P1** | *Complexity*: Medium | *Track*: CLI Ergonomics
-  - Replace arbitrary flat commands with an industry-standard, predictable noun-verb hierarchy:
-    - `cyg session [list | export | import | delete]` (session graph & report lifecycle)
-    - `cyg lab [start | save | load | list | reset]` (Learning Mode checkpoints & mock targets)
-    - `cyg tool [list | check | info]` (adapter inspection, binary verification, recipe listings)
-    - `cyg workspace [list | create | delete]` (workspace navigation without launching TUI)
-    - `cyg doctor` (alias `cyg check`, comprehensive database, permissions, and tool health verification)
-  - Retain backwards-compatible aliases (`cyg export`, `cyg import`, `cyg check`) with deprecation warnings.
-- [ ] **Standardized Machine-Readable Output (`--json`) & Predictable Exit Codes**:
-  - *Priority*: **P2** | *Complexity*: Low | *Track*: CLI / Automation
-  - Guarantee `--json` flag across all listing and query commands (`cyg session list --json`, `cyg tool list --json`, `cyg doctor --json`) for automated CI/CD and shell scripting integration. Standardize POSIX exit codes (`0` success, `1` runtime error, `2` validation failure, `127` missing binary dependency).
+* **Smart-Adapter Architecture**: Implemented decoupled "Smart Adapter / Stupid Framework" isolating security CLI tools from engine logic ([`cyguide/engine/adapter.py`](../../cyguide/engine/adapter.py)).
+* **Reactive SQLite Graph Store**: Relational `GraphStore` with deterministic SHA-256 Primary Identity Key (PIK) upserting, edge auto-wiring, and WAL mode ([`cyguide/engine/store.py`](../../cyguide/engine/store.py)).
+* **Asynchronous Process Execution Engine**: Pure subprocess execution engine with real-time stream draining, output ring-buffering, and zero memory leaks ([`cyguide/engine/execution_session.py`](../../cyguide/engine/execution_session.py)).
+* **Dual-Mode Textual TUI**: Advanced Operator Workbench (Power Mode) and Guided Curriculum (Learning Mode) with 60 FPS fluid edge resizing and split panes ([`cyguide/ui/`](../../cyguide/ui)).
+* **Security Tool Ecosystem**: 11 production adapters with typed finding parsers, structured manifests, and curriculum recipes: `nmap`, `gobuster`, `nikto`, `whois`, `subfinder`, `nuclei`, `ffuf`, `searchsploit`, `sqlmap`, `netexec`, and `dnspython` ([`tools/`](../../tools)).
+* **Unified Headless CLI 2.0**: Decoupled POSIX command architecture with domain modules (`cyg workspace`, `cyg session`, `cyg tool`, `cyg lab`, `cyg doctor`) and universal `--json` serialization ([`cyguide/cli/`](../../cyguide/cli)).
+* **Algorithmic Deep Module**: Bitwise Patricia Radix Trie (`IPRadixTrie`), Disjoint-Set Union (`DisjointSet`), MinHash similarity, 0/1 Knapsack token optimizer (`knapsack_01`), and counting Bloom filter (`BloomFilter`) consolidated in [`cyguide/common/algorithms.py`](../../cyguide/common/algorithms.py).
+* **Graph Intelligence Engine**: In-memory `GraphAnalyticsEngine` providing Brandes betweenness centrality, Tarjan strongly connected components (SCC), shortest attack paths, and blast radius calculation ([`cyguide/engine/graph_analytics.py`](../../cyguide/engine/graph_analytics.py)).
+* **Preflight Verification**: Pure validation engine with one-click remediation cards for missing packages, unseeded wordlists, or syntax issues ([`cyguide/engine/preflight.py`](../../cyguide/engine/preflight.py)).
+* **Defense-in-Depth Security**: Subprocess environment scrubbing stripping cloud and API credentials, strict link-local and cloud metadata IP/DNS blocking, and declarative CIDR scope enforcement ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py)).
+* **Session Portability & Universal Checkpoints**: Atomic zero-copy session export/import via SQLite `ATTACH DATABASE`, standalone `.cyglab` archives, and automated Markdown report generation ([`cyguide/engine/reporter.py`](../../cyguide/engine/reporter.py)).
+* **Multi-Provider AI Fallback Engine**: Local offline Ollama integration alongside cloud AI providers (OpenAI, Anthropic, Gemini, DeepSeek, Groq) with prompt boundary sanitization and token budget caps ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)).
 
 ---
 
 ### Milestone: v1.11.0 — Advanced Terminal Capabilities, IPC & Security/Encryption (Planned)
-
-> [!NOTE]
-> Detailed technical specifications, data models, and sequence flows are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:36-160`](V2_PLATFORM_SPECIFICATION.md#L36-L160).
 
 - [ ] **Dual-Path Interactive PTY Architecture (`pyte` + `ptyprocess`)**:
   - *Priority*: **P1** | *Complexity*: High | *Track*: Terminal
@@ -335,9 +81,27 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **In-TUI Syntax Highlighting for Loot & Exploits (`pygments`)**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: UI / Detail Dock
   - Integrate `pygments` lexers to provide rich syntax highlighting for captured credentials, extracted `.env`/config files, and exploit code snippets within the TUI detail and scratchpad views.
-- [ ] **Attack Path & Blast-Radius Engine (`networkx`)**:
+- [x] **Attack Path & Blast-Radius Engine (`networkx`)**:
   - *Priority*: **P1** | *Complexity*: Low | *Track*: Graph Analytics
-  - Build an in-memory directed graph wrapper (`networkx.DiGraph`) over SQLite nodes and edges to compute shortest attack paths (`nx.shortest_path`) from entrypoints to critical assets, and calculate compromise blast radiuses (`nx.descendants`).
+  - Built an in-memory directed graph intelligence engine (`GraphAnalyticsEngine`) over SQLite nodes and edges to compute shortest attack paths (`find_shortest_attack_path`) from perimeter entrypoints to critical assets, calculate compromise blast radiuses (`calculate_blast_radius`), and integrate seamlessly with `PowerWorkspaceFacade` and optional `networkx` ([`cyguide/engine/graph_analytics.py`](../../cyguide/engine/graph_analytics.py), [`tests/unit/test_graph_analytics.py`](../../tests/unit/test_graph_analytics.py)).
+- [x] **Graph Centrality, Choke Points & Strongly Connected Components**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Graph Analytics
+  - Implemented Brandes' $O(V \cdot E)$ betweenness centrality (`calculate_betweenness_centrality`), Tarjan's $O(V + E)$ strongly connected components (`find_strongly_connected_components`), and transitive reachability closure matrix in [`cyguide/engine/graph_analytics.py`](../../cyguide/engine/graph_analytics.py) to detect dual-homed pivot hosts, bridge nodes, and circular vulnerability dependencies.
+- [x] **Bitwise Patricia Radix Trie (`IPRadixTrie`) & Fast SSRF/CIDR Gating**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Security / Performance
+  - Implemented binary Patricia Radix Trie in [`cyguide/common/algorithms.py`](../../cyguide/common/algorithms.py) yielding sub-microsecond $O(W)$ longest-prefix matching for IPv4 (32-bit) and IPv6 (128-bit) addresses and CIDRs, elevating SSRF and metadata defense checks to 2.6M - 6.7M ops/sec.
+- [x] **Table-Driven DFA ANSI Stream Parser (`dfa_strip_ansi`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Terminal / Performance
+  - Replaced regex ANSI cleaning with table-driven ECMA-48 state machine in [`cyguide/common/__init__.py`](../../cyguide/common/__init__.py), eliminating regex engine invocation and rendering terminal stream ingestion 100% immune to catastrophic backtracking.
+- [x] **0/1 Knapsack Context Window Token Optimizer (`knapsack_01`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: AI / Performance
+  - Dynamic programming 0/1 Knapsack solver in [`cyguide/common/algorithms.py`](../../cyguide/common/algorithms.py) and [`cyguide/engine/context_builder.py`](../../cyguide/engine/context_builder.py) providing optimal finding utility subset selection within LLM token constraints.
+- [x] **Probabilistic GraphStore Query Filter (`BloomFilter`)**:
+  - *Priority*: **P1** | *Complexity*: Low | *Track*: Database / Performance
+  - Implemented optimal counting & standard Bloom filter in [`cyguide/common/algorithms.py`](../../cyguide/common/algorithms.py) and integrated into `GraphStore.upsert_findings_batch` ([`cyguide/engine/store.py`](../../cyguide/engine/store.py)), skipping SQLite node lookups for novel finding IDs with 0% false negatives.
+- [x] **Fluid Sidebar Geometry, Debounced Persistence & Layout Containment**:
+  - *Priority*: **P1** | *Complexity*: Medium | *Track*: UI/UX / Performance
+  - Implemented 400ms trailing write-behind settings debounce in [`cyguide/app.py`](../../cyguide/app.py), deadband column filtering in [`cyguide/ui/widgets/resizer.py`](../../cyguide/ui/widgets/resizer.py), transition decoupling (`-resizing`, `-fast-stepping`), and breakpoint tier memoization in [`cyguide/ui/screens/learning.py`](../../cyguide/ui/screens/learning.py) and [`cyguide/ui/screens/power.py`](../../cyguide/ui/screens/power.py) achieving 60 FPS buttery-smooth pane transitions.
 - [ ] **Native TLS/SSL Certificate Inspector (`cryptography`)**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: Zero-Binary Probes
   - Pure-Python TLS certificate inspection for HTTPS services extracting Subject Alternative Names (SANs), issuer information, and validity periods without external CLI dependencies.
@@ -345,18 +109,18 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
   - *Priority*: **P1** | *Complexity*: High | *Track*: Architecture
   - Decouple background command execution from the Textual UI loop via an internal event bus and optional Unix domain socket (`~/.cyguide/run/cyguide.sock`).
   - Allows background scans to continue across UI reloads and enables headless external triggers.
-- [ ] **Unify Split Workspace & Session Management (Deepening Candidate 4)**:
+- [x] **Unify Split Workspace & Session Management (Deepening Candidate 4)**:
   - *Priority*: **P2** | *Complexity*: Medium | *Track*: Architecture / IPC
-  - Consolidate parallel entity operations currently split across `GraphStore` and `PowerWorkspaceFacade` in dashboard views into a single deep Workspace/Session repository seam, designed to serve both the local TUI and the Unix domain socket IPC daemon.
-- [ ] **Encrypted Session Archives (`cyg export --encrypt` via `cryptography`)**:
+  - Consolidate parallel entity operations currently split across `GraphStore` and `PowerWorkspaceFacade` in dashboard views into a single deep Workspace/Session repository seam, designed to serve both the local TUI and the Unix domain socket IPC daemon ([`cyguide/engine/workspace_repository.py`](../../cyguide/engine/workspace_repository.py), [`tests/unit/test_workspace_repository.py`](../../tests/unit/test_workspace_repository.py)).
+- [ ] **Encrypted Session Archives (`cyg session export --encrypt` via `cryptography`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Security
   - Add AES-256-GCM authenticated encryption for exported session databases with Argon2id passphrase key derivation using Python's `cryptography` package.
 - [ ] **Zero-Leakage In-Memory Credential Scrubbing**:
   - *Priority*: **P2** | *Complexity*: Low | *Track*: Security
   - Scrub transient credentials, secret tokens, and API keys from memory upon task completion.
-- [ ] **Declarative CIDR Scope Enforcement**:
+- [x] **Declarative CIDR Scope Enforcement**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Security
-  - Add explicit CIDR whitelist boundary validation in `ActionGateway` (e.g. `allowed_cidrs: ["10.0.0.0/24"]`) to reject out-of-scope targets.
+  - Added explicit CIDR boundary validation in `ActionGateway` (`allowed_cidrs: ["10.0.0.0/8"]`) rejecting out-of-scope targets and entity IPs before subprocess dispatch ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py), [`tests/unit/test_gateway.py`](../../tests/unit/test_gateway.py)).
 - [x] **LLM Prompt Boundary Sandboxing**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: AI Safety
   - Enclose untrusted terminal output in ephemeral cryptographically randomized tokens (`<<<UNTRUSTED_SCAN_OUTPUT_{UUID}>>>`) with XML escaping to neutralize prompt injections.
@@ -366,9 +130,9 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 - [ ] **Encrypted Archive Integrity & Tamper Fuzzing**:
   - *Priority*: **P2** | *Complexity*: Medium | *Track*: Security / Reliability
   - Automated test suite verifying cryptographic rejection of truncated, bit-flipped, or maliciously crafted session archives (Argon2id + AES-256-GCM auth tag failures).
-- [ ] **Automated CI Performance Regression Gate (`scripts/generate_benchmark_report.py --check`)**:
+- [x] **Automated CI Performance Regression Gate (`scripts/generate_benchmark_report.py --check`)**:
   - *Priority*: **P1** | *Complexity*: Low | *Track*: Benchmarking / Quality Gate
-  - Integrate benchmark checks into GitHub Actions PR workflow to automatically block merges on critical regressions across cold start, streaming ingestion, or SQLite batching.
+  - Integrate benchmark checks into GitHub Actions PR workflow to automatically block merges on critical regressions across cold start, streaming ingestion, or SQLite batching ([`scripts/generate_benchmark_report.py`](../../scripts/generate_benchmark_report.py), [`.github/workflows/ci.yml:109`](../../.github/workflows/ci.yml#L109)).
 - [ ] **Continuous Memory RSS & Heap Profiling**:
   - *Priority*: **P2** | *Complexity*: Medium | *Track*: Performance / Reliability
   - Profile sustained resident memory (RSS) and Python heap allocation over 50,000+ line scanner runs, verifying zero leak accumulation under long-running daemon workloads.
@@ -379,9 +143,6 @@ This critical hardening phase eliminates UI bottlenecks, decouples stream draini
 ---
 
 ### Milestone: v2.0.0 — The Mature Flagship Platform & Public Launch (Planned)
-
-> [!NOTE]
-> Detailed packaging specifications and launch playbooks are documented in [`docs/developer/V2_PLATFORM_SPECIFICATION.md:194-245`](V2_PLATFORM_SPECIFICATION.md#L194-L245).
 
 - [ ] **Standalone Linux Binary Distribution (`cyguide-linux-x86_64`)**:
   - *Priority*: **P1** | *Complexity*: Medium | *Track*: Distribution
@@ -431,12 +192,10 @@ Evolves CyGuide into an **Augmented Security Research Cockpit** engineered for h
   - *Priority*: **P1** | *Complexity*: High
   - Iterative `Observe → Reason → Plan → Execute → Synthesize` loop that queries `WorkspaceContext` and calls `submit_action()`.
   - Driven by local Ollama or cloud models using structured tool calling schemas.
-  - Reference: [`docs/developer/FUTURE_POWER_MODE.md:123-154`](FUTURE_POWER_MODE.md#L123-L154).
-- [ ] **Declarative CIDR Scope Enforcement**:
+- [x] **Declarative CIDR Scope Enforcement**:
   - *Priority*: **P1** | *Complexity*: Medium
-  - Add explicit CIDR whitelist boundary validation in `ActionGateway` (e.g. `allowed_cidrs: ["10.0.0.0/24"]`).
-  - Automatically reject agent actions targeting IP addresses outside authorized engagement bounds.
-  - Reference: [`docs/developer/FUTURE_POWER_MODE.md:107-109`](FUTURE_POWER_MODE.md#L107-L109).
+  - Implemented explicit CIDR whitelist boundary validation in `ActionGateway` ([`cyguide/engine/gateway.py`](../../cyguide/engine/gateway.py)).
+  - Automatically rejects actions targeting IP addresses outside authorized engagement bounds before subprocess execution.
 
 #### Track 2: The Agentic Cockpit UI (Power Mode Evolution)
 - [ ] **Dual-Mode Workspace Layout (Operator vs Agentic Cockpit)**:
@@ -518,43 +277,6 @@ Evolves CyGuide into an **Augmented Security Research Cockpit** engineered for h
 
 ---
 
-## Job-First Engineering & Market Mastery Track
-
-An applied, portfolio-anchored curriculum translating CyGuide's real production architecture into interview-ready software engineering, DevSecOps, and backend systems competencies.
-
-```text
-Track 1: Async Storage & DB Architecture  ➜  Track 2: CI/CD & DevSecOps Pipeline  ➜  Track 3: System Design & APIs
- (aiosqlite, Pydantic, Transactions)           (GitHub Actions, Docker, Security)      (httpx, Caching, Rate Limiting)
-                                                ▲
-                           [ Ongoing: Target DSA (NeetCode 75 Core) ]
-```
-
-### Track 1: Database & Storage Architecture (In `cyguide`)
-*Job Skills:* **SQL, Schema Design, Concurrency, Async I/O, Pydantic Data Modeling**
-- [x] **Relational Graph Modeling & Canonical Identity Hashing**: Implemented deterministic SHA-256 Primary Identity Key (PIK) algorithms preventing duplication across independent tool sources ([`cyguide/engine/store.py`](../../cyguide/engine/store.py)).
-- [ ] **Async I/O Concurrency & Connection Pooling**: Master non-blocking event-loop I/O with `aiosqlite`, write-ahead logging (WAL), and evaluate async connection pool lifecycles under heavy concurrent load.
-  - *Interview Competency:* Explaining how asynchronous event loops schedule file/socket I/O without blocking worker threads, and preventing SQLite `busy` locks under concurrency.
-- [ ] **Schema Migrations & Transactional Integrity**: Implement declarative schema versioning and transactional rollback semantics for multi-table graph mutations.
-  - *Interview Competency:* Designing normalized schemas, foreign-key cascades, atomic transactions, and handling schema migrations without downtime.
-
-### Track 2: DevSecOps, CI/CD & Packaging (In `cyguide`)
-*Job Skills:* **GitHub Actions, Docker, Static Analysis (SAST), Supply Chain Security**
-- [x] **Hermetic CI/CD & Security Pipelines**: Configured end-to-end multi-platform test matrices, CodeQL SAST scanning, and Release Please semantic changelog tagging ([`.github/workflows/`](../../.github/workflows)).
-- [ ] **Container Hardening & Multi-Stage Builds**: Review and optimize [`Dockerfile`](../../Dockerfile) for minimal image footprint (`python:3.11-slim`), non-root execution permissions, and layer cache reuse.
-  - *Interview Competency:* Explaining container isolation, Linux namespaces/cgroups, non-root runtime defense, and attack surface reduction.
-- [ ] **Automated Supply Chain & Dependency CVE Gate**: Enforce strict pre-merge gates using `pip-audit` to block vulnerabilities in upstream dependencies and lockfiles.
-  - *Interview Competency:* Explaining software supply chain security, SBOM generation, and automated vulnerability triage in modern CI pipelines.
-
-### Track 3: System Design & Network Integrations (In `cyguide`)
-*Job Skills:* **API Design, HTTP/REST, Caching, Resilience & Error Handling**
-- [x] **Unified Multi-Provider Async Client**: Streamed completions from Ollama and cloud providers with fallback cooldowns ([`cyguide/engine/explainer.py`](../../cyguide/engine/explainer.py)).
-- [ ] **Network Resilience, Retries & Exponential Backoff**: Implement jittered exponential backoff and circuit-breaker patterns for external LLM API endpoints and web fetchers using `httpx`.
-  - *Interview Competency:* Designing distributed systems for graceful degradation under third-party outages, rate limits (HTTP 429), and network partitions.
-- [ ] **Analytical In-Memory Caching & Telemetry**: Integrate structured contextual logging and query response caching to minimize latency across repeated graph lookups.
-  - *Interview Competency:* Demonstrating end-to-end observability, distributed tracing concepts, and latency optimization via caching layers.
-
----
-
 ## Power Mode Functional Progress Checklist
 
 The Power Mode operator workbench is fully implemented as an advanced operator workspace:
@@ -594,7 +316,7 @@ The Power Mode operator workbench is fully implemented as an advanced operator w
 - [x] **Unified Workspace Mutations in Facade**: Validates name uniqueness and kills active background processes on deletion.
 - [x] **High-Density Recent Activity Log**: Compact dashboard event feed extracting IPs, ports, and domains while omitting closed tabs.
 - [x] **AI Suggestions Pane**: Interactive sidebar displaying proposed findings with Approve (`Enter`) and Dismiss (`d`/`x`).
-- [x] **Session Export & Import**: Atomic SQLite `.db` archive portability (`cyg export`, `cyg import`, and `Ctrl+E`).
+- [x] **Session Export & Import**: Atomic SQLite `.db` archive portability (`cyg session export`, `cyg session import`, and `Ctrl+E`).
 - [x] **Forensic Session Archiving**: Mark sessions closed with immutable audit event logging and read-only protection against unintended mutations.
 - [x] **Dynamic Split-Pane Edge Resizing**: Interactive drag handles for resizing Entity Browser and Suggestions sidebars with persistent widths.
 - [x] **Unified Persistent Scratchpad**: Note-taking editor bound to `~/.cyguide/scratchpad.md` with mode `0o600`.
@@ -613,6 +335,5 @@ The Power Mode operator workbench is fully implemented as an advanced operator w
 
 For detailed architecture specifications, system contracts, and execution pipelines:
 * **[System Architecture Blueprint](ARCHITECTURE.md)**
-* **[Platform Specification & Dataflow Engine](V2_PLATFORM_SPECIFICATION.md)**
 * **[Database Architecture & Relational Contracts](DATABASE.md)**
 * **[Standard Schema Registry](SCHEMA_REGISTRY.md)**

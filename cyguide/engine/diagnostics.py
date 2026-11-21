@@ -1,5 +1,6 @@
 """Environment and dependency diagnostic checks for CyGuide."""
 
+import asyncio
 import os
 import platform
 import shutil
@@ -26,6 +27,9 @@ INSTALLATION_HINTS: Dict[str, str] = {
     "ffuf": "sudo apt install ffuf  (or: go install github.com/ffuf/ffuf/v2@latest)",
     "nuclei": "sudo apt install nuclei  (or: go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest)",
     "searchsploit": "sudo apt install exploitdb  (or: git clone https://gitlab.com/exploit-database/exploitdb.git /opt/exploitdb)",
+    "sqlmap": "sudo apt install sqlmap  (or: brew install sqlmap)",
+    "nxc": "pipx install netexec  (or: sudo apt install netexec)",
+    "netexec": "pipx install netexec  (or: sudo apt install netexec)",
 }
 
 
@@ -70,9 +74,11 @@ class DiagnosticEngine:
         """Run all diagnostic check suites and compile the consolidated diagnostic report."""
         report = DiagnosticReport()
         self._check_system(report)
-        await self._check_database(report)
         self._check_tools(report)
-        await self._check_explainer(report)
+        await asyncio.gather(
+            self._check_database(report),
+            self._check_explainer(report),
+        )
         return report
 
     def _check_system(self, report: DiagnosticReport) -> None:
@@ -209,6 +215,7 @@ class DiagnosticEngine:
             tool_data = registry.get_tool(name)
             adapter = tool_data.get("adapter") if tool_data else None
             manifest = tool_data.get("manifest") if tool_data else None
+            manifest = tool_data.get("manifest") if tool_data else None
             description = manifest.meta.description if manifest else ""
 
             is_installed = False
@@ -218,7 +225,10 @@ class DiagnosticEngine:
                 except Exception:
                     is_installed = False
 
-            binary_path = shutil.which(name)
+            target_bin = (
+                manifest.meta.binary if manifest and getattr(manifest, "meta", None) else name
+            )
+            binary_path = shutil.which(target_bin)
 
             if is_installed:
                 installed_count += 1
@@ -260,7 +270,7 @@ class DiagnosticEngine:
         """Verify local Ollama service connectivity and configured Cloud API credentials."""
         # Ollama check
         try:
-            async with httpx.AsyncClient(timeout=1.0) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(0.25, connect=0.1)) as client:
                 resp = await client.get("http://localhost:11434/api/tags")
                 if resp.status_code == 200:
                     models = [m.get("name") for m in resp.json().get("models", [])]
@@ -406,6 +416,7 @@ class DiagnosticEngine:
                 continue
             tool_data = registry.get_tool(name)
             adapter = tool_data.get("adapter") if tool_data else None
+            manifest = tool_data.get("manifest") if tool_data else None
 
             is_installed = False
             if adapter:
@@ -416,7 +427,10 @@ class DiagnosticEngine:
             if not is_installed:
                 is_installed = shutil.which(name) is not None
 
-            binary_path = shutil.which(name) if is_installed else None
+            target_bin = (
+                manifest.meta.binary if manifest and getattr(manifest, "meta", None) else name
+            )
+            binary_path = shutil.which(target_bin) if is_installed else None
             hint = INSTALLATION_HINTS.get(
                 name, f"Install '{name}' using your system package manager."
             )
@@ -478,11 +492,3 @@ async def run_diagnostics(
     db_path: Optional[str] = None, tools_dir: Optional[str] = None
 ) -> DiagnosticReport:
     return await DiagnosticEngine(db_path=db_path, tools_dir=tools_dir).run()
-
-
-def format_terminal_report(report: DiagnosticReport) -> str:
-    return DiagnosticEngine.format_terminal_report(report)
-
-
-def check_tool_health(registry: "ToolRegistry") -> Dict[str, Dict[str, Any]]:
-    return DiagnosticEngine.check_tool_health(registry)

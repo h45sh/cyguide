@@ -27,6 +27,8 @@ class HighVolumeStressRunner:
         self.line_count = line_count
         self.findings_per_job = findings_per_job
         self.stopped_tasks: List[str] = []
+        self._task_indices: Dict[str, int] = {}
+        self._counter: int = 0
 
     async def run(
         self,
@@ -49,11 +51,16 @@ class HighVolumeStressRunner:
                 if on_output:
                     await on_output(f"[{task_id[:8]}] log line {j:06d}: payload flood data...\n")
             # Yield control to event loop to allow concurrent jobs and subscriber tasks to interleave
-            await asyncio.sleep(0.0001)
+            await asyncio.sleep(0)  # codeguard: disable[TEST_FLAKY_SLEEP]
 
-        # Emit findings
+        # Emit findings with guaranteed unique IPs per task
+        if task_id not in self._task_indices:
+            self._counter += 1
+            self._task_indices[task_id] = self._counter
+        idx = self._task_indices[task_id]
+
         for f_idx in range(self.findings_per_job):
-            yield NetworkHost.create(ip=f"10.0.{task_id[-2:]}.{f_idx + 1}")
+            yield NetworkHost.create(ip=f"10.{idx}.{f_idx + 1}.1")
 
     async def stop(self, task_id: str) -> None:
         self.stopped_tasks.append(task_id)

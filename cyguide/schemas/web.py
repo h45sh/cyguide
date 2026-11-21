@@ -36,12 +36,11 @@ class WebResource(BaseFinding):
 
     @classmethod
     def create(cls, url: str, resource_path: str, **kwargs):
-        return cls(
-            pik={"url": url, "resource_path": resource_path},
+        return cls.from_data(
+            {"url": url, "resource_path": resource_path, **kwargs},
             parent=Relation(
                 target_type="web.endpoint", target_pik={"url": url}, via="hosts_resource"
             ),
-            data={"url": url, "resource_path": resource_path, **kwargs},
         )
 
 

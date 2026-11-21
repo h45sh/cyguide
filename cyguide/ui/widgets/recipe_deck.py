@@ -91,9 +91,7 @@ class RecipeDeck(VerticalScroll):
                 Label(f"◆ {r.name}", classes="recipe_card_title"),
             ]
             if has_flags:
-                header_children.append(
-                    Label(f" {flags_str} ", classes="recipe_card_flags_badge")
-                )
+                header_children.append(Label(f" {flags_str} ", classes="recipe_card_flags_badge"))
             header_children.append(
                 Horizontal(
                     RecipeActionButton(
@@ -122,6 +120,20 @@ class RecipeDeck(VerticalScroll):
                 id=f"recipe_card_{idx}",
             )
             await self.mount(card)
+
+        academic_card = Vertical(
+            Label("✦ ACADEMIC & CURRICULUM CO-DESIGN", classes="academic_card_title"),
+            Static(
+                "CyGuide's learning tracks, wire analyses, and deep-dive labs are built for verifiable classroom instruction. "
+                "We welcome collaboration with universities, professors, and open cybersecurity training programs.\n"
+                "[dim #94a3b8]Have a lab module or CTF syllabus to integrate into verifiable [bold #38bdf8].cyglab[/] checkpoints? "
+                "See [bold #38bdf8]docs/user/ACADEMIC_LAB_GUIDE.md[/] or submit a recipe pull request.[/]",
+                classes="academic_card_desc",
+            ),
+            classes="academic_card",
+            id="academic_codesign_card",
+        )
+        await self.mount(academic_card)
 
     def set_active_recipe_state(self, active_recipe_idx: Optional[int], is_running: bool) -> None:
         """Update recipe card button labels and disabled states."""

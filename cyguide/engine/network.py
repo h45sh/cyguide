@@ -3,9 +3,33 @@
 import socket
 import subprocess
 import time
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
-_cached_lhost: Optional[Tuple[float, Tuple[str, str]]] = None
+__all__ = ["get_lhost_info", "clear_lhost_cache"]
+
+
+@dataclass
+class _LhostCacheEntry:
+    timestamp: float
+    ip: str
+    interface: str
+
+    @property
+    def value(self) -> Tuple[str, str]:
+        return (self.ip, self.interface)
+
+    def is_valid(self, ttl: float, now: float) -> bool:
+        return (now - self.timestamp) < ttl
+
+
+_lhost_cache: Optional[_LhostCacheEntry] = None
+
+
+def clear_lhost_cache() -> None:
+    """Explicitly invalidate the cached LHOST discovery result."""
+    global _lhost_cache
+    _lhost_cache = None
 
 
 def get_lhost_info(ttl: float = 10.0, force_refresh: bool = False) -> Tuple[str, str]:
@@ -14,10 +38,10 @@ def get_lhost_info(ttl: float = 10.0, force_refresh: bool = False) -> Tuple[str,
     Returns:
         Tuple of (ip_address, interface_name), e.g. ("10.10.14.5", "tun0") or ("192.168.1.50", "eth0").
     """
-    global _cached_lhost
+    global _lhost_cache
     now = time.time()
-    if not force_refresh and _cached_lhost is not None and (now - _cached_lhost[0] < ttl):
-        return _cached_lhost[1]
+    if not force_refresh and _lhost_cache is not None and _lhost_cache.is_valid(ttl, now):
+        return _lhost_cache.value
 
     # 1. Try 'ip -brief -4 addr show' (Linux standard)
     try:
@@ -46,11 +70,13 @@ def get_lhost_info(ttl: float = 10.0, force_refresh: bool = False) -> Tuple[str,
                         regular_candidates.append((ip, iface))
 
             if vpn_candidates:
-                _cached_lhost = (now, vpn_candidates[0])
-                return vpn_candidates[0]
+                ip, iface = vpn_candidates[0]
+                _lhost_cache = _LhostCacheEntry(now, ip, iface)
+                return (ip, iface)
             if regular_candidates:
-                _cached_lhost = (now, regular_candidates[0])
-                return regular_candidates[0]
+                ip, iface = regular_candidates[0]
+                _lhost_cache = _LhostCacheEntry(now, ip, iface)
+                return (ip, iface)
     except Exception:
         pass
 
@@ -61,12 +87,12 @@ def get_lhost_info(ttl: float = 10.0, force_refresh: bool = False) -> Tuple[str,
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
-        _cached_lhost = (now, (ip, "default"))
-        return _cached_lhost[1]
+        _lhost_cache = _LhostCacheEntry(now, ip, "default")
+        return (ip, "default")
     except Exception:
         pass
 
     # 3. Ultimate loopback fallback
     fallback = ("127.0.0.1", "lo")
-    _cached_lhost = (now, fallback)
+    _lhost_cache = _LhostCacheEntry(now, fallback[0], fallback[1])
     return fallback

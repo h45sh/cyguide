@@ -45,6 +45,17 @@ def get_default_scratchpad_path(data_dir: Optional[str] = None) -> str:
     return os.path.join(base, "scratchpad.md")
 
 
+def get_default_checkpoints_dir(data_dir: Optional[str] = None) -> str:
+    """Return the default learning mode checkpoint export directory."""
+    base = data_dir if data_dir is not None else get_default_data_dir()
+    checkpoints_dir = os.path.join(base, "checkpoints")
+    try:
+        os.makedirs(checkpoints_dir, mode=0o700, exist_ok=True)
+    except OSError:
+        pass
+    return checkpoints_dir
+
+
 def get_default_exports_dir(data_dir: Optional[str] = None) -> str:
     """Return the default session database export directory."""
     base = data_dir if data_dir is not None else get_default_data_dir()

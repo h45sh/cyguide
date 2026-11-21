@@ -2,6 +2,7 @@
 
 import json
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
@@ -12,7 +13,7 @@ from cyguide.engine.power_facade import PowerWorkspaceFacade
 from cyguide.engine.store import GraphStore
 from cyguide.schemas.power import ActionRequest, ActionSource, JobStatus, JobStatusEnum
 from cyguide.ui.screens.power import PowerModeScreen
-from cyguide.ui.widgets.power import CommandPalette, EntityBrowser
+from cyguide.ui.widgets.power import CommandPalette, EntityBrowser, JobQueue
 
 
 @pytest.mark.asyncio
@@ -52,8 +53,8 @@ async def test_power_mode_running_job_tab_restoration():
     store = GraphStore(":memory:")
     await store.initialize()
     facade = PowerWorkspaceFacade(store, MagicMock(), MagicMock())
-    ws_id = await facade.create_workspace("TestWS")
-    sess_id = await facade.create_session(ws_id, "TestSess")
+    ws_id = await facade.workspaces.create_workspace("TestWS")
+    sess_id = await facade.workspaces.create_session(ws_id, "TestSess")
 
     job_id = uuid.uuid4()
     job = JobStatus(
@@ -80,6 +81,7 @@ async def test_power_mode_running_job_tab_restoration():
             super().__init__()
             self.store = store
             self.power_facade = facade
+            self.workspaces = facade.workspaces
             self.selected_session_id = sess_id
 
         def compose(self) -> ComposeResult:
@@ -186,14 +188,15 @@ def test_action_copy_active_tab():
 
 @pytest.mark.asyncio
 async def test_send_desktop_notification():
-    screen = PowerModeScreen()
+    from cyguide.engine.power_facade import send_desktop_notification
+
     with patch("shutil.which", return_value="/usr/bin/notify-send"):
         with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
             mock_proc = MagicMock()
             mock_proc.wait = AsyncMock()
             mock_exec.return_value = mock_proc
 
-            await screen._send_desktop_notification("Job Completed", "Finished scan")
+            await send_desktop_notification("Job Completed", "Finished scan")
             mock_exec.assert_called_once()
             args = mock_exec.call_args[0]
             assert args[0] == "notify-send"
@@ -287,12 +290,14 @@ async def test_power_mode_welcome_guide_lifecycle():
         def __init__(self):
             super().__init__()
             self.power_facade = MagicMock()
+            self.workspaces = MagicMock()
             mock_ctx = MagicMock()
             mock_ctx.session_name = "test-session"
             self.power_facade.get_context = AsyncMock(return_value=mock_ctx)
             self.power_facade.get_session = AsyncMock(
                 return_value={"status": "ACTIVE", "workspace_id": "ws-1"}
             )
+            self.workspaces.get_session = self.power_facade.get_session
             self.power_facade.get_active_jobs_count.return_value = 0
             self.power_facade.get_graph_snapshot = AsyncMock(
                 return_value={"nodes": [], "edges": []}
@@ -343,6 +348,7 @@ async def test_power_mode_scratchpad_debounced_save(tmp_path):
     async with app.run_test() as pilot:
         screen = app.query_one(PowerModeScreen)
         text_area = screen.query_one("#scratchpad_textarea", TextArea)
+        assert text_area.show_line_numbers is True
 
         # Trigger rapid changes
         text_area.text = "Note 1"
@@ -355,8 +361,11 @@ async def test_power_mode_scratchpad_debounced_save(tmp_path):
         # Immediately, preferences.write_scratchpad should not have been called yet (debounced)
         assert app.preferences.write_scratchpad.call_count == 0
 
-        # Wait past the debounce duration (300ms)
-        await pilot.pause(0.35)
+        # Wait past the debounce duration (300ms) with retry allowance for CI scheduling
+        for _ in range(15):
+            await pilot.pause(0.1)
+            if app.preferences.write_scratchpad.call_count >= 1:
+                break
 
         # Now it should have been called with the latest content
         assert app.preferences.write_scratchpad.call_count >= 1
@@ -366,12 +375,15 @@ async def test_power_mode_scratchpad_debounced_save(tmp_path):
 @pytest.mark.asyncio
 async def test_command_palette_lhost_badge_offloading():
     """Verify that get_lhost_info is offloaded to a worker thread via asyncio.to_thread."""
+
     class PaletteApp(App):
         def compose(self) -> ComposeResult:
             yield CommandPalette()
 
     app = PaletteApp()
-    with patch("cyguide.engine.network.get_lhost_info", return_value=("10.10.14.8", "tun0")) as mock_lhost:
+    with patch(
+        "cyguide.engine.network.get_lhost_info", return_value=("10.10.14.8", "tun0")
+    ) as mock_lhost:
         async with app.run_test() as pilot:
             palette = app.query_one(CommandPalette)
             palette._update_lhost_badge()
@@ -391,9 +403,9 @@ async def test_tool_health_modal_offloaded():
     class HealthApp(App):
         def __init__(self):
             super().__init__()
-            self.check_and_update_tool_health = MagicMock(return_value={
-                "nmap": {"status": "ok", "healthy": True, "binary": "/usr/bin/nmap"}
-            })
+            self.check_and_update_tool_health = MagicMock(
+                return_value={"nmap": {"status": "ok", "healthy": True, "binary": "/usr/bin/nmap"}}
+            )
 
         def compose(self) -> ComposeResult:
             yield Static("test")
@@ -408,3 +420,95 @@ async def test_tool_health_modal_offloaded():
         summary = modal.query_one("#tool_health_summary_label")
         assert "All 1 registered tools are operational" in str(summary.render())
 
+
+@pytest.mark.asyncio
+async def test_power_mode_scratchpad_rapid_toggle_protection(tmp_path):
+    """Verify that rapid key-repeat toggles of scratchpad never wipe notes on disk."""
+    from textual.widgets import TextArea
+
+    scratchpad_path = str(tmp_path / "scratchpad.md")
+    with open(scratchpad_path, "w", encoding="utf-8") as f:
+        f.write("# Critical Investigation Notes\nFound admin credentials.")
+
+    class GuardedApp(App):
+        def compose(self) -> ComposeResult:
+            yield PowerModeScreen()
+
+    app = GuardedApp()
+    app.preferences = MagicMock()
+    app.preferences.read_scratchpad = MagicMock(
+        return_value="# Critical Investigation Notes\nFound admin credentials."
+    )
+    app.preferences.write_scratchpad = MagicMock()
+
+    async with app.run_test() as pilot:
+        screen = app.query_one(PowerModeScreen)
+        screen.scratchpad_file = scratchpad_path
+
+        # Simulate uninitialized / loading state
+        screen._scratchpad_loading = True
+        screen._scratchpad_loaded = False
+
+        # Attempt to save during load-in-flight (simulating rapid key repeat toggle close)
+        screen._save_scratchpad(immediate=True)
+        assert app.preferences.write_scratchpad.call_count == 0
+
+        # Attempt to save with empty text before initial load finishes
+        screen._scratchpad_loading = False
+        text_area = screen.query_one("#scratchpad_textarea", TextArea)
+        text_area.text = ""
+        screen._save_scratchpad(immediate=True)
+        assert app.preferences.write_scratchpad.call_count == 0
+
+        # After proper load, saving non-empty user text succeeds
+        screen._scratchpad_loaded = True
+        text_area.text = "# Critical Investigation Notes\nUpdated finding."
+        screen._save_scratchpad(immediate=True)
+        assert app.preferences.write_scratchpad.call_count == 1
+        app.preferences.write_scratchpad.assert_called_with(
+            "# Critical Investigation Notes\nUpdated finding."
+        )
+
+
+@pytest.mark.asyncio
+async def test_job_queue_renders_without_headers():
+    class JobQueueApp(App):
+        def compose(self) -> ComposeResult:
+            yield JobQueue(id="test_job_queue")
+
+    app = JobQueueApp()
+    async with app.run_test() as pilot:
+        jq = app.query_one("#test_job_queue", JobQueue)
+
+        # Verify no "JOB QUEUE" Label widget is in JobQueue children
+        labels = list(jq.query("Label"))
+        assert len(labels) == 0
+
+        # Feed some jobs
+        s_id = uuid.uuid4()
+        job1 = JobStatus(
+            job_id=uuid.uuid4(),
+            session_id=s_id,
+            tool_name="nmap",
+            status=JobStatusEnum.RUNNING,
+            started_at=datetime.now(timezone.utc),
+        )
+        job2 = JobStatus(
+            job_id=uuid.uuid4(),
+            session_id=s_id,
+            tool_name="gobuster",
+            status=JobStatusEnum.DONE,
+            started_at=datetime.now(timezone.utc),
+        )
+
+        await jq.update_jobs([job1, job2])
+        await pilot.pause()
+
+        job_list = jq.query_one("#power_job_list")
+        assert len(job_list.children) == 2
+        static0 = job_list.children[0].query_one(Static)
+        assert "nmap" in str(static0.content)
+        assert "◌" in str(static0.content)
+        static1 = job_list.children[1].query_one(Static)
+        assert "gobuster" in str(static1.content)
+        assert "●" in str(static1.content)

@@ -82,7 +82,7 @@ jobs:
 
       - name: Run diagnostic health check
         run: |
-          cyg check --json
+          cyg doctor --json
 
   benchmark:
     name: Performance Limits & Regression Guard (Ubuntu)

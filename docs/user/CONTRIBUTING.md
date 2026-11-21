@@ -89,7 +89,7 @@ class MyToolAdapter(ToolAdapter):
         """Construct the CLI arguments safely as an argument list (preventing shell injection)."""
         raw_flags = params.get("raw_flags", "")
         flag_args = shlex.split(raw_flags) if raw_flags else []
-        url = target.pik.get("url") or target.data.get("url", "")
+        url = self.extract_url(target) or ""
         return ["mytool", "-u", url] + flag_args
 
     async def parse_output(
@@ -97,12 +97,12 @@ class MyToolAdapter(ToolAdapter):
     ) -> AsyncIterator[BaseFinding]:
         """Parse raw stdout into validated BaseFinding schemas."""
         for line in raw_stdout.splitlines():
-            cleaned = line.strip()
+            cleaned = self.strip_ansi(line).strip()
             if "200 OK" in cleaned:
                 path = cleaned.split()[0]
                 yield WebEndpoint.create(
                     url=path,
-                    host_ip=target.pik.get("host_ip") or target.pik.get("ip"),
+                    host_ip=self.extract_host(target),
                     status_code=200,
                 )
 ```
@@ -134,7 +134,8 @@ Before testing your adapter inside the Textual TUI, verify the **Executor → Ad
 # scripts/test_mytool_headless.py
 import asyncio
 from cyguide.engine.store import GraphStore
-from cyguide.engine.executor import SubprocessExecutor
+from cyguide.engine.executor import Executor
+from cyguide.schemas.web import WebEndpoint
 from tools.mytool.adapter import MyToolAdapter
 
 
@@ -143,10 +144,11 @@ async def test_run():
     await store.initialize()
 
     adapter = MyToolAdapter()
-    executor = SubprocessExecutor(store)
+    executor = Executor(store)
 
     # Run against a mock target or local test server
-    cmd = adapter.build_command("http://127.0.0.1:8000", [])
+    target = WebEndpoint.create(url="http://127.0.0.1:8000")
+    cmd = adapter.build_command(target, {})
     print(f"Executing: {' '.join(cmd)}")
 
     await store.close()
