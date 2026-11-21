@@ -54,7 +54,7 @@ Authoritative technical specifications and catalogues:
 
 * **[Architecture & Domain Glossary](GLOSSARY.md)**: Comprehensive definitions of core platform terms (PIK, Smart Adapter, Entity Graph, Action Gateway, Forensic Archiving).
 * **[Master Keyboard Shortcuts & Hotkeys](user/USER_MANUAL.md#master-keyboard-shortcuts--hotkeys-quick-reference)**: Comprehensive lookup table for all global, dashboard, learning mode, and operator hotkeys.
-* **[CLI Commands & Diagnostics](user/USER_MANUAL.md#6-cli-commands--diagnostics)**: Complete reference for `cyg doctor`, `cyg session`, `cyg workspace`, `cyg tool`, and `cyg lab`.
+* **[CLI Commands & Diagnostics](user/USER_MANUAL.md#6-cli-commands--diagnostics)**: Complete reference for `cyg doctor`, `cyg logs`, `cyg session`, `cyg workspace`, `cyg tool`, and `cyg lab`.
 * **[Standard Schema Registry](developer/SCHEMA_REGISTRY.md)**: Specifications for the standardized finding schemas (hosts, services, endpoints, credentials, vulnerabilities) and Primary Identity Keys (PIKs).
 * **[Database Architecture & Relational DDL](developer/DATABASE.md)**: Full SQLite schema, index specifications, ER diagrams, and portability mechanisms.
 * **[Security Vulnerability Policy](../.github/SECURITY.md)**: Supported versions, private reporting channels, response SLAs, and threat model boundaries.

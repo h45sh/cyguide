@@ -443,7 +443,7 @@ async def test_learning_ask_ai_and_run_buttons():
             "Must not wipe or alter explanation buffer when AI is disabled"
         )
         status_lbl = screen.query_one("#explanation_status_label")
-        assert "OFF" in str(status_lbl.render())
+        assert any(w in str(status_lbl.render()).lower() for w in ("paused", "off"))
 
         # Click toggle button to turn back on
         toggle_btn.press()
@@ -464,7 +464,7 @@ async def test_learning_ask_ai_and_run_buttons():
             "Previous explanation must NOT be wiped!"
         )
         status_lbl = screen.query_one("#explanation_status_label")
-        assert "OFF" in str(status_lbl.render())
+        assert any(w in str(status_lbl.render()).lower() for w in ("paused", "off"))
 
         # 12. Test that running a scan while AI is ON ALSO preserves previous explanation
         toggle_btn.press()

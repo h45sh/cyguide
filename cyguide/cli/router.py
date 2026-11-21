@@ -20,9 +20,13 @@ from cyguide.cli.formatters import RichArgumentParser, print_error
 def run_workbench(context: CliContext) -> int:
     """Initialize Textual compatibility and launch CyGuideApp."""
     from cyguide.app import CyGuideApp
+    from cyguide.common.logging import install_textual_crash_traps, record_breadcrumb
     from cyguide.ui.compat import setup_textual_compat
 
     setup_textual_compat()
+    install_textual_crash_traps(CyGuideApp)
+    record_breadcrumb("workbench", "Launching interactive Textual TUI")
+
     app = CyGuideApp(
         db_path=context.db_path,
         data_dir=context.data_dir,
@@ -309,10 +313,37 @@ def build_parser() -> RichArgumentParser:
     l_start.add_argument("--host", default="127.0.0.1", help="Bind IP address (default: 127.0.0.1)")
     l_start.add_argument("--port", type=int, default=8888, help="Bind port (default: 8888)")
 
+    # 5. logs domain
+    logs_parser = subparsers.add_parser(
+        "logs",
+        parents=[common_options],
+        help="Inspect, filter, or clear centralized diagnostic application logs",
+    )
+    logs_parser.add_argument(
+        "-n",
+        "--lines",
+        type=int,
+        default=50,
+        help="Number of recent log lines to display (default: 50)",
+    )
+    logs_parser.add_argument(
+        "-c",
+        "--crashes",
+        action="store_true",
+        help="Extract only fatal crashes, unhandled exceptions, and UI panics",
+    )
+    logs_parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="Truncate and clear the system log file",
+    )
+
     # Configure helpful real-world examples across all parsers
     parser.examples = [
         ("cyg", "Launch the interactive dual-mode TUI workbench"),
         ("cyg doctor", "Audit environment, database, wordlists, and scanner tools"),
+        ("cyg logs", "Inspect recent application and crash logs"),
+        ("cyg logs --crashes", "Filter and display recent crash/panic tracebacks"),
         ("cyg tool list", "List installed security tools and recipe counts"),
         ("cyg tool check nmap", "Verify if 'nmap' is installed and available in PATH"),
         ("cyg session list", "List recorded investigation sessions with finding counts"),
@@ -362,6 +393,13 @@ def build_parser() -> RichArgumentParser:
         ("cyg lab start --port 8888", "Start embedded loopback web target server"),
     ]
 
+    logs_parser.examples = [
+        ("cyg logs", "Display the last 50 lines of system logs"),
+        ("cyg logs -n 100", "Display the last 100 lines of system logs"),
+        ("cyg logs --crashes", "Filter and display recent crash and panic traces"),
+        ("cyg logs --clear", "Clear ~/.cyguide/logs/cyguide.log"),
+    ]
+
     return parser
 
 
@@ -372,6 +410,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     context = CliContext.from_args(args)
+
+    from cyguide.common.logging import (
+        install_global_exception_traps,
+        logger,
+        record_breadcrumb,
+        setup_system_logging,
+    )
+
+    setup_system_logging(data_dir=context.data_dir, verbose=context.verbose)
+    install_global_exception_traps()
+    record_breadcrumb("cli", "CLI invoked", subcommand=args.subcommand or "workbench")
 
     if not args.subcommand:
         # Default fallback: Interactive Textual Workbench
@@ -401,6 +450,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             return handle_tool(args, context)
         elif args.subcommand == "doctor":
             return asyncio.run(handle_doctor(args, context))
+        elif args.subcommand == "logs":
+            from cyguide.cli.commands.logs import handle_logs
+
+            return handle_logs(args, context)
         elif args.subcommand == "lab":
             from cyguide.cli.commands.lab import handle_lab
 
@@ -412,6 +465,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print_error("Operation cancelled by user.")
         return EXIT_RUNTIME_ERROR
     except Exception as exc:
+        logger.critical("Command '%s' failed unexpectedly: %s", args.subcommand, exc, exc_info=True)
         print_error(f"Command execution failed: {exc}")
         if context.verbose:
             import traceback

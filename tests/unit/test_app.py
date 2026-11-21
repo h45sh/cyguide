@@ -701,8 +701,8 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
         sess_list = dashboard.query_one("#session_list")
 
         async def settle():
-            await pilot.pause(0.05)
-            for _ in range(30):
+            for _ in range(40):
+                await pilot.pause(0.05)
                 if dashboard._ws_debounce_task and not dashboard._ws_debounce_task.done():
                     try:
                         await dashboard._ws_debounce_task
@@ -719,7 +719,7 @@ async def test_workspace_and_session_list_highlight_on_enter_and_navigation(tmp_
                 ) and (
                     dashboard._sess_debounce_task is None or dashboard._sess_debounce_task.done()
                 )
-                if tasks_done and sess_list.index is not None and len(sess_list.children) > 0:
+                if tasks_done and sess_list.index == 0 and len(sess_list.children) > 0:
                     break
 
         # 1. Start at index 0 and navigate down to index 1

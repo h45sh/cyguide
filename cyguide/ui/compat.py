@@ -137,6 +137,14 @@ def setup_textual_compat() -> None:
     except Exception:
         pass
 
+    # 0.1. Centralized diagnostic crash recording into ~/.cyguide/logs/cyguide.log
+    try:
+        from cyguide.common.logging import install_textual_crash_traps
+
+        install_textual_crash_traps(App)
+    except Exception:
+        pass
+
     # 0.5. Defensive hardening against cancelled async callbacks (such as AwaitRemove) terminating the app
     try:
         from textual._callback import invoke

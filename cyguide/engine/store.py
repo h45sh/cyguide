@@ -2,6 +2,7 @@
 # Changes to this file require team agreement.
 """SQLite-based graph store for workspaces and sessions."""
 
+import asyncio
 import functools
 import hashlib
 import json
@@ -103,10 +104,16 @@ class GraphStore:
         self._on_upsert_callbacks = []
         self._on_batch_callbacks = []
         self._conn: Optional[aiosqlite.Connection] = None
+        self._lock: Optional[asyncio.Lock] = None
         self._closed: bool = False
         self._session_bloom: Dict[str, Any] = {}
         self._warmed_sessions: Set[str] = set()
         self.timeline = ActionTimelineRepository(self)
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def _get_bloom(self, session_id: str):
         """Get or initialize in-memory Bloom filter for fast node ID pre-filtering."""
@@ -135,24 +142,25 @@ class GraphStore:
         """Helper to get a connection, supporting persistent connection for all paths."""
         if self._closed:
             raise ValueError("Cannot operate on a closed database.")
-        if self._conn is None:
-            if self.db_path != ":memory:":
-                db_dir = os.path.dirname(os.path.abspath(self.db_path))
-                if db_dir:
-                    os.makedirs(db_dir, exist_ok=True)
-            self._conn = await aiosqlite.connect(self.db_path)
-            await self._conn.execute("PRAGMA foreign_keys = ON")
-            await self._conn.execute("PRAGMA trusted_schema = OFF")
-            await self._conn.execute("PRAGMA busy_timeout = 5000")
-            if self.db_path != ":memory:":
-                await self._conn.execute("PRAGMA journal_mode = WAL")
-                await self._conn.execute("PRAGMA synchronous = NORMAL")
-            if self.db_path != ":memory:" and os.path.exists(self.db_path):
-                try:
-                    os.chmod(self.db_path, 0o600)
-                except OSError:
-                    pass
-        yield self._conn
+        async with self._get_lock():
+            if self._conn is None:
+                if self.db_path != ":memory:":
+                    db_dir = os.path.dirname(os.path.abspath(self.db_path))
+                    if db_dir:
+                        os.makedirs(db_dir, exist_ok=True)
+                self._conn = await aiosqlite.connect(self.db_path)
+                await self._conn.execute("PRAGMA foreign_keys = ON")
+                await self._conn.execute("PRAGMA trusted_schema = OFF")
+                await self._conn.execute("PRAGMA busy_timeout = 5000")
+                if self.db_path != ":memory:":
+                    await self._conn.execute("PRAGMA journal_mode = WAL")
+                    await self._conn.execute("PRAGMA synchronous = NORMAL")
+                if self.db_path != ":memory:" and os.path.exists(self.db_path):
+                    try:
+                        os.chmod(self.db_path, 0o600)
+                    except OSError:
+                        pass
+            yield self._conn
 
     async def initialize(self):
         """Create tables if they don't exist."""

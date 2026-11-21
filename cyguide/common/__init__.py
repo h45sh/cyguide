@@ -10,18 +10,32 @@ from cyguide.common.algorithms import (
     MinHash,
     knapsack_01,
 )
+from cyguide.common.logging import (
+    FlightRecorder,
+    get_recent_crash_summary,
+    install_global_exception_traps,
+    install_textual_crash_traps,
+    record_breadcrumb,
+    setup_system_logging,
+)
 
 __all__ = [
     "ANSI_ESCAPE_RE",
     "BloomFilter",
     "CTF_FLAG_RE",
     "DisjointSet",
+    "FlightRecorder",
     "IPRadixTrie",
     "MinHash",
     "dfa_strip_ansi",
     "extract_ctf_flags",
+    "get_recent_crash_summary",
+    "install_global_exception_traps",
+    "install_textual_crash_traps",
     "is_placeholder_key",
     "knapsack_01",
+    "record_breadcrumb",
+    "setup_system_logging",
     "strip_ansi",
     "strip_scanner_noise",
 ]

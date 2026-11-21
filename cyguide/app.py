@@ -674,6 +674,14 @@ class CyGuideApp(App):
 
         # 2. Setup UI
         self.push_screen("dashboard")
+        from cyguide.common.logging import record_breadcrumb
+
+        record_breadcrumb(
+            "workbench",
+            "Workbench UI mounted and ready",
+            db=str(self.db_path),
+            tools_count=len(getattr(self.registry, "tools", {})),
+        )
         if not self.animations_enabled:
             self.add_class("no-animations")
             self.animation_level = "none"
@@ -687,6 +695,20 @@ class CyGuideApp(App):
                 sys.stdout.flush()
             except Exception:
                 pass
+
+    def push_screen(self, screen: Any, callback: Any = None) -> Any:
+        from cyguide.common.logging import record_breadcrumb
+
+        screen_name = screen if isinstance(screen, str) else screen.__class__.__name__
+        record_breadcrumb("navigation", f"Pushing screen: {screen_name}")
+        return super().push_screen(screen, callback=callback)
+
+    def switch_screen(self, screen: Any) -> Any:
+        from cyguide.common.logging import record_breadcrumb
+
+        screen_name = screen if isinstance(screen, str) else screen.__class__.__name__
+        record_breadcrumb("navigation", f"Switching screen: {screen_name}")
+        return super().switch_screen(screen)
 
     def reload_explainer(self) -> None:
         """Setup or reload explanation backend based on current settings and environment."""

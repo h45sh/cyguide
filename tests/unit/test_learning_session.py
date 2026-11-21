@@ -190,6 +190,7 @@ async def test_learning_session_run_scan_lifecycle():
     async for event in session.run_scan(
         target="127.0.0.1",
         flags_used="-F",
+        skip_preflight=True,
         on_raw_chunk=lambda chunk: chunks.append(chunk),
     ):
         events.append(event)

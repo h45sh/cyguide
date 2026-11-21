@@ -95,6 +95,12 @@ def get_action_log_path(action_id: str, data_dir: Optional[str] = None) -> str:
     return os.path.join(logs_dir, f"{action_id}.log")
 
 
+def get_system_log_path(data_dir: Optional[str] = None) -> str:
+    """Return the absolute path for the centralized application system log (~/.cyguide/logs/cyguide.log)."""
+    logs_dir = get_default_logs_dir(data_dir)
+    return os.path.join(logs_dir, "cyguide.log")
+
+
 def get_default_wordlists_dir(data_dir: Optional[str] = None) -> str:
     """Return the default wordlists directory (~/.cyguide/wordlists)."""
     base = data_dir if data_dir is not None else get_default_data_dir()

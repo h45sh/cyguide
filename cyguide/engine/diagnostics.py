@@ -74,6 +74,7 @@ class DiagnosticEngine:
         """Run all diagnostic check suites and compile the consolidated diagnostic report."""
         report = DiagnosticReport()
         self._check_system(report)
+        self._check_logs(report)
         self._check_tools(report)
         await asyncio.gather(
             self._check_database(report),
@@ -132,6 +133,58 @@ class DiagnosticEngine:
                 )
             )
             report.healthy = False
+
+    def _check_logs(self, report: DiagnosticReport) -> None:
+        """Verify centralized system logging and check for recent fatal crashes."""
+        from cyguide.common.logging import get_recent_crash_summary
+        from cyguide.paths import get_default_logs_dir, get_system_log_path
+
+        data_dir = (
+            os.path.dirname(os.path.abspath(self.db_path)) if self.db_path != ":memory:" else None
+        )
+        logs_dir = get_default_logs_dir(data_dir)
+        log_file = get_system_log_path(data_dir)
+
+        is_writable = os.path.exists(logs_dir) and os.access(logs_dir, os.W_OK)
+        if is_writable:
+            report.checks.append(
+                DiagnosticCheck(
+                    name="Diagnostic Logs Directory",
+                    category="System",
+                    status="ok",
+                    message=f"Logs directory '{logs_dir}' is writable",
+                )
+            )
+        else:
+            report.checks.append(
+                DiagnosticCheck(
+                    name="Diagnostic Logs Directory",
+                    category="System",
+                    status="warning",
+                    message=f"Logs directory '{logs_dir}' is not writable",
+                )
+            )
+
+        crash = get_recent_crash_summary(data_dir)
+        if crash:
+            report.checks.append(
+                DiagnosticCheck(
+                    name="Recent Crash Audit",
+                    category="System",
+                    status="warning",
+                    message=f"Recent crash recorded [{crash['timestamp']}]: {crash['summary']} (inspect via 'cyg logs --crashes')",
+                    details=crash,
+                )
+            )
+        else:
+            report.checks.append(
+                DiagnosticCheck(
+                    name="Recent Crash Audit",
+                    category="System",
+                    status="ok",
+                    message=f"No recent crashes recorded in system log ({log_file})",
+                )
+            )
 
     async def _check_database(self, report: DiagnosticReport) -> None:
         """Verify storage directory write permissions and SQLite schema integrity."""

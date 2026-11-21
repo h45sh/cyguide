@@ -264,6 +264,25 @@ cyg doctor
 cyg doctor --json
 ```
 
+### Diagnostic & System Logs (`cyg logs`)
+Inspect application runtime logs, filter crash and panic tracebacks with flight recorder breadcrumbs, or clear logs:
+```bash
+# View the last 50 lines of the centralized system log (~/.cyguide/logs/cyguide.log)
+cyg logs
+
+# View the last 100 lines
+cyg logs -n 100
+
+# Filter for recent fatal crashes, unhandled exceptions, and UI panics
+cyg logs --crashes
+
+# Machine-readable JSON output for automated diagnostics
+cyg logs --json
+
+# Truncate and clear the system log
+cyg logs --clear
+```
+
 ### Session Lifecycle & Graph Portability (`cyg session`)
 Inspect, export, import, or prune investigation sessions:
 ```bash
