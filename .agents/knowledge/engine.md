@@ -3,10 +3,17 @@
 ## 1. Core Architecture & Lifecycles
 - **Deep Modules**: The engine hides orchestration complexity behind deep facades: `ExecutionSession` (`cyguide/engine/execution_session.py:L25`), `ActionGateway` (`cyguide/engine/gateway.py:L1`), and `PowerWorkspaceFacade` (`cyguide/engine/power_facade.py:L16`).
 - **Cold App Launch Contract**: Cold startup benchmark must remain $< 600\text{ms}$ (hard ceiling $950\text{ms}$). Verified via `python -c "import cyguide.app"` (`cyguide/app.py:L1`).
-- **Decoupled Startup Network Stacks**: Never import heavy HTTP clients (`httpx`, `openai`, `anthropic`, `dotenv`) at root package level or during app startup. Primitives like `is_placeholder_key` live in `cyguide/common/keys.py:L1`.
+- **Decoupled Startup Network Stacks**: Never import heavy HTTP clients (`httpx`, `openai`, `anthropic`, `dotenv`) at root package level or during app startup. Primitives like `is_placeholder_key` live in `cyguide/common/__init__.py:L23`.
 - **On-Demand Screen Loading & Dynamic PEP 562 Symbol Re-Exporting**:
-  - Secondary screens are registered via `cyguide/ui/screens/lazy.py:L1` callables in `SCREENS`.
+  - Secondary screens are registered via callables in `CyGuideApp.SCREENS` (`cyguide/app.py:L247`).
   - `cyguide/ui/screens/__init__.py:L1` uses PEP 562 `__getattr__` module-level dynamic resolution, cutting cold start latency ~43% (~950ms down to ~540ms) without breaking imports.
+
+## 2. Centralized Diagnostic Monitoring & Crash Trapping
+- **Centralized Diagnostic Logger**: `~/.cyguide/logs/cyguide.log` managed by `cyguide/common/logging.py:L1` with `SecureRotatingFileHandler` (atomic `0o600` mode, 5MB cap, 3 backups) and `SanitizingLogFormatter` scrubbing secrets.
+- **Flight Recorder Breadcrumbs**: In-memory ring buffer (`deque(maxlen=200)`) tracking recent screen changes, tool dispatches, and key actions in $<0.01\text{ms}$.
+- **Triple Exception Trap**: Hooks `sys.excepthook`, `asyncio.loop.set_exception_handler`, and Textual `App._handle_exception`/`App.panic` to dump the last 35 breadcrumbs into `cyguide.log` before terminal resets.
+- **Diagnostic Health Inspection**: `DiagnosticEngine._check_logs` (`cyguide/engine/diagnostics.py:L138`) automatically audits log directory permissions and recent fatal crashes during `cyg doctor`.
+- **CLI Log Surface**: Operators inspect or tail crash traces directly via `cyg logs` (`cyguide/cli/commands/logs.py:L10`).
 
 ## 2. Process Execution & Subprocess Invariants
 - **Argument Vector Mandate**: `shell=True` and string concatenation are strictly prohibited. Construct commands as explicit argument vectors (`List[str]`) executed via `asyncio.create_subprocess_exec` in `cyguide/engine/executor.py:L17`.

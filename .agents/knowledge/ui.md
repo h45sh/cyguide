@@ -28,3 +28,4 @@
 - **Streaming Markdown Crash**: Raw token chunks directly fed to Markdown renderers crash with `NoneType` region calculation exceptions. Buffer incoming tokens with a 50ms coalesce debounce.
 - **Table Event Forwarding**: Handled via monkeypatch in `cyguide/ui/compat.py:L1` setting `MarkdownTableContent.ALLOW_SELECT = False`.
 - **LLM Heading Normalization**: Pre-process LLM text with `re.sub(r"^\s*\*\*(#{1,6}\s+.*?)\*\*\s*$", r"\1", text, flags=re.MULTILINE)` so CommonMark detects `#` at column 0 instead of degrading to plain text.
+- **Shielded DOM Reconciliation**: When switching tool inspectors or re-rendering child rows during rapid item highlights, shield the DOM reconciliation task via `asyncio.shield(...)` in `cyguide/ui/screens/tool_browser.py:L1` and patch `MessagePump._flush_next_callbacks` to safely handle `asyncio.CancelledError` (`cyguide/ui/compat.py:L140`).

@@ -53,7 +53,13 @@
    - *Replacement*: Use bounded `collections.deque(maxlen=5000)` and stream logs directly to disk.
 4. **NEVER Eagerly Import Secondary Screens or HTTP Stacks at Root**:
    - *Failure Mode*: Drags heavy dependencies into cold launch, inflating startup latency to $> 950\text{ms}$.
-   - *Replacement*: Use `cyguide/ui/screens/lazy.py:L1` callables and extract lightweight utilities to `cyguide/common/keys.py:L1`.
+   - *Replacement*: Use dynamic `SCREENS` callables (`cyguide/app.py:L247`) and extract lightweight utilities to `cyguide/common/__init__.py:L23`.
+5. **NEVER Perform Raw Disk I/O or Ad-Hoc File Writes in UI Presentation Layer**:
+   - *Failure Mode*: Injecting raw `open()` or file writers in `cyguide/ui/` for debugging or logging breaks the pure core / imperative shell AST boundary and triggers `test_ui_layer_never_performs_raw_file_io`.
+   - *Replacement*: Route all diagnostics through `logger = logging.getLogger("cyguide")` or `record_breadcrumb(...)` in `cyguide/common/logging.py:L155`.
+6. **NEVER Leave DOM Reconciliation Tasks Unshielded During Debounced Navigation**:
+   - *Failure Mode*: Rapid key repeats (holding down arrow) cancelling debounced tasks awaiting `row.remove()` propagates unhandled `asyncio.CancelledError` to Textual message pumps, silently killing the app.
+   - *Replacement*: Wrap DOM mutation tasks in `asyncio.shield(...)` and patch callback loops to safely catch `CancelledError` (`cyguide/ui/compat.py:L140`).
 
 ## 4. Packaging & Release Engineering Anti-Patterns
 1. **NEVER Use `pip install -e .` in CI Verification**:
