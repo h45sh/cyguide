@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.11.0](https://github.com/h45sh/cyguide/compare/v1.10.1...v1.11.0) (2026-11-21)
+
+
+### Features
+
+* **core:** optimize algorithms, expand CLI, and harden platform architecture ([2bfd1d1](https://github.com/h45sh/cyguide/commit/2bfd1d18e329eef3b5709397555429566bb0bf7d))
+
+
+### Bug Fixes
+
+* **docker:** remove obsolete assets/wordlists copy instruction ([#32](https://github.com/h45sh/cyguide/issues/32)) ([350c1cb](https://github.com/h45sh/cyguide/commit/350c1cba376c00baf221304e64b1922083eff33f))
+
 ## [Unreleased]
 
 ### Added
