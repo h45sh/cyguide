@@ -139,6 +139,8 @@ def setup_textual_compat() -> None:
 
     # 0.1. Centralized diagnostic crash recording into ~/.cyguide/logs/cyguide.log
     try:
+        from textual.app import App
+
         from cyguide.common.logging import install_textual_crash_traps
 
         install_textual_crash_traps(App)
@@ -562,7 +564,6 @@ def setup_textual_compat() -> None:
     # 3) In legacy ANSI parsing, XTermParser._sequence_to_key_events strips alt when name length > 1.
     try:
         from textual._xterm_parser import XTermParser
-        from textual.app import App
         from textual.events import _get_key_aliases
 
         if (
@@ -1107,7 +1108,6 @@ def setup_textual_compat() -> None:
     # - Deduplicate rapid duplicate notifications (prune older identical notification if new one arrives).
     # - Ensure topmost layer on ToastRack, ToastHolder, and Toast so they never render behind any element.
     try:
-        from textual.app import App
         from textual.notifications import Notify
 
         orig_on_notify = App._on_notify
