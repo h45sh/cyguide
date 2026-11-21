@@ -275,6 +275,16 @@ async def test_learning_ask_ai_and_run_buttons():
             return uuid.uuid4()
 
         app.power_facade.submit_action = mock_submit_action
+
+        from unittest.mock import MagicMock
+
+        from cyguide.engine.preflight import PreflightReport
+
+        screen.session.verify_preflight = MagicMock(
+            return_value=PreflightReport(
+                tool_name="nmap", target="127.0.0.1", flags="", issues=[]
+            )
+        )
         tabs = screen.query_one("#learning_tabs", TabbedContent)
 
         # 1. Sidebar Ask AI button verification
