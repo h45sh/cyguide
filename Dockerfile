@@ -68,11 +68,10 @@ RUN ARCH="$(dpkg --print-architecture)" && \
 # Set working directory for package installation
 WORKDIR /app
 
-# Copy packaging manifests, source code, and bundled wordlist assets
+# Copy packaging manifests, source code, and bundled assets
 COPY pyproject.toml requirements.txt ./
 COPY cyguide/ cyguide/
 COPY tools/ tools/
-COPY assets/wordlists/ assets/wordlists/
 COPY README.md LICENSE ./
 
 # Install CyGuide in the container

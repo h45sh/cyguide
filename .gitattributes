@@ -1,6 +1,4 @@
 # Preserve clean diffs and prevent vendored assets/wordlists from inflating repo LOC statistics
-assets/wordlists/* linguist-vendored=true
-assets/wordlists/* -diff
 cyguide/assets/wordlists/* linguist-vendored=true
 cyguide/assets/wordlists/* -diff
 *.gz binary

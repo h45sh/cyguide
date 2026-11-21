@@ -47,8 +47,7 @@ data
 tests
 docs
 scripts
-assets/*
-!assets/wordlists
+assets
 .pre-commit-config.yaml
 
 # Temporary and editor files
